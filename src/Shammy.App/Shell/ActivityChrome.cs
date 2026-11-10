@@ -28,8 +28,16 @@ internal sealed class ActivityChrome
 
     // A soft gradient pool under the notch rather than a blur effect: effects are re-rasterised on every repaint
     // of the (software-rendered, layered) window, a gradient is nearly free.
-    readonly Rectangle _glow = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed, Height = 30 };
-    readonly RadialGradientBrush _glowBrush = new() { Center = new Point(0.5, 0), GradientOrigin = new Point(0.5, 0), RadiusX = 0.55, RadiusY = 1 };
+    readonly Rectangle _glow = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed, Height = GlowHeight };
+    // Brightest on the notch's bottom edge and gone before it reaches the box's own edges, so the glow has no
+    // outline of its own and never shows beside the notch.
+    readonly RadialGradientBrush _glowBrush = new() { Center = new Point(0.5, GlowUnder / GlowHeight), GradientOrigin = new Point(0.5, GlowUnder / GlowHeight), RadiusX = 0.5, RadiusY = 1 - GlowUnder / GlowHeight };
+
+    /// <summary>The glow's box, and how much of it hides behind the notch (the rest spills below its bottom edge).</summary>
+    const double GlowHeight = 30, GlowUnder = 13;
+
+    /// <summary>The glow stays this far inside each side of the notch.</summary>
+    const double GlowInset = 8;
     readonly Path _bridge, _dotBridge;
     readonly Border _circle, _disc, _dot, _dotInner;
     readonly Ellipse _dotLight;
@@ -300,8 +308,8 @@ internal sealed class ActivityChrome
             _glowColor = colour;
             _glowBrush.GradientStops = new GradientStopCollection
             {
-                new(Color.FromArgb(0xC0, colour.R, colour.G, colour.B), 0),
-                new(Color.FromArgb(0x55, colour.R, colour.G, colour.B), 0.45),
+                new(Color.FromArgb(0x78, colour.R, colour.G, colour.B), 0),
+                new(Color.FromArgb(0x30, colour.R, colour.G, colour.B), 0.5),
                 new(Color.FromArgb(0, colour.R, colour.G, colour.B), 1),
             };
         }
@@ -318,10 +326,10 @@ internal sealed class ActivityChrome
     {
         if (_glowOn)
         {
-            // Spills from under the notch's lower half.
-            _glow.Width = w + 24;
-            Canvas.SetLeft(_glow, cx - w / 2 - 12);
-            Canvas.SetTop(_glow, h * 0.55);
+            // Spills from under the notch's bottom edge only, narrower than the notch itself.
+            _glow.Width = Math.Max(0, w - GlowInset * 2);
+            Canvas.SetLeft(_glow, cx - _glow.Width / 2);
+            Canvas.SetTop(_glow, h - GlowUnder);
         }
 
         double right = cx + w / 2;
