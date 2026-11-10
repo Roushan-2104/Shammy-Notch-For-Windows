@@ -402,6 +402,7 @@ internal sealed class SettingsView : Grid
         ["productivity"] = ("Timers, alarms and notes", "Timers, pomodoro, reminders, alarms, notes."),
         ["prompter"] = ("Teleprompter", "Your script under the camera."),
         ["quick"] = ("Quick actions", "Keep awake, lock, sleep and mute in one place."),
+        ["record"] = ("Screen recording", "Record the screen from the notch."),
         ["screenshot"] = ("Screenshots", "Saves and offers what you capture."),
         ["selection"] = ("Selection tools", "Convert prices, read QR codes."),
         ["snippets"] = ("Snippets", "Text that expands as you type."),

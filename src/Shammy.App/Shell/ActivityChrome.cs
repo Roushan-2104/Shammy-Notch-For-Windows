@@ -238,7 +238,7 @@ internal sealed class ActivityChrome
             CircleAction.Unmute => Icon(15, Stroke("M 9,6 A 3,3 0 0 1 15,6 V 11 A 3,3 0 0 1 9,11 Z M 5,11 A 7,7 0 0 0 19,11 M 12,18 V 21 M 4,4 L 20,20", Brushes.White, 2.2)),
             CircleAction.Pause => Icon(12, FillPath("M 6.5,4 H 8.5 A 1.5,1.5 0 0 1 10,5.5 V 18.5 A 1.5,1.5 0 0 1 8.5,20 H 6.5 A 1.5,1.5 0 0 1 5,18.5 V 5.5 A 1.5,1.5 0 0 1 6.5,4 Z M 15.5,4 H 17.5 A 1.5,1.5 0 0 1 19,5.5 V 18.5 A 1.5,1.5 0 0 1 17.5,20 H 15.5 A 1.5,1.5 0 0 1 14,18.5 V 5.5 A 1.5,1.5 0 0 1 15.5,4 Z", Solid(Ink))),
             CircleAction.Play or CircleAction.Resume => Icon(12, FillPath("M 7,4.5 V 19.5 A 1,1 0 0 0 8.5,20.36 L 20.5,12.86 A 1,1 0 0 0 20.5,11.14 L 8.5,3.64 A 1,1 0 0 0 7,4.5 Z", Solid(Ink))),
-            CircleAction.Stop => Icon(12, new Rectangle { Width = 16, Height = 16, RadiusX = 4, RadiusY = 4, Fill = Solid(RecRed), Margin = new Thickness(4) }),
+            CircleAction.Stop => Icon(12, new Rectangle { Width = 16, Height = 16, RadiusX = 4, RadiusY = 4, Fill = spec.Tone == CircleTone.Red ? Brushes.White : Solid(RecRed), Margin = new Thickness(4) }),
             CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
             CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.8)),
             CircleAction.OpenWhenDone => DownloadWait(owner.State.Progress ?? 0),
