@@ -242,6 +242,7 @@ internal sealed class ActivityChrome
             CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
             CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.8)),
             CircleAction.OpenWhenDone => DownloadWait(owner.State.Progress ?? 0),
+            CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
             CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
             _ => null,
         };

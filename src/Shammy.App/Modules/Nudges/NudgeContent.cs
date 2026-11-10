@@ -19,12 +19,12 @@ internal sealed class EyeBreakContent(DateTime startedUtc, Action skip) : ICompa
         Label = NudgeText.EyeLabel,
         Value = NudgeText.Countdown(startedUtc, utcNow),
         Ongoing = false,
-        Circle = new CircleSpec(CircleAction.Dismiss, CircleTone.Neutral, true, NudgeText.SkipBreak),
+        Circle = new CircleSpec(CircleAction.Skip, CircleTone.Neutral, true, NudgeText.SkipBreak),
     };
 
     public void RunCircle(CircleAction action)
     {
-        if (action == CircleAction.Dismiss) skip();
+        if (action == CircleAction.Skip) skip();
     }
 
     public double Build(ContentControl left, ContentControl right) => NudgeEars.Build(right, NudgeText.EyeLabel);

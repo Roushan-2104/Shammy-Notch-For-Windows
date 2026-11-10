@@ -993,7 +993,7 @@ public partial class NotchWindow : Window
             Log.Warn($"Action circle {action} on {owner.Activity.Id} failed", ex);
         }
         // Opening or dismissing a one-off moment is the end of it.
-        if (action is CircleAction.Open or CircleAction.Dismiss && !PetActivities.IsOngoing(owner.State)) ActionClicked?.Invoke(owner.Activity.Id);
+        if (action is CircleAction.Open or CircleAction.Dismiss or CircleAction.Skip && !PetActivities.IsOngoing(owner.State)) ActionClicked?.Invoke(owner.Activity.Id);
         RefreshPet();
     }
 

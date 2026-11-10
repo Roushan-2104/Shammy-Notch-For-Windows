@@ -46,7 +46,8 @@ public enum PetFace
 }
 
 /// <summary>The one direct action the action circle holds.</summary>
-public enum CircleAction { Mute, Unmute, Pause, Play, Resume, Dismiss, Stop, Open, OpenWhenDone, Restart }
+/// <summary><see cref="Dismiss"/> is a check (done); <see cref="Skip"/> is a cross (not now).</summary>
+public enum CircleAction { Mute, Unmute, Pause, Play, Resume, Dismiss, Stop, Open, OpenWhenDone, Restart, Skip }
 
 /// <summary>
 /// How the circle is coloured. Accent only when its action is the primary "Open/Dismiss" (the one thing to do);
