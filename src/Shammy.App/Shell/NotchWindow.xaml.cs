@@ -1321,7 +1321,7 @@ public partial class NotchWindow : Window
         return $"mode={_mode} peeking={_peeking} pet={(_restView.PetEnabled ? "on" : "off")} mood={mood.Mood}{(mood.Forced is null ? "" : "(forced)")} " +
                $"eyes={pet.Mood} sleepyHours={EyeLogic.IsSleepy(DateTime.Now)} following={pet.IsFollowing} " +
                $"look={pet.FollowOffset:0.0} glance='{_restView.CurrentText}' items=[{_glances.Describe()}] " +
-               $"intent={_intent.Stage} speed={_intent.Speed:0.00}";
+               $"intent={_intent.Stage} speed={_intent.Speed:0.00} purrs={pet.Purrs}";
     }
 
     internal string DescribePeek() => $"mode={_mode} {_peekView.Describe()}";

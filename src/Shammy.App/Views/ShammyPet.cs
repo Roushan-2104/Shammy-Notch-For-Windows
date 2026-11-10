@@ -49,7 +49,8 @@ internal sealed class ShammyPet : Grid
     DateTime? _overSince;
     DateTime _purredAt = DateTime.MinValue;
 
-    static readonly TimeSpan PetFor = TimeSpan.FromMilliseconds(400), PurrEvery = TimeSpan.FromSeconds(12);
+    // Shorter than the quickest hover: the purr comes before the notch opens under the pointer.
+    static readonly TimeSpan PetFor = TimeSpan.FromMilliseconds(120), PurrEvery = TimeSpan.FromSeconds(12);
 
     public ShammyPet(Func<double> musicLevel)
     {
@@ -128,6 +129,8 @@ internal sealed class ShammyPet : Grid
             _pointerTimer.Stop();
             _particleTimer.Stop();
             _fidgetTimer.Stop();
+            // The notch opened under a pointer that had only just reached the cat: it still gets its purr.
+            if (_overSince is not null && Mood == PetMood.Idle && DateTime.UtcNow - _purredAt >= PurrEvery) Purr();
             _overSince = null;
             _glanceShift = 0;
             foreach (var w in _waits) w.Stop();
@@ -320,7 +323,6 @@ internal sealed class ShammyPet : Grid
         var now = DateTime.UtcNow;
         _overSince ??= now;
         if (now - _overSince < PetFor || now - _purredAt < PurrEvery) return;
-        _purredAt = now;
         Purr();
     }
 
@@ -330,9 +332,11 @@ internal sealed class ShammyPet : Grid
     /// </summary>
     public void Purr()
     {
-        if (!IsVisible || !CatParts.On) return;
+        if (!CatParts.On) return;
+        _purredAt = DateTime.UtcNow;
         if (Screens.PetLook.Purrs) Infrastructure.NotchSound.Play(Shammy.Core.Audio.PingKind.Purr);
         Purrs++;
+        if (!IsVisible) return;
         _lid.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         _lid.ScaleY = 0.1;
         _earL.Flick(8);
