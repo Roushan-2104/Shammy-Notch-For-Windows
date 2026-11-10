@@ -1,7 +1,8 @@
 namespace Shammy.Core.Notch;
 
 /// <summary>What the pet wears while a live activity owns the compact notch (the Activities board).</summary>
-public enum PetCostume { Call, Music, Timer, Recording, Download, Charging, Earbuds, Notify, Update }
+/// <summary><see cref="Custom"/> is for modules: the activity picks its own face, circle and whether it stays.</summary>
+public enum PetCostume { Call, Music, Timer, Recording, Download, Charging, Earbuds, Notify, Update, Custom }
 
 /// <summary>The face (and animation) the pet makes in its costume.</summary>
 public enum PetFace
@@ -30,6 +31,18 @@ public enum PetFace
     Earbuds,
     /// <summary>Wide eyes and a tiny "o".</summary>
     Notify,
+    /// <summary>No eyes: the song's cover as a spinning record.</summary>
+    Disc,
+    /// <summary>The record, stopped and dimmed.</summary>
+    DiscPaused,
+    /// <summary>Narrowed eyes scanning side to side: something is being worked on.</summary>
+    Focused,
+    /// <summary>Happy ^ ^ eyes and a smile.</summary>
+    Happy,
+    /// <summary>Eyes closed, breathing slowly.</summary>
+    Resting,
+    /// <summary>Eyes and a mouth that moves by itself: the pet is saying something.</summary>
+    Talking,
 }
 
 /// <summary>The one direct action the action circle holds.</summary>
@@ -81,6 +94,18 @@ public sealed record PetActivityState
 
     /// <summary>The label is a name (an earbuds model), shown as typed rather than tracked uppercase.</summary>
     public bool PlainLabel { get; init; }
+
+    /// <summary>A face other than the costume's own (required for <see cref="PetCostume.Custom"/>, which has none).</summary>
+    public PetFace? Face { get; init; }
+
+    /// <summary><see cref="PetCostume.Custom"/> only: the action circle, or null for none.</summary>
+    public CircleSpec? Circle { get; init; }
+
+    /// <summary><see cref="PetCostume.Custom"/> only: it keeps going (so it can wait as the dot) rather than being a moment.</summary>
+    public bool Ongoing { get; init; }
+
+    /// <summary>One line under the row (the lyric being sung); the notch grows to hold it. Empty for none.</summary>
+    public string Line { get; init; } = "";
 }
 
 /// <summary>Who owns the pet (and the circle), and which second live activity waits as the small dot.</summary>
@@ -92,10 +117,10 @@ public sealed record PetStage(string? Owner, string? Dot);
 /// </summary>
 public static class PetActivities
 {
-    public static PetFace Face(PetActivityState s) => s.Costume switch
+    public static PetFace Face(PetActivityState s) => s.Face ?? s.Costume switch
     {
         PetCostume.Call => s.Muted ? PetFace.CallMuted : PetFace.Call,
-        PetCostume.Music => s.Playing ? PetFace.MusicVibe : PetFace.MusicPaused,
+        PetCostume.Music => s.Playing ? PetFace.Disc : PetFace.DiscPaused,
         PetCostume.Timer => s.Done ? PetFace.TimerDone : PetFace.TimerWatch,
         PetCostume.Recording => PetFace.Ninja,
         PetCostume.Download => s.Done ? PetFace.DownloadNom : PetFace.DownloadHold,
@@ -126,6 +151,7 @@ public static class PetActivities
             : new CircleSpec(CircleAction.OpenWhenDone, CircleTone.Neutral, false, "Open file, when the download finishes"),
         PetCostume.Notify => s.CanOpen ? new CircleSpec(CircleAction.Open, CircleTone.Accent, true, "Open") : null,
         PetCostume.Update => new CircleSpec(CircleAction.Restart, CircleTone.Accent, true, "Restart to update"),
+        PetCostume.Custom => s.Circle,
         _ => null,
     };
 
@@ -138,8 +164,12 @@ public static class PetActivities
     {
         PetCostume.Call or PetCostume.Music or PetCostume.Recording or PetCostume.Update => true,
         PetCostume.Timer or PetCostume.Download => !s.Done,
+        PetCostume.Custom => s.Ongoing,
         _ => false,
     };
+
+    /// <summary>The record is the music display, not the pet: it shows even with the pet turned off.</summary>
+    public static bool ShowsWithoutPet(PetFace face) => face is PetFace.Disc or PetFace.DiscPaused;
 
     /// <summary>
     /// <paramref name="ranked"/> is the pet-able live activities, most important first. A one-off moment on top
@@ -160,7 +190,8 @@ public static class PetActivities
     /// <summary>A click on the pet itself (not the circle) runs the activity's own click only for one-off
     /// moments you'd act on (open the message, the file, dismiss the timer); otherwise it opens the notch.</summary>
     public static bool BodyClickRunsActivity(PetActivityState s) =>
-        s.Costume == PetCostume.Notify || (s.Costume is PetCostume.Timer or PetCostume.Download && s.Done);
+        s.Costume == PetCostume.Notify || (s.Costume is PetCostume.Timer or PetCostume.Download && s.Done)
+        || (s.Costume == PetCostume.Custom && !s.Ongoing && s.CanOpen);
 
     /// <summary>
     /// A notification's value is who it's from; nothing while the screen may be seen (the host already swapped the

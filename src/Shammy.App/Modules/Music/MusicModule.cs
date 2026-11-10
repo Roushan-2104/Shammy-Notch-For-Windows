@@ -112,6 +112,9 @@ internal sealed class MusicModule : IShammyModule
         ctx.AddPipeCommand("music-state", _ => PipeState());
         ctx.AddPipeCommand("music-parse", arg => MusicCommand.Parse(arg) is { } i ? $"{i.Action} {i.Query}".TrimEnd() : "none");
 
+        // The notch shows this under the record. It hides with the lyrics panel while the screen is shared.
+        HostLinks.CurrentLyric = () => Media.IsPlaying && _panel.Kind == LyricsKind.Synced && !Infrastructure.PrivacyState.Presenting ? _panel.CurrentLine : null;
+
         Media.Changed += OnMediaChanged;
         OnMediaChanged();
     }

@@ -740,7 +740,7 @@ public partial class NotchWindow : Window
         NotchMode.Hidden => (150, 0, 0),
         NotchMode.Idle => (RestView.RestWidth, RestView.RestHeight, 12),
         NotchMode.Peek => (PeekView.PeekWidth, PeekView.PeekHeight, 26),
-        NotchMode.Compact when _petShowing => (ActivityView.ViewWidth, ActivityView.ViewHeight, ActivityView.Radius),
+        NotchMode.Compact when _petShowing => (ActivityView.ViewWidth, _activityView.CurrentHeight, _activityView.CurrentRadius),
         NotchMode.Compact => (_compactWidth, 32, 12),
         NotchMode.Notification => (NotificationView.CardWidth, NotificationView.CardHeight, 30),
         NotchMode.Card => (_cardSize.W, _cardSize.H, Math.Min(32, _cardSize.H / 2)),
@@ -902,6 +902,8 @@ public partial class NotchWindow : Window
         }
         _chrome.Set(_petOwner, _fullscreen ? null : _petDot, PetGlow);
         if (_petOwner is not null) _chrome.Refresh(_petOwner);
+        // A line under the row came or went (a lyric started): the notch grows or shrinks around it.
+        if (SpecFor(_mode) != _spec) Transition(_mode);
     }
 
     void RunCircle(CircleAction action)
@@ -942,7 +944,7 @@ public partial class NotchWindow : Window
         var pet = _activityView.Pet;
         return $"mode={_mode} petCompact={(_mode == NotchMode.Compact && _petShowing ? "yes" : "no")} petOn={_services.Settings.PetEnabled} " +
                $"owner={(o is null ? "-" : $"{o.Activity.Id}:{o.State.Costume}")} face={pet.Face?.ToString() ?? "-"} " +
-               $"label='{_activityView.LabelText}' value='{_activityView.ValueText}' {_chrome.Describe()} " +
+               $"label='{_activityView.LabelText}' value='{_activityView.ValueText}' line='{_activityView.LineText}' {_chrome.Describe()} " +
                $"preferred={_petPreferred ?? "-"} mouth={pet.MouthOpen:0.00} fullscreen={_fullscreen}";
     }
 

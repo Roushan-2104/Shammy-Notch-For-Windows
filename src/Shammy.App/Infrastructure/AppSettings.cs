@@ -145,6 +145,9 @@ internal sealed class AppSettings
     /// <summary>The first-run welcome tour has been shown (finished, skipped or left); the tray can replay it.</summary>
     public bool TourSeen { get; set; }
 
+    /// <summary>The lyric being sung shows under the record while music plays (songs with synced lyrics only).</summary>
+    public bool LyricLineEnabled { get; set; } = true;
+
     /// <summary>The version that last told the user what's new; a newer one shows its note once.</summary>
     public string? LastRunVersion { get; set; }
 

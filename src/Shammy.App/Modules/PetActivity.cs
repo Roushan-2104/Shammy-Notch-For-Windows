@@ -34,6 +34,9 @@ internal sealed record PetLive(Activity Activity, PetActivityState State)
     /// <summary>Album colour: the notch glows with it and the eq bars use it.</summary>
     public Color? Art { get; init; }
 
+    /// <summary>The song's cover, drawn as the record.</summary>
+    public ImageSource? Cover { get; init; }
+
     public PetFace Face => PetActivities.Face(State);
     public CircleSpec? Circle => PetActivities.Circle(State);
 }
@@ -70,9 +73,11 @@ internal static class PetActivitySource
                     Playing = playing,
                     Label = playing ? m.Title : "Paused",
                     Value = playing || m.Duration <= TimeSpan.Zero ? "" : PetActivities.Clock(m.Position),
+                    Line = playing && s.Settings.LyricLineEnabled ? HostLinks.CurrentLyric?.Invoke() ?? "" : "",
                 })
                 {
                     Run = _ => m.TogglePlayPause(),
+                    Cover = m.Art,
                     // White is the player's "no artwork" colour: no glow then, plain bars.
                     Art = m.Art is not null && m.ArtColor != Colors.White ? m.ArtColor : null,
                 };

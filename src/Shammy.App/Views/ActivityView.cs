@@ -19,6 +19,9 @@ namespace Shammy.Views;
 internal sealed class ActivityView : Grid
 {
     public const double ViewWidth = 300, ViewHeight = 38, Radius = 19;
+
+    /// <summary>With a line under the row (a lyric).</summary>
+    public const double TallHeight = 62, TallRadius = 22;
     const double Padding = 14;
 
     readonly ShammyServices _services;
@@ -34,6 +37,15 @@ internal sealed class ActivityView : Grid
     };
     readonly ContentControl _badge = new() { VerticalAlignment = VerticalAlignment.Center, Focusable = false };
     readonly ContentControl _marker = new() { VerticalAlignment = VerticalAlignment.Center, Focusable = false };
+    readonly TextBlock _line = new()
+    {
+        FontSize = 12.5,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Top,
+        Margin = new Thickness(18, 0, 18, 0),
+        Visibility = Visibility.Collapsed,
+    };
     PetCostume? _markerFor;
     bool _markerPlaying;
     VisualizerBars? _bars;
@@ -51,6 +63,16 @@ internal sealed class ActivityView : Grid
         ColumnDefinitions.Add(new ColumnDefinition());
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActivityPet.ColumnWidth) });
         ColumnDefinitions.Add(new ColumnDefinition());
+        RowDefinitions.Add(new RowDefinition { Height = new GridLength(ViewHeight) });
+        RowDefinitions.Add(new RowDefinition());
+        VerticalAlignment = VerticalAlignment.Top;
+
+        _line.SetResourceReference(TextBlock.FontFamilyProperty, "WallFontSemiBold");
+        _line.FontWeight = FontWeights.SemiBold;
+        _line.Foreground = (Brush)Application.Current.Resources["WallText"];
+        SetRow(_line, 1);
+        SetColumnSpan(_line, 3);
+        Children.Add(_line);
 
         _value.FontFamily = (FontFamily)Application.Current.Resources["WallFont"];
         _value.Foreground = (Brush)Application.Current.Resources["WallText"];
@@ -93,6 +115,14 @@ internal sealed class ActivityView : Grid
 
     public bool PetOn { get; private set; } = true;
 
+    /// <summary>The line under the row, or empty.</summary>
+    public string LineText { get; private set; } = "";
+
+    /// <summary>How tall the notch should be for what's shown.</summary>
+    public double CurrentHeight => LineText.Length > 0 ? TallHeight : ViewHeight;
+
+    public double CurrentRadius => LineText.Length > 0 ? TallRadius : Radius;
+
     public string LabelText => _label.Text;
     public string ValueText => _value.Text;
 
@@ -117,10 +147,26 @@ internal sealed class ActivityView : Grid
 
         if (replay || (_badge.Content is null) != (s.Costume != PetCostume.Notify)) UpdateBadge(live);
         UpdateMarker(live);
+        ShowLine(s.Line.Trim());
 
-        Pet.Visibility = petOn ? Visibility.Visible : Visibility.Collapsed;
+        Pet.Visibility = petOn || PetActivities.ShowsWithoutPet(live.Face) ? Visibility.Visible : Visibility.Collapsed;
         if (replay) Pet.Reset();
-        Pet.Show(live.Face, s.Paused, live.Art, s.Progress, live.Level);
+        Pet.Show(live.Face, s.Paused, live.Art, s.Progress, live.Level, live.Cover);
+    }
+
+    /// <summary>The line under the row; a new one fades in (the notch itself grows or shrinks around it).</summary>
+    void ShowLine(string line)
+    {
+        if (line == LineText) return;
+        LineText = line;
+        Height = CurrentHeight;
+        _line.Visibility = line.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (line.Length == 0) return;
+        _line.Text = line;
+        if (!MotionPrefs.Lively) return;
+        var fade = new DoubleAnimation(0.15, 1, TimeSpan.FromMilliseconds(260)) { FillBehavior = FillBehavior.Stop };
+        Timeline.SetDesiredFrameRate(fade, 20);
+        _line.BeginAnimation(OpacityProperty, fade);
     }
 
     void UpdateBadge(PetLive live)
@@ -204,7 +250,7 @@ internal sealed class ActivityView : Grid
         };
         var scale = new ScaleTransform();
         dot.RenderTransform = scale;
-        if (SystemParameters.ClientAreaAnimation)
+        if (MotionPrefs.Lively)
         {
             var pulse = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromSeconds(1.0), FillBehavior = FillBehavior.Stop };
             Timeline.SetDesiredFrameRate(pulse, 12);

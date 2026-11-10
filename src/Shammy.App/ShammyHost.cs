@@ -770,6 +770,13 @@ internal sealed class ShammyHost : IDisposable
                 _media.ShowDemoForTest(m[0], m.Length > 1 ? m[1] : "", cover);
                 return "ok";
             }
+            // "lyric-demo some words": a made-up lyric line under the record; with nothing, the real source again (after a restart).
+            case "lyric-demo":
+            {
+                var words = arg.Trim();
+                Modules.HostLinks.CurrentLyric = () => words;
+                return words.Length > 0 ? "ok" : "ok: none";
+            }
             case "media":
                 if (arg == "toggle") _media.TogglePlayPause();
                 else if (arg == "next") _media.Next();

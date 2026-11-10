@@ -24,6 +24,9 @@ internal static class HostLinks
     /// <summary>Checks for an update now; the result reads like <see cref="UpdateStatus"/>.</summary>
     public static Func<Task<string>>? CheckForUpdates { get; set; }
 
+    /// <summary>The lyric line being sung right now, when the song has synced lyrics; null or empty otherwise.</summary>
+    public static Func<string?>? CurrentLyric { get; set; }
+
     /// <summary>Restarts into a downloaded update.</summary>
     public static Action? RestartForUpdate { get; set; }
 

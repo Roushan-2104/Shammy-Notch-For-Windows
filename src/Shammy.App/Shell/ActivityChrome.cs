@@ -124,7 +124,7 @@ internal sealed class ActivityChrome
     public string? DotId => _dotId;
     public bool Showing => _pop.Target > 0 || _dotPop.Target > 0 || _glowOn;
 
-    static bool Reduced => !SystemParameters.ClientAreaAnimation;
+    static bool Reduced => !Infrastructure.MotionPrefs.Lively;
 
     /// <summary>Show the circle for <paramref name="owner"/> and the dot for <paramref name="dot"/> (either may be absent).</summary>
     public void Set(PetLive? owner, PetLive? dot, bool glow)
@@ -331,7 +331,9 @@ internal sealed class ActivityChrome
         _circle.Opacity = Math.Clamp(p * 1.8, 0, 1);
         _circleScale.ScaleX = _circleScale.ScaleY = 0.25 + 0.75 * p;
         Canvas.SetLeft(_circle, right + Gap - 16 * (1 - p));
-        Canvas.SetTop(_circle, Math.Max(0, (h - CircleSize) / 2));
+        // Beside the row, also when the notch has grown a line under it.
+        double rowH = Math.Min(h, Views.ActivityView.ViewHeight);
+        Canvas.SetTop(_circle, Math.Max(0, (rowH - CircleSize) / 2));
         _bridge.Opacity = circle ? 1 : 0;
         _bridgeScale.ScaleX = Math.Clamp(p, 0, 1.05);
         _bridgeScale.ScaleY = Math.Clamp(h / 38, 0, 1);
@@ -343,7 +345,7 @@ internal sealed class ActivityChrome
         _dot.Opacity = Math.Clamp(q * 1.8, 0, 1);
         _dotScale.ScaleX = _dotScale.ScaleY = 0.25 + 0.75 * q;
         Canvas.SetLeft(_dot, dotBase - 12 * (1 - q));
-        Canvas.SetTop(_dot, Math.Max(0, (h - 20) / 2));
+        Canvas.SetTop(_dot, Math.Max(0, (rowH - 20) / 2));
         _dotBridge.Opacity = q > 0.001 ? 1 : 0;
         _dotBridgeScale.ScaleX = Math.Clamp(q, 0, 1.05);
         Canvas.SetLeft(_dotBridge, dotBase - 8 - (_pop.Target > 0 ? 0 : 4));

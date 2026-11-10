@@ -54,6 +54,7 @@ internal sealed class ActivityPet : Canvas
     readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
 
     PetFace? _face;
+    ImageSource? _cover;
     bool _paused;
     Color _art = Ink;
     double _progress;
@@ -90,12 +91,18 @@ internal sealed class ActivityPet : Canvas
     /// <summary>How open the mouth is on a call (0..1), for the test pipe.</summary>
     public double MouthOpen => _talk.Open;
 
-    static bool Reduced => !SystemParameters.ClientAreaAnimation;
+    static bool Reduced => !Infrastructure.MotionPrefs.Lively;
 
     /// <summary>Wear this face; rebuilt (and its little entrance replayed) only when the face or pause changes.</summary>
-    public void Show(PetFace face, bool paused, Color? art, double? progress, Func<double>? level)
+    public void Show(PetFace face, bool paused, Color? art, double? progress, Func<double>? level, ImageSource? cover = null)
     {
         _level = level;
+        if (!ReferenceEquals(cover, _cover))
+        {
+            // A new song's cover: the record is redrawn (same face, so nothing else notices).
+            _cover = cover;
+            if (face is PetFace.Disc or PetFace.DiscPaused && face == _face) _face = null;
+        }
         _progress = Math.Clamp(progress ?? 0, 0, 1);
         if (_barFill is not null) _barFill.Width = 24 * _progress;
         var newArt = art ?? Ink;
@@ -158,6 +165,12 @@ internal sealed class ActivityPet : Canvas
             case PetFace.DownloadNom: BuildNom(); break;
             case PetFace.ChargeSip: BuildCharge(); break;
             case PetFace.Earbuds: BuildEarbuds(); break;
+            case PetFace.Disc: BuildDisc(spinning: true); break;
+            case PetFace.DiscPaused: BuildDisc(spinning: false); break;
+            case PetFace.Focused: BuildFocused(); break;
+            case PetFace.Happy: BuildHappy(); break;
+            case PetFace.Resting: BuildResting(); break;
+            case PetFace.Talking: BuildTalking(); break;
             default: BuildNotify(); break;
         }
         StartCycle();
@@ -248,6 +261,87 @@ internal sealed class ActivityPet : Canvas
     }
 
     // ---- Faces ------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Music: no eyes, just the song's cover as a 30 px record. It turns while the song plays (a slow, low
+    /// frame-rate spin: this is the one continuous motion in the notch, and Calm motion stops it) and sits still
+    /// and dimmed when paused. A song with no cover gets a plain dark record.
+    /// </summary>
+    void BuildDisc(bool spinning)
+    {
+        const double size = 30;
+        var layer = Layer(out _);
+        var spin = new RotateTransform();
+        var disc = new Grid { Width = size, Height = size, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = spin };
+        Brush face = _cover is { } cover
+            ? new ImageBrush(cover) { Stretch = Stretch.UniformToFill }
+            : new RadialGradientBrush(new GradientStopCollection { new(Color.FromRgb(0x3A, 0x3A, 0x44), 0), new(Color.FromRgb(0x3A, 0x3A, 0x44), 0.3), new(Color.FromRgb(0x17, 0x17, 0x1B), 0.32) });
+        disc.Children.Add(new Ellipse { Fill = face });
+        // The rim and a groove, then the spindle hole.
+        disc.Children.Add(new Ellipse { Stroke = Solid(Color.FromRgb(0, 0, 0)), StrokeThickness = 1.5 });
+        disc.Children.Add(new Ellipse { Margin = new Thickness(1.5), Stroke = Solid(Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1 });
+        disc.Children.Add(new Ellipse { Margin = new Thickness(4.5), Stroke = Solid(Color.FromArgb(0x30, 0, 0, 0)), StrokeThickness = 1.5 });
+        disc.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Solid(Color.FromRgb(0, 0, 0)), Stroke = Solid(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1.2 });
+        if (!spinning) disc.Opacity = 0.55;
+        layer.Children.Add(At(disc, Cx - size / 2, (ColumnHeight - size) / 2));
+        Pop(disc, 0.4, 0);
+        // Pop set a scale on the record; keep it and add the spin.
+        if (disc.RenderTransform is ScaleTransform pop) disc.RenderTransform = new TransformGroup { Children = { pop, spin } };
+        if (!spinning || Reduced) return;
+        var turn = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(6)) { RepeatBehavior = RepeatBehavior.Forever };
+        Timeline.SetDesiredFrameRate(turn, DiscFps);
+        Run(spin, RotateTransform.AngleProperty, turn);
+    }
+
+    /// <summary>The record's spin: enough steps to read as turning, few enough to stay cheap on a layered window.</summary>
+    const int DiscFps = 12;
+
+    /// <summary>Working on something: narrowed eyes that look left and right, like reading.</summary>
+    void BuildFocused()
+    {
+        var face = Layer(out _);
+        var eyes = AddEyes(face, 13, 9);
+        _rest = 2;
+        Loop(eyes.Translate, TranslateTransform.XProperty, 2.4, 0, (0, 0), (0.25, -3.5), (0.75, 3.5), (1, 0));
+    }
+
+    /// <summary>Pleased: ^ ^ eyes, a blush and a smile, with one small hop.</summary>
+    void BuildHappy()
+    {
+        var face = Layer(out var faceT);
+        double row = 11.5;
+        AddArcs(face, row);
+        AddBlush(face, row + 7, 32);
+        face.Children.Add(At(Smile(), Cx - 4.5, row + 10));
+        Once(faceT.Translate, TranslateTransform.YProperty, 0.5, 0.1, (0, 0), (0.45, -3), (1, 0));
+    }
+
+    /// <summary>Eyes closed, breathing slowly (an eye break, taken together).</summary>
+    void BuildResting()
+    {
+        var face = Layer(out var faceT);
+        foreach (double x in new[] { Cx - 15, Cx + 4 })
+            face.Children.Add(At(new Rectangle { Width = 11, Height = 2.5, RadiusX = 1.25, RadiusY = 1.25, Fill = Solid(Ink) }, x, 17));
+        _rest = 1;
+        Loop(faceT.Scale, ScaleTransform.ScaleYProperty, 3.2, 0, (0, 1), (0.5, 1.06), (1, 1));
+        Loop(faceT.Translate, TranslateTransform.YProperty, 3.2, 0, (0, 0), (0.5, -1), (1, 0));
+    }
+
+    /// <summary>Saying something aloud: eyes, and a mouth that opens and closes on its own.</summary>
+    void BuildTalking()
+    {
+        var face = Layer(out _);
+        AddEyes(face, 8, 13);
+        var o = OMouth();
+        var talk = new ScaleTransform(1, 0.5);
+        o.RenderTransformOrigin = new Point(0.5, 0.5);
+        o.RenderTransform = talk;
+        face.Children.Add(At(o, Cx - 3, 24));
+        _rest = 1;
+        var open = Keys(0.36, 0, (0, 0.4), (0.5, 1.1), (1, 0.4));
+        open.RepeatBehavior = new RepeatBehavior(6);
+        LoopKeys(talk, ScaleTransform.ScaleYProperty, open);
+    }
 
     void BuildCall(bool muted)
     {
