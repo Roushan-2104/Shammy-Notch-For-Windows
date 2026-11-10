@@ -156,7 +156,7 @@ internal sealed class ShammyHost : IDisposable
             {
                 if (_activities.Get(id) is { } a) Post(a with { ExpiresAt = hovered ? null : In(4) });
             };
-            _notch.NotificationView.Dismissed += () => _activities.Remove("notification");
+            _notch.NotificationView.Dismissed += DismissNotification;
             _notch.NotificationView.MuteRequested += n =>
             {
                 if (n.AppId.Length > 0 && !_settings.MutedNotificationApps.Contains(n.AppId))
@@ -165,6 +165,7 @@ internal sealed class ShammyHost : IDisposable
                     _settings.Save();
                 }
                 _notifications.RemoveApp(n.AppId);
+                _underNotification.RemoveAll(u => u.AppId == n.AppId);
                 _activities.Remove("notification");
                 Post(new Activity("muted", ActivityKind.Message, PriorityMessage, new MessagePayload("", $"Muted {n.AppName}"), In(2.5)));
             };
@@ -443,7 +444,8 @@ internal sealed class ShammyHost : IDisposable
         }
         n = Private(n);
 
-        int more = _activities.Get("notification") is { Payload: NotificationPayload p } ? p.More + 1 : 0;
+        // The message it covers waits underneath (see PopupStack); sending this one away brings that one back.
+        int more = _underNotification.Arrived(_activities.Get("notification") is { Payload: NotificationPayload p } ? p.Notification : null);
         // Shammy's own soft ping (Windows' sound can be turned off in its notification settings). A burst
         // of toasts pings once.
         if (DateTime.UtcNow - _lastPing > TimeSpan.FromSeconds(2))
@@ -451,10 +453,34 @@ internal sealed class ShammyHost : IDisposable
             _lastPing = DateTime.UtcNow;
             NotchSound.Play(Shammy.Core.Audio.PingKind.Notification);
         }
-        Post(new Activity("notification", ActivityKind.Notification, PriorityNotification, new NotificationPayload(n, more), In(_settings.NotificationPopupSeconds))
+        PostNotification(n, more, held: false);
+    }
+
+    readonly Shammy.Core.Notch.PopupStack<ShammyNotification> _underNotification = new();
+
+    void PostNotification(ShammyNotification n, int more, bool held)
+    {
+        Post(new Activity("notification", ActivityKind.Notification, PriorityNotification, new NotificationPayload(n, more),
+            held ? null : In(_settings.NotificationPopupSeconds))
         {
             Click = () => OpenNotificationApp(n),
         });
+    }
+
+    /// <summary>
+    /// The message on screen was sent away (its Dismiss button, or a swipe): the one it covered comes back for
+    /// its own few seconds, or the card goes when none waits.
+    /// </summary>
+    void DismissNotification()
+    {
+        if (_activities.Get("notification") is not null && _underNotification.Dismissed() is { } next)
+        {
+            // Still under the pointer: it stays up until the pointer leaves, like any message being read.
+            PostNotification(Private(next), _underNotification.Count, held: _notch.HoveringNotification);
+            return;
+        }
+        _underNotification.Clear();
+        _activities.Remove("notification");
     }
 
     /// <summary>While the screen is shared or recorded others can see the notch: who it's from stays, what it says doesn't
@@ -811,6 +837,23 @@ internal sealed class ShammyHost : IDisposable
             case "pet-mood": return _notch.SetPetMood(arg);
             // "pet-purr": the cat purrs as if the pointer had rested on it.
             case "pet-purr": return _notch.PetPurr();
+            // "pet-greet": as if the PC had just been unlocked.
+            case "pet-greet": return _notch.GreetBack();
+            // "notify-dismiss": the message on screen is sent away (the next in the pile comes up).
+            case "notify-dismiss":
+                DismissNotification();
+                return $"under={_underNotification.Count} {_notch.NotificationView.DescribeSheet()}";
+            // "notify-swipe 120 [speed]": drag the message that far sideways and let go.
+            case "notify-swipe":
+            {
+                var sw = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (sw.Length == 0 || !double.TryParse(sw[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double dx)) return "error: usage notify-swipe <pixels> [pixels per second]";
+                double speed = sw.Length > 1 && double.TryParse(sw[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : 0;
+                return _notch.NotificationView.TestSwipe(dx, speed);
+            }
+            // "notify-state": the pile under the message, the card's place and the cards peeking out.
+            case "notify-state":
+                return $"under={_underNotification.Count} {_notch.NotificationView.DescribeSheet()} {_notch.DescribeStack()}";
             case "v2-peek": return _notch.ForcePeek(true);
             case "v2-rest": return _notch.ForcePeek(false);
             // "v2-gesture next|prev|volup|voldown [dry]".

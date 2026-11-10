@@ -5,7 +5,7 @@ namespace Shammy.Shell;
 
 /// <summary>
 /// Draws the notch: flush with the top edge of the screen, with concave "shoulders" where it meets the
-/// edge and continuous rounded corners at the bottom, like the MacBook cut-out it imitates.
+/// edge and smooth, continuous corners at the bottom, like the MacBook cut-out it imitates.
 /// </summary>
 internal sealed class NotchShape : FrameworkElement
 {
@@ -40,10 +40,7 @@ internal sealed class NotchShape : FrameworkElement
         {
             ctx.BeginFigure(new Point(x0 - rs, 0), false, false);
             ctx.QuadraticBezierTo(new Point(x0, 0), new Point(x0, rs), true, true);
-            ctx.LineTo(new Point(x0, h - r), true, true);
-            if (r > 0) ctx.ArcTo(new Point(x0 + r, h), new Size(r, r), 0, false, SweepDirection.Counterclockwise, true, true);
-            ctx.LineTo(new Point(x1 - r, h), true, true);
-            if (r > 0) ctx.ArcTo(new Point(x1, h - r), new Size(r, r), 0, false, SweepDirection.Counterclockwise, true, true);
+            Bottom(ctx, x0, x1, h, r, Math.Min(h - rs, w / 2));
             ctx.LineTo(new Point(x1, rs), true, true);
             ctx.QuadraticBezierTo(new Point(x1, 0), new Point(x1 + rs, 0), true, true);
         }
@@ -64,14 +61,24 @@ internal sealed class NotchShape : FrameworkElement
         {
             ctx.BeginFigure(new Point(x0 - rs, 0), true, true);
             ctx.QuadraticBezierTo(new Point(x0, 0), new Point(x0, rs), true, true);
-            ctx.LineTo(new Point(x0, h - r), true, true);
-            if (r > 0) ctx.ArcTo(new Point(x0 + r, h), new Size(r, r), 0, false, SweepDirection.Counterclockwise, true, true);
-            ctx.LineTo(new Point(x1 - r, h), true, true);
-            if (r > 0) ctx.ArcTo(new Point(x1, h - r), new Size(r, r), 0, false, SweepDirection.Counterclockwise, true, true);
+            Bottom(ctx, x0, x1, h, r, Math.Min(h - rs, w / 2));
             ctx.LineTo(new Point(x1, rs), true, true);
             ctx.QuadraticBezierTo(new Point(x1, 0), new Point(x1 + rs, 0), true, true);
         }
         g.Freeze();
         return g;
+    }
+
+    /// <summary>
+    /// Down the left side, round both bottom corners and stop at the top of the right one. Each corner is one
+    /// smooth curve (<see cref="Shammy.Core.Notch.SmoothCorner"/>) rather than a quarter circle.
+    /// </summary>
+    static void Bottom(StreamGeometryContext ctx, double x0, double x1, double h, double r, double room)
+    {
+        var (extent, handle) = Shammy.Core.Notch.SmoothCorner.For(r, room);
+        ctx.LineTo(new Point(x0, h - extent), true, true);
+        if (extent > 0) ctx.BezierTo(new Point(x0, h - handle), new Point(x0 + handle, h), new Point(x0 + extent, h), true, true);
+        ctx.LineTo(new Point(x1 - extent, h), true, true);
+        if (extent > 0) ctx.BezierTo(new Point(x1 - handle, h), new Point(x1, h - handle), new Point(x1, h - extent), true, true);
     }
 }

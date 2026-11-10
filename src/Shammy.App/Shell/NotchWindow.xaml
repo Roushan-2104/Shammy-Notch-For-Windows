@@ -17,6 +17,11 @@
         <shell:EdgeLight x:Name="Edge" Width="1100" Height="1100" />
         <!-- Nearly-invisible hit area: alpha 1/255 still receives the mouse, so hovering just below or beside the pill counts. -->
         <Rectangle x:Name="HitArea" Fill="#01000000" />
+        <!-- Messages waiting under the one on screen peek out below it, one or two deep. -->
+        <Border x:Name="StackB" Height="30" Background="#FF0A0A0C" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1,0,1,1"
+                CornerRadius="0,0,26,26" Visibility="Collapsed" IsHitTestVisible="False" />
+        <Border x:Name="StackA" Height="30" Background="#FF0A0A0C" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1,0,1,1"
+                CornerRadius="0,0,26,26" Visibility="Collapsed" IsHitTestVisible="False" />
         <shell:NotchShape x:Name="Shape" Width="1100" Height="1100" />
         <Canvas x:Name="ContentHost" Width="1100" Height="1100">
             <views:CompactView x:Name="CompactA" />

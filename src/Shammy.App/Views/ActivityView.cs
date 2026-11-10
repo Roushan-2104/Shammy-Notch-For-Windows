@@ -126,8 +126,8 @@ internal sealed class ActivityView : Grid
     public string LabelText => _label.Text;
     public string ValueText => _value.Text;
 
-    /// <summary>Show (or update in place) the activity the pet is wearing.</summary>
-    public void Show(PetLive live, bool petOn)
+    /// <summary>Show (or update in place) the activity the pet is wearing. True when it is a different one than before.</summary>
+    public bool Show(PetLive live, bool petOn)
     {
         // A different activity (or the next notification in the same slot) replays the costume's entrance.
         bool replay = Shown?.Activity.Id != live.Activity.Id
@@ -152,6 +152,7 @@ internal sealed class ActivityView : Grid
         Pet.Visibility = petOn || PetActivities.ShowsWithoutPet(live.Face) ? Visibility.Visible : Visibility.Collapsed;
         if (replay) Pet.Reset();
         Pet.Show(live.Face, s.Paused, live.Art, s.Progress, live.Level, live.Cover);
+        return replay;
     }
 
     /// <summary>The line under the row; a new one fades in (the notch itself grows or shrinks around it).</summary>

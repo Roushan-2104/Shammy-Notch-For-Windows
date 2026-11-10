@@ -10,7 +10,7 @@
             <MenuItem Header="Dismiss" Click="OnDismiss" />
         </ContextMenu>
     </UserControl.ContextMenu>
-    <Grid Margin="16,12,14,12">
+    <Grid x:Name="Sheet" Margin="16,12,14,12">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="56" />
             <ColumnDefinition Width="14" />

@@ -118,6 +118,8 @@ public partial class NotchWindow : Window
 
         _glances = new GlanceFeed(services);
         _restView = new RestView(services, _glances);
+        Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+        Closed += (_, _) => Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
         _peekView = new PeekView(services, _glances);
         ContentHost.Children.Insert(0, _peekView);
         ContentHost.Children.Insert(0, _restView);
@@ -231,6 +233,12 @@ public partial class NotchWindow : Window
         };
 
         SourceInitialized += OnSourceInitialized;
+        // The window starts in the resting mode without ever having moved into it, so nothing asked the resting
+        // content to show: without this the notch stayed empty after start-up until the first event.
+        Loaded += (_, _) =>
+        {
+            if (_mode == NotchMode.Idle && !_rest.Active) Transition(NotchMode.Idle);
+        };
         Animator.Frame += OnFrame;
         Reposition();
         ApplyVisuals(force: true);
@@ -255,6 +263,14 @@ public partial class NotchWindow : Window
     internal ExpandedView ExpandedView => Expanded;
     internal NotificationView NotificationView => NotificationCard;
 
+    /// <summary>The pointer is resting on the message that is up (it is being held on screen).</summary>
+    internal bool HoveringNotification => _hoveringNotification;
+
+    // The one or two cards that peek out under a message when more wait beneath it.
+    readonly SpringValue _stackA = new(0, 0.002), _stackB = new(0, 0.002);
+    int _stackDepth;
+    DateTime? _greetedAt;
+
     sealed class Layer
     {
         public Layer(FrameworkElement el)
@@ -271,7 +287,21 @@ public partial class NotchWindow : Window
         public readonly ScaleTransform Scale = new(0.94, 0.94);
         public readonly SpringValue Opacity = new(0, 0.002);
         public readonly SpringValue Size = new(0.94, 0.0005);
+        /// <summary>1 at rest; dips to 0 and back when the content changes in place, so it blurs through the change.</summary>
+        public readonly SpringValue Swap = new(1, 0.002);
+        public readonly System.Windows.Media.Effects.BlurEffect Blur = new()
+        {
+            Radius = 0,
+            KernelType = System.Windows.Media.Effects.KernelType.Gaussian,
+            RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance,
+        };
         public bool Active;
+
+        /// <summary>
+        /// Only the small layers blur as they change (the resting notch, a pill, a message): the window is drawn
+        /// in software, where blurring a whole open card would cost too much.
+        /// </summary>
+        public bool Blurs => El.Width * El.Height is > 0 and <= 60000;
     }
 
     Layer AddLayer(FrameworkElement el)
@@ -782,12 +812,17 @@ public partial class NotchWindow : Window
         // Typing in the open notch ends when the notch stops being open (closed, a card or a notification took over).
         if (mode != NotchMode.Expanded && _detailTyping) EndDetailTyping(giveBack: true);
         if (mode == NotchMode.Compact) PrepareCompact();
-        if (mode == NotchMode.Notification && _activity?.Payload is NotificationPayload p) NotificationCard.Show(p.Notification, p.More);
+        if (mode == NotchMode.Notification && _activity?.Payload is NotificationPayload p)
+        {
+            NotificationCard.Show(p.Notification, p.More);
+            _stackDepth = PopupStack<ShammyNotification>.Peeking(p.More);
+        }
         // Breaking through: the fullscreen app may have pushed itself above us; re-assert topmost (without activating).
         if (_fullscreen && _mode == NotchMode.Hidden && mode != NotchMode.Hidden) BringToFront();
         if (mode != _mode || mode is NotchMode.Compact or NotchMode.Card) Transition(mode);
         // The side bubble belongs next to the compact pill only; hide it whenever a card, tab or drop zone opens.
         UpdateBubble();
+        UpdateStack();
     }
 
     void PrepareCompact()
@@ -957,7 +992,13 @@ public partial class NotchWindow : Window
         var stage = PetActivities.Stage(lives.Select(l => l.State).ToList(), _fullscreen ? null : _petPreferred);
         _petOwner = lives.FirstOrDefault(l => l.State.Id == stage.Owner) ?? first;
         _petDot = stage.Dot is null ? null : lives.FirstOrDefault(l => l.State.Id == stage.Dot);
-        _activityView.Show(_petOwner, _services.Settings.PetEnabled);
+        bool changed = _activityView.Show(_petOwner, _services.Settings.PetEnabled);
+        // A different activity took the pill while it was up: its content blurs through the change.
+        if (changed && _petShowing && _mode == NotchMode.Compact && _petCompact.Opacity.Value > 0.9 && MotionPrefs.Lively)
+        {
+            _petCompact.Swap.Snap(0);
+            _petCompact.Swap.AnimateTo(1, 0.34, 1);
+        }
         _petShowing = true;
         return true;
     }
@@ -1065,14 +1106,29 @@ public partial class NotchWindow : Window
         }
         ShadowShape.Opacity = _shadow.Value;
 
+        bool lively = MotionPrefs.Lively;
         foreach (var layer in _layers)
         {
-            double o = layer.Opacity.Value;
-            layer.El.Opacity = o;
+            double o = layer.Opacity.Value, swap = layer.Swap.Value;
+            layer.El.Opacity = o * (0.2 + 0.8 * swap);
             layer.Scale.ScaleX = layer.Scale.ScaleY = layer.Size.Value;
             if (!layer.Active && o <= 0.003 && layer.El.Visibility == Visibility.Visible) layer.El.Visibility = Visibility.Collapsed;
+
+            // Content blurs through a change: soft while it is part-way in or out, sharp (and free) once settled.
+            double clear = Math.Min(o, swap);
+            if (lively && clear > 0.02 && clear < 0.97 && layer.Blurs)
+            {
+                layer.Blur.Radius = (1 - clear) * 6;
+                if (layer.El.Effect is null) layer.El.Effect = layer.Blur;
+            }
+            else if (layer.El.Effect is not null)
+            {
+                layer.El.Effect = null;
+            }
         }
 
+        PlaceStack(StackA, _stackA.Value, w, h, 36, 7);
+        PlaceStack(StackB, _stackB.Value, w, h, 72, 14);
         _chrome.Apply(Cx, w, h, r);
         Bubble.Opacity = _bubbleOpacity.Value;
         BubbleScale.ScaleX = BubbleScale.ScaleY = _bubbleScale.Value;
@@ -1086,6 +1142,33 @@ public partial class NotchWindow : Window
             if (Math.Abs(Height - want) > 0.5) Height = want;
         }
     }
+
+    /// <summary>One or two cards show under a message while more wait beneath it.</summary>
+    void UpdateStack()
+    {
+        bool on = _mode == NotchMode.Notification;
+        _stackA.AnimateTo(on && _stackDepth >= 1 ? 1 : 0, 0.3, 1);
+        _stackB.AnimateTo(on && _stackDepth >= 2 ? 1 : 0, 0.3, 1);
+    }
+
+    /// <summary>A waiting card: narrower than the message above it and peeking out just below, sliding out as it appears.</summary>
+    void PlaceStack(Border card, double shown, double w, double h, double narrower, double below)
+    {
+        if (shown <= 0.003)
+        {
+            if (card.Visibility == Visibility.Visible) card.Visibility = Visibility.Collapsed;
+            return;
+        }
+        card.Visibility = Visibility.Visible;
+        card.Opacity = shown;
+        card.Width = Math.Max(0, w - narrower);
+        Canvas.SetLeft(card, Cx - card.Width / 2);
+        Canvas.SetTop(card, h - card.Height + below * shown);
+    }
+
+    internal string DescribeStack() =>
+        $"depth={_stackDepth} a={_stackA.Target:0}/{StackA.Visibility} b={_stackB.Target:0}/{StackB.Visibility} " +
+        $"aTop={Canvas.GetTop(StackA):0.0} aWidth={StackA.Width:0} notchH={_h.Value:0.0} blur=[{string.Join(",", _layers.Where(l => l.El.Effect is not null).Select(l => l.El.GetType().Name))}]";
 
     void EnsureWindowHeight(double contentHeight)
     {
@@ -1351,6 +1434,26 @@ public partial class NotchWindow : Window
         else return "error: usage pet-mood idle|music|notify|timer|listen|think|meeting|tired|sleepy|happy|auto";
         controller.Update();
         return DescribeIdle();
+    }
+
+    void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        if (e.Reason is not (Microsoft.Win32.SessionSwitchReason.SessionUnlock or Microsoft.Win32.SessionSwitchReason.ConsoleConnect)) return;
+        // System events arrive on their own thread.
+        Dispatcher.BeginInvoke(() => GreetBack());
+    }
+
+    /// <summary>You are back at the PC: the pet is pleased to see you and gives a hop. Not with Calm motion.</summary>
+    internal string GreetBack()
+    {
+        bool greeted = MotionPrefs.Lively && PetMoments.Greets(DateTime.UtcNow, _greetedAt);
+        if (greeted)
+        {
+            _greetedAt = DateTime.UtcNow;
+            _restView.Mood.Petted();
+            _restView.Pet.Bounce();
+        }
+        return $"greeted={greeted} " + DescribeIdle();
     }
 
     /// <summary>Makes the cat purr as if the pointer had rested on it (for testing); says how often it has.</summary>

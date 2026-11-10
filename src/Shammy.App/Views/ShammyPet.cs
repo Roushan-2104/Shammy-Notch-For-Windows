@@ -100,8 +100,58 @@ internal sealed class ShammyPet : Grid
     public void SetMood(PetMood mood)
     {
         if (mood == Mood) return;
+        var from = Mood;
         Mood = mood;
         ApplyMood();
+        if (!IsVisible || !Infrastructure.MotionPrefs.Lively) return;
+        if (PetMoments.Yawns(from, mood)) Yawn();
+        else if (PetMoments.WakesUp(from, mood)) StartAwake();
+    }
+
+    /// <summary>
+    /// Nodding off: the eyes droop, then squeeze shut while the ears stretch up (the yawn), then it settles into
+    /// sleep. A few repaints, like a blink; any other mood arriving in between simply takes over.
+    /// </summary>
+    void Yawn()
+    {
+        var white = Screens.PetLook.Solid();
+        SetEyes(EyeShape.Droopy, 11, 8, white);
+        _pose.Y = 1.5;
+        HoldCat(new CatPose(10, 0.95, 1, 0, 6, 1.3));
+        Later(650, () =>
+        {
+            if (Mood != PetMood.Sleepy) return;
+            SetEyes(EyeShape.Lid, 12, 3, white);
+            _pose.Y = 0.5;
+            HoldCat(new CatPose(0, 1.2, -0.5, 0, -8, 0));
+            Later(600, () =>
+            {
+                if (Mood == PetMood.Sleepy) ApplyMood();
+            });
+        });
+    }
+
+    /// <summary>Woken by the pointer: for a moment the ears are up and the pupils wide, then it relaxes.</summary>
+    void StartAwake()
+    {
+        Perk();
+        HoldCat(new CatPose(0, 1.18, 0, 0, -7, CatLooks.Wide));
+        Later(750, () =>
+        {
+            if (Mood == PetMood.Idle) ApplyMood();
+        });
+    }
+
+    /// <summary>Puts the ears, whiskers and pupils in a pose of their own, between two moods.</summary>
+    void HoldCat(CatPose pose)
+    {
+        if (!CatParts.On) return;
+        _leftEye.Pupil(pose.Pupil);
+        _rightEye.Pupil(pose.Pupil);
+        _earL.Hold(pose.EarTilt, pose.EarHeight, pose.EarDrop);
+        _earR.Hold(pose.EarTilt + pose.EarTurn, pose.EarHeight, pose.EarDrop);
+        _whiskL.Hold(pose.WhiskerLift);
+        _whiskR.Hold(pose.WhiskerLift);
     }
 
     // ---- Running only while visible ------------------------------------------------------------
