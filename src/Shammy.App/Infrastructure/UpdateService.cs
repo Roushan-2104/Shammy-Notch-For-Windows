@@ -38,7 +38,7 @@ internal sealed class UpdateService : IDisposable
         var testFault = CommandServer.IsEnabled ? Environment.GetEnvironmentVariable("SHAMMY_UPDATE_FAULT") : null;
         IUpdateSource source = Directory.Exists(testFeed)
             ? new SimpleFileSource(new DirectoryInfo(testFeed))
-            : new GithubSource(RepoUrl, null, false);
+            : new GithubSource(RepoUrl, null, false, new FastDownloader());
         _source = source is SimpleFileSource ? "local test feed" : "GitHub";
         if (!string.IsNullOrEmpty(testFault)) source = new FaultySource(source, testFault);
         _manager = new UpdateManager(source);
