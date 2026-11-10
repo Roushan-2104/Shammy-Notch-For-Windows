@@ -391,6 +391,7 @@ internal sealed class SettingsView : Grid
         ["levels"] = ("Volume and brightness", "The notch’s own volume and brightness HUD."),
         ["meeting"] = ("Meetings", "Mic and camera pills during calls."),
         ["mirror"] = ("Mirror", "A quick camera check."),
+        ["mixer"] = ("Volume mixer", "A volume slider for each app."),
         ["music"] = ("Music", "Now playing, lyrics, play commands."),
         ["nudges"] = ("Eye breaks and water", "Gentle nudges from the pet."),
         ["palette"] = ("Palette", "Search apps, files and settings as you type."),
