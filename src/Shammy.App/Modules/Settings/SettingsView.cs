@@ -327,6 +327,8 @@ internal sealed class SettingsView : Grid
             if (_s.NotchSounds) NotchSound.Play(Shammy.Core.Audio.PingKind.Notification);
         };
 
+        ClaudeCodeRows();
+
         Section("Features", "Turned-off features stay off from the next start.");
         foreach (var name in _modules().Where(m => m != SettingsModule.ModuleName).Order())
         {
@@ -377,10 +379,54 @@ internal sealed class SettingsView : Grid
         slot.Unloaded += (_, _) => HostLinks.UpdateChanged -= Show;
     }
 
+    /// <summary>Claude Code: the connection (the one button that edits Claude Code's settings) and the Allow/Deny cards.</summary>
+    void ClaudeCodeRows()
+    {
+        Section("Claude Code", "");
+        if (Shammy.Modules.Agents.AgentsLink.View is not { } view || Shammy.Modules.Agents.AgentsLink.Press is not { } press)
+        {
+            Row("Not available", "The Claude Code feature is turned off (see Features below).", null);
+            return;
+        }
+        const string connectHint = Shammy.Core.Agents.AgentText.ConnectHint;
+        TextBlock hint = null!, title = null!;
+        string problem = "";
+        Pressable button = null!;
+        void Show()
+        {
+            var now = view();
+            title.Text = now.Status;
+            hint.Text = problem.Length > 0 ? problem : connectHint;
+            ((TextBlock)button.Child).Text = now.Button;
+            Dim(button, now.Enabled);
+        }
+        button = ScreenKit.Secondary(view().Button, () =>
+        {
+            var (ok, said) = press();
+            problem = ok ? "" : said;
+            if (ok) Say(said);
+            Show();
+        });
+        button.MinWidth = 96;
+        var row = Row(view().Status, connectHint, button, out hint);
+        title = (TextBlock)((StackPanel)hint.Parent).Children[0];
+        Show();
+        row.Loaded += (_, _) =>
+        {
+            Shammy.Modules.Agents.AgentsLink.Changed -= Show;
+            Shammy.Modules.Agents.AgentsLink.Changed += Show;
+            Show();
+        };
+        row.Unloaded += (_, _) => Shammy.Modules.Agents.AgentsLink.Changed -= Show;
+        SwitchRow("Ask me in the notch", "Allow and Deny drop from the notch when Claude Code needs an OK. Off shows status only.",
+            nameof(AppSettings.AgentsAskInNotch), "Asking in the notch", "Status only");
+    }
+
     static string VolumeHint(int v) => v == 0 ? "0% · alarms still ring at 20%" : $"{v}% · pings, chimes and alarms";
 
     static readonly Dictionary<string, (string Name, string Hint)> Features = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["agents"] = ("Claude Code", "Sessions at work, done, or waiting for your OK."),
         ["ambient"] = ("Weather and pet", "The sky, the ticker and the pet’s moods."),
         ["whatsnew"] = ("What’s new", "A short note after each update."),
         ["calendar"] = ("Calendar", "Your Google Calendar in the notch."),

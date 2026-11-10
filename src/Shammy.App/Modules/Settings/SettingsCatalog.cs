@@ -28,6 +28,7 @@ internal static class SettingsCatalog
         ("NotchSounds", "General", "Notch sounds", 1),
         ("NotchSoundVolume", "General", "Sound volume", 10),
         ("DisabledModules", "General", "Features turned off (on next start)", 1),
+        ("AgentsAskInNotch", "General", "Ask me in the notch", 1),
         ("HoverSpeed", "Notch & pet", "Hover speed", 1),
         ("PeekEnabled", "Notch & pet", "Peek", 1),
         ("PetEnabled", "Notch & pet", "Pet", 1),

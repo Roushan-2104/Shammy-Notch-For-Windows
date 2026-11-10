@@ -202,6 +202,14 @@ internal sealed class AppSettings
     /// <summary>The Gnani voice that speaks (see GnaniVoices); the Hinglish one by default.</summary>
     public string OnlineVoiceName { get; set; } = Shammy.Core.OnlineVoice.GnaniVoices.Default;
 
+    // ---- Claude Code (coding agents) ----------------------------------------------------------------
+
+    /// <summary>
+    /// When a Claude Code session needs an OK, a card with Deny and Allow drops from the notch. Off, the notch
+    /// only shows that the session is waiting and Claude Code asks in its own window.
+    /// </summary>
+    public bool AgentsAskInNotch { get; set; } = true;
+
     /// <summary>Raised (with the property name) after the settings card or pipe changed a setting.</summary>
     public event Action<string>? Changed;
 
