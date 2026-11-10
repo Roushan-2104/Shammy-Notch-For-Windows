@@ -25,6 +25,7 @@ internal sealed class PrompterModule : IShammyModule
     ModuleContext _ctx = null!;
     PrompterData _data = new();
     PrompterCard? _card;
+    bool _showInCaptures;
     // The screen freeze for circle-to-search also switches capture hiding; this puts it back while we are open.
     readonly DispatcherTimer _keepHidden = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
 
@@ -38,7 +39,7 @@ internal sealed class PrompterModule : IShammyModule
         {
             // Something else took the notch (an alarm, another card): we are closed.
             if (_card is null || _card.Parent is null) Closed();
-            else ctx.Notch.ExcludeFromCapture(true);
+            else ctx.Notch.ExcludeFromCapture(!_showInCaptures);
         };
         ctx.AddCommand(new Command(this));
         ctx.AddTrayItem("Teleprompter", () => Open());
@@ -80,6 +81,13 @@ internal sealed class PrompterModule : IShammyModule
             _card.Nudge(px);
             return State();
         });
+        // Test only: "prompter-capture show" lets a screenshot see the teleprompter; "hide" is the real behaviour.
+        ctx.AddPipeCommand("prompter-capture", arg =>
+        {
+            _showInCaptures = arg.Trim() == "show";
+            if (_card is not null) ctx.Notch.ExcludeFromCapture(!_showInCaptures);
+            return _showInCaptures ? "shown in captures (test)" : "hidden from captures";
+        });
         ctx.AddPipeCommand("prompter-close", _ =>
         {
             Close();
@@ -94,7 +102,7 @@ internal sealed class PrompterModule : IShammyModule
     }
 
     string State() => _card is { Parent: not null } card
-        ? $"open {card.Describe()} hiddenFromCapture=True script={_data.Script.Length}"
+        ? $"open {card.Describe()} hiddenFromCapture={!_showInCaptures} script={_data.Script.Length}"
         : $"closed pace={_data.Pace} script={_data.Script.Length}";
 
     string Script => _data.Script.Length > 0 ? _data.Script : PrompterText.Example;
@@ -123,7 +131,7 @@ internal sealed class PrompterModule : IShammyModule
         _card = card;
         // Not interactive: the keyboard stays with the camera or meeting app.
         _ctx.ShowCard(card, PrompterCard.CardWidth, PrompterCard.CardHeight, interactive: false);
-        _ctx.Notch.ExcludeFromCapture(true);
+        _ctx.Notch.ExcludeFromCapture(!_showInCaptures);
         _keepHidden.Start();
     }
 
