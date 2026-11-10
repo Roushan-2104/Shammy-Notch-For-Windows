@@ -190,6 +190,18 @@ internal sealed class AppSettings
     /// </summary>
     public bool LiveCricketEnabled { get; set; }
 
+    // ---- Online voice (Gnani) -------------------------------------------------------------------------
+    // The key itself is not here: it lives in the module's encrypted store, never in settings.json.
+
+    /// <summary>Timers, alarms and reminders are said aloud through Gnani (needs a saved key).</summary>
+    public bool OnlineVoiceSpeaks { get; set; }
+
+    /// <summary>The talk key's recording is transcribed by Gnani instead of the local model (needs a saved key).</summary>
+    public bool OnlineVoiceListens { get; set; }
+
+    /// <summary>The Gnani voice that speaks (see GnaniVoices); the Hinglish one by default.</summary>
+    public string OnlineVoiceName { get; set; } = Shammy.Core.OnlineVoice.GnaniVoices.Default;
+
     /// <summary>Raised (with the property name) after the settings card or pipe changed a setting.</summary>
     public event Action<string>? Changed;
 

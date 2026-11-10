@@ -204,6 +204,7 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
             Click = ShowRingCard,
         });
         ShowRingCard();
+        HostLinks.Say?.Invoke(Shammy.Core.OnlineVoice.SpokenPhrases.Alarm(AlarmText.Time(a), a.Label));
         _ctx.Info($"Alarm ringing: {AlarmText.Time(a)} {a.Label}");
     }
 

@@ -554,6 +554,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         });
         Glow();
         Chime();
+        HostLinks.Say?.Invoke(Shammy.Core.OnlineVoice.SpokenPhrases.Clock(petLabel));
     }
 
     void Glow()
@@ -635,6 +636,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
             _ctx.ShowCard(card, ReminderCard.CardWidth, ReminderCard.CardHeight, interactive: true, breaksFullscreen: true);
             Glow();
             Chime();
+            HostLinks.Say?.Invoke(Shammy.Core.OnlineVoice.SpokenPhrases.Reminder(reminder.Text));
             _cardClose.Stop();
             _cardClose.Interval = CardTime;
             _cardClose.Start();

@@ -35,6 +35,21 @@ internal static class HostLinks
 
     public static void RaiseUpdateChanged() => UpdateChanged?.Invoke();
 
+    /// <summary>
+    /// Says a short line aloud ("Tea's ready!") when the user turned on online voice; does nothing otherwise.
+    /// Set by the online voice module, so it is null when that feature is off. Never throws.
+    /// </summary>
+    public static Action<string>? Say { get; set; }
+
+    /// <summary>
+    /// Online listening: the talk key's recording (16 kHz mono) as text, or null when the local voice model
+    /// should transcribe it (the mode is off, the service was slow or failed). Asked before the local model.
+    /// </summary>
+    public static Func<float[], CancellationToken, Task<string?>>? OnlineTranscribe { get; set; }
+
+    /// <summary>Whether a recording made now would be sent online (the listening view then says so).</summary>
+    public static Func<bool>? OnlineListening { get; set; }
+
     /// <summary>Every module's glance provider, by id ("weather", "calendar"…).</summary>
     public static IReadOnlyDictionary<string, Func<GlanceItem?>>? Glances { get; set; }
 

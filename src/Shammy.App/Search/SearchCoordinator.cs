@@ -35,6 +35,7 @@ internal sealed class SearchCoordinator
     Phase _phase;
     int _session;
     bool _micOk;
+    bool _listenOnline; // this hold's recording goes online (the listening view said so)
     string? _micError;
     ScreenShot? _shot;
     SearchOverlay? _overlay;
@@ -137,15 +138,18 @@ internal sealed class SearchCoordinator
         _phase = Phase.Holding;
 
         _notch.SetSearchMode(NotchMode.Listening);
+        // Online listening (the user's own key): the view says so, because the recording leaves the PC.
+        bool online = _listenOnline = _micOk && Modules.HostLinks.OnlineListening?.Invoke() == true;
+        string listening = online ? "Listening… · online" : "Listening…";
         if (_key == HotKey.Talk)
         {
             // Just talking: no freeze, nothing to circle.
             if (_micOk)
             {
-                var talkHint = _whisper.IsReady ? "Speak, then let go"
+                var talkHint = _whisper.IsReady || online ? "Speak, then let go"
                     : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · let go to type"
                     : "Voice unavailable · let go to type";
-                _notch.SearchBarView.ShowListening(() => _mic.Level, "Listening…", talkHint);
+                _notch.SearchBarView.ShowListening(() => _mic.Level, listening, talkHint);
             }
             else
             {
@@ -155,10 +159,10 @@ internal sealed class SearchCoordinator
         }
         if (_micOk)
         {
-            var hint = _whisper.IsReady ? "Speak, circle anything, then let go"
+            var hint = _whisper.IsReady || online ? "Speak, circle anything, then let go"
                 : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · circle instead"
                 : "Voice unavailable · circle anything instead";
-            _notch.SearchBarView.ShowListening(() => _mic.Level, "Listening…", hint);
+            _notch.SearchBarView.ShowListening(() => _mic.Level, listening, hint);
         }
         else
         {
@@ -280,7 +284,23 @@ internal sealed class SearchCoordinator
         string spoken = "";
         if (speechSamples is not null)
         {
-            if (_whisper.IsReady)
+            // Online listening first, when the user turned it on; null or nothing heard means the local model.
+            string? heardOnline = null;
+            if (_listenOnline && Modules.HostLinks.OnlineTranscribe is { } transcribeOnline)
+            {
+                _notch.SearchBarView.ShowThinking("Transcribing…");
+                _transcribe = new CancellationTokenSource();
+                try { heardOnline = await transcribeOnline(speechSamples, _transcribe.Token); }
+                catch (OperationCanceledException) { return; }
+                catch (Exception ex) { Log.Warn("Online transcription failed", ex); }
+                if (session != _session) return;
+            }
+            if (!string.IsNullOrWhiteSpace(heardOnline))
+            {
+                spoken = heardOnline;
+                Log.Info($"Heard online: {spoken.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} words");
+            }
+            else if (_whisper.IsReady)
             {
                 _notch.SearchBarView.ShowThinking("Transcribing…");
                 // Esc or a new search cancels this, so an abandoned transcription doesn't hold the model.
