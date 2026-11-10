@@ -32,6 +32,8 @@ internal static class SettingsCatalog
         ("HoverSpeed", "Notch & pet", "Hover speed", 1),
         ("PeekEnabled", "Notch & pet", "Peek", 1),
         ("PetEnabled", "Notch & pet", "Pet", 1),
+        ("PetKind", "Notch & pet", "Pet style", 1),
+        ("PetPurrs", "Notch & pet", "Purr", 1),
         ("PetEyeStyle", "Notch & pet", "Eye style", 1),
         ("PetEyeColor", "Notch & pet", "Eye colour", 1),
         ("PetName", "Notch & pet", "Name", 1),

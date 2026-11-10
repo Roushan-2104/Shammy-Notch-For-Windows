@@ -300,7 +300,7 @@ internal sealed class ActivityPet : Canvas
     void BuildFocused()
     {
         var face = Layer(out _);
-        var eyes = AddEyes(face, 13, 9);
+        var eyes = AddEyes(face, 13, 9, whiskers: true);
         _rest = 2;
         Loop(eyes.Translate, TranslateTransform.XProperty, 2.4, 0, (0, 0), (0.25, -3.5), (0.75, 3.5), (1, 0));
     }
@@ -320,6 +320,8 @@ internal sealed class ActivityPet : Canvas
     void BuildResting()
     {
         var face = Layer(out var faceT);
+        // A resting cat folds its ears flat.
+        AddCat(face, 11.75, 18.25, whiskers: true, tilt: 20, drop: 3);
         foreach (double x in new[] { Cx - 15, Cx + 4 })
             face.Children.Add(At(new Rectangle { Width = 11, Height = 2.5, RadiusX = 1.25, RadiusY = 1.25, Fill = Solid(Ink) }, x, 17));
         _rest = 1;
@@ -508,7 +510,8 @@ internal sealed class ActivityPet : Canvas
         DropOn(band, 0.45, 10);
         face.Children.Add(At(band, left + 4, top + 2));
         // Narrowed eyes dart side to side.
-        var eyes = AddEyes(face, top + 4.5, 7);
+        // The ears stand clear of the mask.
+        var eyes = AddEyes(face, top + 4.5, 7, earTop: top + 0.5);
         _rest = 8;
         Loop(eyes.Translate, TranslateTransform.XProperty, 2, 0, (0, 0), (0.2, -3), (0.45, -3), (0.6, 3), (0.85, 3), (1, 0));
     }
@@ -740,8 +743,10 @@ internal sealed class ActivityPet : Canvas
         return c;
     }
 
-    EyeRow AddEyes(Canvas face, double top, double height, double shift = 0, bool shineBottom = false, bool blink = true, Point? origin = null)
+    EyeRow AddEyes(Canvas face, double top, double height, double shift = 0, bool shineBottom = false, bool blink = true, Point? origin = null,
+        double? earTop = null, bool whiskers = false)
     {
+        AddCat(face, earTop ?? top, top + height / 2, shift, whiskers);
         var host = new Canvas { Width = ColumnWidth, Height = ColumnHeight, RenderTransformOrigin = origin ?? new Point(0.5, 0.5) };
         var scale = new ScaleTransform();
         var move = new TranslateTransform();
@@ -759,11 +764,36 @@ internal sealed class ActivityPet : Canvas
 
     EyeRow AddArcs(Canvas face, double top)
     {
+        // Ears sit where they would above open eyes, relaxed outward.
+        AddCat(face, top - 3, top + 3.5, tilt: 6);
         var host = new Canvas { Width = ColumnWidth, Height = ColumnHeight };
         host.Children.Add(At(Arc(), Cx - 16, top));
         host.Children.Add(At(Arc(), Cx + 4, top));
         face.Children.Add(host);
         return new EyeRow(host, new ScaleTransform(), new TranslateTransform());
+    }
+
+    /// <summary>
+    /// The cat's ears above a row of eyes whose top is at <paramref name="earTop"/>, and on a bare face (no mouth,
+    /// nothing beside the eyes) its whiskers and nose too. Nothing when the pet style is Eyes.
+    /// </summary>
+    static void AddCat(Canvas face, double earTop, double middle, double shift = 0, bool whiskers = false, double tilt = 0, double drop = 0)
+    {
+        if (!CatParts.On) return;
+        double left = Cx - 15 + shift, right = Cx + 4 + shift;
+        var ink = Solid(Ink);
+        var leftEar = new CatParts.Ear(false, ink);
+        var rightEar = new CatParts.Ear(true, ink);
+        // Eyes near the top of the notch leave less room: the ears shorten rather than lose their tips.
+        double height = Math.Clamp((earTop + drop - 1.6) / 7.7, 0.7, 1);
+        leftEar.Hold(tilt, height, drop);
+        rightEar.Hold(tilt, height, drop);
+        face.Children.Add(At(leftEar, left, earTop));
+        face.Children.Add(At(rightEar, right, earTop));
+        if (!whiskers) return;
+        face.Children.Add(At(new CatParts.Whiskers(false, ink), left, middle));
+        face.Children.Add(At(new CatParts.Whiskers(true, ink), right + 11, middle));
+        face.Children.Add(At(CatParts.Nose(), (left + right + 11) / 2, middle + CatParts.NoseDrop));
     }
 
     Canvas AddBlush(Canvas face, double top, double rowWidth)
@@ -780,6 +810,9 @@ internal sealed class ActivityPet : Canvas
     static Border Eye(double height, bool shineBottom)
     {
         var grid = new Canvas { Width = 11, Height = height, ClipToBounds = true };
+        // A cat's pupil: a slit, a little wider in the wide-open eyes of a surprise.
+        if (CatParts.Pupil(11, height, height >= 14 ? CatLooks.Alert : CatLooks.Slit) is { } pupil)
+            grid.Children.Add(At(pupil, 5.5, height / 2 + CatParts.PupilLow));
         grid.Children.Add(At(new Ellipse { Width = 3, Height = 3, Fill = Brushes.White }, 2, shineBottom ? height - 5 : height < 10 ? 1 : 2));
         return new Border
         {

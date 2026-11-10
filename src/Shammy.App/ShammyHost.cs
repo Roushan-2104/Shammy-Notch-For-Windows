@@ -809,6 +809,8 @@ internal sealed class ShammyHost : IDisposable
             case "v2-hover": return DryRunHover(arg);
             // "pet-mood music" forces a mood (idle|music|notify|timer|listen|think|meeting|tired|sleepy|happy); "pet-mood auto" undoes it.
             case "pet-mood": return _notch.SetPetMood(arg);
+            // "pet-purr": the cat purrs as if the pointer had rested on it.
+            case "pet-purr": return _notch.PetPurr();
             case "v2-peek": return _notch.ForcePeek(true);
             case "v2-rest": return _notch.ForcePeek(false);
             // "v2-gesture next|prev|volup|voldown [dry]".

@@ -14,6 +14,9 @@ namespace Shammy.Views;
 /// <see cref="PetMoods"/>). At rest it blinks, glances around and follows a nearby pointer; it sways with
 /// happy ^ ^ eyes to music, perks up at a notification, bounces when a timer is done, looks up while
 /// listening, darts its eyes while thinking, droops on a low battery and dozes late at night.
+/// As a cat (the default pet style, see <see cref="CatParts"/>) the same eyes get ears, slit pupils, whiskers and
+/// a nose: the ears and whiskers follow the mood and twitch now and then, the pupils slide towards the pointer,
+/// and resting the pointer on it earns a purr.
 /// Every timer and animation runs only while it is on screen; floating notes, z's and hearts are spawned
 /// one at a time by a timer rather than looping forever, so a sleeping pet is nearly free.
 /// </summary>
@@ -26,17 +29,27 @@ internal sealed class ShammyPet : Grid
     readonly Eye _leftEye = new(), _rightEye = new();
     readonly StackPanel _eyes = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     readonly Canvas _overlay = new() { IsHitTestVisible = false, ClipToBounds = false };
+    // The cat's own parts sit behind the eyes and move with the head, but never squash with a blink.
+    readonly Canvas _cat = new() { IsHitTestVisible = false, ClipToBounds = false };
+    readonly CatParts.Ear _earL = new(false, Brushes.White), _earR = new(true, Brushes.White);
+    readonly CatParts.Whiskers _whiskL = new(false, Brushes.White), _whiskR = new(true, Brushes.White);
+    readonly System.Windows.Shapes.Path _nose = CatParts.Nose();
     readonly ScaleTransform _lid = new(1, 1), _perk = new(1, 1);
     readonly RotateTransform _sway = new();
     readonly TranslateTransform _glance = new(), _follow = new(), _bounce = new(), _pose = new();
     readonly SpringValue _followX = new(0, 0.01);
-    readonly DispatcherTimer _blinkTimer, _glanceTimer, _pointerTimer, _particleTimer;
+    readonly DispatcherTimer _blinkTimer, _glanceTimer, _pointerTimer, _particleTimer, _fidgetTimer;
     readonly Random _random = new();
     readonly List<DispatcherTimer> _waits = new();
     readonly Func<double> _musicLevel;
     IDisposable? _swayFrames;
     double _swayTime;
     bool _following, _subscribed, _alternate;
+    double _glanceShift;
+    DateTime? _overSince;
+    DateTime _purredAt = DateTime.MinValue;
+
+    static readonly TimeSpan PetFor = TimeSpan.FromMilliseconds(400), PurrEvery = TimeSpan.FromSeconds(12);
 
     public ShammyPet(Func<double> musicLevel)
     {
@@ -48,6 +61,12 @@ internal sealed class ShammyPet : Grid
         _eyes.Children.Add(_rightEye);
         _eyes.RenderTransformOrigin = new Point(0.5, 0.5);
         _eyes.RenderTransform = new TransformGroup { Children = { _lid, _perk, _sway, _glance, _follow, _bounce, _pose } };
+        _cat.Width = Width;
+        _cat.Height = Height;
+        _cat.RenderTransformOrigin = new Point(0.5, 0.5);
+        _cat.RenderTransform = new TransformGroup { Children = { _sway, _follow, _bounce, _pose } };
+        foreach (var part in new UIElement[] { _earL, _earR, _whiskL, _whiskR, _nose }) _cat.Children.Add(part);
+        Children.Add(_cat);
         Children.Add(_eyes);
         Children.Add(_overlay);
 
@@ -59,6 +78,8 @@ internal sealed class ShammyPet : Grid
         _pointerTimer.Tick += (_, _) => TrackPointer();
         _particleTimer = new DispatcherTimer(DispatcherPriority.Background);
         _particleTimer.Tick += (_, _) => SpawnParticle();
+        _fidgetTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(6) };
+        _fidgetTimer.Tick += (_, _) => Fidget();
 
         IsVisibleChanged += (_, _) => UpdateRunning();
         Screens.PetLook.Changed += () =>
@@ -90,6 +111,7 @@ internal sealed class ShammyPet : Grid
         {
             Reschedule(_blinkTimer, EyeLogic.NextBlink(_random, Mood == PetMood.Sleepy));
             Reschedule(_glanceTimer, EyeLogic.NextGlance(_random));
+            Reschedule(_fidgetTimer, CatLooks.NextFidget(_random));
             _pointerTimer.Interval = FarPoll;
             _pointerTimer.Start();
             if (!_subscribed)
@@ -105,6 +127,9 @@ internal sealed class ShammyPet : Grid
             _glanceTimer.Stop();
             _pointerTimer.Stop();
             _particleTimer.Stop();
+            _fidgetTimer.Stop();
+            _overSince = null;
+            _glanceShift = 0;
             foreach (var w in _waits) w.Stop();
             _waits.Clear();
             _lid.ScaleY = 1;
@@ -129,7 +154,14 @@ internal sealed class ShammyPet : Grid
         timer.Start();
     }
 
-    void OnFrame(double dt) => _follow.X = _followX.Value;
+    void OnFrame(double dt)
+    {
+        _follow.X = _followX.Value;
+        // A cat's pupils lead the look: they slide further than the eyes turn.
+        double shift = CatLooks.PupilShift(_followX.Value) + _glanceShift;
+        _leftEye.PupilShift = shift;
+        _rightEye.PupilShift = shift;
+    }
 
     // ---- Moods -----------------------------------------------------------------------------------
 
@@ -199,7 +231,124 @@ internal sealed class ShammyPet : Grid
                 SetEyes(EyeShape.Pill, 11, 13, white);
                 break;
         }
+        ApplyCat();
     }
+
+    /// <summary>The cat's ears, whiskers, nose and pupils for this mood (nothing when the pet style is Eyes).</summary>
+    void ApplyCat()
+    {
+        bool cat = CatParts.On;
+        _cat.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
+        var pose = CatLooks.Pose(Mood);
+        _leftEye.Pupil(cat ? pose.Pupil : 0);
+        _rightEye.Pupil(cat ? pose.Pupil : 0);
+        if (!cat) return;
+
+        var ink = Screens.PetLook.Solid();
+        _earL.Fill = ink;
+        _earR.Fill = ink;
+        _whiskL.Stroke = ink;
+        _whiskR.Stroke = ink;
+        // Ears and whiskers sit against a resting eye, whatever shape the mood gives the eyes themselves.
+        var (w, h, _) = PetLooks.Restyle(Screens.PetLook.Style, 11, 13);
+        const double leftEye = 6, rightEye = 26;
+        double middle = Height / 2, top = middle - h / 2;
+        Place(_earL, leftEye - 5.5, top);
+        Place(_earR, rightEye - 5.5, top);
+        Place(_whiskL, leftEye - w / 2, middle);
+        Place(_whiskR, rightEye + w / 2, middle);
+        Place(_nose, (leftEye + rightEye) / 2, middle + CatParts.NoseDrop);
+        _earL.Hold(pose.EarTilt, pose.EarHeight, pose.EarDrop);
+        _earR.Hold(pose.EarTilt + pose.EarTurn, pose.EarHeight, pose.EarDrop);
+        _whiskL.Hold(pose.WhiskerLift);
+        _whiskR.Hold(pose.WhiskerLift);
+    }
+
+    static void Place(UIElement part, double x, double y)
+    {
+        Canvas.SetLeft(part, x);
+        Canvas.SetTop(part, y);
+    }
+
+    /// <summary>
+    /// Now and then a resting cat flicks an ear or twitches its whiskers. Like a blink these are a few repaints,
+    /// not an animation, and Calm motion turns them off.
+    /// </summary>
+    void Fidget()
+    {
+        _fidgetTimer.Interval = CatLooks.NextFidget(_random);
+        if (!CatParts.On || !Infrastructure.MotionPrefs.Lively || !CatLooks.Fidgets(Mood)) return;
+        if (_random.Next(2) == 0)
+        {
+            var ear = _random.Next(2) == 0 ? _earL : _earR;
+            ear.Flick(16);
+            Later(90, () =>
+            {
+                ear.Flick(0);
+                Later(110, () =>
+                {
+                    ear.Flick(12);
+                    Later(90, () => ear.Flick(0));
+                });
+            });
+        }
+        else
+        {
+            Whisk(9);
+            Later(110, () =>
+            {
+                Whisk(-5);
+                Later(110, () => Whisk(0));
+            });
+        }
+    }
+
+    void Whisk(double degrees)
+    {
+        _whiskL.Twitch(degrees);
+        _whiskR.Twitch(degrees);
+    }
+
+    /// <summary>The pointer resting on the cat for a moment earns a purr, at most every few seconds.</summary>
+    void Petting(bool over)
+    {
+        if (!over || Mood != PetMood.Idle || !CatParts.On)
+        {
+            _overSince = null;
+            return;
+        }
+        var now = DateTime.UtcNow;
+        _overSince ??= now;
+        if (now - _overSince < PetFor || now - _purredAt < PurrEvery) return;
+        _purredAt = now;
+        Purr();
+    }
+
+    /// <summary>
+    /// A purr, with the slow blink cats give the people they trust; the ears and whiskers soften while it lasts.
+    /// The sound follows the Purr setting and the notch sounds switch; the blink happens either way.
+    /// </summary>
+    public void Purr()
+    {
+        if (!IsVisible || !CatParts.On) return;
+        if (Screens.PetLook.Purrs) Infrastructure.NotchSound.Play(Shammy.Core.Audio.PingKind.Purr);
+        Purrs++;
+        _lid.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        _lid.ScaleY = 0.1;
+        _earL.Flick(8);
+        _earR.Flick(8);
+        Whisk(-8);
+        Later(800, () => _lid.ScaleY = 1);
+        Later(1700, () =>
+        {
+            _earL.Flick(0);
+            _earR.Flick(0);
+            Whisk(0);
+        });
+    }
+
+    /// <summary>How many times it has purred (for tests).</summary>
+    public int Purrs { get; private set; }
 
     void SetEyes(EyeShape shape, double w, double h, Brush brush)
     {
@@ -344,8 +493,10 @@ internal sealed class ShammyPet : Grid
         double to = EyeLogic.GlanceDirection(_random);
         _glance.BeginAnimation(TranslateTransform.XProperty, null);
         _glance.X = to;
+        _glanceShift = Math.Sign(to) * 1.2;
         Later(1100, () =>
         {
+            _glanceShift = 0;
             if (!_following) _glance.X = 0;
         });
     }
@@ -359,8 +510,10 @@ internal sealed class ShammyPet : Grid
         if (!IsVisible || PresentationSource.FromVisual(this) is null || !Native.GetCursorPos(out var p)) return;
         var centre = _eyes.PointToScreen(new Point(_eyes.ActualWidth / 2, _eyes.ActualHeight / 2));
         double scale = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        var look = EyeLogic.Follow((p.X - centre.X) / scale, (p.Y - centre.Y) / scale);
+        double dx = (p.X - centre.X) / scale, dy = (p.Y - centre.Y) / scale;
+        var look = EyeLogic.Follow(dx, dy);
         if (look is not null) PointerNear?.Invoke();
+        Petting(Math.Abs(dx) < 20 && Math.Abs(dy) < 14);
         bool follows = Mood == PetMood.Idle;
         if (look is { } x && follows)
         {
@@ -407,11 +560,12 @@ internal sealed class ShammyPet : Grid
         static readonly Color Lit = Color.FromRgb(0xF5, 0xF5, 0xF7), Shade = Color.FromRgb(0xA3, 0xA6, 0xB2);
 
         readonly Border _pill = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, ClipToBounds = true };
-        readonly System.Windows.Shapes.Ellipse _shine = new()
-        {
-            Width = 3, Height = 3, Fill = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(2, 2, 0, 0),
-        };
+        readonly Canvas _inside = new();
+        readonly System.Windows.Shapes.Ellipse _shine = new() { Width = 3, Height = 3, Fill = Brushes.White };
+        readonly TranslateTransform _pupilShift = new();
+        System.Windows.Shapes.Path? _pupil;
+        EyeShape _shape;
+        double _w, _h, _open;
         readonly System.Windows.Shapes.Path _arc = new()
         {
             Data = Geometry.Parse("M 1.25,7 V 5.25 A 4.75,4.25 0 0 1 10.75,5.25 V 7"),
@@ -424,7 +578,10 @@ internal sealed class ShammyPet : Grid
         {
             Width = 12;
             Height = 16;
-            _pill.Child = _shine;
+            Canvas.SetLeft(_shine, 2);
+            Canvas.SetTop(_shine, 2);
+            _inside.Children.Add(_shine);
+            _pill.Child = _inside;
             Children.Add(_pill);
             Children.Add(_arc);
         }
@@ -442,12 +599,44 @@ internal sealed class ShammyPet : Grid
             _shine.Visibility = shape == EyeShape.Pill && h >= 9 ? Visibility.Visible : Visibility.Collapsed;
             _pill.Width = w;
             _pill.Height = h;
+            (_shape, _w, _h) = (shape, w, h);
+            Repupil();
             _pill.CornerRadius = shape switch
             {
                 EyeShape.Droopy => new CornerRadius(2, 2, w / 2, w / 2),
                 EyeShape.Lid => new CornerRadius(h / 2),
                 _ => new CornerRadius(Screens.PetLook.Style == Shammy.Core.Notch.PetEyeStyle.Pixel ? 1.5 : w / 2),
             };
+        }
+
+        /// <summary>The cat's pupil: half its width (a slit when small), or 0 for none. Lids and arcs never show one.</summary>
+        public void Pupil(double open)
+        {
+            if (open == _open) return;
+            _open = open;
+            Repupil();
+        }
+
+        /// <summary>Slides the pupil sideways inside the eye (the look leading the eye).</summary>
+        public double PupilShift
+        {
+            set => _pupilShift.X = value;
+        }
+
+        void Repupil()
+        {
+            if (_pupil is not null)
+            {
+                _inside.Children.Remove(_pupil);
+                _pupil = null;
+            }
+            if (_shape is EyeShape.Arc or EyeShape.Lid || CatParts.Pupil(_w, _h, _open) is not { } pupil) return;
+            pupil.RenderTransform = _pupilShift;
+            Canvas.SetLeft(pupil, _w / 2);
+            Canvas.SetTop(pupil, _h / 2 + CatParts.PupilLow);
+            // Under the shine, which stays the brightest thing in the eye.
+            _inside.Children.Insert(0, pupil);
+            _pupil = pupil;
         }
     }
 

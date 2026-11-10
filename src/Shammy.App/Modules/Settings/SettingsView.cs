@@ -493,6 +493,19 @@ internal sealed class SettingsView : Grid
         preview.Opacity = _s.PetEnabled ? 1 : 0.4;
         Row("Pet", PetHint(_s.PetEnabled), petSwitch, out petHint, preview);
 
+        var kinds = new[] { PetKind.Cat, PetKind.Eyes };
+        Border purrRow = null!;
+        var kindRow = Row("Pet style", "A cat is the same eyes with ears, whiskers and a nose. Eyes is the eyes alone.",
+            new Segmented(new[] { "Cat", "Eyes" }, Array.IndexOf(kinds, _s.PetKind), i =>
+            {
+                Set(nameof(AppSettings.PetKind), kinds[i], kinds[i] == PetKind.Cat ? $"{PetLook.Name} is a cat" : "Just the eyes");
+                face.Restyle();
+                Dim(purrRow, kinds[i] == PetKind.Cat && _s.PetEnabled);
+            }));
+        dependents.Add(kindRow);
+        purrRow = SwitchRow("Purr", "A soft purr when your pointer rests on the cat. Follows Notch sounds.", nameof(AppSettings.PetPurrs), "Purr on", "Purr off");
+        dependents.Add(purrRow);
+
         var styles = new[] { PetEyeStyle.Round, PetEyeStyle.Oval, PetEyeStyle.Pixel };
         var styleRow = Row("Eye style", "Shapes the eyes in every mood.",
             new Segmented(new[] { "Round", "Oval", "Pixel" }, Array.IndexOf(styles, _s.PetEyeStyle), i =>
@@ -563,6 +576,7 @@ internal sealed class SettingsView : Grid
         var nameRow = Row("Name", NameHint(_s.PetName), nameControls, out nameHint);
         dependents.Add(nameRow);
         foreach (var d in dependents) Dim(d, _s.PetEnabled);
+        if (_s.PetKind != PetKind.Cat) Dim(purrRow, false);
 
         // Nudges: small reminders from the pet.
         SwitchRow("Eye breaks", "Every 20 minutes, the pet rests its eyes with you for 20 seconds.", nameof(AppSettings.EyeBreaksEnabled), "Eye breaks on", "Eye breaks off");

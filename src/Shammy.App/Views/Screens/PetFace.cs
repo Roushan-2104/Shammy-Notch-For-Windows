@@ -53,6 +53,11 @@ internal sealed class PetFace : Grid
     readonly TranslateTransform _eyesShift = new();
     readonly ScaleTransform _eyesPop = new(1, 1);
     readonly EyePart _left = new(), _right = new();
+    // The cat's parts sit behind the eyes (see CatParts); hidden when the pet style is Eyes.
+    readonly Canvas _cat = new() { Width = W, Height = H, IsHitTestVisible = false };
+    readonly CatParts.Ear _earL = new(false, Brushes.White), _earR = new(true, Brushes.White);
+    readonly CatParts.Whiskers _whiskL = new(false, Brushes.White), _whiskR = new(true, Brushes.White);
+    readonly Path _nose = CatParts.Nose();
     readonly Ellipse _blushL = Blush(), _blushR = Blush();
     readonly Path _smile = Stroke("M1,0 Q1,4 4.5,4 Q8,4 8,0", 2), _flat = Stroke("M0,1 L6,1", 2);
     readonly Ellipse _oMouth = new() { Width = 6, Height = 6, StrokeThickness = 2, Fill = ScreenKit.B("#3A1F28") };
@@ -82,6 +87,8 @@ internal sealed class PetFace : Grid
         _face.RenderTransform = new TransformGroup { Children = { _bodyScale, _bodyTurn, _bodyMove } };
         _eyes.RenderTransformOrigin = new Point(0.5, (EyeY + 7) / H);
         _eyes.RenderTransform = new TransformGroup { Children = { _eyesPop, _eyesShift } };
+        foreach (var part in new UIElement[] { _earL, _earR, _whiskL, _whiskR, _nose }) _cat.Children.Add(part);
+        _face.Children.Add(_cat);
         _face.Children.Add(_eyes);
         _eyes.Children.Add(_left);
         _eyes.Children.Add(_right);
@@ -247,8 +254,11 @@ internal sealed class PetFace : Grid
                 break;
         }
         if (_mood is not FaceMood.Listen) _mouthScale.ScaleX = _mouthScale.ScaleY = 1;
+        _left.Open = _right.Open = tall ? CatLooks.Wide : _mood is FaceMood.Listen ? CatLooks.Alert : CatLooks.Slit;
         _left.Show(eye, tall);
         _right.Show(eye, tall);
+        // Whiskers give way to whatever sits beside the face; the nose to a mouth.
+        PoseCat(nose: mouth is null, whiskers: !hand && _mood is not (FaceMood.Listen or FaceMood.Think));
         var (w, h) = _left.Size;
         Canvas.SetLeft(_left, Mid - 4 - w);
         Canvas.SetLeft(_right, Mid + 4);
@@ -270,6 +280,45 @@ internal sealed class PetFace : Grid
         }
         _blushL.Opacity = _blushR.Opacity = 0.4;
         _hand.Opacity = 1;
+    }
+
+    /// <summary>The cat's ears, whiskers and nose for the mood, against a resting eye's place.</summary>
+    void PoseCat(bool nose, bool whiskers)
+    {
+        bool cat = CatParts.On;
+        _cat.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
+        if (!cat) return;
+        var solid = PetLook.Solid(ColorOverride);
+        _earL.Fill = solid;
+        _earR.Fill = solid;
+        _whiskL.Stroke = solid;
+        _whiskR.Stroke = solid;
+        var (w, h, _) = PetLooks.Eye(StyleOverride ?? PetLook.Style);
+        double top = EyeY - h / 2, leftEye = Mid - 4 - w, rightEye = Mid + 4;
+        Canvas.SetLeft(_earL, leftEye + w / 2 - 5.5);
+        Canvas.SetLeft(_earR, rightEye + w / 2 - 5.5);
+        Canvas.SetTop(_earL, top);
+        Canvas.SetTop(_earR, top);
+        Canvas.SetLeft(_whiskL, leftEye);
+        Canvas.SetLeft(_whiskR, rightEye + w);
+        Canvas.SetTop(_whiskL, EyeY);
+        Canvas.SetTop(_whiskR, EyeY);
+        Canvas.SetLeft(_nose, Mid);
+        Canvas.SetTop(_nose, EyeY + CatParts.NoseDrop);
+        var pose = _mood switch
+        {
+            FaceMood.Sleep => CatLooks.Pose(PetMood.Sleepy),
+            FaceMood.Happy or FaceMood.Wave or FaceMood.Celebrate or FaceMood.Stretch or FaceMood.Wake => CatLooks.Pose(PetMood.Happy),
+            FaceMood.Ring or FaceMood.Peek => CatLooks.Pose(PetMood.Notify),
+            FaceMood.Listen => CatLooks.Pose(PetMood.Listening),
+            _ => CatLooks.Pose(PetMood.Idle),
+        };
+        _earL.Hold(pose.EarTilt, pose.EarHeight, pose.EarDrop);
+        _earR.Hold(pose.EarTilt + pose.EarTurn, pose.EarHeight, pose.EarDrop);
+        _whiskL.Hold(pose.WhiskerLift);
+        _whiskR.Hold(pose.WhiskerLift);
+        _whiskL.Visibility = _whiskR.Visibility = whiskers ? Visibility.Visible : Visibility.Collapsed;
+        _nose.Visibility = nose ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void AddBars()
@@ -637,6 +686,8 @@ internal sealed class PetFace : Grid
         readonly Rectangle _pill = new();
         readonly Rectangle _shine = new() { Width = 3, Height = 3, Fill = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 2, 0, 0) };
         readonly Path _arc = Stroke("", 2.5), _lid = Stroke("", 2.5);
+        // A zero-size canvas in the middle of the eye: the pupil is drawn around its origin.
+        readonly Canvas _pupilAt = new() { Width = 0, Height = 0, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
         PetEyeStyle _style;
         bool _tall;
 
@@ -646,6 +697,7 @@ internal sealed class PetFace : Grid
             RenderTransformOrigin = new Point(0.5, 0.5);
             RenderTransform = Lid;
             Children.Add(_pill);
+            Children.Add(_pupilAt);
             Children.Add(_shine);
             Children.Add(_arc);
             Children.Add(_lid);
@@ -654,6 +706,9 @@ internal sealed class PetFace : Grid
         }
 
         public ScaleTransform Lid { get; }
+
+        /// <summary>The cat's pupil: half its width (a slit by default). Shown only in an open eye.</summary>
+        public double Open { get; set; } = CatLooks.Slit;
 
         public (double W, double H) Size => (Width, Height);
 
@@ -679,6 +734,12 @@ internal sealed class PetFace : Grid
             _pill.Visibility = _shine.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
             _arc.Visibility = kind == EyeKind.Arc ? Visibility.Visible : Visibility.Collapsed;
             _lid.Visibility = kind == EyeKind.Lid ? Visibility.Visible : Visibility.Collapsed;
+            _pupilAt.Children.Clear();
+            if (open && CatParts.Pupil(w, h, Open) is { } pupil)
+            {
+                Canvas.SetTop(pupil, CatParts.PupilLow);
+                _pupilAt.Children.Add(pupil);
+            }
             if (open)
             {
                 Width = w;

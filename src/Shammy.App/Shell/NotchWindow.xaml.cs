@@ -1353,6 +1353,13 @@ public partial class NotchWindow : Window
         return DescribeIdle();
     }
 
+    /// <summary>Makes the cat purr as if the pointer had rested on it (for testing); says how often it has.</summary>
+    internal string PetPurr()
+    {
+        _restView.Pet.Purr();
+        return $"purrs={_restView.Pet.Purrs} kind={Views.Screens.PetLook.Kind} sound={Views.Screens.PetLook.Purrs && Infrastructure.NotchSound.Enabled}";
+    }
+
     /// <summary>Show the peek (or go back to resting) as if the pointer had rested on, or left, the notch.</summary>
     internal string ForcePeek(bool on)
     {

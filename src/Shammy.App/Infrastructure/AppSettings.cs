@@ -139,6 +139,12 @@ internal sealed class AppSettings
 
     public PetEyeColor PetEyeColor { get; set; } = PetEyeColor.White;
 
+    /// <summary>A cat (ears, slit pupils, whiskers and a nose around the eyes) or the plain eyes.</summary>
+    public PetKind PetKind { get; set; } = PetKind.Cat;
+
+    /// <summary>The cat purrs softly when the pointer rests on it (also needs notch sounds on).</summary>
+    public bool PetPurrs { get; set; } = true;
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 
@@ -249,6 +255,7 @@ internal sealed class AppSettings
         if (string.IsNullOrWhiteSpace(MicrophoneDeviceId)) MicrophoneDeviceId = null;
         if (!Enum.IsDefined(PetEyeStyle)) PetEyeStyle = PetEyeStyle.Round;
         if (!Enum.IsDefined(PetEyeColor)) PetEyeColor = PetEyeColor.White;
+        if (!Enum.IsDefined(PetKind)) PetKind = PetKind.Cat;
         PetName = PetLooks.Name(PetName);
         if (!Enum.IsDefined(Motion)) Motion = Shammy.Core.Settings.MotionStyle.Lively;
         if (!Enum.IsDefined(NotchSize)) NotchSize = Shammy.Core.Settings.NotchSize.Normal;

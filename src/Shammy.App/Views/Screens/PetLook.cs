@@ -15,17 +15,29 @@ internal static class PetLook
     public static PetEyeColor Color { get; private set; } = PetEyeColor.White;
     public static string Name { get; private set; } = PetLooks.DefaultName;
 
+    /// <summary>A cat or the plain eyes (see <see cref="Views.CatParts"/>).</summary>
+    public static PetKind Kind { get; private set; } = PetKind.Cat;
+
+    /// <summary>The cat purrs when the pointer rests on it.</summary>
+    public static bool Purrs { get; private set; } = true;
+
     public static event Action? Changed;
 
-    public static void Apply(AppSettings s) => Set(s.PetEyeStyle, s.PetEyeColor, s.PetName);
+    public static void Apply(AppSettings s)
+    {
+        Purrs = s.PetPurrs;
+        Set(s.PetEyeStyle, s.PetEyeColor, s.PetName, s.PetKind);
+    }
 
-    public static void Set(PetEyeStyle style, PetEyeColor color, string name)
+    public static void Set(PetEyeStyle style, PetEyeColor color, string name, PetKind? kind = null)
     {
         name = PetLooks.Name(name);
-        if (style == Style && color == Color && name == Name) return;
+        var k = kind ?? Kind;
+        if (style == Style && color == Color && name == Name && k == Kind) return;
         Style = style;
         Color = color;
         Name = name;
+        Kind = k;
         Changed?.Invoke();
     }
 
