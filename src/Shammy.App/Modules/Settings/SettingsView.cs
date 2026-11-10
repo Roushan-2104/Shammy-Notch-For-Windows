@@ -384,6 +384,7 @@ internal sealed class SettingsView : Grid
         ["ambient"] = ("Weather and pet", "The sky, the ticker and the pet’s moods."),
         ["whatsnew"] = ("What’s new", "A short note after each update."),
         ["calendar"] = ("Calendar", "Your Google Calendar in the notch."),
+        ["captions"] = ("Live captions", "Captions for anything playing, made on this PC."),
         ["clipboard"] = ("Clipboard", "History, screenshots, copy previews."),
         ["connect"] = ("Connect", "Downloads and the links between features."),
         ["cricket"] = ("Cricket scores", "Live scores in the ticker."),

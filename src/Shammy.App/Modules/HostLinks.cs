@@ -15,6 +15,9 @@ internal static class HostLinks
     /// <summary>Whether this PC can run the Hinglish voice (it needs the graphics-card engine).</summary>
     public static Func<bool>? HinglishAvailable { get; set; }
 
+    /// <summary>The offline voice model voice commands use; live captions borrow it between commands.</summary>
+    public static Search.WhisperService? Voice { get; set; }
+
     /// <summary>The running version ("0.4.0").</summary>
     public static Func<string>? Version { get; set; }
 

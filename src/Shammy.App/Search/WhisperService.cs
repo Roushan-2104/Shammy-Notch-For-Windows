@@ -462,6 +462,49 @@ internal sealed class WhisperService : IDisposable
         }
     }
 
+    // ---- Live captions (Modules/Captions) ----------------------------------------------------------
+
+    /// <summary>
+    /// One plain pass over a few seconds of what the PC is playing, for live captions, in the voice mode in use
+    /// (the Hinglish model while it is on). No command prompt, no song or Hindi second pass and no command
+    /// spelling fixes: those are for commands. It never waits for the model: while a voice command (or a model
+    /// swap) holds it this returns null at once, so captions only ever run in the gaps and a command never
+    /// queues behind one. Cancel the token to give the model up mid-pass.
+    /// </summary>
+    public async Task<string?> TranscribeCaptionAsync(float[] samples, CancellationToken ct)
+    {
+        if (_engine is null || !await _gate.WaitAsync(0, ct)) return null;
+        try
+        {
+            if ((_hinglish ?? _engine) is not { } engine) return null;
+            // Whisper is unreliable on clips shorter than a second; pad with silence.
+            if (samples.Length < MicRecorder.SampleRate)
+                Array.Resize(ref samples, MicRecorder.SampleRate + MicRecorder.SampleRate / 4);
+            var text = new StringBuilder();
+            await foreach (var segment in engine.Caption(samples.Length).ProcessAsync(samples, ct)) text.Append(segment.Text);
+            return TranscriptCleaner.RemoveRepeats(Regex.Replace(Noise.Replace(text.ToString(), " "), @"\s+", " ").Trim());
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>Captions were turned off: free what they set up (on the graphics card, their own working memory).</summary>
+    public void ReleaseCaptions()
+    {
+        _gate.Wait();
+        try
+        {
+            _engine?.DropCaption();
+            _hinglish?.DropCaption();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     /// <summary>
     /// The first pass heard a play command, but song names (Hindi ones especially) are what it gets wrong:
     /// "play kesariya" comes out "Play case Rhea". Listen again primed with song names, the user's own first,
@@ -727,8 +770,37 @@ internal sealed class WhisperService : IDisposable
             return cache[context] = builder.Build();
         }
 
+        readonly Dictionary<int, WhisperProcessor> _caption = new();
+
+        /// <summary>
+        /// Live captions get their own processor: no prompt, one try (a fallback pass would make a chunk take
+        /// seconds), and a window sized to a caption chunk. A chunk is at most 8 s, so on a graphics card one
+        /// half-size window covers every chunk and is set up once; on the CPU the window follows the chunk.
+        /// </summary>
+        public WhisperProcessor Caption(int sampleCount)
+        {
+            int context = _gpu >= 0 ? 768 : ClipContext(sampleCount);
+            if (_caption.TryGetValue(context, out var p)) return p;
+            return _caption[context] = _factory.CreateBuilder()
+                .WithLanguage(_primed ? _owner.Language : "en")
+                .WithThreads(_owner._threads)
+                .WithNoContext()
+                .WithSingleSegment()
+                .WithAudioContextSize(context)
+                .WithTemperatureInc(0)
+                .WithMaxTokensPerSegment(96)
+                .Build();
+        }
+
+        public void DropCaption()
+        {
+            foreach (var p in _caption.Values) p.Dispose();
+            _caption.Clear();
+        }
+
         public void Reset()
         {
+            DropCaption();
             foreach (var p in _byContext.Values.Concat(_unprimed.Values).Concat(_hindi.Values)) p.Dispose();
             _byContext.Clear();
             _unprimed.Clear();

@@ -257,6 +257,7 @@ internal sealed class ShammyHost : IDisposable
         // What the designed screens borrow from the host (the tour opens the palette, Settings asks about voice).
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
         Modules.HostLinks.HinglishAvailable = () => _whisper.HinglishAvailable;
+        Modules.HostLinks.Voice = _whisper;
         Modules.HostLinks.Glances = _modules.Glances;
         _notch.ExpandedView.ShelfActions = _modules.ShelfActions;
         _notch.ExpandedView.SearchRequested += _search.OpenTyping;
