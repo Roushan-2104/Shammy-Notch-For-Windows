@@ -397,6 +397,7 @@ internal sealed class SettingsView : Grid
         ["palette"] = ("Palette", "Search apps, files and settings as you type."),
         ["phonesend"] = ("Send to phone", "Files to your phone over Wi-Fi."),
         ["productivity"] = ("Timers, alarms and notes", "Timers, pomodoro, reminders, alarms, notes."),
+        ["prompter"] = ("Teleprompter", "Your script under the camera."),
         ["quick"] = ("Quick actions", "Keep awake, lock, sleep and mute in one place."),
         ["screenshot"] = ("Screenshots", "Saves and offers what you capture."),
         ["selection"] = ("Selection tools", "Convert prices, read QR codes."),
