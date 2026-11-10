@@ -47,6 +47,7 @@ internal static class SettingsCatalog
         ("ShowNotifications", "Notifications", "Show notifications in the notch", 1),
         ("NotificationPopupSeconds", "Notifications", "Show for (s)", 1),
         ("SystemAlertsEnabled", "Notifications", "Battery and Bluetooth alerts", 1),
+        ("LiveCricketEnabled", "Notifications", "Live cricket", 1),
         ("MutedNotificationApps", "Notifications", "Muted apps", 1),
         ("Use24Hour", "Time & units", "Clock", 1),
         ("TemperatureUnit", "Time & units", "Temperature", 1),

@@ -21,8 +21,8 @@ internal sealed class AmbientData
 
 /// <summary>
 /// Weather and customizable tickers: quiet things for the resting notch's glance and the weather card, plus
-/// "pet on/off" for the resting notch's pet (AppSettings.PetEnabled). Each feature owns its timers and only
-/// runs while it has something to do.
+/// "pet on/off" for the resting notch's pet (AppSettings.PetEnabled) and a live India cricket match as a live
+/// activity. Each feature owns its timers and only runs while it has something to do.
 /// </summary>
 internal sealed class AmbientModule : IShammyModule
 {
@@ -30,6 +30,7 @@ internal sealed class AmbientModule : IShammyModule
     AmbientData _data = new();
     WeatherFeature? _weather;
     TickerFeature? _ticker;
+    LiveCricketFeature? _cricket;
 
     public string Name => "ambient";
 
@@ -42,10 +43,13 @@ internal sealed class AmbientModule : IShammyModule
 
         _weather = new WeatherFeature(ctx, _data, Save);
         _ticker = new TickerFeature(ctx, _data, Save);
+        _cricket = new LiveCricketFeature(ctx);
         _weather.Start();
         _ticker.Start();
+        _cricket.Start();
 
-        ctx.AddCommand(new AmbientCommand(_weather, _ticker, ctx));
+        ctx.AddCommand(new AmbientCommand(_weather, _ticker, _cricket, ctx));
+        ctx.AddCommand(new LiveCricketTextCommand(_cricket));
         ctx.AddTrayToggle("Ticker", () => _data.TickerEnabled, on => _ticker.SetEnabled(on));
         // The same setting as "pet on/off" (AppSettings.PetEnabled).
         ctx.AddTrayToggle("Shammy the pet", () => ctx.Settings.PetEnabled, on => ctx.Notch.SetPetEnabled(on));
@@ -64,11 +68,12 @@ internal sealed class AmbientModule : IShammyModule
     {
         _weather?.Dispose();
         _ticker?.Dispose();
+        _cricket?.Dispose();
     }
 }
 
 /// <summary>"weather", "weather in mumbai", "ticker cricket", "pet on"... Parsing lives in Shammy.Core so it is unit tested.</summary>
-internal sealed class AmbientCommand(WeatherFeature weather, TickerFeature ticker, ModuleContext ctx) : ITextCommand, ICommandPreview
+internal sealed class AmbientCommand(WeatherFeature weather, TickerFeature ticker, LiveCricketFeature cricket, ModuleContext ctx) : ITextCommand, ICommandPreview
 {
     public bool CanHandle(string text) =>
         AmbientCommands.ParseWeather(text) is not null || CityWeather.Parse(text) is not null
@@ -84,7 +89,13 @@ internal sealed class AmbientCommand(WeatherFeature weather, TickerFeature ticke
     {
         if (AmbientCommands.ParseWeather(text) is { } query) return await weather.RunCommandAsync(query);
         if (CityWeather.Parse(text) is { } city) return await weather.RunCityAsync(city, text);
-        if (AmbientCommands.ParseTicker(text) is { } cmd) return ticker.Run(cmd);
+        if (AmbientCommands.ParseTicker(text) is { } cmd)
+        {
+            var result = ticker.Run(cmd);
+            // Asking for the cricket ticker is asking to follow cricket: the live match comes with it.
+            if (CricketLive.TurnedOnBy(cmd)) cricket.SetEnabled(true);
+            return result;
+        }
         if (AmbientCommands.ParsePet(text) is { } on)
         {
             // The pet is the resting notch's eyes; off leaves just the rotating glance there.

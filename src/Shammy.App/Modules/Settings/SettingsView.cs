@@ -780,6 +780,7 @@ internal sealed class SettingsView : Grid
         seconds.Changed += v => hint.Text = ShowForHint(v);
         seconds.Committed += v => Set(nameof(AppSettings.NotificationPopupSeconds), v, $"Show for {v} s");
         SwitchRow("Battery and Bluetooth alerts", "Charging, low battery and earbuds connecting.", nameof(AppSettings.SystemAlertsEnabled), "System alerts on", "System alerts off");
+        SwitchRow("Live cricket", "Shows the score while India is playing.", nameof(AppSettings.LiveCricketEnabled), "Live cricket on", "Live cricket off");
 
         Section("Muted apps", "Right-click any notification to mute its app.");
         if (_s.MutedNotificationApps.Count == 0)

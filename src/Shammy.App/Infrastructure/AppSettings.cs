@@ -182,6 +182,14 @@ internal sealed class AppSettings
     /// <summary>The pet asks about water every 90 minutes of active time.</summary>
     public bool WaterRemindersEnabled { get; set; }
 
+    // ---- Live cricket -------------------------------------------------------------------------------
+
+    /// <summary>
+    /// While India plays, the pet shows the score and the Cricket card joins the rail. Off, nothing is fetched
+    /// for it. "ticker cricket" turns it on with the ticker.
+    /// </summary>
+    public bool LiveCricketEnabled { get; set; }
+
     /// <summary>Raised (with the property name) after the settings card or pipe changed a setting.</summary>
     public event Action<string>? Changed;
 
