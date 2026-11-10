@@ -174,6 +174,14 @@ internal sealed class AppSettings
     /// <summary>A ringing alarm shows over fullscreen apps (games, videos, slides); off waits until fullscreen ends.</summary>
     public bool AlarmBreaksFullscreen { get; set; } = true;
 
+    // ---- Nudges (eye breaks, water) -------------------------------------------------------------------
+
+    /// <summary>After every 20 minutes of active screen time the pet closes its eyes with you for 20 seconds.</summary>
+    public bool EyeBreaksEnabled { get; set; } = true;
+
+    /// <summary>The pet asks about water every 90 minutes of active time.</summary>
+    public bool WaterRemindersEnabled { get; set; }
+
     /// <summary>Raised (with the property name) after the settings card or pipe changed a setting.</summary>
     public event Action<string>? Changed;
 

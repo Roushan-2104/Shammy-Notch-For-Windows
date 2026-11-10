@@ -40,6 +40,8 @@ internal static class SettingsCatalog
         ("NotchDisplay", "Notch & pet", "Show on", 1),
         ("LyricLineEnabled", "Notch & pet", "Lyric line", 1),
         ("HiddenApps", "Notch & pet", "Hide while using", 1),
+        ("EyeBreaksEnabled", "Notch & pet", "Eye breaks", 1),
+        ("WaterRemindersEnabled", "Notch & pet", "Water reminders", 1),
         ("MicrophoneDeviceId", "Voice", "Microphone", 1),
         ("VoiceMode", "Voice", "Hinglish voice", 1),
         ("ShowNotifications", "Notifications", "Show notifications in the notch", 1),

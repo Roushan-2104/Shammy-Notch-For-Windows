@@ -392,6 +392,7 @@ internal sealed class SettingsView : Grid
         ["meeting"] = ("Meetings", "Mic and camera pills during calls."),
         ["mirror"] = ("Mirror", "A quick camera check."),
         ["music"] = ("Music", "Now playing, lyrics, play commands."),
+        ["nudges"] = ("Eye breaks and water", "Gentle nudges from the pet."),
         ["palette"] = ("Palette", "Search apps, files and settings as you type."),
         ["phonesend"] = ("Send to phone", "Files to your phone over Wi-Fi."),
         ["productivity"] = ("Timers, alarms and notes", "Timers, pomodoro, reminders, alarms, notes."),
@@ -508,6 +509,10 @@ internal sealed class SettingsView : Grid
         var nameRow = Row("Name", NameHint(_s.PetName), nameControls, out nameHint);
         dependents.Add(nameRow);
         foreach (var d in dependents) Dim(d, _s.PetEnabled);
+
+        // Nudges: small reminders from the pet.
+        SwitchRow("Eye breaks", "Every 20 minutes, the pet rests its eyes with you for 20 seconds.", nameof(AppSettings.EyeBreaksEnabled), "Eye breaks on", "Eye breaks off");
+        SwitchRow("Water reminders", "A gentle reminder to drink water every hour and a half.", nameof(AppSettings.WaterRemindersEnabled), "Water reminders on", "Water reminders off");
 
         LookAndPlace();
         HiddenApps();
