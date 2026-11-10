@@ -173,7 +173,7 @@ public partial class DropView : UserControl
     {
         if (action == _hovered) return;
         _hovered = action;
-        bool motion = SystemParameters.ClientAreaAnimation && IsVisible;
+        bool motion = Infrastructure.MotionPrefs.Lively && IsVisible;
         foreach (var t in _targets)
         {
             bool hot = t.Action == action;

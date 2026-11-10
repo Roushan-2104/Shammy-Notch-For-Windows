@@ -34,7 +34,12 @@ internal static class CardKit
 
     /// <summary>The notch ground, a tile's surface, the hairline, the two text colours and the accent.</summary>
     public static readonly Brush Ground = Hex("#0B0B0D"), Surface = Hex("#16161A"), Hairline = Hex("#26282E"),
-        Ink = Hex("#F5F5F7"), Ink2 = Hex("#A3A3AB"), Accent = Hex("#FF8A3D"), AccentHover = Hex("#FFA466"), OnAccent = Hex("#0B0B0D");
+        Ink = Hex("#F5F5F7"), Ink2 = Hex("#A3A3AB"), OnAccent = Hex("#0B0B0D");
+
+    /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>
+    public static Brush Accent => Theme.AccentTheme.Brush;
+
+    public static Brush AccentHover => Theme.AccentTheme.Hover;
 
     /// <summary>Meaning colours (never decoration): red for recording, muted, alarms and anything wrong.</summary>
     public static readonly Brush Alarm = Hex("#FF453A");

@@ -508,6 +508,138 @@ internal sealed class SettingsView : Grid
         var nameRow = Row("Name", NameHint(_s.PetName), nameControls, out nameHint);
         dependents.Add(nameRow);
         foreach (var d in dependents) Dim(d, _s.PetEnabled);
+
+        LookAndPlace();
+        HiddenApps();
+    }
+
+    /// <summary>Motion, size, accent colour, which screen, and the lyric line.</summary>
+    void LookAndPlace()
+    {
+        Section("Look", "");
+        var motions = new[] { MotionStyle.Lively, MotionStyle.Calm };
+        Row("Motion", "Calm stops the bounce, the spinning record and the pet’s little extras.",
+            new Segmented(new[] { "Lively", "Calm" }, Array.IndexOf(motions, _s.Motion), i =>
+                Set(nameof(AppSettings.Motion), motions[i], $"Motion · {motions[i]}")));
+
+        var sizes = new[] { NotchSize.Small, NotchSize.Normal, NotchSize.Large };
+        Row("Notch size", "Makes everything in the notch larger or smaller.",
+            new Segmented(new[] { "Small", "Normal", "Large" }, Array.IndexOf(sizes, _s.NotchSize), i =>
+                Set(nameof(AppSettings.NotchSize), sizes[i], $"Notch size · {sizes[i]}")));
+
+        TextBlock accentHint = null!;
+        var swatches = new StackPanel { Orientation = Orientation.Horizontal };
+        foreach (var colour in Enum.GetValues<AccentColor>())
+        {
+            var dot = new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(10), Background = ScreenKit.B(NotchLook.Colours(colour).Accent) };
+            var ring = new Border
+            {
+                Width = 30,
+                Height = 30,
+                CornerRadius = new CornerRadius(15),
+                BorderThickness = new Thickness(2),
+                BorderBrush = colour == _s.Accent ? ScreenKit.Fg : Brushes.Transparent,
+                Child = dot,
+            };
+            var swatch = new Pressable(Brushes.Transparent, Brushes.Transparent) { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Child = ring, ToolTip = $"Accent colour {colour}", Margin = new Thickness(swatches.Children.Count > 0 ? 4 : 0, 0, 0, 0) };
+            System.Windows.Automation.AutomationProperties.SetName(swatch, $"Accent colour {colour}");
+            swatch.Click += () =>
+            {
+                foreach (Pressable p in swatches.Children) ((Border)p.Child).BorderBrush = Brushes.Transparent;
+                ring.BorderBrush = ScreenKit.Fg;
+                accentHint.Text = $"{colour} · buttons and highlights";
+                Set(nameof(AppSettings.Accent), colour, $"Accent · {colour}");
+            };
+            swatches.Children.Add(swatch);
+        }
+        Row("Accent colour", $"{_s.Accent} · buttons and highlights", swatches, out accentHint);
+
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        var names = screens.Select(s => s.DeviceName).ToList();
+        var primary = screens.FirstOrDefault(s => s.Primary)?.DeviceName ?? names.FirstOrDefault() ?? "";
+        var options = NotchDisplay.Options(names, primary);
+        if (options.Count < 2)
+            Row("Show on", "Only one screen is connected. With a second one you can choose where the notch lives.", null);
+        else
+        {
+            int chosen = Math.Max(0, options.ToList().FindIndex(o => o.Value.Equals(_s.NotchDisplay, StringComparison.OrdinalIgnoreCase)));
+            Row("Show on", "Which screen the notch lives on.",
+                new Segmented(options.Select(o => o.Label).ToList(), chosen, i =>
+                    Set(nameof(AppSettings.NotchDisplay), options[i].Value, $"Showing on · {options[i].Label}"), minWidth: 54));
+        }
+
+        SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off");
+    }
+
+    /// <summary>The apps the notch stays away from, with one to add from what is running now.</summary>
+    void HiddenApps()
+    {
+        Section("Hide while using", "The notch stays away while these apps are in front.");
+        foreach (var app in _s.HiddenApps.ToList())
+        {
+            var initial = new Border
+            {
+                Width = 26,
+                Height = 26,
+                CornerRadius = new CornerRadius(7),
+                Background = ScreenKit.Hairline,
+                Child = ScreenKit.Text(app[..1].ToUpperInvariant(), 12, Weight.Bold),
+            };
+            ((TextBlock)initial.Child).HorizontalAlignment = HorizontalAlignment.Center;
+            var remove = ScreenKit.Secondary("Remove", () =>
+            {
+                Set(nameof(AppSettings.HiddenApps), _s.HiddenApps.Where(a => a != app).ToList(), $"The notch shows in {app} again");
+                BuildPanel(keepScroll: true);
+            });
+            remove.ToolTip = $"Stop hiding in {app}";
+            Row(app, "The notch hides while this is in front", remove, initial);
+        }
+
+        var running = RunningApps().Where(a => !_s.HiddenApps.Contains(a)).ToList();
+        if (running.Count == 0)
+        {
+            Row("Add an app", "Open the app first, then come back here to pick it.", null);
+            return;
+        }
+        var labels = new List<string> { "Choose an app" };
+        labels.AddRange(running);
+        Row("Add an app", "Pick from the apps that are open now.", Dropdown(labels, 0, 170, i =>
+        {
+            if (i == 0) return;
+            var app = running[i - 1];
+            Set(nameof(AppSettings.HiddenApps), _s.HiddenApps.Append(app).ToList(), $"The notch hides in {app}");
+            BuildPanel(keepScroll: true);
+        }));
+    }
+
+    /// <summary>Apps with a window open right now, by plain name (never Shammy itself).</summary>
+    static List<string> RunningApps()
+    {
+        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var p in System.Diagnostics.Process.GetProcesses())
+            {
+                using (p)
+                {
+                    try
+                    {
+                        if (p.MainWindowHandle == IntPtr.Zero || string.IsNullOrWhiteSpace(p.MainWindowTitle)) continue;
+                        var key = HideRules.Key(p.ProcessName);
+                        if (key.Length > 0 && key != "shammy" && key != "explorer" && key != "textinputhost" && key != "applicationframehost") names.Add(key);
+                    }
+                    catch (Exception)
+                    {
+                        // A protected process: skip it.
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Listing running apps failed", ex);
+        }
+        return names.ToList();
     }
 
     static void Calm(PetFace face)

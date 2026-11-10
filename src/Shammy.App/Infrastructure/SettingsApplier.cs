@@ -26,5 +26,7 @@ internal static class SettingsApplier
         NotchSound.Volume = s.NotchSoundVolume;
         MicRecorder.PreferredDevice = s.MicrophoneDeviceId;
         PetLook.Apply(s);
+        MotionPrefs.Calm = s.Motion == Shammy.Core.Settings.MotionStyle.Calm;
+        Theme.AccentTheme.Apply(s.Accent);
     }
 }

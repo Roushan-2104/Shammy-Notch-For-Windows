@@ -33,7 +33,7 @@ public partial class ExpandedView
     RailSlot? _pressedSlot;
     Point _pressedAt;
 
-    static bool ReducedMotion => !SystemParameters.ClientAreaAnimation;
+    static bool ReducedMotion => !Infrastructure.MotionPrefs.Lively;
 
     /// <summary>Every card that can be on the rail, including the built-in now-playing tile while no module provides music.</summary>
     IEnumerable<NotchCard> RailCandidates =>

@@ -145,6 +145,23 @@ internal sealed class AppSettings
     /// <summary>The first-run welcome tour has been shown (finished, skipped or left); the tray can replay it.</summary>
     public bool TourSeen { get; set; }
 
+    // ---- Look and place (Settings → Notch & pet) ----------------------------------------------------
+
+    /// <summary>Lively plays the bounce, the spinning record and the pet's extras; Calm holds still.</summary>
+    public Shammy.Core.Settings.MotionStyle Motion { get; set; }
+
+    /// <summary>Scales everything in the notch.</summary>
+    public Shammy.Core.Settings.NotchSize NotchSize { get; set; } = Shammy.Core.Settings.NotchSize.Normal;
+
+    /// <summary>The primary control and focus colour.</summary>
+    public Shammy.Core.Settings.AccentColor Accent { get; set; }
+
+    /// <summary>"main", "pointer" (the screen the pointer is on), or a screen's device name.</summary>
+    public string NotchDisplay { get; set; } = Shammy.Core.Settings.NotchDisplay.Main;
+
+    /// <summary>Apps (by plain name, "photoshop") the notch stays away from while they are in front.</summary>
+    public List<string> HiddenApps { get; set; } = new();
+
     /// <summary>The lyric being sung shows under the record while music plays (songs with synced lyrics only).</summary>
     public bool LyricLineEnabled { get; set; } = true;
 
@@ -197,6 +214,11 @@ internal sealed class AppSettings
         if (!Enum.IsDefined(PetEyeStyle)) PetEyeStyle = PetEyeStyle.Round;
         if (!Enum.IsDefined(PetEyeColor)) PetEyeColor = PetEyeColor.White;
         PetName = PetLooks.Name(PetName);
+        if (!Enum.IsDefined(Motion)) Motion = Shammy.Core.Settings.MotionStyle.Lively;
+        if (!Enum.IsDefined(NotchSize)) NotchSize = Shammy.Core.Settings.NotchSize.Normal;
+        if (!Enum.IsDefined(Accent)) Accent = Shammy.Core.Settings.AccentColor.Orange;
+        NotchDisplay = Shammy.Core.Settings.NotchDisplay.Normalize(NotchDisplay);
+        HiddenApps = Shammy.Core.Settings.HideRules.Clean(HiddenApps);
     }
 
     [JsonIgnore]

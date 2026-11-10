@@ -30,6 +30,35 @@ internal sealed class FullscreenWatcher : IDisposable
 
     public event Action<bool>? Changed;
 
+    /// <summary>The screen the notch is on; the main one when not set.</summary>
+    public Func<IntPtr>? NotchMonitor { get; set; }
+
+    /// <summary>The apps the notch stays away from (Settings → Hide while using).</summary>
+    public Func<IReadOnlyList<string>>? HiddenApps { get; set; }
+
+    readonly Dictionary<uint, string> _names = new();
+
+    /// <summary>The app in front is one the user asked the notch to hide for.</summary>
+    bool HiddenAppInFront(uint pid)
+    {
+        if (HiddenApps?.Invoke() is not { Count: > 0 } apps) return false;
+        if (!_names.TryGetValue(pid, out var name))
+        {
+            try
+            {
+                using var p = Process.GetProcessById((int)pid);
+                name = p.ProcessName;
+            }
+            catch (Exception)
+            {
+                name = "";
+            }
+            if (_names.Count > 200) _names.Clear();
+            _names[pid] = name;
+        }
+        return Shammy.Core.Settings.HideRules.Hides(name, apps);
+    }
+
     /// <summary>Raised on every foreground change, so the notch can re-assert topmost.</summary>
     public event Action? ForegroundChanged;
 
@@ -55,8 +84,9 @@ internal sealed class FullscreenWatcher : IDisposable
         // Windows hands focus to one of Shammy's background windows the fullscreen app is gone).
         if (pid == _pid) return false;
         if (ShellClasses.Contains(Native.ClassName(fg))) return false;
+        if (HiddenAppInFront(pid)) return true;
 
-        var primary = Native.PrimaryMonitor();
+        var primary = NotchMonitor?.Invoke() is { } m0 && m0 != IntPtr.Zero ? m0 : Native.PrimaryMonitor();
         if (Native.MonitorFromWindow(fg, Native.MONITOR_DEFAULTTONEAREST) != primary) return false;
         // A normal maximized window (title bar and all) overhangs the monitor by its resize border, so
         // with an auto-hidden taskbar it "covers" the screen. That's not fullscreen; games, videos and

@@ -286,7 +286,7 @@ public partial class NotchWindow : Window
         _hwnd = new WindowInteropHelper(this).Handle;
         Native.SetExStyle(_hwnd, Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE);
         HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
-        Reposition();
+        ApplyScale();
         // The primary monitor's scale changed (or the window moved to a monitor with another): WPF rescales
         // the window, and the centre has to be worked out again at the new size.
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(Reposition, DispatcherPriority.Background);
@@ -316,18 +316,90 @@ public partial class NotchWindow : Window
     /// </summary>
     public void Reposition()
     {
+        UpdatePointerFollow();
         if (_hwnd != IntPtr.Zero && PlaceInPixels()) return;
         var area = SystemParameters.WorkArea;
         if (_services.Settings.PinToScreenEdge)
         {
-            Left = (SystemParameters.PrimaryScreenWidth - WindowWidth) / 2;
+            Left = (SystemParameters.PrimaryScreenWidth - WindowWidth * _scale) / 2;
             Top = 0;
         }
         else
         {
-            Left = area.Left + (area.Width - WindowWidth) / 2;
+            Left = area.Left + (area.Width - WindowWidth * _scale) / 2;
             Top = area.Top;
         }
+    }
+
+    // ---- Size and screen (Settings → Notch & pet) --------------------------------------------------
+
+    double _scale = 1;
+    IntPtr _monitor;
+    DispatcherTimer? _pointerFollow;
+
+    /// <summary>The screen the notch is on (the fullscreen check looks at this one).</summary>
+    public IntPtr Monitor => _monitor != IntPtr.Zero ? _monitor : Native.PrimaryMonitor();
+
+    /// <summary>Motion changed (Lively or Calm): the pet is redrawn so its record and extras start or stop at once.</summary>
+    public void MotionChanged()
+    {
+        _activityView.Pet.Reset();
+        RefreshPet();
+    }
+
+    /// <summary>Scales everything in the notch (Settings → Notch size) and re-centres it.</summary>
+    public void ApplyScale()
+    {
+        double scale = Shammy.Core.Settings.NotchLook.Scale(_services.Settings.NotchSize);
+        if (Math.Abs(scale - _scale) < 0.001 && Root.LayoutTransform is ScaleTransform) return;
+        _scale = scale;
+        Root.LayoutTransform = new ScaleTransform(scale, scale);
+        Width = WindowWidth * scale;
+        Height = Math.Max(Height, (_spec.H + ShadowPad) * scale);
+        Reposition();
+        ApplyVisuals(force: true);
+    }
+
+    /// <summary>The screen chosen in Settings: the main one, the one under the pointer, or a named one.</summary>
+    IntPtr TargetMonitor()
+    {
+        var primary = Native.PrimaryMonitor();
+        var setting = Shammy.Core.Settings.NotchDisplay.Normalize(_services.Settings.NotchDisplay);
+        if (setting == Shammy.Core.Settings.NotchDisplay.Main) return primary;
+        try
+        {
+            var screens = System.Windows.Forms.Screen.AllScreens;
+            var names = screens.Select(s => s.DeviceName).ToList();
+            var main = screens.FirstOrDefault(s => s.Primary)?.DeviceName ?? names.FirstOrDefault() ?? "";
+            string? under = Native.GetCursorPos(out var p) ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(p.X, p.Y)).DeviceName : null;
+            var pick = Shammy.Core.Settings.NotchDisplay.Pick(setting, names, main, under);
+            var screen = screens.FirstOrDefault(s => s.DeviceName == pick);
+            if (screen is null || screen.Primary) return primary;
+            var b = screen.Bounds;
+            return Native.MonitorFromPoint(new Native.POINT(b.Left + b.Width / 2, b.Top + b.Height / 2), Native.MONITOR_DEFAULTTOPRIMARY);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Finding the notch's screen failed", ex);
+            return primary;
+        }
+    }
+
+    /// <summary>"Follow pointer": once a second, move to the pointer's screen while the notch is at rest.</summary>
+    void UpdatePointerFollow()
+    {
+        bool follow = Shammy.Core.Settings.NotchDisplay.Normalize(_services.Settings.NotchDisplay) == Shammy.Core.Settings.NotchDisplay.Pointer;
+        if (!follow)
+        {
+            _pointerFollow?.Stop();
+            return;
+        }
+        _pointerFollow ??= new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
+        {
+            if (_mode is not (NotchMode.Idle or NotchMode.Compact or NotchMode.Hidden) || _hwnd == IntPtr.Zero) return;
+            if (TargetMonitor() != _monitor) PlaceInPixels();
+        }, Dispatcher);
+        _pointerFollow.Start();
     }
 
     /// <summary>
@@ -338,11 +410,12 @@ public partial class NotchWindow : Window
     /// </summary>
     bool PlaceInPixels()
     {
-        var monitor = Native.PrimaryMonitor();
+        var monitor = TargetMonitor();
         if (Native.GetDpiForMonitor(monitor, 0, out uint dpi, out _) != 0 || dpi == 0) return false;
+        _monitor = monitor;
         var info = Native.MonitorInfo(monitor);
         var r = _services.Settings.PinToScreenEdge ? info.rcMonitor : info.rcWork;
-        int width = (int)Math.Round(WindowWidth * dpi / 96.0);
+        int width = (int)Math.Round(WindowWidth * _scale * dpi / 96.0);
         int x = r.Left + (r.Right - r.Left - width) / 2;
         return Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, x, r.Top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
     }
@@ -782,6 +855,8 @@ public partial class NotchWindow : Window
             double response = grow ? 0.5 : 0.4;
             double damping = grow ? 0.72 : 0.9;
             if (mode == NotchMode.Hidden) (response, damping) = (0.32, 1);
+            // Calm: the notch still moves to its new size, but never overshoots.
+            if (!MotionPrefs.Lively) damping = 1;
             _w.AnimateTo(spec.W, response, damping);
             _h.AnimateTo(spec.H, response, damping);
             _r.AnimateTo(spec.R, response, Math.Min(1, damping + 0.08));
@@ -820,7 +895,7 @@ public partial class NotchWindow : Window
             Canvas.SetLeft(layer.El, Cx - layer.El.Width / 2);
             double delay = grow ? 0.06 : 0.03;
             layer.Opacity.AnimateTo(1, 0.3, 1, delay);
-            layer.Size.AnimateTo(1, 0.5, 0.78, delay);
+            layer.Size.AnimateTo(1, 0.5, MotionPrefs.Lively ? 0.78 : 1, delay);
         }
         else if (layer.Active || layer.Opacity.Target > 0)
         {
@@ -1007,14 +1082,14 @@ public partial class NotchWindow : Window
 
         if (_w.IsSettled && _h.IsSettled && _shadow.IsSettled)
         {
-            double want = _spec.H + ShadowPad;
+            double want = (_spec.H + ShadowPad) * _scale;
             if (Math.Abs(Height - want) > 0.5) Height = want;
         }
     }
 
     void EnsureWindowHeight(double contentHeight)
     {
-        double want = contentHeight + ShadowPad;
+        double want = (contentHeight + ShadowPad) * _scale;
         if (want > Height) Height = want;
     }
 

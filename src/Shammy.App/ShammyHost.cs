@@ -294,9 +294,12 @@ internal sealed class ShammyHost : IDisposable
         Safe("fullscreen", () =>
         {
             var fs = Own(new FullscreenWatcher(_ui));
+            fs.NotchMonitor = () => _notch.Monitor;
+            fs.HiddenApps = () => _settings.HiddenApps;
             fs.Changed += full => _notch.SetFullscreen(full);
             fs.ForegroundChanged += _notch.BringToFront;
             fs.Check();
+            _recheckFullscreen = fs.Check;
         });
 
         SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
@@ -382,6 +385,8 @@ internal sealed class ShammyHost : IDisposable
         }
     }
 
+    Action? _recheckFullscreen;
+
     void ApplySettingChange(string name)
     {
         switch (name)
@@ -394,6 +399,19 @@ internal sealed class ShammyHost : IDisposable
             case nameof(AppSettings.ShowNotifications):
                 if (_settings.ShowNotifications) _ = StartNotificationsAsync();
                 else _activities.Remove("notification");
+                break;
+            case nameof(AppSettings.NotchSize):
+                _notch.ApplyScale();
+                break;
+            case nameof(AppSettings.Motion):
+                _notch.MotionChanged();
+                break;
+            case nameof(AppSettings.NotchDisplay):
+                _notch.Reposition();
+                _recheckFullscreen?.Invoke();
+                break;
+            case nameof(AppSettings.HiddenApps):
+                _recheckFullscreen?.Invoke();
                 break;
         }
     }

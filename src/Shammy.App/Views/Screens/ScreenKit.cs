@@ -33,11 +33,16 @@ internal static class ScreenKit
 
     public static readonly SolidColorBrush Ground = B("#0B0B0D"), Tile = B("#16161A"), TileHover = B("#1E1E24"),
         Hairline = B("#26282E"), HairlineHover = B("#3A3C44"), HairlineStrong = B("#4A4C55"), Fg = B("#F5F5F7"),
-        Fg2 = B("#A3A3AB"), Accent = B("#FF8A3D"), AccentHover = B("#FF9D5C"), OnAccent = B("#0B0B0D"),
+        Fg2 = B("#A3A3AB"), OnAccent = B("#0B0B0D"),
         Blush = B("#FF6B8A");
 
     /// <summary>Animations snap when Windows' "Animation effects" are off.</summary>
-    public static bool ReducedMotion => !SystemParameters.ClientAreaAnimation;
+    /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>
+    public static SolidColorBrush Accent => Theme.AccentTheme.Brush;
+
+    public static SolidColorBrush AccentHover => Theme.AccentTheme.Hover;
+
+    public static bool ReducedMotion => !Infrastructure.MotionPrefs.Lively;
 
     // ---- Type ------------------------------------------------------------------------------------
 
