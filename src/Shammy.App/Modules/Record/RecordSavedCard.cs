@@ -14,12 +14,12 @@ namespace Shammy.Modules.Record;
 
 /// <summary>
 /// The card a finished recording gets, the video's twin of the screenshot card: a preview (click to play), the file
-/// name, its length and size, and Open / Show in folder / Send to phone / Add to shelf / Delete. Open is the one
+/// name, its length and size, and Open / Show in folder / Delete, then Send to phone / Add to shelf. Open is the one
 /// accent pill.
 /// </summary>
 internal sealed class RecordSavedCard : Grid
 {
-    public const double CardWidth = 460, CardHeight = 190;
+    public const double CardWidth = 460, CardHeight = 168;
     const double BoxWidth = 160, BoxHeight = 90;
 
     internal sealed record Actions(Func<bool> Open, Func<bool> ShowInFolder, Func<bool>? SendToPhone, Func<bool> AddToShelf, Func<bool> Delete, Action Close);
@@ -78,13 +78,18 @@ internal sealed class RecordSavedCard : Grid
         facts.Margin = new Thickness(0, 2, 0, 10);
         details.Children.Add(facts);
 
-        var buttons = new WrapPanel();
-        details.Children.Add(buttons);
-        Add(buttons, "", "Open", null, null, actions.Open, primary: true);
-        Add(buttons, "", "Show in folder", null, null, actions.ShowInFolder);
-        if (actions.SendToPhone is { } phone) Add(buttons, "", "Send to phone", null, null, phone);
-        Add(buttons, "", "Add to shelf", "", "On the shelf", actions.AddToShelf);
-        Add(buttons, "", "Delete", null, null, actions.Delete);
+        // Two even rows: what you do with the file, then where else it can go. Delete is the small bin beside them.
+        var first = new WrapPanel();
+        var second = new WrapPanel();
+        details.Children.Add(first);
+        details.Children.Add(second);
+        Add(first, "", "Open", null, null, actions.Open, primary: true);
+        Add(first, "", "Show in folder", null, null, actions.ShowInFolder);
+        var bin = WallParts.Icon("", "Delete", () => actions.Delete(), 26, 11);
+        bin.Margin = new Thickness(0, 0, 4, 4);
+        first.Children.Add(bin);
+        if (actions.SendToPhone is { } phone) Add(second, "", "Send to phone", null, null, phone);
+        Add(second, "", "Add to shelf", "", "On the shelf", actions.AddToShelf);
 
         var close = WallParts.Icon("", "Close", actions.Close, 24, 10);
         close.HorizontalAlignment = HorizontalAlignment.Right;
