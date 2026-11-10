@@ -23,7 +23,7 @@
 
 Shammy turns the top-centre of your screen into a living notch, like the iPhone's Dynamic Island, made for Windows.
 
-It answers questions with Google AI Mode, Web or Lens right inside the notch, lets you circle anything on screen to search it, and keeps your music, timers, calls, downloads and notifications in view. Shammy, a little pair of eyes, lives in the notch and changes to match whatever is going on, with a small action button beside the notch when there's something to press. Rest the pointer on it for a peek; click (or keep resting) and it opens into a rail of cards.
+It answers questions with Google AI Mode, Web or Lens right inside the notch, lets you circle anything on screen to search it, and keeps your music, timers, calls, downloads and notifications in view. Shammy, a little cat (a pair of eyes with ears and whiskers), lives in the notch and changes to match whatever is going on, with a small action button beside the notch when there's something to press. Rest the pointer on it for a peek; click (or keep resting) and it opens into a rail of cards.
 
 It runs on your PC with **no paid AI**:
 - Google does the answering.
@@ -52,7 +52,7 @@ Everything else is a **hover** away.
 <td width="50%" valign="top">
 
 ### ☕ It starts quiet
-At rest the notch shows **Shammy the pet**, two little eyes that react to what's going on (music, a ping, a meeting about to start, a low battery, late nights), and a **glance** beside it that rotates every few seconds: the time and date, your next meeting, the weather, the song, a running timer, a low battery, your ticker. Say *"pet off"* to keep just the glance. Rest the pointer on the notch and it **peeks**: the song (or the time) and the one thing that matters most, like *Join* for a meeting. A thin colour edge flashes briefly when something happens:
+At rest the notch shows **Shammy the pet**, a small cat looking out of the dark: two eyes with ears, whiskers and a pink nose. It reacts to what's going on (music, a ping, a meeting about to start, a low battery, late nights), flicks an ear now and then, follows your pointer with its pupils and purrs when the pointer rests on it. Beside it sits a **glance** that rotates every few seconds: the time and date, your next meeting, the weather, the song, a running timer, a low battery, your ticker. Say *"pet off"* to keep just the glance. Rest the pointer on the notch and it **peeks**: the song (or the time) and the one thing that matters most, like *Join* for a meeting. A thin colour edge flashes briefly when something happens:
 - the album colour for a new song;
 - your accent colour for a notification or timer;
 - green for charging;
@@ -119,7 +119,10 @@ Press <kbd>Copilot</kbd> and the screen freezes. Circle a photo, a word or a par
 Other apps' notifications open right in the notch with a soft ping instead of Windows' chime, so you can read the message without touching anything:
 - **hover** to keep one on screen;
 - **click** to open the app;
-- **right-click** to mute that app.
+- **right-click** to mute that app;
+- **swipe** it sideways to send it away.
+
+When more arrive they pile up underneath, and sending the top one away brings the next one up.
 
 While you share your whole screen or record it, Shammy shows who a notification is from, but not what it says, and a message already on screen hides its text the moment sharing starts. Sharing just a tab or a window hides nothing, because the notch isn't in the picture, and neither does an ordinary call. Muted apps stay out of the Alerts list too.
 
@@ -132,14 +135,16 @@ While you share your whole screen or record it, Shammy shows who a notification 
 ### ⏱️ Live activities
 Shammy stays in the middle of the notch and dresses for the occasion, with the details on either side:
 - **a call:** a headset, the time on the call, and a mic button;
-- **music:** happy eyes, the song, and play/pause;
+- **music:** the song's cover as a spinning record, the line being sung under it, and play/pause;
 - **a timer:** a little stopwatch, the time left, and pause;
-- **recording your screen,** a **download,** **charging** or your **earbuds' battery**.
+- **Claude Code:** how long it has been working, a nudge when it needs you, and "Done";
+- **sharing or recording your screen,** a **download,** **charging** or your **earbuds' battery**;
+- **an eye break:** every 20 minutes it closes its eyes with you for 20 seconds.
 
 When there's something to press, a small **action circle** sits beside the notch, so you don't have to open anything. Pomodoro and focus sessions, volume and brightness, Bluetooth and updates live here too.
 
 </td>
-<td><img src="docs/images/pet-call.png" alt="Shammy on a call"><br><img src="docs/images/pet-music.png" alt="Shammy with music playing"><br><img src="docs/images/pet-timer.png" alt="Shammy with a timer"><br><img src="docs/images/pet-rec.png" alt="Shammy while recording"><br><img src="docs/images/pet-download.png" alt="Shammy with a download"><br><img src="docs/images/pet-charging.png" alt="Shammy while charging"><br><img src="docs/images/pet-earbuds.png" alt="Shammy showing earbud battery"></td>
+<td><img src="docs/images/pet-call.png" alt="Shammy on a call"><br><img src="docs/images/pet-music.png" alt="Shammy with music playing"><br><img src="docs/images/pet-timer.png" alt="Shammy with a timer"><br><img src="docs/images/pet-rec.png" alt="Shammy while recording"><br><img src="docs/images/pet-download.png" alt="Shammy with a download"><br><img src="docs/images/pet-charging.png" alt="Shammy while charging"><br><img src="docs/images/pet-earbuds.png" alt="Shammy showing earbud battery"><br><img src="docs/images/pet-claude.png" alt="Shammy while Claude Code works"><br><img src="docs/images/pet-eyebreak.png" alt="Shammy taking an eye break"></td>
 </tr>
 <tr>
 <td valign="top">
@@ -157,6 +162,17 @@ Click a tile or a label and it opens in place into a bigger view: synced lyrics,
 <tr>
 <td valign="top">
 
+### 🎥 Record, caption, approve
+- **Record the screen:** say *"record my screen"* and pick the whole screen or one window. It saves an MP4 in Videos › Shammy, with PC sound on and the microphone off unless you change them, and the notch keeps itself out of the video.
+- **Live captions:** say *"live captions"* and whatever your PC is playing is written in a strip under the notch, made offline by the same voice model.
+- **Claude Code:** connect it once in Settings. Each session then shows in the notch, and when one needs your OK, **Allow** and **Deny** drop down so you can answer without switching windows.
+
+</td>
+<td><img src="docs/images/record-start.png" alt="The card that starts a screen recording"><br><img src="docs/images/captions.png" alt="Live captions under the notch"><br><img src="docs/images/claude-ask.png" alt="Claude Code asking to run a command, with Deny and Allow"></td>
+</tr>
+<tr>
+<td valign="top">
+
 ### ⏰ Real alarms
 Say *"wake me up at 6:30 every weekday"*, or add one yourself in the Alarms view. Pick the days, label it, and set how long a snooze lasts. An alarm rings until you stop or snooze it, swells up gently from quiet, and shows over fullscreen apps. You can turn off either of those last two.
 
@@ -167,7 +183,7 @@ Say *"wake me up at 6:30 every weekday"*, or add one yourself in the Alarms view
 <td valign="top">
 
 ### 🎛️ Make it yours
-**Settings** opens right in the notch and saves as you go, in seven sections: General, Notch & pet, Voice, Notifications, Time & units, Clipboard & privacy, and Calendar. Choose Shammy's eye style and colour, how quickly the notch opens, your microphone, 12 or 24-hour time, and which features run at all.
+**Settings** opens right in the notch and saves as you go, in seven sections: General, Notch & pet, Voice, Notifications, Time & units, Clipboard & privacy, and Calendar. Choose a cat or just the eyes, the eye style and colour, the notch's size and accent colour, which screen it lives on, apps it should stay away in, lively or calm motion, how quickly the notch opens, your microphone, 12 or 24-hour time, and which features run at all.
 
 New here? A **welcome tour** takes about thirty seconds, and that's where you can give the pet its own name. Say or type *"help"* to see it again.
 
@@ -212,6 +228,12 @@ Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the 
 - 🖥️ **System:**
   - a CPU, memory and battery card, with your Bluetooth headsets' battery;
   - alerts when an app hogs the CPU or the battery drains fast, and when your earbuds run low.
+- 🎚️ **Volume mixer:** a slider for each app that is making sound.
+- ⚡ **Quick actions:** keep awake, lock, sleep, mute and more in one card.
+- 📜 **Teleprompter:** your script scrolls right under the camera, and stays out of screen shares and recordings.
+- 👀 **Nudges:** an eye break every 20 minutes, and water reminders if you turn them on.
+- 🏏 **Live cricket:** the score in the notch while India is playing.
+- 🗣️ **Online voice (optional):** with your own Gnani key, Shammy says timers, alarms and reminders aloud and can transcribe Hinglish online. Off until you add a key.
 - 🤫 **Quiet mode:** the notch keeps itself quiet during a calendar meeting and a focus session.
 - 🙈 **Fullscreen:** Shammy hides itself for fullscreen games, videos and presentations, and never covers a top taskbar. Only a finished timer or a due alarm or reminder shows over them, without taking focus.
 
@@ -254,6 +276,9 @@ Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the 
 | `open spotify` · `open vs code` · `open google crome` · `open github.com` · `open downloads` | App, site or folder launcher (nicknames and one typo per word are fine) |
 | `snippet ;sig Best, Roushan` · `snippets` | Text expansion in any app |
 | `weather` · `weather in mumbai tomorrow` · `pune ka mausam` · `ticker cricket` · `ticker stocks RELIANCE.NS` · `pet on` | Weather card · ticker glance · Shammy's eyes on or off |
+| `record my screen` · `stop recording` | The recording card · stops and saves the MP4 |
+| `live captions` · `captions off` | Captions for whatever the PC is playing |
+| `volume mixer` · `quick actions` · `teleprompter` · `teleprompter from clipboard` | The mixer · the quick actions card · your script under the camera |
 | `help` · `tour` | The welcome tour |
 | `volume 50` · `brightness to 70%` · `volume up` · `mute` | Sets the level directly |
 | `mute mic` · `cpu` · `clipboard` · `clear clipboard` · `send to phone` · `take a screenshot` | Mic toggle · System card · Clipboard card · Clears it (with Undo) · QR transfer · Screenshot |
@@ -268,7 +293,10 @@ Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the 
   - searches go to Google only when you ask;
   - "weather in <city>" sends only that city name to Open-Meteo's free geocoder and forecast (no account, no key);
   - the calendar is read only from Google, at the secret address you pasted;
-  - the notch shows a "Sent to Google" badge whenever an image is uploaded to Lens.
+  - the notch shows a "Sent to Google" badge whenever an image is uploaded to Lens;
+  - online voice is off unless you add your own Gnani key. With it on, the words Shammy speaks (and your recording, if you turn on Hinglish listening online) go to Gnani. The key is encrypted on your PC.
+- **Captions, recordings and the teleprompter:** captions are made on your PC from the sound it is playing; recordings go only to your Videos folder; the teleprompter is hidden from screen shares and recordings.
+- **Claude Code:** Shammy and Claude Code talk only on your own PC, through a local address with a random token. Connecting adds a few lines to Claude Code's settings file and keeps a backup; Disconnect takes them out again.
 - **The results browser:** it can only open web pages, so pages can't launch apps or files.
 - **Sharing your screen:** while you share your whole screen or record it, message text is hidden in pop-ups and in the Alerts list, and so are meeting titles, reminders, notes and clipboard text. A normal call, or sharing a single tab or window, doesn't hide anything. It all comes back when sharing ends. A setting can hide message text all the time.
 - **Camera:** the mirror's camera is on only while the mirror is open on screen, and stops when it closes or the PC locks.
