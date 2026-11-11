@@ -58,6 +58,12 @@ internal sealed class GlobalKeys : IDisposable
     /// <summary>A choice key: 1–4, or 0 for Enter.</summary>
     public event Action<int>? ChoiceKey;
 
+    /// <summary>While the wheel is open: 1–8 (top row and keypad) run a bead, Esc closes it.</summary>
+    public volatile bool InterceptWheel;
+
+    /// <summary>A wheel key: 1–8, or 0 for Esc.</summary>
+    public event Action<int>? WheelKey;
+
     public event Action<HotKey>? Pressed;
     public event Action<HotKey>? Released;
 
@@ -226,6 +232,13 @@ internal sealed class GlobalKeys : IDisposable
                     Post(() => VolumeKey?.Invoke(dir));
                 }
                 return true;
+
+            case (>= 0x31 and <= 0x38) or (>= 0x61 and <= 0x68) or VK_ESCAPE when InterceptWheel:
+            {
+                int n = vk == VK_ESCAPE ? 0 : vk >= 0x61 ? vk - 0x60 : vk - 0x30;
+                if (down) Post(() => WheelKey?.Invoke(n));
+                return true;
+            }
 
             case VK_ESCAPE when InterceptEscape:
                 if (down) Post(() => EscapePressed?.Invoke());

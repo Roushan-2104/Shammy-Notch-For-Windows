@@ -57,6 +57,8 @@ public static class FeatureGuide
             "choices suggestions unsure mean pick options confused"),
         F("pcanswers", 0, "Answers on your PC", "Battery, time, date, new messages and what's playing, no search.", "battery kitni hai · what time is it", "",
             "battery charge time clock date day notifications messages last message playing song"),
+        F("wheel", 0, "The wheel", "Hold the middle mouse button: eight actions around the pointer.", "hold the middle mouse button", "",
+            "wheel radial menu circle middle mouse button pie quick actions shortcuts fingertips", "", "", GuideSwitch.Setting, "WheelEnabled"),
         F("palette", 0, "Command palette", "Apps, files, settings and commands rank as you type.", "tap Right Alt", "",
             "type search find anything launcher box"),
         F("circle", 0, "Circle to search", "Circle anything on screen to search it.", "Copilot key, or hold Right Ctrl", "",

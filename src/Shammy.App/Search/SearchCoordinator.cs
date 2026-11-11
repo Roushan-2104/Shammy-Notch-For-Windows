@@ -131,6 +131,56 @@ internal sealed class SearchCoordinator
     /// "5 ft in cm" don't freeze anything. Look (Copilot key / lone Right Ctrl): freeze straight away to
     /// circle, and speak at the same time if you like; a quick tap leaves the screen frozen to circle.
     /// </summary>
+    // Listening with no key held (the wheel's Ask bead): it ends after a short silence once speech was heard,
+    // or gives up if nothing is said.
+    DispatcherTimer? _silence;
+    readonly System.Diagnostics.Stopwatch _silenceClock = new();
+    double _quietMs, _heardMs;
+    static readonly TimeSpan SilenceCheck = TimeSpan.FromMilliseconds(100);
+    const double SpeechLevel = 0.08, QuietLevel = 0.04, EndAfterQuietMs = 1100, GiveUpMs = 6000, LongestMs = 15000;
+
+    /// <summary>Starts listening as a held Right Alt would; letting go is replaced by a short silence.</summary>
+    public void ListenUntilSilence()
+    {
+        if (_phase == Phase.Processing) return;
+        OnKeyDown(HotKey.Talk);
+        _holdTimer.Stop();
+        OnHoldElapsed();
+        if (!_micOk) return;
+        _quietMs = _heardMs = 0;
+        _silenceClock.Restart();
+        _silence ??= new DispatcherTimer(SilenceCheck, DispatcherPriority.Input, (_, _) => CheckSilence(), _notch.Dispatcher);
+        _silence.Start();
+    }
+
+    void CheckSilence()
+    {
+        if (_phase != Phase.Holding || _key != HotKey.Talk)
+        {
+            _silence?.Stop();
+            return;
+        }
+        double step = SilenceCheck.TotalMilliseconds;
+        float level = _mic.Level;
+        if (level >= SpeechLevel) { _heardMs += step; _quietMs = 0; }
+        else if (level < QuietLevel) _quietMs += step;
+        long elapsed = _silenceClock.ElapsedMilliseconds;
+        bool spoke = _heardMs >= 200;
+        if ((spoke && _quietMs >= EndAfterQuietMs) || elapsed >= LongestMs)
+        {
+            _silence?.Stop();
+            _ = FinishHoldAsync();
+        }
+        else if (!spoke && elapsed >= GiveUpMs)
+        {
+            _silence?.Stop();
+            Cancel();
+        }
+    }
+
+    /// <summary>"listen-state": whether a key-less listen is running, and what it has measured.</summary>
+    internal string SilenceState => $"phase={_phase} silence_timer={(_silence?.IsEnabled == true ? "on" : "off")} heard_ms={_heardMs:0} quiet_ms={_quietMs:0}";
+
     public void OnKeyDown(HotKey key)
     {
         if (_phase == Phase.Processing) return;
@@ -755,6 +805,7 @@ internal sealed class SearchCoordinator
     {
         _session++;
         _holdTimer.Stop();
+        _silence?.Stop();
         StopLive();
         if (_mic.IsRecording) _mic.Stop();
         DismissOverlay();

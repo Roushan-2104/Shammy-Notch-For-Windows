@@ -40,6 +40,7 @@ It runs on your PC with **no paid AI**:
 | 🗣️ | **Hold** <kbd>Right Alt</kbd> | **Talk.** Ask a question or say a command, in English or Hinglish: *"play kesariya"*, *"screenshot le lo"*, *"battery kitni hai"*. Your words show as you speak, with what letting go will do. The screen stays live. |
 | ⌨️ | **Tap** <kbd>Right Alt</kbd> | **Type.** The command palette drops out of the notch: apps, files, settings, music and commands rank live as you type. |
 | ⭕ | <kbd>Copilot</kbd>, or hold <kbd>Right Ctrl</kbd> | **Circle.** The screen freezes. Circle, scribble or tap anything, speak if you like, then let go. |
+| 🐾 | **Hold** the middle mouse button | **Wheel.** Eight actions open around the pointer: lean toward one and let go, or press <kbd>1</kbd>–<kbd>8</kbd>. The beads learn what you use; pin your own in Settings › Wheel. A quick middle click still goes to your app. |
 
 Everything else is a **hover** away.
 

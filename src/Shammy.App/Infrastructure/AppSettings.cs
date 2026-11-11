@@ -151,6 +151,9 @@ internal sealed class AppSettings
     /// <summary>Cat touches beyond the pet: the cat listens while you talk, paws lead the "Did you mean" chips.</summary>
     public bool CatTheme { get; set; }
 
+    /// <summary>Hold the middle mouse button for the wheel: eight actions around the pointer.</summary>
+    public bool WheelEnabled { get; set; } = true;
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 

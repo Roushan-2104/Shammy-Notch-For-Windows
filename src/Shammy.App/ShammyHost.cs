@@ -259,6 +259,15 @@ internal sealed class ShammyHost : IDisposable
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
         Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);
         Modules.HostLinks.HinglishAvailable = () => _whisper.HinglishAvailable;
+        Modules.HostLinks.ListenUntilSilence = _search.ListenUntilSilence;
+        // The wheel borrows 1–8 and Esc while it is open.
+        Action<int>? wheelKeys = null;
+        _keys.WheelKey += n => wheelKeys?.Invoke(n);
+        Modules.HostLinks.WheelKeys = (on, handler) =>
+        {
+            wheelKeys = on ? handler : null;
+            _keys.InterceptWheel = on;
+        };
         Modules.HostLinks.Voice = _whisper;
         Modules.HostLinks.Glances = _modules.Glances;
         _notch.ExpandedView.ShelfActions = _modules.ShelfActions;
@@ -755,6 +764,8 @@ internal sealed class ShammyHost : IDisposable
             case "voice-route": return _search.RouteForTest(arg);
             case "voice-plan": return _search.PlanFor(arg);
             case "voice-state": return _search.LiveState;
+            case "listen-start": _search.ListenUntilSilence(); return "ok";
+            case "listen-state": return _search.SilenceState;
             // "voice-hear <words>": as if a held talk key brought these words back; "voice-live <words>": the listening view.
             case "voice-hear": _search.HearForTest(arg); return "ok";
             case "voice-live": _search.ShowLiveForTest(arg); return "ok";

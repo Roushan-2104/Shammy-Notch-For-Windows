@@ -19,7 +19,7 @@ internal sealed record SettingInfo(string Name, string Section, string Label, Pr
 internal static class SettingsCatalog
 {
     /// <summary>The Settings screen's tabs, in order (the designed seven).</summary>
-    public static readonly string[] Sections = { "General", "Notch & pet", "Voice", "Notifications", "Time & units", "Clipboard & privacy", "Calendar" };
+    public static readonly string[] Sections = { "General", "Notch & pet", "Wheel", "Voice", "Notifications", "Time & units", "Clipboard & privacy", "Calendar" };
 
     static readonly (string Name, string Section, string Label, int Step)[] Shown =
     {
@@ -36,6 +36,7 @@ internal static class SettingsCatalog
         ("PetKind", "Notch & pet", "Pet style", 1),
         ("PetPurrs", "Notch & pet", "Purr", 1),
         ("CatTheme", "Notch & pet", "Cat theme", 1),
+        ("WheelEnabled", "Wheel", "Wheel", 1),
         ("PetEyeStyle", "Notch & pet", "Eye style", 1),
         ("PetEyeColor", "Notch & pet", "Eye colour", 1),
         ("PetName", "Notch & pet", "Name", 1),

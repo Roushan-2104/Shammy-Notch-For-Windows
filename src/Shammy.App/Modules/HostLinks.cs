@@ -30,6 +30,12 @@ internal static class HostLinks
     /// </summary>
     public static Func<string, bool>? HasChoices { get; set; }
 
+    /// <summary>The wheel takes 1–8 and Esc while it is open (true, with the handler; 0 is Esc) and gives them back (false).</summary>
+    public static Action<bool, Action<int>?>? WheelKeys { get; set; }
+
+    /// <summary>Starts listening as a held talk key would, and stops by itself after a short silence (the wheel's Ask bead).</summary>
+    public static Action? ListenUntilSilence { get; set; }
+
     /// <summary>Up to three things in Shammy the words could mean, best first (set by the palette); empty for a plain question.</summary>
     public static Func<string, IReadOnlyList<Choice>>? Choices { get; set; }
 

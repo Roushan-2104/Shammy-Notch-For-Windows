@@ -33,6 +33,8 @@ internal enum FaceMood
     Sleep,
     /// <summary>A big morning stretch, then ^ ^ eyes, blush, smile and a wave (alarm stopped).</summary>
     Stretch,
+    /// <summary>Open eyes that blink and look where <see cref="PetFace.Look"/> says (the wheel's centre).</summary>
+    Watch,
 }
 
 /// <summary>
@@ -160,6 +162,17 @@ internal sealed class PetFace : Grid
     public PetEyeStyle? StyleOverride { get; set; }
     public PetEyeColor? ColorOverride { get; set; }
 
+    /// <summary>Cat parts on or off for this face alone (the wheel without the Cat theme shows the plain eyes).</summary>
+    public bool? CatOverride { get; set; }
+
+    /// <summary>In the Watch mood: where the eyes look, in face pixels (about ±3 across, ±2 up and down).</summary>
+    public void Look(double dx, double dy)
+    {
+        if (_mood != FaceMood.Watch) return;
+        _eyesShift.X = Math.Clamp(dx, -3.5, 3.5);
+        _eyesShift.Y = Math.Clamp(dy, -2.5, 2.5);
+    }
+
     public void Restyle()
     {
         var solid = PetLook.Solid(ColorOverride);
@@ -285,7 +298,7 @@ internal sealed class PetFace : Grid
     /// <summary>The cat's ears, whiskers and nose for the mood, against a resting eye's place.</summary>
     void PoseCat(bool nose, bool whiskers)
     {
-        bool cat = CatParts.On;
+        bool cat = CatOverride ?? CatParts.On;
         _cat.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
         if (!cat) return;
         var solid = PetLook.Solid(ColorOverride);
@@ -355,6 +368,9 @@ internal sealed class PetFace : Grid
     {
         switch (_mood)
         {
+            case FaceMood.Watch:
+                Blink();
+                break;
             case FaceMood.Idle:
                 Blink();
                 Loop(_eyesShift, TranslateTransform.XProperty, 7000, (0, 0), (.30, 0), (.38, 3), (.58, 3), (.66, -3), (.80, -3), (.88, 0), (1, 0));
