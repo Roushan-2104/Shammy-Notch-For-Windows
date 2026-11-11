@@ -116,8 +116,8 @@ public static class FeatureGuide
         F("snippets", 4, "Snippets", "Short triggers that expand in any app.", ";date · ;shrug", "snippets",
             "shortcut typing expand signature faster abbreviation", "snippet|snippets", "snippets", GuideSwitch.Module, "snippets"),
 
-        F("quick", 5, "Quick actions", "Keep awake, lock, sleep and mute in one card.", "quick actions · keep awake", "quick actions",
-            "stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake", GuideSwitch.Module, "quick", "0.6"),
+        F("quick", 5, "Laptop controls", "Wi-Fi, Bluetooth, power mode, lock, sleep, restart in one card.", "quick actions · keep awake", "quick actions",
+            "laptop control center controller wifi bluetooth power mode restart shut down stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake|laptop|control center", GuideSwitch.Module, "quick", "0.6"),
         F("tuck", 5, "Tuck it away", "Click the small tab under the notch and it slides away for a few seconds.", "the tab under the notch", "",
             "hide move out of the way covering behind under tab title reach click underneath", "", "", GuideSwitch.Setting, "TuckAwayEnabled", "0.6"),
         F("launcher", 5, "App launcher", "Apps, sites and folders, typos forgiven.", "open spotify", "",

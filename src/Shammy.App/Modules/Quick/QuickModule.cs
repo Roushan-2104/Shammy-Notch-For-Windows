@@ -59,7 +59,7 @@ internal sealed class QuickModule : IShammyModule
         ctx.AddCard(new NotchCard
         {
             Id = CardId,
-            Title = "Quick actions",
+            Title = "Laptop",
             Width = 176,
             Order = 90,
             Chip = true,
@@ -82,6 +82,15 @@ internal sealed class QuickModule : IShammyModule
             return "ok dry=" + (_dry ? "on" : "off");
         });
         ctx.AddPipeCommand("quick-open", _ => ctx.OpenCard(CardId) ? "ok" : "error: no quick card");
+        ctx.AddPipeCommand("quick-off", _ => OffForTest());
+        ctx.AddPipeCommand("quick-power", arg => arg.Trim() switch
+        {
+            "restart" => PowerOff(restart: true),
+            "shutdown" => PowerOff(restart: false),
+            "" => PowerModeNow?.ToString() ?? "none",
+            var m when Enum.TryParse<Core.Quick.PowerModeKind>(m, true, out var kind) => SetPowerMode(kind),
+            _ => "error: quick-power [efficiency|balanced|performance|restart|shutdown]",
+        });
     }
 
     // ---- Keep awake --------------------------------------------------------------------------------
@@ -195,6 +204,110 @@ internal sealed class QuickModule : IShammyModule
             _ctx.Warn("Keep-awake failed", ex);
             return false;
         }
+    }
+
+    // ---- Wi-Fi, Bluetooth, power mode, restart and shut down ------------------------------------------
+
+    const string WifiGlyph = "", BluetoothGlyph = "", PowerGlyph = "";
+
+    /// <summary>The radios' states as last read (null: unknown or no radio); the card reads them when it opens.</summary>
+    public bool? WifiOn { get; private set; }
+    public bool? BluetoothOn { get; private set; }
+    public Core.Quick.PowerModeKind? PowerModeNow { get; private set; }
+
+    /// <summary>Reads the switches again (the card is opening): radios off the UI thread, then a redraw.</summary>
+    internal async Task RefreshSwitchesAsync()
+    {
+        PowerModeNow = LaptopSwitches.GetPowerMode();
+        var wifi = LaptopSwitches.WifiAsync(null);
+        var bt = Palette.BluetoothRadio.GetAsync();
+        WifiOn = await wifi;
+        BluetoothOn = await bt;
+        Changed?.Invoke();
+    }
+
+    internal async void ToggleWifi()
+    {
+        try
+        {
+            if (WifiOn is not { } on) { _ctx.ShowMessage(WifiGlyph, "No Wi-Fi switch on this PC", error: true); return; }
+            if (_dry) { _last = $"would switch wifi {(on ? "off" : "on")}"; return; }
+            WifiOn = await LaptopSwitches.WifiAsync(!on);
+            _last = $"wifi {(WifiOn == true ? "on" : "off")}";
+            Changed?.Invoke();
+        }
+        catch (Exception ex) { _ctx.Warn("Wi-Fi tile failed", ex); }
+    }
+
+    internal async void ToggleBluetooth()
+    {
+        try
+        {
+            if (BluetoothOn is not { } on) { _ctx.ShowMessage(BluetoothGlyph, "No Bluetooth switch on this PC", error: true); return; }
+            if (_dry) { _last = $"would switch bluetooth {(on ? "off" : "on")}"; return; }
+            if (await Palette.BluetoothRadio.SetAsync(!on)) BluetoothOn = !on;
+            _last = $"bluetooth {(BluetoothOn == true ? "on" : "off")}";
+            Changed?.Invoke();
+        }
+        catch (Exception ex) { _ctx.Warn("Bluetooth tile failed", ex); }
+    }
+
+    /// <summary>Balanced → Best performance → Best battery → Balanced.</summary>
+    internal void CyclePowerMode()
+    {
+        if (PowerModeNow is not { } now)
+        {
+            OpenSettings("ms-settings:powersleep");
+            return;
+        }
+        SetPowerMode(Core.Quick.PowerMode.Next(now));
+    }
+
+    internal string SetPowerMode(Core.Quick.PowerModeKind kind)
+    {
+        if (_dry) return _last = "would set power mode " + kind;
+        if (!LaptopSwitches.SetPowerMode(kind)) return "error: Windows refused the power mode";
+        PowerModeNow = LaptopSwitches.GetPowerMode() ?? kind;
+        Changed?.Invoke();
+        return _last = "power mode " + PowerModeNow;
+    }
+
+    /// <summary>"54 GB free of 238 GB" for the system drive.</summary>
+    internal string StorageLine()
+    {
+        try
+        {
+            var drive = new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory) ?? "C:" + System.IO.Path.DirectorySeparatorChar);
+            return Core.Quick.StorageText.Free(drive.AvailableFreeSpace, drive.TotalSize);
+        }
+        catch (Exception) { return "Open settings"; }
+    }
+
+    /// <summary>The Storage tile: Shammy's health and cleanup card when it is there, else Windows' storage page.</summary>
+    internal void OpenStorage()
+    {
+        if (!_ctx.OpenCard("health")) OpenSettings("ms-settings:storagesense");
+    }
+
+    /// <summary>Test hook: the Laptop card's restart / shut down tile, first click.</summary>
+    internal string OffForTest()
+    {
+        if (_view is not { IsVisible: true } v) return "error: the card isn't open";
+        v.ClickOffForTest();
+        return v.OffChoiceShown ? "offered restart and shut down" : "error: nothing offered";
+    }
+
+    /// <summary>Restart or shut down, after the card asked once more. In a dry run it only says what it would do.</summary>
+    internal string PowerOff(bool restart)
+    {
+        if (_dry) return _last = restart ? "would restart" : "would shut down";
+        StopKeepAwake();
+        _ctx.Notch.Collapse();
+        After(LockDelay, () =>
+        {
+            if (!LaptopSwitches.PowerOff(restart)) _ctx.ShowMessage(PowerGlyph, restart ? "Couldn’t restart" : "Couldn’t shut down", error: true);
+        });
+        return _last = restart ? "restart" : "shut down";
     }
 
     // ---- Lock, sleep, settings pages, microphone ----------------------------------------------------
@@ -416,6 +529,7 @@ internal sealed class QuickModule : IShammyModule
         return string.Create(CultureInfo.InvariantCulture,
             $"keepawake={(_clock.IsOn ? "on" : "off")} minutes={_clock.MinutesLeft(now)} started={_clock.StartedMinutes} ends={ends} " +
             $"held={_held} activity={(_ctx.Get(ActivityId) is null ? "hidden" : "shown")} pick={Pick} mic={mic} dry={(_dry ? "on" : "off")} " +
+            $"wifi={(WifiOn is { } w ? (w ? "on" : "off") : "none")} bluetooth={(BluetoothOn is { } b ? (b ? "on" : "off") : "none")} power={(PowerModeNow?.ToString() ?? "none")} " +
             $"last=\"{_last}\" card={card}");
     }
 
