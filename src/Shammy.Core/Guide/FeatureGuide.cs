@@ -116,6 +116,8 @@ public static class FeatureGuide
         F("snippets", 4, "Snippets", "Short triggers that expand in any app.", ";date · ;shrug", "snippets",
             "shortcut typing expand signature faster abbreviation", "snippet|snippets", "snippets", GuideSwitch.Module, "snippets"),
 
+        F("health", 5, "Health", "Storage, a careful cleanup and a daily check of this laptop.", "open health", "",
+            "health storage disk space full clean cleanup temp recycle bin downloads battery wear startup apps restart updates check", "", "health|cleanup|storage", GuideSwitch.Module, "health"),
         F("quick", 5, "Laptop controls", "Wi-Fi, Bluetooth, power mode, lock, sleep, restart in one card.", "quick actions · keep awake", "quick actions",
             "laptop control center controller wifi bluetooth power mode restart shut down stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake|laptop|control center", GuideSwitch.Module, "quick", "0.6"),
         F("tuck", 5, "Tuck it away", "Click the small tab under the notch and it slides away for a few seconds.", "the tab under the notch", "",

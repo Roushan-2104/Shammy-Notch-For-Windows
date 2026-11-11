@@ -215,3 +215,57 @@ public class SpokenChainTests
     public void A_later_step_that_says_it_means_this(string said, string english) =>
         Assert.Equal(english, Search.SpokenRewrite.Rewrite(Search.SpokenChain.Carry(said)) ?? Search.SpokenChain.Carry(said));
 }
+
+public class HealthTextTests
+{
+    static readonly Shammy.Core.Quick.DriveSpace Roomy = new("C:", 120L << 30, 476L << 30), Full = new("C:", 11L << 30, 476L << 30);
+
+    [Fact]
+    public void One_line_most_useful_first()
+    {
+        var r = new Shammy.Core.Quick.HealthReport(Full, TimeSpan.FromDays(9), 7, new Shammy.Core.Quick.BatteryWear(50000, 43000), false);
+        Assert.Equal("Health · 11 GB free · restarted 9 days ago · battery 86% · 7 apps at startup", Shammy.Core.Quick.HealthText.Line(r));
+        Assert.True(Shammy.Core.Quick.HealthText.NeedsAttention(r)); // 11 GB free is low
+    }
+
+    [Fact]
+    public void Updates_waiting_beat_the_uptime()
+    {
+        var r = new Shammy.Core.Quick.HealthReport(Roomy, TimeSpan.FromDays(9), 3, null, true);
+        Assert.Equal("Health · 120 GB free · restart to finish updates · 3 apps at startup", Shammy.Core.Quick.HealthText.Line(r));
+        Assert.True(Shammy.Core.Quick.HealthText.NeedsAttention(r));
+    }
+
+    [Fact]
+    public void A_healthy_laptop_needs_no_attention() =>
+        Assert.False(Shammy.Core.Quick.HealthText.NeedsAttention(new(Roomy, TimeSpan.FromDays(2), 5, new(50000, 47000), false)));
+
+    [Theory]
+    [InlineData(0, "Restarted today")]
+    [InlineData(1, "Restarted 1 day ago")]
+    [InlineData(12, "Restarted 12 days ago")]
+    public void Uptime_in_words(int days, string said) => Assert.Equal(said, Shammy.Core.Quick.HealthText.Uptime(TimeSpan.FromDays(days) + TimeSpan.FromHours(3)));
+
+    [Fact]
+    public void Battery_report_parsing()
+    {
+        var xml = "<BatteryReport><Batteries><Battery><DesignCapacity>56000</DesignCapacity><FullChargeCapacity>48160</FullChargeCapacity></Battery></Batteries></BatteryReport>";
+        Assert.Equal(86, Shammy.Core.Quick.HealthText.ParseBatteryReport(xml)!.Percent);
+        Assert.Null(Shammy.Core.Quick.HealthText.ParseBatteryReport("<BatteryReport><Batteries /></BatteryReport>"));
+        Assert.Null(Shammy.Core.Quick.HealthText.ParseBatteryReport(""));
+    }
+
+    [Theory]
+    [InlineData(0L, "0 B")]
+    [InlineData(1536L, "2 KB")]
+    [InlineData(5L << 20, "5 MB")]
+    [InlineData((3L << 30) / 2, "1.5 GB")]
+    [InlineData(476L << 30, "476 GB")]
+    public void Sizes_in_words(long bytes, string said) => Assert.Equal(said, Shammy.Core.Quick.StorageText.Size(bytes));
+
+    [Theory]
+    [InlineData("power mode performance", Shammy.Core.Quick.PowerModeKind.Performance)]
+    [InlineData("battery saver mode", Shammy.Core.Quick.PowerModeKind.Efficiency)]
+    [InlineData("balanced mode", Shammy.Core.Quick.PowerModeKind.Balanced)]
+    public void Power_mode_words(string said, Shammy.Core.Quick.PowerModeKind kind) => Assert.Equal(kind, Shammy.Core.Quick.PowerMode.Parse(said));
+}
