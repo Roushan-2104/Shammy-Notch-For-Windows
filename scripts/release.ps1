@@ -62,4 +62,12 @@ Copy-Item (Join-Path $OutputDir "HaloNotch-win-Setup.exe") (Join-Path $friendly 
 Copy-Item (Join-Path $OutputDir "HaloNotch-win-Portable.zip") (Join-Path $friendly "Shammy-Portable.zip") -Force
 gh release upload "v$version" (Join-Path $friendly "Shammy-Setup.exe") (Join-Path $friendly "Shammy-Portable.zip") --clobber --repo "Roushan-2104/Shammy-Notch-For-Windows"
 if ($LASTEXITCODE) { Write-Warning "Uploading the Shammy-named copies failed; the HaloNotch-named files are there." }
+else {
+    # The same two downloads under the old name only confuse people on the release page, so they go once the
+    # Shammy-named copies are up. The update packages (.nupkg) keep the old name: installed copies ask for it.
+    foreach ($old in "HaloNotch-win-Setup.exe", "HaloNotch-win-Portable.zip") {
+        gh release delete-asset "v$version" $old --yes --repo "Roushan-2104/Shammy-Notch-For-Windows"
+        if ($LASTEXITCODE) { Write-Warning "Couldn't remove $old from the release page; it is only a duplicate." }
+    }
+}
 Write-Host "Released v$version. Installed copies will update within a few hours." -ForegroundColor Green
