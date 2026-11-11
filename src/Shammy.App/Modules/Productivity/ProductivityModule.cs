@@ -307,9 +307,22 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         return new CommandResult(pomodoro.Glyph, $"Pomodoro \u00B7 {pomodoro.Label}", TimeFormat.Describe(pomodoro.Total));
     }
 
+    DateTimeOffset _focusSince;
+
+    /// <summary>"3 messages waited · WhatsApp, Gmail": the notifications that came in since focus began.</summary>
+    string? FocusWaited()
+    {
+        var since = _focusSince;
+        var held = _ctx.Services.Notifications.History.Where(n => n.Time >= since).ToList();
+        return Core.Productivity.FocusSummary.Waited(held.Count, held.Select(n => n.AppName));
+    }
+
     CommandResult StartFocus(TimeSpan duration)
     {
         if (Find(ClockKind.Focus) is { } old) RemoveClock(old);
+        _focusSince = DateTimeOffset.Now;
+        // Optional music for the session (Settings › Time & units › Focus music).
+        if (_ctx.Settings.FocusMusic && !_ctx.Services.Media.IsPlaying) HostLinks.RunText?.Invoke("play lofi focus music on youtube music");
         AddClock(ClockKind.Focus, "Focus", FocusGlyph, duration);
         bool windows = _focus.TryStart(DateTimeOffset.Now + duration);
         _ctx.Info($"Focus for {TimeFormat.Describe(duration)}; Windows focus session: {_focus.Status}");
@@ -325,8 +338,10 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
             return new CommandResult(FocusGlyph, "No focus session", IsError: true);
         }
         var spent = focus.Elapsed(DateTime.UtcNow);
+        var waited = FocusWaited();
         RemoveClock(focus);
-        return new CommandResult(FocusGlyph, "Focus ended", spent.TotalMinutes >= 1 ? $"Focused {TimeFormat.Describe(TimeSpan.FromMinutes(Math.Floor(spent.TotalMinutes)))}" : null);
+        var focused = spent.TotalMinutes >= 1 ? $"Focused {TimeFormat.Describe(TimeSpan.FromMinutes(Math.Floor(spent.TotalMinutes)))}" : null;
+        return new CommandResult(FocusGlyph, "Focus ended", focused is null ? waited : waited is null ? focused : $"{focused} · {waited}");
     }
 
     CommandResult AddReminder(DateTime due, string text)
@@ -512,8 +527,10 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
                 break;
             case ClockKind.Focus:
                 _timerCard.ShowDone("Focus");
+                var waited = FocusWaited();
                 RemoveClock(clock);
-                Alert(FocusGlyph, $"Focus done \u00B7 {TimeFormat.Describe(clock.Total)}", "Focus done", TimeFormat.Describe(clock.Total));
+                Alert(FocusGlyph, $"Focus done \u00B7 {TimeFormat.Describe(clock.Total)}" + (waited is null ? "" : $" \u00B7 {waited}"), "Focus done",
+                    waited is null ? TimeFormat.Describe(clock.Total) : waited);
                 break;
             default:
                 _timerCard.ShowDone(clock.Label);

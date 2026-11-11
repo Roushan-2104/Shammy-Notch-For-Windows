@@ -33,6 +33,7 @@ public static class WheelSlots
         new("prompter", "Teleprompter", "teleprompter|prompter"),
         new("settings", "Settings", "shammy settings"),
         new("guide", "What it can do", "what can you do|help|features"),
+        new("focus", "Focus", "focus|start focus|focus mode|focus session"),
     };
 
     public static readonly IReadOnlyList<string> Defaults = new[] { "screenshot", "record", "timer", "music", "notes", "ask", "phone", "awake" };

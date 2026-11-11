@@ -35,7 +35,7 @@ public static class WheelContext
             return VideoSites.Any(t.Contains)
                 ? new WheelSuggestion(VideoSites.First(t.Contains) is var site ? Title(site) : "Video", new[] { "captions", "mixer" })
                 : new WheelSuggestion("This page", new[] { "screenshot", "phone", "clipboard" });
-        if (Coding.Contains(p)) return new WheelSuggestion("Coding", new[] { "timer", "notes", "clipboard" });
+        if (Coding.Contains(p)) return new WheelSuggestion("Coding", new[] { "focus", "timer", "notes" });
         if (Music.Contains(p)) return new WheelSuggestion(Title(p), new[] { "music", "mixer" });
         if (Slides.Contains(p)) return new WheelSuggestion("Slides", new[] { "prompter", "record", "timer" });
         return null;

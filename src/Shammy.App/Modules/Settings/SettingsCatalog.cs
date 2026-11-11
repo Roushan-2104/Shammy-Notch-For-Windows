@@ -39,6 +39,7 @@ internal static class SettingsCatalog
         ("DockEnabled", "Notch & pet", "Dock", 1),
         ("NowLineEnabled", "Notch & pet", "Right now line", 1),
         ("OtpEnabled", "Notifications", "Codes in the notch", 1),
+        ("FocusMusic", "Time & units", "Focus music", 1),
         ("WheelEnabled", "Wheel", "Wheel", 1),
         ("PetEyeStyle", "Notch & pet", "Eye style", 1),
         ("PetEyeColor", "Notch & pet", "Eye colour", 1),

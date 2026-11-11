@@ -164,6 +164,9 @@ internal sealed class AppSettings
     /// <summary>A one-time code in a message shows big in the notch with Copy, for two minutes.</summary>
     public bool OtpEnabled { get; set; } = true;
 
+    /// <summary>Starting a focus session also plays focus music (when nothing is playing).</summary>
+    public bool FocusMusic { get; set; }
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 

@@ -61,7 +61,7 @@ internal sealed partial class WheelModule : IShammyModule
         ["screenshot"] = "", ["record"] = "", ["timer"] = "", ["music"] = "", ["notes"] = "",
         ["ask"] = "", ["phone"] = "", ["awake"] = "", ["mirror"] = "", ["captions"] = "",
         ["clipboard"] = "", ["calendar"] = "", ["weather"] = "", ["mixer"] = "", ["prompter"] = "",
-        ["settings"] = "", ["guide"] = "",
+        ["settings"] = "", ["guide"] = "", ["focus"] = "",
     };
 
     readonly WheelGesture _gesture = new();
@@ -310,6 +310,7 @@ internal sealed partial class WheelModule : IShammyModule
                 case "prompter": RunText("open the teleprompter"); break;
                 case "settings": _ctx.OpenCard(Settings.SettingsModule.ModuleName); break;
                 case "guide": RunText("what can you do"); break;
+                case "focus": RunText($"start focus for {(int)Core.Productivity.Pomodoro.FocusLength.TotalMinutes} minutes"); break;
             }
         }
         catch (Exception ex)

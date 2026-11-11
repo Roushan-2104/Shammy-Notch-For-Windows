@@ -167,7 +167,7 @@ public class WheelContextTests
     [InlineData("chrome", "Daily sync - Google Meet - Google Chrome", "Google Meet", "captions,record,notes")]
     [InlineData("chrome.exe", "Kesariya - YouTube - Google Chrome", "Youtube", "captions,mixer")]
     [InlineData("msedge", "Wikipedia", "This page", "screenshot,phone,clipboard")]
-    [InlineData("Code", "Program.cs - Halo", "Coding", "timer,notes,clipboard")]
+    [InlineData("Code", "Program.cs - Halo", "Coding", "focus,timer,notes")]
     [InlineData("Spotify", "Spotify Premium", "Spotify", "music,mixer")]
     [InlineData("POWERPNT", "Deck.pptx", "Slides", "prompter,record,timer")]
     public void The_app_in_front_suggests_actions(string process, string title, string label, string ids)
@@ -296,4 +296,17 @@ public class OtpFinderTests
     [InlineData("55210839", "5521 0839")]
     [InlineData("4821", "4821")]
     public void Spaced_for_reading(string code, string shown) => Assert.Equal(shown, Shammy.Core.Notifications.OtpFinder.Spaced(code));
+}
+
+public class FocusSummaryTests
+{
+    [Fact]
+    public void Says_what_waited() =>
+        Assert.Equal("3 messages waited · WhatsApp, Gmail", Shammy.Core.Productivity.FocusSummary.Waited(3, new[] { "WhatsApp", "Gmail", "whatsapp" }));
+
+    [Fact]
+    public void One_message() => Assert.Equal("1 message waited · Slack", Shammy.Core.Productivity.FocusSummary.Waited(1, new[] { "Slack" }));
+
+    [Fact]
+    public void Nothing_waited() => Assert.Null(Shammy.Core.Productivity.FocusSummary.Waited(0, Array.Empty<string>()));
 }

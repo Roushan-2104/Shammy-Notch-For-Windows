@@ -64,6 +64,7 @@ internal partial class SettingsView
             pomo.Children.Add(col);
         }
         Row("Pomodoro", "Focus · short break · long break, in minutes.", pomo);
+        SwitchRow("Focus music", "Starting a focus session also plays focus music, when nothing else is playing.", nameof(AppSettings.FocusMusic), "Focus music on", "Focus music off");
 
         int[] snoozes = { 5, 10, 15 };
         Row("Default snooze", "The “Usual” button on a ringing alarm.", new Segmented(snoozes.Select(m => $"{m} min").ToList(),
