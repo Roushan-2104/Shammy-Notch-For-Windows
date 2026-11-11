@@ -74,8 +74,15 @@ internal sealed class ShammyHost : IDisposable
         _modules.PipeCommands["activity-test"] = petTest.Run;
         _modules.PipeCommands["circle-state"] = _ => _notch.DescribeCircle();
         _modules.PipeCommands["circle-click"] = arg => _notch.ClickCircle(arg);
-        _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Normal, (_, _) => _activities.Tick(DateTime.UtcNow), _ui);
-        _tick.Start();
+        // Expiry: one timer set to the soonest expiring activity, instead of checking every 150 ms forever.
+        _tick = new DispatcherTimer(DispatcherPriority.Normal, _ui);
+        _tick.Tick += (_, _) =>
+        {
+            _tick.Stop();
+            _activities.Tick(DateTime.UtcNow);
+            ScheduleExpiry();
+        };
+        _activities.Changed += ScheduleExpiry;
 
         Safe("media", () =>
         {
@@ -363,6 +370,22 @@ internal sealed class ShammyHost : IDisposable
         _ = WarmUpBrowserAsync();
 
         Log.Info($"Shammy ready in {clock.ElapsedMilliseconds} ms");
+    }
+
+    void ScheduleExpiry()
+    {
+        if (_activities.NextExpiryUtc is not { } next)
+        {
+            _tick.Stop();
+            return;
+        }
+        var wait = next - DateTime.UtcNow;
+        var interval = wait < TimeSpan.FromMilliseconds(15) ? TimeSpan.FromMilliseconds(15) : wait + TimeSpan.FromMilliseconds(5);
+        // Re-arming only when it would fire at a different time keeps a busy stream of posts cheap.
+        if (_tick.IsEnabled && Math.Abs((_tick.Interval - interval).TotalMilliseconds) < 20) return;
+        _tick.Stop();
+        _tick.Interval = interval;
+        _tick.Start();
     }
 
     /// <summary>Find every IShammyModule in the app and start it; one broken module never stops the rest.</summary>

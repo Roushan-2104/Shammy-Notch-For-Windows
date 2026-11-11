@@ -190,6 +190,7 @@ internal sealed class SearchCoordinator
         _session++;
         _key = key;
         _phase = Phase.Pending;
+        _whisper.WarmUpSongPass();
         _keys.InterceptEscape = true;
         _micOk = _mic.Start(out _micError);
         if (key == HotKey.Look) OnHoldElapsed();
@@ -287,7 +288,9 @@ internal sealed class SearchCoordinator
         _liveBusy = true;
         var cts = _live = new CancellationTokenSource();
         string words = "";
-        try { words = await _whisper.TranscribeAsync(samples, cts.Token); }
+        // One plain pass that never queues: if the model is busy this reading is skipped, and the command's own
+        // transcription after letting go never waits behind it.
+        try { words = await _whisper.TranscribeCaptionAsync(Shammy.Core.Search.AudioTrim.TrimSilence(samples, MicRecorder.SampleRate), cts.Token) ?? ""; }
         catch (OperationCanceledException) { return; }
         catch (Exception ex) { Log.Warn("A live reading failed", ex); return; }
         finally

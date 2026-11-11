@@ -56,6 +56,22 @@ public sealed class ActivityManager
 
     public IReadOnlyList<Activity> All => _items.Values.Select(v => v.Activity).ToList();
 
+    /// <summary>When the soonest activity expires (UTC), or null when none does: the host's timer wakes only then.</summary>
+    public DateTime? NextExpiryUtc
+    {
+        get
+        {
+            DateTime? next = null;
+            foreach (var (activity, _) in _items.Values)
+            {
+                if (activity.ExpiresAt is not { } at) continue;
+                var utc = at.Kind == DateTimeKind.Local ? at.ToUniversalTime() : at;
+                if (next is null || utc < next) next = utc;
+            }
+            return next;
+        }
+    }
+
     public void Post(Activity activity)
     {
         _items[activity.Id] = (activity, ++_order);

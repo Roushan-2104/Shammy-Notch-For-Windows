@@ -141,3 +141,20 @@ public class WheelSlotsTests
     [InlineData("how tall is the eiffel tower", null)]
     public void Commands_count_for_their_action(string text, string? id) => Assert.Equal(id, WheelSlots.ActionFor(text));
 }
+
+public class ActivityExpiryTests
+{
+    [Fact]
+    public void The_next_expiry_is_the_soonest_one_in_utc()
+    {
+        var m = new Shammy.Core.Activities.ActivityManager();
+        Assert.Null(m.NextExpiryUtc);
+        var soon = DateTime.UtcNow.AddSeconds(3);
+        m.Post(new Shammy.Core.Activities.Activity("a", Shammy.Core.Activities.ActivityKind.Custom, 1, ExpiresAt: DateTime.UtcNow.AddSeconds(10)));
+        m.Post(new Shammy.Core.Activities.Activity("b", Shammy.Core.Activities.ActivityKind.Custom, 1, ExpiresAt: soon.ToLocalTime()));
+        m.Post(new Shammy.Core.Activities.Activity("c", Shammy.Core.Activities.ActivityKind.Custom, 1));
+        Assert.Equal(soon, m.NextExpiryUtc!.Value, TimeSpan.FromMilliseconds(1));
+        m.Remove("b");
+        Assert.True(m.NextExpiryUtc > soon);
+    }
+}

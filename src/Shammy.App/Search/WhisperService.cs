@@ -74,6 +74,11 @@ internal sealed class WhisperService : IDisposable
     // "base" on the CPU, only for the second pass of play commands: with a prompt full of song names it
     // spells them right as well as large-v3-turbo does, in about half the time (and the GPU stays free).
     WhisperFactory? _songFactory;
+
+    // The song pass's small model is only in memory around voice use: loaded as the talk key goes down (it is
+    // ready before the words are), unloaded after this long without a voice command.
+    static readonly TimeSpan SongPassIdle = TimeSpan.FromMinutes(15);
+    Timer? _songIdle;
     Task? _songInit;
 
     public WhisperService(AppSettings settings) => _settings = settings;
@@ -205,7 +210,6 @@ internal sealed class WhisperService : IDisposable
             Log.Info($"Voice model loaded: {engine.Describe()}");
             Ready?.Invoke();
             if (startWith == Base) _ = UpgradeAsync();
-            _ = PrepareSongPassAsync();
             if (_settings.VoiceMode == AppSettings.HinglishVoice && HinglishAvailable) _ = EnableHinglishAsync();
         }
         catch (Exception ex)
@@ -387,13 +391,62 @@ internal sealed class WhisperService : IDisposable
 
     static bool HasExpectedHash(VoiceModel model) => HasExpectedHash(model, model.LocalPath);
 
+    /// <summary>
+    /// Whether the file is the model it should be. A full SHA-256 of a 550 MB file takes seconds, so a file that
+    /// passed once is remembered by its size and last-write time (verified.txt next to the models) and only hashed
+    /// again when either changes, as after a download.
+    /// </summary>
     static bool HasExpectedHash(VoiceModel model, string path)
     {
-        if (!File.Exists(path)) return false;
+        var info = new FileInfo(path);
+        if (!info.Exists || info.Length != model.Bytes) return false;
+        string stamp = $"{info.Length}|{info.LastWriteTimeUtc.Ticks}|{model.Sha256}";
+        if (Verified.Seen(path, stamp)) return true;
         using var fs = File.OpenRead(path);
-        if (fs.Length != model.Bytes) return false;
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs));
-        return string.Equals(hash, model.Sha256, StringComparison.OrdinalIgnoreCase);
+        bool ok = string.Equals(hash, model.Sha256, StringComparison.OrdinalIgnoreCase);
+        if (ok) Verified.Remember(path, stamp);
+        return ok;
+    }
+
+    /// <summary>Model files already hashed and found good, by size, write time and expected hash.</summary>
+    static class Verified
+    {
+        static readonly object Gate = new();
+        static Dictionary<string, string>? _entries;
+
+        static string FilePath(string modelPath) => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(modelPath) ?? ".", "verified.txt");
+
+        static Dictionary<string, string> Load(string modelPath)
+        {
+            if (_entries is not null) return _entries;
+            _entries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var file = FilePath(modelPath);
+                if (File.Exists(file))
+                    foreach (var line in File.ReadAllLines(file))
+                        if (line.Split('	') is [var name, var stamp]) _entries[name] = stamp;
+            }
+            catch (Exception ex) { Log.Warn("Reading the verified-models list failed", ex); }
+            return _entries;
+        }
+
+        public static bool Seen(string modelPath, string stamp)
+        {
+            lock (Gate) return Load(modelPath).TryGetValue(System.IO.Path.GetFileName(modelPath), out var known) && known == stamp;
+        }
+
+        public static void Remember(string modelPath, string stamp)
+        {
+            lock (Gate)
+            {
+                var entries = Load(modelPath);
+                entries[System.IO.Path.GetFileName(modelPath)] = stamp;
+                try { File.WriteAllLines(FilePath(modelPath), entries.Select(e => e.Key + "	" + e.Value)); }
+                catch (Exception ex) { Log.Warn("Saving the verified-models list failed", ex); }
+            }
+        }
     }
 
     public async Task<string> TranscribeAsync(float[] samples, CancellationToken ct = default)
@@ -512,6 +565,13 @@ internal sealed class WhisperService : IDisposable
     /// </summary>
     async Task<string> SongPassAsync(float[] samples, string first, float firstProbability, CancellationToken ct)
     {
+        // Normally loaded while the key was held; if not (a typed test, a very short hold), wait a moment for it.
+        if (_songFactory is null)
+        {
+            var loading = PrepareSongPassAsync();
+            await Task.WhenAny(loading, Task.Delay(1500, ct));
+        }
+        KeepSongPass();
         if (_songFactory is not { } factory) return first;
         var sw = Stopwatch.StartNew();
         var known = KnownSongs();
@@ -547,6 +607,42 @@ internal sealed class WhisperService : IDisposable
             .WithTemperatureInc(0)
             .WithMaxTokensPerSegment(48)
             .Build();
+
+    /// <summary>The talk key went down: have the song pass ready by the time the words are, and keep it a while.</summary>
+    public void WarmUpSongPass()
+    {
+        if (_engine is null) return;
+        _ = PrepareSongPassAsync();
+        KeepSongPass();
+    }
+
+    void KeepSongPass()
+    {
+        _songIdle ??= new Timer(_ => _ = UnloadSongPassAsync());
+        _songIdle.Change(SongPassIdle, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>Frees the song pass's model after a quiet spell; never in the middle of a transcription.</summary>
+    async Task UnloadSongPassAsync()
+    {
+        if (!await _gate.WaitAsync(0))
+        {
+            KeepSongPass();
+            return;
+        }
+        try
+        {
+            if (_songInit is { IsCompleted: false }) return;
+            _songFactory?.Dispose();
+            _songFactory = null;
+            _songInit = null;
+            Log.Info("Voice: the song pass's model was unloaded after a quiet spell");
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     /// <summary>Loads "base" for the song pass in the background (it is the model voice started with, so it's here).</summary>
     Task PrepareSongPassAsync() => _songInit ??= Task.Run(() =>
@@ -686,6 +782,7 @@ internal sealed class WhisperService : IDisposable
         {
             _engine?.Dispose();
             _engine = null;
+            _songIdle?.Dispose();
             _songFactory?.Dispose();
             _songFactory = null;
             _hinglish?.Dispose();

@@ -21,6 +21,8 @@ internal sealed class EdgeLight : FrameworkElement
     // Timer ticks arrive late when the desktop is busy; step by real time so a flash always lasts as long.
     readonly System.Diagnostics.Stopwatch _clock = new();
     readonly SolidColorBrush _brush = new(Colors.White);
+    // Built once: they follow the brush's colour, so a render allocates nothing.
+    readonly Pen[] _pens;
     Geometry _outline = Geometry.Empty;
     Color? _hold;
     double _flashLeft, _level;
@@ -29,6 +31,7 @@ internal sealed class EdgeLight : FrameworkElement
     public EdgeLight()
     {
         IsHitTestVisible = false;
+        _pens = Strokes.Select(s => new Pen(_brush, s.Thickness) { LineJoin = PenLineJoin.Round }).ToArray();
         _tick = new DispatcherTimer(Frame, DispatcherPriority.Render, (_, _) =>
         {
             double dt = Math.Min(0.1, _clock.Elapsed.TotalSeconds);
@@ -104,9 +107,13 @@ internal sealed class EdgeLight : FrameworkElement
     {
         _flashLeft = Math.Max(0, _flashLeft - dt);
         bool on = _enabled && (_hold is not null || _flashLeft > 0);
+        double was = _level;
         _level = on ? Math.Min(1, _level + dt / FadeIn) : Math.Max(0, _level - dt / FadeOut);
-        InvalidateVisual();
+        // Only a change of brightness needs a repaint; a steady edge costs nothing.
+        if (_level != was) InvalidateVisual();
         if (!on && _level <= 0) _tick.Stop();
+        // Held fully lit with no flash counting down: nothing will change until Hold(null) or a flash restarts it.
+        else if (on && _level >= 1 && _flashLeft <= 0) _tick.Stop();
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -114,10 +121,10 @@ internal sealed class EdgeLight : FrameworkElement
         if (!_enabled || !_shown || _level <= 0 || _outline.IsEmpty()) return;
         // Ease so the light blooms in and dies away softly instead of ramping linearly.
         double eased = _level * _level * (3 - 2 * _level);
-        foreach (var (thickness, opacity) in Strokes)
+        for (int i = 0; i < Strokes.Length; i++)
         {
-            dc.PushOpacity(opacity * eased);
-            dc.DrawGeometry(null, new Pen(_brush, thickness) { LineJoin = PenLineJoin.Round }, _outline);
+            dc.PushOpacity(Strokes[i].Opacity * eased);
+            dc.DrawGeometry(null, _pens[i], _outline);
             dc.Pop();
         }
     }
