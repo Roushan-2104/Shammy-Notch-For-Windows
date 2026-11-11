@@ -116,7 +116,7 @@ internal sealed class NotificationService : IDisposable
         foreach (var n in existing.OrderByDescending(n => n.CreationTime))
         {
             _known.Add(n.Id);
-            if (Convert(n) is { } h && !Muted(h)) AddToHistory(h, atEnd: true);
+            if (await ConvertAsync(n) is { } h && !Muted(h)) AddToHistory(h, atEnd: true);
         }
         MarkAllSeen();
 
@@ -213,7 +213,7 @@ internal sealed class NotificationService : IDisposable
             {
                 _known.Add(n.Id);
                 // A muted app's toasts never reach the history (or the pop-up).
-                if (Convert(n) is not { } h || Muted(h)) continue;
+                if (await ConvertAsync(n) is not { } h || Muted(h)) continue;
                 AddToHistory(h, atEnd: false);
                 Arrived?.Invoke(h);
             }
@@ -228,7 +228,7 @@ internal sealed class NotificationService : IDisposable
         }
     }
 
-    ShammyNotification? Convert(UserNotification n)
+    async Task<ShammyNotification?> ConvertAsync(UserNotification n)
     {
         try
         {
@@ -247,12 +247,14 @@ internal sealed class NotificationService : IDisposable
                 // Some tray apps post toasts without registered app info; show them anyway.
             }
 
+            // The app's logo is read without blocking: this runs on the UI thread.
+            var icon = await IconForAsync(n, appId);
             return new ShammyNotification
             {
                 Id = n.Id,
                 AppId = appId,
                 AppName = appName,
-                Icon = IconFor(n, appId),
+                Icon = icon,
                 Title = texts[0],
                 Body = string.Join("\n", texts.Skip(1)),
                 Time = n.CreationTime,
@@ -265,7 +267,7 @@ internal sealed class NotificationService : IDisposable
         }
     }
 
-    ImageSource? IconFor(UserNotification n, string appId)
+    async Task<ImageSource?> IconForAsync(UserNotification n, string appId)
     {
         if (_icons.TryGetValue(appId, out var cached)) return cached;
         // Desktop apps (Chrome, WhatsApp desktop installers, system toasts) have no packaged logo, but
@@ -278,10 +280,10 @@ internal sealed class NotificationService : IDisposable
         }
         try
         {
-            var stream = n.AppInfo.DisplayInfo.GetLogo(new Windows.Foundation.Size(64, 64)).OpenReadAsync().AsTask().GetAwaiter().GetResult();
+            var stream = await n.AppInfo.DisplayInfo.GetLogo(new Windows.Foundation.Size(64, 64)).OpenReadAsync().AsTask();
             using var s = stream.AsStreamForRead();
             var ms = new MemoryStream();
-            s.CopyTo(ms);
+            await s.CopyToAsync(ms);
             ms.Position = 0;
             var bmp = new BitmapImage();
             bmp.BeginInit();

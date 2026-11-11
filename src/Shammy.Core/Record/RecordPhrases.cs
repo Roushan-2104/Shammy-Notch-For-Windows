@@ -47,9 +47,7 @@ public static class RecordPhrases
     /// <summary>Lower case, single spaces, no trailing punctuation, no "please" or "hey shammy".</summary>
     static string Normalize(string text)
     {
-        var s = Regex.Replace(text.Trim().TrimEnd('.', '!', '?').Trim(), @"\s+", " ").ToLowerInvariant();
-        s = Regex.Replace(s, @"^(?:hey shammy,? |shammy,? )", "");
-        return Regex.Replace(s, @"^please |,? please$", "");
+        return Text.PhraseText.Normalize(text);
     }
 }
 

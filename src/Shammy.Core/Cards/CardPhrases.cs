@@ -33,9 +33,7 @@ public static class CardPhrases
     /// <summary>Lower case, single spaces, straight apostrophes, no trailing punctuation, "whats" as "what's", no "please".</summary>
     static string Normalize(string text)
     {
-        var s = Regex.Replace(text.Trim().TrimEnd('.', '!', '?').Trim(), @"\s+", " ").ToLowerInvariant().Replace('’', '\'');
-        s = Regex.Replace(s, @"^(?:hey shammy,? |shammy,? )", "");
-        s = Regex.Replace(s, @"^please |,? please$", "");
+        var s = Text.PhraseText.Normalize(text).Replace('’', '\'');
         return Regex.Replace(s, @"\bwhats\b", "what's");
     }
 }

@@ -27,7 +27,7 @@ internal static class WheelLink
 /// follow what you use; pins are set in Settings › Wheel.
 /// Pipes: wheel-state, wheel-open, wheel-choose, wheel-release, wheel-key, wheel-close, wheel-use, wheel-run, wheel-pin.
 /// </summary>
-internal sealed class WheelModule : IShammyModule
+internal sealed partial class WheelModule : IShammyModule
 {
     const int MaxUsesKept = 40;
 
@@ -203,76 +203,6 @@ internal sealed class WheelModule : IShammyModule
 
     void UpdateActive() => _active = _ctx.Settings.WheelEnabled && !_ctx.Notch.IsFullscreen;
 
-    // ---- The hook (its own thread: decide at once, post the rest) ---------------------------------
-
-    bool Filter(MouseHook.Kind kind, int x, int y, uint time)
-    {
-        long ms = _clock.ElapsedMilliseconds;
-        switch (kind)
-        {
-            case MouseHook.Kind.MiddleDown:
-            {
-                var step = _gesture.Down(x, y, ms, _active);
-                if (step != WheelStep.Swallow) return false;
-                _hook!.WatchMoves = true;
-                _ctx.Ui.BeginInvoke(() =>
-                {
-                    _holdStarts++;
-                    _holdTimer.Stop();
-                    _holdTimer.Interval = WheelGesture.Hold;
-                    _holdTimer.Start();
-                });
-                return true;
-            }
-            case MouseHook.Kind.Move:
-            {
-                if (_gesture.Move(x, y) != WheelStep.ReplayDownThenPass) return false;
-                _hook!.WatchMoves = false;
-                Interlocked.Increment(ref _replays);
-                ThreadPool.QueueUserWorkItem(_ => MouseHook.SendMiddle(down: true, up: false));
-                return false;
-            }
-            case MouseHook.Kind.MiddleUp:
-            {
-                _hook!.WatchMoves = false;
-                var step = _gesture.Up(ms);
-                switch (step)
-                {
-                    case WheelStep.SwallowAndReplayClick:
-                        Interlocked.Increment(ref _replays);
-                        ThreadPool.QueueUserWorkItem(_ => MouseHook.SendMiddle(down: true, up: true));
-                        return true;
-                    case WheelStep.SwallowAndRelease:
-                        _ctx.Ui.BeginInvoke(Release);
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        }
-        return false;
-    }
-
-    void OnHoldElapsed()
-    {
-        _holdTicks++;
-        _holdTimer.Stop();
-        if (!_gesture.HoldElapsed(_clock.ElapsedMilliseconds))
-        {
-            // Windows timers can fire a tick early: still held and still, so look again in a moment.
-            if (_gesture.Current == WheelGesture.Phase.Pending)
-            {
-                _holdTimer.Interval = TimeSpan.FromMilliseconds(20);
-                _holdTimer.Start();
-            }
-            return;
-        }
-        _holdTimer.Interval = WheelGesture.Hold;
-        if (_hook is not null) _hook.WatchMoves = false;
-        var (x, y) = _gesture.DownAt;
-        Open(x, y, follow: true);
-    }
-
     // ---- Open, follow, release ----------------------------------------------------------------------
 
     void Open(int x, int y, bool follow)
@@ -441,12 +371,4 @@ internal sealed class WheelModule : IShammyModule
         _ctx.Save(_store);
     }
 
-    // ---- Pipes --------------------------------------------------------------------------------------
-
-    string Describe() => string.Join(" | ", _slots.Select(s => s.ActionId + (s.Pinned ? "*" : "")));
-
-    string State() =>
-        $"enabled={_ctx.Settings.WheelEnabled} active={_active} hook={(_hook?.IsInstalled == true ? "on" : "off")} gesture={_gesture.Current} " +
-        $"opens={_opens} replays={_replays} runs={_runs} holds={_holdStarts}/{_holdTicks} last_run={_lastRun} slots=[{Describe()}] " +
-        (_window is null ? "window=none" : _window.Describe());
 }

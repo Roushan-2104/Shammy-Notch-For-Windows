@@ -24,9 +24,7 @@ public static class MixerPhrase
     public static bool IsOpen(string? text)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > 60) return false;
-        var s = Regex.Replace(text.Trim().TrimEnd('.', '!', '?').Trim(), @"\s+", " ").ToLowerInvariant();
-        s = Regex.Replace(s, @"^(?:hey shammy,? |shammy,? )", "");
-        s = Regex.Replace(s, @"^please |,? please$", "");
+        var s = Text.PhraseText.Normalize(text);
         return Opens.Contains(s);
     }
 

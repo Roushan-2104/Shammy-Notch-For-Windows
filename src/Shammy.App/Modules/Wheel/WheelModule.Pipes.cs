@@ -1,0 +1,19 @@
+using System.Diagnostics;
+using System.Windows.Threading;
+using Shammy.Core.Wheel;
+using Shammy.Infrastructure;
+using Shammy.Interop;
+
+namespace Shammy.Modules.Wheel;
+
+internal partial class WheelModule
+{
+    // ---- Pipes --------------------------------------------------------------------------------------
+
+    string Describe() => string.Join(" | ", _slots.Select(s => s.ActionId + (s.Pinned ? "*" : "")));
+
+    string State() =>
+        $"enabled={_ctx.Settings.WheelEnabled} active={_active} hook={(_hook?.IsInstalled == true ? "on" : "off")} gesture={_gesture.Current} " +
+        $"opens={_opens} replays={_replays} runs={_runs} holds={_holdStarts}/{_holdTicks} last_run={_lastRun} slots=[{Describe()}] " +
+        (_window is null ? "window=none" : _window.Describe());
+}

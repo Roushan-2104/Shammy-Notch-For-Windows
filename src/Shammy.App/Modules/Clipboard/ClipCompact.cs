@@ -85,16 +85,3 @@ internal sealed class ScreenshotPreview : ICompactContent
         return 84;
     }
 }
-
-/// <summary>Small helpers for code-built UI in the Focus Wall look (see <see cref="WallParts"/>).</summary>
-internal static class ClipUi
-{
-    public static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
-
-    public static TextBlock Label(string text, double size, FontWeight weight, Brush brush)
-    {
-        var t = WallParts.Text(text, size, weight);
-        t.Foreground = brush;
-        return t;
-    }
-}

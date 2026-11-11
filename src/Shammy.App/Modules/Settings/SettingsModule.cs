@@ -16,7 +16,6 @@ internal sealed class SettingsModule : IShammyModule
     public const string ModuleName = "settings";
 
     ModuleContext _ctx = null!;
-    SettingsCard _card = null!;
     SettingsView? _view;
 
     public string Name => ModuleName;
@@ -24,7 +23,6 @@ internal sealed class SettingsModule : IShammyModule
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
-        _card = new SettingsCard(ctx.Settings, () => ctx.ModuleNames);
         ctx.AddCard(new NotchCard
         {
             Id = "settings",
@@ -74,7 +72,6 @@ internal sealed class SettingsModule : IShammyModule
 
     void OnChanged(string name)
     {
-        _ctx.Ui.BeginInvoke(_card.Refresh);
         // The pet switch acts through the notch (it hides the face at once); from the pipe too.
         if (name == nameof(AppSettings.PetEnabled)) _ctx.Ui.BeginInvoke(() => _ctx.Notch.SetPetEnabled(_ctx.Settings.PetEnabled));
     }

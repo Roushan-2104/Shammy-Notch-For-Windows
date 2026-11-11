@@ -628,34 +628,6 @@ internal sealed class DayToggle : Pressable
     }
 }
 
-/// <summary>An 18 px checkbox: a hairline square, filled white with a dark tick when on.</summary>
-internal sealed class CheckBox18 : Pressable
-{
-    bool _on;
-
-    public CheckBox18(bool on, Action<bool> toggled) : base(Brushes.Transparent, Brushes.Transparent, ScreenKit.HairlineStrong, ScreenKit.Fg2)
-    {
-        Width = Height = 18;
-        CornerRadius = new CornerRadius(5);
-        BorderThickness = new Thickness(1.5);
-        _on = on;
-        PaintBox();
-        Click += () =>
-        {
-            _on = !_on;
-            PaintBox();
-            toggled(_on);
-        };
-    }
-
-    void PaintBox()
-    {
-        Fill = _on ? ScreenKit.Fg : null;
-        Paint();
-        Child = _on ? ScreenKit.Icon(ScreenKit.Paths.Check, ScreenKit.Ground, 11, 3.4) : null;
-    }
-}
-
 /// <summary>A thin slider: grey track, white fill and knob; drag or click anywhere on it, wheel nudges.</summary>
 internal sealed class SlimSlider : Grid
 {

@@ -72,9 +72,7 @@ public static class QuickPhrases
     /// <summary>Lower case, single spaces, no trailing punctuation, "keep-awake" as two words, no "please" or "hey shammy".</summary>
     static string Normalize(string text)
     {
-        var s = Regex.Replace(text.Trim().TrimEnd('.', '!', '?').Trim(), @"\s+", " ").ToLowerInvariant();
-        s = Regex.Replace(s, @"^(?:hey shammy,? |shammy,? )", "");
-        s = Regex.Replace(s, @"^please |,? please$", "");
+        var s = Text.PhraseText.Normalize(text);
         return s.Replace("keep-awake", "keep awake").Replace("keepawake", "keep awake");
     }
 }
