@@ -52,6 +52,12 @@ internal sealed class GlobalKeys : IDisposable
     public volatile bool InterceptVolume;
     public volatile bool InterceptEscape;
 
+    /// <summary>While "Did you mean" choices show: the number keys 1–4 (top row and keypad) and Enter pick one.</summary>
+    public volatile bool InterceptChoices;
+
+    /// <summary>A choice key: 1–4, or 0 for Enter.</summary>
+    public event Action<int>? ChoiceKey;
+
     public event Action<HotKey>? Pressed;
     public event Action<HotKey>? Released;
 
@@ -224,6 +230,13 @@ internal sealed class GlobalKeys : IDisposable
             case VK_ESCAPE when InterceptEscape:
                 if (down) Post(() => EscapePressed?.Invoke());
                 return true;
+
+            case (>= 0x31 and <= 0x34) or (>= 0x61 and <= 0x64) or 0x0D when InterceptChoices:
+            {
+                int n = vk == 0x0D ? 0 : vk >= 0x61 ? vk - 0x60 : vk - 0x30;
+                if (down) Post(() => ChoiceKey?.Invoke(n));
+                return true;
+            }
         }
         return false;
     }

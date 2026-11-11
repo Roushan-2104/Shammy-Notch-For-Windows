@@ -508,6 +508,8 @@ internal sealed class SettingsView : Grid
         dependents.Add(kindRow);
         purrRow = SwitchRow("Purr", "A soft purr when your pointer rests on the cat. Follows Notch sounds.", nameof(AppSettings.PetPurrs), "Purr on", "Purr off");
         dependents.Add(purrRow);
+        SwitchRow("Cat theme", "Cat touches around the notch: the cat listens while you talk, and paws lead the “Did you mean” choices.",
+            nameof(AppSettings.CatTheme), "Cat theme on", "Cat theme off");
 
         var styles = new[] { PetEyeStyle.Round, PetEyeStyle.Oval, PetEyeStyle.Pixel };
         var styleRow = Row("Eye style", "Shapes the eyes in every mood.",
@@ -825,14 +827,21 @@ internal sealed class SettingsView : Grid
         Row("Microphone", "Used when you hold Right Alt.", Dropdown(labels, chosen, 250, i =>
             Set(nameof(AppSettings.MicrophoneDeviceId), names[i], $"Microphone · {labels[i]}")));
 
+        // What listens when you talk, said plainly first: online (Gnani) or this PC, and in which language.
+        Row("Listening now", VoiceRoute.Describe(_s, OnlineVoiceLink.Current?.HasKey == true), null);
+
         bool available = HostLinks.HinglishAvailable?.Invoke() ?? false;
         bool hinglish = _s.VoiceMode == AppSettings.HinglishVoice;
-        var toggle = new ToggleSwitch(hinglish, on => Set(nameof(AppSettings.VoiceMode), on ? AppSettings.HinglishVoice : AppSettings.EnglishVoice,
-            on ? "Hinglish on · bolo, main sun raha hoon" : "English only"), "Hinglish voice");
-        if (!available && !hinglish) toggle.Enabled = false;
-        Row("Hinglish voice", available || hinglish
-            ? "Understands “kal subah 7 baje alarm laga do”. Downloads 574 MB once."
-            : "Needs voice on a graphics card; this PC runs it on the processor.", toggle);
+        if (available || hinglish)
+            Row("Language on this PC", "English is quickest. Hinglish also understands “kal subah 7 baje alarm laga do” and plain English; it downloads 574 MB once.",
+                new Segmented(new[] { "English", "Hinglish" }, hinglish ? 1 : 0, i =>
+                {
+                    Set(nameof(AppSettings.VoiceMode), i == 1 ? AppSettings.HinglishVoice : AppSettings.EnglishVoice,
+                        i == 1 ? "On this PC: Hinglish · bolo, main sun raha hoon" : "On this PC: English");
+                    BuildPanel(keepScroll: true);
+                }));
+        else
+            Row("Language on this PC", "English. Hinglish on this PC needs a graphics card; with a Gnani key, Hinglish works online instead.", null);
         Row("Push to talk", "Hold to talk, tap to type.", ScreenKit.KeyCap("Right Alt"));
         Row("Circle to search", "Or hold Right Ctrl, then draw around anything.",
             ScreenKit.KeyCap("Copilot", icon: ScreenKit.Icon(ScreenKit.Paths.Copilot, ScreenKit.Fg, 12, 2)));
@@ -918,7 +927,7 @@ internal sealed class SettingsView : Grid
                     return;
                 }
                 box.Clear();
-                _status.Text = "Gnani key saved · " + link.MaskedKey;
+                _status.Text = "Gnani key saved · " + link.MaskedKey + " · listening online is on";
                 BuildPanel(keepScroll: true);
             }
             box.KeyDown += (_, e) =>
@@ -934,8 +943,11 @@ internal sealed class SettingsView : Grid
         var speaks = new ToggleSwitch(hasKey && _s.OnlineVoiceSpeaks, on => Set(nameof(AppSettings.OnlineVoiceSpeaks), on,
             on ? "Shammy speaks" : "Shammy stays quiet"), "Shammy speaks") { Enabled = hasKey };
         Row("Shammy speaks", hasKey ? "Timers, alarms and reminders are said aloud. The words are sent to Gnani." : first, speaks);
-        var listens = new ToggleSwitch(hasKey && _s.OnlineVoiceListens, on => Set(nameof(AppSettings.OnlineVoiceListens), on,
-            on ? "Hinglish listening online" : "Listening stays on this PC"), "Hinglish listening online") { Enabled = hasKey };
+        var listens = new ToggleSwitch(hasKey && _s.OnlineVoiceListens, on =>
+        {
+            Set(nameof(AppSettings.OnlineVoiceListens), on, on ? "Hinglish listening online" : "Listening stays on this PC");
+            BuildPanel(keepScroll: true);
+        }, "Hinglish listening online") { Enabled = hasKey };
         Row("Hinglish listening online", hasKey
             ? "Your voice is sent to Gnani while you hold the talk key. Works on PCs with no graphics card." : first, listens);
 

@@ -752,6 +752,13 @@ internal sealed class ShammyHost : IDisposable
                 var text = Task.Run(() => _whisper.TranscribeAsync(arr)).GetAwaiter().GetResult();
                 return $"speech={MicRecorder.HasSpeech(arr)} ms={sw.ElapsedMilliseconds} text={text}";
             }
+            case "voice-route": return _search.RouteForTest(arg);
+            case "voice-plan": return _search.PlanFor(arg);
+            case "voice-state": return _search.LiveState;
+            // "voice-hear <words>": as if a held talk key brought these words back; "voice-live <words>": the listening view.
+            case "voice-hear": _search.HearForTest(arg); return "ok";
+            case "voice-live": _search.ShowLiveForTest(arg); return "ok";
+            case "choice-pick": return int.TryParse(arg.Trim(), out var pick) ? _search.PickForTest(pick) : "error: choice-pick <0-based index>";
             case "cancel": _search.Cancel(); return "ok";
             // "hold" / "release" = the look key (freeze); "hold talk" / "release talk" = Right Alt.
             case "hold": _search.OnKeyDown(arg.Trim() == "talk" ? HotKey.Talk : HotKey.Look); return "ok";

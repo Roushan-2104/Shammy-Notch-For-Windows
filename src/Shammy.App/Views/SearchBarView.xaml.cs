@@ -65,11 +65,46 @@ public partial class SearchBarView : UserControl
         Input.CaretIndex = text.Length;
     }
 
+    readonly Dictionary<Screens.FaceMood, Screens.PetFace> _cats = new();
+
+    /// <summary>
+    /// With the Cat theme, the cat sits in the orb instead of a glyph: listening (ears up, bobbing) while you talk,
+    /// peeking while it offers choices. Built once per mood, then shown or hidden.
+    /// </summary>
+    void ShowCat(bool on, Screens.FaceMood mood = Screens.FaceMood.Listen)
+    {
+        foreach (var face in _cats.Values) face.Visibility = Visibility.Collapsed;
+        if (!on) return;
+        if (!_cats.TryGetValue(mood, out var cat))
+        {
+            cat = new Screens.PetFace(0.62, mood) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            _cats[mood] = cat;
+            Orb.Children.Add(cat);
+        }
+        cat.Visibility = Visibility.Visible;
+        OrbGlyph.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Speak and see: the words heard so far (the end of them, if long) and what letting go will do.
+    /// The wave keeps following the microphone.
+    /// </summary>
+    internal void ShowLive(string words, string plan)
+    {
+        const int Keep = 44;
+        var w = words.Trim();
+        if (w.Length > Keep) w = "…" + w[^Keep..].TrimStart();
+        Primary.Text = $"“{w}”";
+        Secondary.Text = plan;
+        Secondary.Visibility = Visibility.Visible;
+    }
+
     /// <summary>Listening to the mic; <paramref name="micLevel"/> drives the orb pulse and the wave.</summary>
-    internal void ShowListening(Func<float> micLevel, string primary, string secondary)
+    internal void ShowListening(Func<float> micLevel, string primary, string secondary, bool cat = false)
     {
         _micLevel = micLevel;
         SetState(glyph: "", spinning: false, typing: false);
+        ShowCat(cat);
         Primary.Text = primary;
         Secondary.Text = secondary;
         Wave.Source = i => micLevel() * (0.55f + 0.45f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 90.0 + i * 1.3)));
@@ -78,6 +113,31 @@ public partial class SearchBarView : UserControl
         Wave.Active = true;
         Wave.Visibility = Visibility.Visible;
         UpdateFrames();
+    }
+
+    bool _choices;
+
+    /// <summary>"Did you mean": what was heard, and the chips below (picked by click, 1–4 or Enter).</summary>
+    internal void ShowChoices(string heard, IReadOnlyList<(string Title, string Glyph)> chips, bool cat, Action<int> pick)
+    {
+        _micLevel = null;
+        SetState(glyph: "", spinning: false, typing: false);
+        ShowCat(cat, Screens.FaceMood.Peek);
+        Primary.Text = "Did you mean";
+        Secondary.Text = $"“{heard}”";
+        Wave.Active = false;
+        Wave.Visibility = Visibility.Collapsed;
+        var row = new ChoiceChips(chips, cat, pick);
+        _choices = true;
+        SetPalette(row, row.NeededHeight());
+    }
+
+    /// <summary>Takes the chips away (a pick, Esc, or a new search).</summary>
+    internal void HideChoices()
+    {
+        if (!_choices) return;
+        _choices = false;
+        SetPalette(null, 0);
     }
 
     internal void ShowCircling()
@@ -132,6 +192,7 @@ public partial class SearchBarView : UserControl
 
     void SetState(string? glyph, bool spinning, bool typing)
     {
+        foreach (var face in _cats.Values) face.Visibility = Visibility.Collapsed;
         OrbGlyph.Text = glyph ?? "";
         OrbGlyph.Visibility = spinning ? Visibility.Collapsed : Visibility.Visible;
         OrbCore.Visibility = spinning ? Visibility.Collapsed : Visibility.Visible;
@@ -151,7 +212,7 @@ public partial class SearchBarView : UserControl
 
     void UpdatePaletteVisibility()
     {
-        bool show = _typing && PaletteHost.Height > 0;
+        bool show = (_typing || _choices) && PaletteHost.Height > 0;
         PaletteHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         // With rows below, each row carries its own hint; the bar's "Enter" would point at two things.
         EnterHint.Visibility = _typing && !show ? Visibility.Visible : Visibility.Collapsed;

@@ -19,7 +19,7 @@ namespace Shammy.Search;
 /// </summary>
 internal sealed class SearchCoordinator
 {
-    enum Phase { Idle, Pending, Holding, Circling, Processing, Typing, Showing, Message }
+    enum Phase { Idle, Pending, Holding, Circling, Processing, Typing, Showing, Message, Choices }
 
     static readonly TimeSpan HoldThreshold = TimeSpan.FromMilliseconds(180);
     static readonly TimeSpan ReleaseTail = TimeSpan.FromMilliseconds(250);
@@ -31,6 +31,14 @@ internal sealed class SearchCoordinator
     readonly Modules.ModuleRegistry _modules;
     readonly MicRecorder _mic = new();
     readonly DispatcherTimer _holdTimer;
+
+    // Speak and see: while the talk key is held, the recording so far is read about once a second and the words,
+    // with what letting go will do, show in the notch. One reading at a time; letting go cancels a reading in flight.
+    readonly DispatcherTimer _liveTimer;
+    static readonly TimeSpan LiveEvery = TimeSpan.FromMilliseconds(900);
+    CancellationTokenSource? _live;
+    bool _liveBusy;
+    int _liveReads;
 
     Phase _phase;
     int _session;
@@ -60,6 +68,7 @@ internal sealed class SearchCoordinator
         _settings = settings;
         _modules = modules;
         _holdTimer = new DispatcherTimer(HoldThreshold, DispatcherPriority.Input, (_, _) => OnHoldElapsed(), notch.Dispatcher) { IsEnabled = false };
+        _liveTimer = new DispatcherTimer(LiveEvery, DispatcherPriority.Background, (_, _) => _ = ReadLiveAsync(), notch.Dispatcher) { IsEnabled = false };
 
         keys.Pressed += OnKeyDown;
         keys.Released += OnKeyUp;
@@ -69,6 +78,12 @@ internal sealed class SearchCoordinator
             if (key == _key && _phase is Phase.Pending or Phase.Holding) Cancel();
         };
         keys.EscapePressed += Cancel;
+        keys.ChoiceKey += n =>
+        {
+            if (_phase != Phase.Choices || _choices is null) return;
+            int at = n == 0 ? 0 : n - 1;
+            if (at <= _choices.Count) PickChoice(at);
+        };
         notch.InteractiveDeactivated += () =>
         {
             if (_phase is Phase.Showing or Phase.Typing) Cancel();
@@ -140,7 +155,7 @@ internal sealed class SearchCoordinator
         _notch.SetSearchMode(NotchMode.Listening);
         // Online listening (the user's own key): the view says so, because the recording leaves the PC.
         bool online = _listenOnline = _micOk && Modules.HostLinks.OnlineListening?.Invoke() == true;
-        string listening = online ? "Listening… · online" : "Listening…";
+        string listening = "Listening… · " + Modules.OnlineVoice.VoiceRoute.Tag(_settings, online);
         if (_key == HotKey.Talk)
         {
             // Just talking: no freeze, nothing to circle.
@@ -149,7 +164,9 @@ internal sealed class SearchCoordinator
                 var talkHint = _whisper.IsReady || online ? "Speak, then let go"
                     : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · let go to type"
                     : "Voice unavailable · let go to type";
-                _notch.SearchBarView.ShowListening(() => _mic.Level, listening, talkHint);
+                _notch.SearchBarView.ShowListening(() => _mic.Level, listening, talkHint, cat: _settings.CatTheme);
+                // Live words come from the local model; with online listening the final words still come from Gnani.
+                if (_whisper.IsReady) StartLive();
             }
             else
             {
@@ -162,7 +179,7 @@ internal sealed class SearchCoordinator
             var hint = _whisper.IsReady || online ? "Speak, circle anything, then let go"
                 : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · circle instead"
                 : "Voice unavailable · circle anything instead";
-            _notch.SearchBarView.ShowListening(() => _mic.Level, listening, hint);
+            _notch.SearchBarView.ShowListening(() => _mic.Level, listening, hint, cat: _settings.CatTheme);
         }
         else
         {
@@ -191,10 +208,82 @@ internal sealed class SearchCoordinator
     /// People let go of the key on the last syllable, so keep listening a moment longer before stopping:
     /// cutting the mic at the key-up was clipping last words ("…call mom" → "…call").
     /// </summary>
+    void StartLive()
+    {
+        _liveReads = 0;
+        _liveTimer.Stop();
+        _liveTimer.Start();
+    }
+
+    void StopLive()
+    {
+        _liveTimer.Stop();
+        _live?.Cancel();
+        _live = null;
+    }
+
+    /// <summary>One reading of the recording so far; shows the words and the plan if the key is still held.</summary>
+    async Task ReadLiveAsync()
+    {
+        if (_phase != Phase.Holding || _key != HotKey.Talk)
+        {
+            _liveTimer.Stop();
+            return;
+        }
+        if (_liveBusy) return;
+        var samples = _mic.Snapshot();
+        if (samples.Length < MicRecorder.SampleRate * 6 / 10 || !MicRecorder.HasSpeech(samples)) return;
+        int session = _session;
+        _liveBusy = true;
+        var cts = _live = new CancellationTokenSource();
+        string words = "";
+        try { words = await _whisper.TranscribeAsync(samples, cts.Token); }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex) { Log.Warn("A live reading failed", ex); return; }
+        finally
+        {
+            _liveBusy = false;
+            if (ReferenceEquals(_live, cts)) _live = null;
+            cts.Dispose();
+        }
+        if (session != _session || _phase != Phase.Holding || string.IsNullOrWhiteSpace(words)) return;
+        _liveReads++;
+        _notch.SearchBarView.ShowLive(words, PlanFor(words));
+    }
+
+    /// <summary>What letting go would do with <paramref name="words"/>, in a few words.</summary>
+    internal string PlanFor(string words)
+    {
+        var (command, clean) = Resolve(words);
+        if (command is not null)
+        {
+            Modules.CommandPreview? preview = null;
+            try { preview = (command as Modules.ICommandPreview)?.Preview(clean); }
+            catch (Exception) { }
+            return "Let go to: " + (preview?.Title ?? clean);
+        }
+        if (Calculator.TryEvaluate(words, out _, out _)) return "Let go to work it out";
+        if (ChoicesFor(words) is { } c) return "Let go to choose: " + string.Join(" · ", c.List.Take(2).Select(x => x.Title));
+        return "Let go to search Google";
+    }
+
+    /// <summary>"voice-live": how many live readings the last hold showed, and the phase.</summary>
+    internal string LiveState => $"phase={_phase} live_reads={_liveReads} live_busy={_liveBusy}" +
+        (_phase == Phase.Choices && _choices is { } list ? $" choices=[{string.Join(" | ", list.Select(c => c.Title))} | Search Google]" : "");
+
+    /// <summary>Test hook: picks a "Did you mean" chip as a click or a number key would (0-based; the last is Google).</summary>
+    internal string PickForTest(int index)
+    {
+        if (_phase != Phase.Choices) return "error: no choices showing";
+        PickChoice(index);
+        return "picked";
+    }
+
     async Task FinishHoldAsync()
     {
         int session = _session;
         _phase = Phase.Processing;
+        StopLive();
         if (_micOk) await Task.Delay(ReleaseTail);
         if (session != _session) return;
 
@@ -275,14 +364,35 @@ internal sealed class SearchCoordinator
 
     // ---- Processing ----------------------------------------------------------------------------
 
-    async Task ProcessAsync(float[]? speechSamples, IReadOnlyList<Pt>? stroke)
+    /// <summary>Test hook: acts on <paramref name="heard"/> exactly as on words a held talk key brought back.</summary>
+    internal void HearForTest(string heard)
+    {
+        Reset(keepNotch: true);
+        _session++;
+        _ = ProcessAsync(null, null, heard);
+    }
+
+    /// <summary>Test hook: the listening view with live words, as a hold shows it (for pictures).</summary>
+    internal void ShowLiveForTest(string words)
+    {
+        Reset(keepNotch: true);
+        _session++;
+        _phase = Phase.Holding;
+        _key = HotKey.Talk;
+        _keys.InterceptEscape = true;
+        _notch.SetSearchMode(NotchMode.Listening);
+        _notch.SearchBarView.ShowListening(() => 0.35f, "Listening… · " + Modules.OnlineVoice.VoiceRoute.Tag(_settings, false), "Speak, then let go", cat: _settings.CatTheme);
+        if (words.Length > 0) _notch.SearchBarView.ShowLive(words, PlanFor(words));
+    }
+
+    async Task ProcessAsync(float[]? speechSamples, IReadOnlyList<Pt>? stroke, string? heard = null)
     {
         int session = _session;
         _phase = Phase.Processing;
         _notch.SetSearchMode(NotchMode.Thinking);
 
-        string spoken = "";
-        if (speechSamples is not null)
+        string spoken = heard ?? "";
+        if (heard is null && speechSamples is not null)
         {
             // Online listening first, when the user turned it on; null or nothing heard means the local model.
             string? heardOnline = null;
@@ -370,6 +480,14 @@ internal sealed class SearchCoordinator
             return;
         }
 
+        // Not a command, but something in Shammy could be meant: show the choices (the palette, filled in with
+        // what was heard) instead of searching. A plain question still goes straight to the web.
+        if (selection is null && spoken.Length > 0 && ChoicesFor(spoken) is { } choices)
+        {
+            ShowChoices(spoken, choices.List);
+            return;
+        }
+
         if (selection is null && Calculator.TryEvaluate(query, out var value, out _))
         {
             ShowAnswer(query, Calculator.DisplayForm(query), Calculator.Format(value));
@@ -403,14 +521,7 @@ internal sealed class SearchCoordinator
     async Task<bool> TryRunCommandAsync(string text)
     {
         int session = _session;
-        var clean = text.Trim().TrimEnd('.', '!', '?', '।').Trim();
-        var command = Find(clean);
-        // Hinglish timers and reminders ("5 minute ka timer laga do") run as the English the commands know.
-        if (command is null && HinglishCommands.ToEnglish(clean) is { } english && Find(english) is { } translated)
-        {
-            command = translated;
-            clean = english;
-        }
+        var (command, clean) = Resolve(text);
         if (command is null) return false;
 
         _phase = Phase.Processing;
@@ -438,6 +549,34 @@ internal sealed class SearchCoordinator
             await ShowResultAsync(new Context(page.Query, page.Query, _settings.DefaultSearchMode, SearchFilter.None, null, null) { Page = page.Url });
         else ShowCommandResult(result);
         return true;
+    }
+
+    /// <summary>
+    /// The command that answers <paramref name="text"/> and the wording it answers: the words as said first, then
+    /// each rewrite of them (Hinglish, other wordings, a doubled sentence, "hey Shammy, please …"), and for each the
+    /// Hinglish timer/alarm/reminder form. (null, text) when nothing does.
+    /// </summary>
+    internal (Modules.ITextCommand? Command, string Clean) Resolve(string text)
+    {
+        foreach (var candidate in SpokenRewrite.Candidates(text))
+        {
+            if (Find(candidate) is { } command) return (command, candidate);
+            if (HinglishCommands.ToEnglish(candidate) is { } english && Find(english) is { } translated) return (translated, english);
+        }
+        return (null, text.Trim().TrimEnd('.', '!', '?', '।').Trim());
+    }
+
+    /// <summary>"voice-route &lt;text&gt;": what a spoken or typed line would do, without doing it.</summary>
+    internal string RouteForTest(string text)
+    {
+        var (command, clean) = Resolve(text);
+        if (command is not null)
+        {
+            var preview = (command as Modules.ICommandPreview)?.Preview(clean);
+            return $"CMD {command.GetType().Name} <- '{clean}'" + (preview is null ? "" : $" ({preview.Title})");
+        }
+        if (Calculator.TryEvaluate(text, out _, out _)) return "CALC";
+        return ChoicesFor(text) is { } choices ? $"CHOICES '{choices.Text}' [{string.Join(" | ", choices.List.Select(c => c.Title))}]" : "GOOGLE";
     }
 
     Modules.ITextCommand? Find(string text) => _modules.Commands.FirstOrDefault(c =>
@@ -536,6 +675,53 @@ internal sealed class SearchCoordinator
         return _notch.ResultView.NavigateAsync(url);
     }
 
+    /// <summary>The wording (as said, or a rewrite of it) under which Shammy has something to offer; null for a plain question.</summary>
+    static (string Text, IReadOnlyList<Modules.Choice> List)? ChoicesFor(string heard)
+    {
+        if (Modules.HostLinks.Choices is not { } choices) return null;
+        foreach (var candidate in SpokenRewrite.Candidates(heard))
+        {
+            var list = choices(candidate);
+            if (list.Count > 0) return (candidate, list);
+        }
+        return null;
+    }
+
+    IReadOnlyList<Modules.Choice>? _choices;
+    string _choiceHeard = "";
+
+    /// <summary>"Did you mean": up to three Shammy actions and Search Google, picked by click, 1–4 or Enter; Esc closes. It waits.</summary>
+    void ShowChoices(string heard, IReadOnlyList<Modules.Choice> list)
+    {
+        DismissOverlay();
+        Log.Info($"Offering {list.Count} choices for {heard.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} spoken words");
+        _phase = Phase.Choices;
+        _choices = list;
+        _choiceHeard = heard.Trim().TrimEnd('.', '!', '?', '।').Trim();
+        _keys.InterceptEscape = true;
+        _keys.InterceptChoices = true;
+        var chips = list.Select(c => (c.Title, c.Glyph)).Append(("Search Google", "")).ToList();
+        _notch.SearchBarView.ShowChoices(_choiceHeard, chips, _settings.CatTheme, PickChoice);
+        _notch.SetSearchMode(NotchMode.Typing);
+        _notch.SetInteractive(true);
+    }
+
+    void PickChoice(int index)
+    {
+        if (_phase != Phase.Choices || _choices is not { } list) return;
+        _keys.InterceptChoices = false;
+        _notch.SearchBarView.HideChoices();
+        _choices = null;
+        if (index >= list.Count)
+        {
+            _ = SearchWebAsync(_choiceHeard);
+            return;
+        }
+        // The pick runs as a palette row would: its confirmation, a card, or a search all arrive while typing.
+        _phase = Phase.Typing;
+        list[index].Run();
+    }
+
     void ShowTyping()
     {
         _phase = Phase.Typing;
@@ -569,6 +755,7 @@ internal sealed class SearchCoordinator
     {
         _session++;
         _holdTimer.Stop();
+        StopLive();
         if (_mic.IsRecording) _mic.Stop();
         DismissOverlay();
         // Teardown must always finish: a throw here used to leave Escape swallowed system-wide.
@@ -588,6 +775,9 @@ internal sealed class SearchCoordinator
         _ctx = null;
         _phase = Phase.Idle;
         _keys.InterceptEscape = false;
+        _keys.InterceptChoices = false;
+        _choices = null;
+        _notch.SearchBarView.HideChoices();
         _notch.SetInteractive(false);
         if (!keepNotch) _notch.SetSearchMode(null);
     }

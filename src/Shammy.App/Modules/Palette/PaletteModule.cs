@@ -88,6 +88,8 @@ internal sealed class PaletteModule : IShammyModule
         };
 
         _bar.QueryChanged += OnQuery;
+        HostLinks.HasChoices = HasChoices;
+        HostLinks.Choices = ChoicesFor;
         _bar.PaletteKeys = OnKey;
         _icons = new IconLoader(ctx.Ui);
         _icons.Loaded += OnIconLoaded;
@@ -180,11 +182,14 @@ internal sealed class PaletteModule : IShammyModule
         // 1. The command Enter would run today (first one that recognises the text), with a preview; when another
         //    module also understands the text, its reading comes second (picking it runs that module's command).
         bool musicCommand = false;
-        var commands = _ctx.Commands.Where(c =>
+        // Everyday wordings count too ("grab my screen", "screenshot le lo"): the first wording a command takes.
+        foreach (var candidate in SpokenRewrite.Candidates(clean))
         {
-            try { return c.CanHandle(clean); }
-            catch (Exception) { return false; }
-        }).Take(2).ToList();
+            if (!_ctx.Commands.Any(c => Handles(c, candidate))) continue;
+            clean = candidate;
+            break;
+        }
+        var commands = _ctx.Commands.Where(c => Handles(c, clean)).Take(2).ToList();
         var command = commands.FirstOrDefault();
         for (int n = 0; n < commands.Count; n++)
         {
@@ -250,6 +255,13 @@ internal sealed class PaletteModule : IShammyModule
             });
         }
 
+        // 4b. Shammy features in everyday words ("grab my screen" → Screenshot), when no command took the text.
+        if (command is null)
+        {
+            try { AddFeatures(items, text); }
+            catch (Exception ex) { _ctx.Warn("Feature rows failed", ex); }
+        }
+
         // 5. Always last: the web, exactly as Enter used to do it.
         items.Add(new PaletteItem("web", PaletteKind.Web, $"Search Google for \u201C{text.Trim()}\u201D", "Web", 0)
         {
@@ -257,6 +269,95 @@ internal sealed class PaletteModule : IShammyModule
             Tag = new PaletteEntry { Glyph = "\uE721", Run = _ => _bar.SearchWeb(text.Trim()), Learn = false },
         });
         return items;
+    }
+
+    static bool Handles(ITextCommand c, string text)
+    {
+        try { return c.CanHandle(text); }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>The guide's features that match the words well (a word of the name, or two of its own words).</summary>
+    void AddFeatures(List<PaletteItem> items, string text)
+    {
+        var words = Shammy.Core.Guide.FeatureFinder.Words(text);
+        if (words.Count == 0) return;
+        // Strong enough, and about the request as a whole: "history of the eiffel tower" isn't Clipboard history.
+        foreach (var m in Shammy.Core.Guide.FeatureFinder.Find(text)
+                     .Where(m => m.Score >= FeatureChoiceScore && words.Count(w => Shammy.Core.Guide.FeatureFinder.Score(m.Feature, new[] { w }) > 0) * 2 >= words.Count)
+                     .Take(2))
+        {
+            var f = m.Feature;
+            items.Add(new PaletteItem("feature:" + f.Id, PaletteKind.View, f.Name, "Shammy · " + f.Line, Math.Min(85, 50 + m.Score * 5))
+            {
+                Hint = "Shammy",
+                Tag = new PaletteEntry
+                {
+                    Glyph = "",
+                    Run = _ =>
+                    {
+                        _bar.Complete(null);
+                        _ctx.Ui.BeginInvoke(() => Guide.GuideLinks.OpenFeature?.Invoke(f.Name));
+                    },
+                },
+            });
+        }
+    }
+
+    /// <summary>A feature counts as a choice from this score up (a name word is 3, one of its own words 2).</summary>
+    const int FeatureChoiceScore = 3;
+
+    /// <summary>The lowest match at which a setting, app or view counts as something the words could mean.</summary>
+    const int ChoiceMatch = 60;
+
+    /// <summary>
+    /// <see cref="HostLinks.HasChoices"/>: whether anything in Shammy could be what <paramref name="text"/> means (a
+    /// command, a feature, a setting, a view, an app, music). When so, voice opens the palette with the words, to
+    /// pick from; when not, it is a plain question and goes straight to the web.
+    /// </summary>
+    bool HasChoices(string text) => ChoicesFor(text).Count > 0;
+
+    static bool IsChoice(PaletteItem i) => i.Kind switch
+    {
+        PaletteKind.Command => true,
+        PaletteKind.View when i.Key.StartsWith("feature:", StringComparison.Ordinal) => true,
+        PaletteKind.Setting or PaletteKind.View or PaletteKind.App or PaletteKind.Music or PaletteKind.Media => i.Match >= ChoiceMatch,
+        _ => false,
+    };
+
+    /// <summary><see cref="HostLinks.Choices"/>: the best three rows that count as choices, each running as a palette pick would.</summary>
+    IReadOnlyList<Choice> ChoicesFor(string text)
+    {
+        if (text.Trim().Length == 0) return Array.Empty<Choice>();
+        try
+        {
+            var ranked = Rank(LocalItems(text), text);
+            return ranked.Items.Where(IsChoice).Take(3).Select(item =>
+            {
+                var entry = item.Tag as PaletteEntry;
+                return new Choice(item.Title, item.Subtitle, entry?.Glyph ?? "", () =>
+                {
+                    if (entry?.Run is null) return;
+                    if (entry.Learn)
+                    {
+                        _frecency.Record(item.Key, text, DateTime.Now);
+                        _ctx.Save(new Saved { Picks = _frecency.Entries.ToList() });
+                    }
+                    _ctx.Info($"Choice pick: {item.Kind}");
+                    try { entry.Run(false); }
+                    catch (Exception ex)
+                    {
+                        _ctx.Warn("Running a choice failed", ex);
+                        _bar.Complete(new CommandResult("", "That didn't work", ex.Message, IsError: true));
+                    }
+                });
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _ctx.Warn("Working out choices failed", ex);
+            return Array.Empty<Choice>();
+        }
     }
 
     void AddApps(List<PaletteItem> items, string text)

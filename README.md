@@ -37,7 +37,7 @@ It runs on your PC with **no paid AI**:
 
 | | Key | What happens |
 |:-:|---|---|
-| 🗣️ | **Hold** <kbd>Right Alt</kbd> | **Talk.** Ask a question or say a command: *"play kesariya"*, *"5 ft in cm"*, *"timer 10 minutes"*. The screen stays live. |
+| 🗣️ | **Hold** <kbd>Right Alt</kbd> | **Talk.** Ask a question or say a command, in English or Hinglish: *"play kesariya"*, *"screenshot le lo"*, *"battery kitni hai"*. Your words show as you speak, with what letting go will do. The screen stays live. |
 | ⌨️ | **Tap** <kbd>Right Alt</kbd> | **Type.** The command palette drops out of the notch: apps, files, settings, music and commands rank live as you type. |
 | ⭕ | <kbd>Copilot</kbd>, or hold <kbd>Right Ctrl</kbd> | **Circle.** The screen freezes. Circle, scribble or tap anything, speak if you like, then let go. |
 
@@ -237,7 +237,9 @@ Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the 
 - 📜 **Teleprompter:** your script scrolls right under the camera, and stays out of screen shares and recordings.
 - 👀 **Nudges:** an eye break every 20 minutes, and water reminders if you turn them on.
 - 🏏 **Live cricket:** the score in the notch while India is playing.
-- 🗣️ **Online voice (optional):** with your own Gnani key, Shammy says timers, alarms and reminders aloud and can transcribe Hinglish online. Off until you add a key.
+- 🗣️ **Online voice (optional):** with your own Gnani key, Shammy listens online in Hinglish (saving the key turns this on) and can say timers, alarms and reminders aloud. Off until you add a key.
+- 💬 **Say it your way:** everyday wordings and Hinglish reach the right action (*"grab my screen"*, *"gaana band karo"*, *"settings kholo"*). The time, date, battery, new messages and what's playing are answered on your PC. When Shammy isn't sure, it shows **Did you mean** choices (press <kbd>1</kbd>–<kbd>4</kbd>) instead of searching; plain questions still go to Google.
+- 🐾 **Cat theme (optional):** the cat listens in the notch while you talk, and paws lead the choices. Settings › Notch & pet.
 - 🤫 **Quiet mode:** the notch keeps itself quiet during a calendar meeting and a focus session.
 - 🙈 **Fullscreen:** Shammy hides itself for fullscreen games, videos and presentations, and never covers a top taskbar. Only a finished timer or a due alarm or reminder shows over them, without taking focus.
 

@@ -24,6 +24,15 @@ internal static class HostLinks
         catch (Exception ex) { Infrastructure.Log.Warn("A CommandRan listener failed", ex); }
     }
 
+    /// <summary>
+    /// Whether something in Shammy could be what the words mean (set by the palette). Voice uses it to offer
+    /// choices instead of searching the web when no command took the words.
+    /// </summary>
+    public static Func<string, bool>? HasChoices { get; set; }
+
+    /// <summary>Up to three things in Shammy the words could mean, best first (set by the palette); empty for a plain question.</summary>
+    public static Func<string, IReadOnlyList<Choice>>? Choices { get; set; }
+
     /// <summary>Whether this PC can run the Hinglish voice (it needs the graphics-card engine).</summary>
     public static Func<bool>? HinglishAvailable { get; set; }
 
@@ -82,3 +91,6 @@ internal static class HostLinks
         }
     }
 }
+
+/// <summary>One "Did you mean" chip: what it is, a glyph, and what picking it does.</summary>
+internal sealed record Choice(string Title, string Detail, string Glyph, Action Run);

@@ -17,6 +17,9 @@ internal static class GuideLinks
 {
     /// <summary>Opens the guide filtered to what is new in this version.</summary>
     public static Action? OpenNew { get; set; }
+
+    /// <summary>Opens the guide searched for a feature's name.</summary>
+    public static Action<string>? OpenFeature { get; set; }
 }
 
 /// <summary>
@@ -64,6 +67,7 @@ internal sealed class GuideModule : IShammyModule
         ctx.AddTrayItem("What Shammy can do", () => Open("", GuideFilter.All));
         HostLinks.CommandRan += OnCommandRan;
         GuideLinks.OpenNew = () => Open("", GuideFilter.New);
+        GuideLinks.OpenFeature = name => Open(name, GuideFilter.All);
 
         ctx.AddPipeCommand("guide-state", _ => State());
         ctx.AddPipeCommand("guide-open", arg =>
@@ -122,6 +126,7 @@ internal sealed class GuideModule : IShammyModule
     {
         HostLinks.CommandRan -= OnCommandRan;
         GuideLinks.OpenNew = null;
+        GuideLinks.OpenFeature = null;
     }
 
     string State() =>

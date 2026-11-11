@@ -148,6 +148,9 @@ internal sealed class AppSettings
     /// <summary>The cat purrs softly when the pointer rests on it (also needs notch sounds on).</summary>
     public bool PetPurrs { get; set; } = true;
 
+    /// <summary>Cat touches beyond the pet: the cat listens while you talk, paws lead the "Did you mean" chips.</summary>
+    public bool CatTheme { get; set; }
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 

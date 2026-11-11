@@ -13,6 +13,9 @@ namespace Shammy.Modules.OnlineVoice;
 internal sealed class OnlineVoiceStore
 {
     public string? Key { get; set; }
+
+    /// <summary>A saved key turns online listening on once; after that the switch is the user's.</summary>
+    public bool ListeningDefaulted { get; set; }
 }
 
 /// <summary>The running module, for the Settings screen's "Online voice (Gnani)" rows; null while the feature is turned off.</summary>
@@ -77,6 +80,14 @@ internal sealed class OnlineVoiceModule : IShammyModule
         _cache = new SpeechCacheStore(Path.Combine(Paths.Root, "onlinevoice-cache"), ctx.Warn);
         _store = ctx.Load<OnlineVoiceStore>();
         _store.Key = KeyMask.Clean(_store.Key);
+        // A key saved before this rule existed: turn listening on once, as a fresh save would.
+        if (HasKey && !_store.ListeningDefaulted)
+        {
+            SetSetting(nameof(AppSettings.OnlineVoiceListens), true);
+            _store.ListeningDefaulted = true;
+            ctx.Save(_store);
+            ctx.Info("Online listening turned on for the saved Gnani key");
+        }
 
         HostLinks.Say = Say;
         HostLinks.OnlineTranscribe = TranscribeAsync;
@@ -104,6 +115,13 @@ internal sealed class OnlineVoiceModule : IShammyModule
             return _fakeStt is null ? "ok: fake transcript off" : "ok: the next online transcription returns this text";
         });
         ctx.AddPipeCommand("onlinevoice-request", WouldSend);
+        // Test only: save or forget a made-up key exactly as Settings would (a key saved turns listening on).
+        ctx.AddPipeCommand("onlinevoice-savekey", arg => SaveKey(arg) ? "ok: saved " + MaskedKey : "error: not a key");
+        ctx.AddPipeCommand("onlinevoice-removekey", _ =>
+        {
+            RemoveKey();
+            return "ok: removed";
+        });
         ctx.AddPipeCommand("onlinevoice-listen", _ =>
         {
             // What a hold of the talk key would get from the online path, on a second of silence.
@@ -135,7 +153,10 @@ internal sealed class OnlineVoiceModule : IShammyModule
     {
         if (KeyMask.Clean(pasted) is not { } key) return false;
         _store.Key = key;
+        _store.ListeningDefaulted = true;
         _ctx.Save(_store);
+        // A key is pasted to be used: listening goes online at once (the switch can still turn it off).
+        SetSetting(nameof(AppSettings.OnlineVoiceListens), true);
         _speakGate.Reset();
         _listenGate.Reset();
         _listenNeedsLanguage = false;
