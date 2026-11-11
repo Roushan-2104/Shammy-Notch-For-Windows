@@ -201,9 +201,14 @@ public partial class ExpandedView
         _dock.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         if (!on) return;
         var slots = link!.Slots;
-        string key = string.Join(",", slots.Select(s => s.ActionId)) + (_s.Settings.CatTheme ? "|cat" : "");
+        // The app in front adds up to three keys of its own after a divider; your eight never move.
+        var front = ForegroundApp();
+        var suggestion = Core.Wheel.WheelContext.For(front?.Process, front?.Title);
+        var extra = Core.Wheel.WheelContext.Extra(suggestion, slots.Select(s => s.ActionId));
+        string key = string.Join(",", slots.Select(s => s.ActionId)) + "|" + string.Join(",", extra) + (_s.Settings.CatTheme ? "|cat" : "");
         if (key == _dockKey) return;
         _dockKey = key;
+        _dockContext = extra.Count > 0 ? $"{suggestion!.Label}: {string.Join(",", extra)}" : "";
         _dock.Children.Clear();
         for (int i = 0; i < slots.Count; i++)
         {
@@ -211,7 +216,47 @@ public partial class ExpandedView
             var name = Core.Wheel.WheelSlots.ById(id)?.Name ?? id;
             _dock.Children.Add(DockKey(i, id, name, WheelModule.GlyphFor(id), _s.Settings.CatTheme, link));
         }
+        if (extra.Count == 0) return;
+        var divider = new Border { Width = 1, Height = 28, Margin = new Thickness(KeyGap + 2, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+        divider.SetResourceReference(Border.BackgroundProperty, "WallHairline");
+        _dock.Children.Add(divider);
+        foreach (var id in extra)
+        {
+            var name = Core.Wheel.WheelSlots.ById(id)?.Name ?? id;
+            var k = DockKey(-1, id, name, WheelModule.GlyphFor(id), _s.Settings.CatTheme, link);
+            ((FrameworkElement)k).ToolTip = $"For {suggestion!.Label}: {name}";
+            AutomationProperties.SetName(k, $"For {suggestion.Label}: {name}");
+            _dock.Children.Add(k);
+        }
     }
+
+    string _dockContext = "";
+    (string Process, string Title)? _lastFront;
+
+    /// <summary>The app the user is in (the notch never takes focus while hovered, so this is what's behind it).</summary>
+    (string Process, string Title)? ForegroundApp()
+    {
+        try
+        {
+            var hwnd = Interop.Native.GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return _lastFront;
+            Interop.Native.GetWindowThreadProcessId(hwnd, out uint pid);
+            // Shammy itself in front (typing in the notch): keep the app from before.
+            if (pid == 0 || pid == Environment.ProcessId) return _lastFront;
+            using var process = System.Diagnostics.Process.GetProcessById((int)pid);
+            var title = new System.Text.StringBuilder(256);
+            GetWindowText(hwnd, title, title.Capacity);
+            _lastFront = (process.ProcessName, title.ToString());
+            return _lastFront;
+        }
+        catch (Exception)
+        {
+            return _lastFront;
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder text, int max);
 
     FrameworkElement DockKey(int index, string id, string name, string glyph, bool cat, WheelModule link)
     {
@@ -227,6 +272,7 @@ public partial class ExpandedView
         inner.Children.Add(number);
         face.Child = inner;
 
+        if (index < 0) number.Visibility = Visibility.Collapsed;
         var root = new Grid { Width = KeySize, Height = KeySize, Margin = new Thickness(index == 0 ? 0 : KeyGap, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = name };
         root.Children.Add(face);
         // With the Cat theme, the key under the pointer wears two small ears.
@@ -248,7 +294,7 @@ public partial class ExpandedView
             ears.SetResourceReference(Shape.FillProperty, "WallAccent");
             root.Children.Add(ears);
         }
-        AutomationProperties.SetName(root, $"{index + 1}: {name}");
+        AutomationProperties.SetName(root, index < 0 ? name : $"{index + 1}: {name}");
         root.MouseEnter += (_, _) =>
         {
             face.SetResourceReference(Border.BackgroundProperty, "WallSurfaceHover");
@@ -273,7 +319,7 @@ public partial class ExpandedView
     /// <summary>For the state pipe.</summary>
     internal string DescribeHomeTop() =>
         $"now={(_nowLine?.Visibility == Visibility.Visible ? $"'{_nowText?.Text}' of {_nowItems.Count}" : "hidden")} " +
-        $"dock={(_dock?.Visibility == Visibility.Visible ? _dockKey : "hidden")} top={HomeTopHeight}";
+        $"dock={(_dock?.Visibility == Visibility.Visible ? _dockKey : "hidden")} context='{_dockContext}' top={HomeTopHeight}";
 
     /// <summary>Test hook: what clicking dock key <paramref name="index"/> would do (0-based).</summary>
     internal string ClickDockForTest(int index)

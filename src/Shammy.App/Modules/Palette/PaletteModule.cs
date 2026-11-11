@@ -212,6 +212,16 @@ internal sealed partial class PaletteModule : IShammyModule
                 },
             });
         }
+        // Several commands in one line ("timer 5 minutes and pause the music"): one row that runs them in order.
+        if (command is null && HostLinks.ChainPlan?.Invoke(clean) is { } plan)
+        {
+            items.Add(new PaletteItem("chain", PaletteKind.Command, plan, "Shammy · one after another", 100)
+            {
+                Hint = "Command",
+                Confident = true,
+                Tag = new PaletteEntry { Glyph = "", Run = _ => _bar.Submit(text) },
+            });
+        }
         if (command is null && Calculator.TryEvaluate(text, out var value, out _))
         {
             items.Add(new PaletteItem("calc", PaletteKind.Command, "= " + Calculator.Format(value), Calculator.DisplayForm(text), 100)

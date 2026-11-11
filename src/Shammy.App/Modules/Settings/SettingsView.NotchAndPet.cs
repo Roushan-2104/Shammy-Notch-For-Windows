@@ -31,7 +31,7 @@ internal partial class SettingsView
         SwitchRow("Peek", "A quick glance when you rest the pointer, before it opens.", nameof(AppSettings.PeekEnabled), "Peek on", "Peek off");
         SwitchRow("Right now line", "One line at the top of the open notch with what matters this minute: a meeting soon, Claude waiting, a timer, new messages.",
             nameof(AppSettings.NowLineEnabled), "Right now line on", "Right now line off");
-        SwitchRow("Dock", "The wheel's eight actions as keys at the top of the open notch. Pick them in Settings › Wheel.",
+        SwitchRow("Dock", "The wheel's eight actions as keys at the top of the open notch, plus a few for the app you're in (a meeting, a browser, code). Pick the eight in Settings › Wheel.",
             nameof(AppSettings.DockEnabled), "Dock on", "Dock off");
         SwitchRow("Tuck-away tab", "A small tab under the notch. Click it and the notch slides away for a few seconds, so you can click what is under it.",
             nameof(AppSettings.TuckAwayEnabled), "Tuck-away tab on", "Tuck-away tab off");

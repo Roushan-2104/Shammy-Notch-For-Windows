@@ -168,6 +168,12 @@ internal partial class SearchCoordinator
     async Task<bool> TryRunCommandAsync(string text)
     {
         int session = _session;
+        // Several requests in one sentence ("screenshot le lo aur phone pe bhej") run one after another.
+        if (ResolveChain(text) is { } chain)
+        {
+            await RunChainAsync(session, chain);
+            return true;
+        }
         var (command, clean) = Resolve(text);
         if (command is null) return false;
 
@@ -214,8 +220,69 @@ internal partial class SearchCoordinator
     }
 
     /// <summary>"voice-route &lt;text&gt;": what a spoken or typed line would do, without doing it.</summary>
+    /// <summary>
+    /// The steps of a chained request, when the text splits at "and"/"aur"/"then" into pieces that are each a
+    /// command; null otherwise (one request, or a piece no command takes).
+    /// </summary>
+    internal IReadOnlyList<(Modules.ITextCommand Command, string Clean)>? ResolveChain(string text)
+    {
+        var parts = SpokenChain.Split(text);
+        if (parts.Count == 0) return null;
+        var steps = new List<(Modules.ITextCommand, string)>();
+        foreach (var part in parts)
+        {
+            var (command, clean) = Resolve(SpokenChain.Carry(part));
+            if (command is null) return null;
+            steps.Add((command, clean));
+        }
+        return steps;
+    }
+
+    internal static string StepTitle(Modules.ITextCommand command, string clean) => StepName(command, clean);
+
+    static string StepName(Modules.ITextCommand command, string clean)
+    {
+        try { return (command as Modules.ICommandPreview)?.Preview(clean)?.Title ?? clean; }
+        catch (Exception) { return clean; }
+    }
+
+    async Task RunChainAsync(int session, IReadOnlyList<(Modules.ITextCommand Command, string Clean)> steps)
+    {
+        _phase = Phase.Processing;
+        DismissOverlay();
+        _notch.SetSearchMode(NotchMode.Thinking);
+        _notch.SearchBarView.ShowThinking(string.Join(" → ", steps.Select(s => StepName(s.Command, s.Clean))));
+        Log.Info($"Running a chain of {steps.Count} commands");
+        var done = new List<Modules.CommandResult>();
+        foreach (var (command, clean) in steps)
+        {
+            Modules.CommandResult result;
+            try
+            {
+                result = await command.RunAsync(clean);
+                Modules.HostLinks.RaiseCommandRan(clean);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Chained command {command.GetType().Name} failed", ex);
+                result = new Modules.CommandResult("", "That didn't work", ex.Message, IsError: true);
+            }
+            if (session != _session) return;
+            done.Add(result);
+            // A step that failed, or wants a search instead, ends the chain there.
+            if (result.IsError || result.SearchInstead is not null) break;
+            // A moment between steps, so each can finish what it started (a screenshot, a card).
+            await Task.Delay(350);
+            if (session != _session) return;
+        }
+        var last = done[^1];
+        ShowCommandResult(new Modules.CommandResult(last.Glyph, string.Join(" → ", done.Select(r => r.Title)),
+            done.Count < steps.Count ? $"Stopped at step {done.Count} of {steps.Count}" : last.Detail, IsError: last.IsError));
+    }
+
     internal string RouteForTest(string text)
     {
+        if (ResolveChain(text) is { } chain) return "CHAIN [" + string.Join(" | ", chain.Select(s => $"{s.Command.GetType().Name} <- '{s.Clean}'")) + "]";
         var (command, clean) = Resolve(text);
         if (command is not null)
         {

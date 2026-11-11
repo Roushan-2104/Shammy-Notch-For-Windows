@@ -30,6 +30,9 @@ internal static class HostLinks
     /// </summary>
     public static Func<string, bool>? HasChoices { get; set; }
 
+    /// <summary>"Screenshot → Send to phone" when the text is several commands in one sentence; null otherwise.</summary>
+    public static Func<string, string?>? ChainPlan { get; set; }
+
     /// <summary>The wheel takes 1–8 and Esc while it is open (true, with the handler; 0 is Esc) and gives them back (false).</summary>
     public static Action<bool, Action<int>?>? WheelKeys { get; set; }
 

@@ -158,3 +158,60 @@ public class ActivityExpiryTests
         Assert.True(m.NextExpiryUtc > soon);
     }
 }
+
+public class WheelContextTests
+{
+    [Theory]
+    [InlineData("Zoom", "Zoom Meeting", "Zoom", "captions,record,notes")]
+    [InlineData("ms-teams", "Standup | Microsoft Teams", "Teams", "captions,record,notes")]
+    [InlineData("chrome", "Daily sync - Google Meet - Google Chrome", "Google Meet", "captions,record,notes")]
+    [InlineData("chrome.exe", "Kesariya - YouTube - Google Chrome", "Youtube", "captions,mixer")]
+    [InlineData("msedge", "Wikipedia", "This page", "screenshot,phone,clipboard")]
+    [InlineData("Code", "Program.cs - Halo", "Coding", "timer,notes,clipboard")]
+    [InlineData("Spotify", "Spotify Premium", "Spotify", "music,mixer")]
+    [InlineData("POWERPNT", "Deck.pptx", "Slides", "prompter,record,timer")]
+    public void The_app_in_front_suggests_actions(string process, string title, string label, string ids)
+    {
+        var s = WheelContext.For(process, title)!;
+        Assert.Equal(label, s.Label);
+        Assert.Equal(ids.Split(','), s.ActionIds);
+    }
+
+    [Theory]
+    [InlineData("explorer", "Downloads")]
+    [InlineData("notepad", "notes.txt")]
+    [InlineData("", "")]
+    public void Other_apps_suggest_nothing(string process, string title) => Assert.Null(WheelContext.For(process, title));
+
+    [Fact]
+    public void Only_actions_not_already_on_the_dock()
+    {
+        var extra = WheelContext.Extra(WheelContext.For("chrome", "News"), WheelSlots.Defaults);
+        Assert.Equal(new[] { "clipboard" }, extra); // screenshot and phone are already there
+        Assert.Empty(WheelContext.Extra(null, WheelSlots.Defaults));
+    }
+}
+
+public class SpokenChainTests
+{
+    [Theory]
+    [InlineData("screenshot le lo aur phone pe bhej", "screenshot le lo|phone pe bhej")]
+    [InlineData("take a screenshot and send it to my phone", "take a screenshot|send it to my phone")]
+    [InlineData("start a 25 minute timer then pause the music", "start a 25 minute timer|pause the music")]
+    [InlineData("volume up, and then brightness down.", "volume up|brightness down")]
+    [InlineData("timer 5 minutes aur phir music chalao", "timer 5 minutes|music chalao")]
+    public void Splits_at_joining_words(string said, string parts) => Assert.Equal(parts.Split('|'), Search.SpokenChain.Split(said));
+
+    [Theory]
+    [InlineData("take a screenshot")]
+    [InlineData("")]
+    [InlineData("a and b and c and d and e")] // more than four is not a chain
+    public void One_request_is_not_split(string said) => Assert.Empty(Search.SpokenChain.Split(said));
+
+    [Theory]
+    [InlineData("send it to my phone", "send this to my phone")]
+    [InlineData("phone pe bhej", "send this to my phone")]
+    [InlineData("isko mobile pe bhej do", "send this to my phone")]
+    public void A_later_step_that_says_it_means_this(string said, string english) =>
+        Assert.Equal(english, Search.SpokenRewrite.Rewrite(Search.SpokenChain.Carry(said)) ?? Search.SpokenChain.Carry(said));
+}

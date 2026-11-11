@@ -92,6 +92,9 @@ public static class SpokenRewrite
         (@"^(?:read|show|tell)\s+(?:me\s+)?(?:my\s+)?(?:the\s+)?(?:last|latest|recent|newest)\s+(?:message|notification|msg)$|^(?:last|latest|aakhri|akhri|pichla|pichhla)\s+(?:message|msg|notification)\s+(?:padho|batao|sunao|dikhao|kya\s+(?:tha|hai))$", "read my last message"),
         (@"^(?:do\s+i\s+have\s+)?(?:any\s+)?meetings?\s+today$|^do\s+i\s+have\s+(?:any\s+)?meetings?(?:\s+today)?$|^aaj\s+(?:ki\s+|koi\s+|kya\s+)?meetings?\s*(?:hai|hain|he)?(?:\s+kya)?$|^aaj\s+(?:kya|kaun\s*si)\s+meetings?\s+(?:hai|hain)$|^(?:my\s+)?(?:schedule|agenda)(?:\s+today|\s+for\s+today)?$|^aaj\s+ka\s+(?:schedule|plan)(?:\s+kya\s+hai)?$", "what's on my calendar"),
 
+        // ---- Sending to the phone, in Hinglish and short English
+        (@"^(?:ise|isko|ye|yeh|use|usko)?\s*(?:(?:mere|apne|my)\s+)?(?:phone|mobile)\s+(?:pe|par|me|mein)\s+(?:bhej(?:o|do|na)?|bhej\s*do|send\s+" + Karo + @")$|^send\s+(?:it|that|this)?\s*to\s+(?:my\s+)?(?:phone|mobile)$", "send this to my phone"),
+
         // ---- Bluetooth devices: the Bluetooth setting, with its switch
         (@"^(?:connect|pair|disconnect|unpair|join)\s+(?:to\s+)?(?:my\s+|the\s+)?(?:earbuds|earphones|headphones|airpods|buds|headset|bluetooth\s+\w+|speaker|speakers)$|^(?:earbuds|headphones|airpods|buds|headset)\s+(?:connect|jodo|jod\s*do)(?:\s+" + Karo + ")?$", "bluetooth"),
 

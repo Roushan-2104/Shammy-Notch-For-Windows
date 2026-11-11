@@ -267,6 +267,8 @@ internal sealed partial class ShammyHost : IDisposable
         Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);
         Modules.HostLinks.HinglishAvailable = () => _whisper.HinglishAvailable;
         Modules.HostLinks.ListenUntilSilence = _search.ListenUntilSilence;
+        Modules.HostLinks.ChainPlan = text => _search.ResolveChain(text) is { } chain
+            ? string.Join(" → ", chain.Select(s => SearchCoordinator.StepTitle(s.Command, s.Clean))) : null;
         // The wheel borrows 1–8 and Esc while it is open.
         Action<int>? wheelKeys = null;
         _keys.WheelKey += n => wheelKeys?.Invoke(n);

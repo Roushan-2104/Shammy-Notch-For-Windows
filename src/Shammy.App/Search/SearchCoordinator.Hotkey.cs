@@ -192,6 +192,7 @@ internal partial class SearchCoordinator
     /// <summary>What letting go would do with <paramref name="words"/>, in a few words.</summary>
     internal string PlanFor(string words)
     {
+        if (ResolveChain(words) is { } chain) return "Let go to: " + string.Join(" → ", chain.Select(s => StepName(s.Command, s.Clean)));
         var (command, clean) = Resolve(words);
         if (command is not null)
         {
