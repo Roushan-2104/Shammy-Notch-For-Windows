@@ -58,10 +58,10 @@ internal partial class SettingsView
         preview.Opacity = _s.PetEnabled ? 1 : 0.4;
         Row("Pet", PetHint(_s.PetEnabled), petSwitch, out petHint, preview);
 
-        var kinds = new[] { PetKind.Cat, PetKind.Eyes };
+        var kinds = new[] { PetKind.Eyes, PetKind.Cat };
         Border purrRow = null!;
-        var kindRow = Row("Pet style", "A cat is the same eyes with ears, whiskers and a nose. Eyes is the eyes alone.",
-            new Segmented(new[] { "Cat", "Eyes" }, Array.IndexOf(kinds, _s.PetKind), i =>
+        var kindRow = Row("Pet style", "Eyes is Shammy as it always was. Cat adds ears, whiskers and a nose to the same eyes.",
+            new Segmented(new[] { "Eyes", "Cat" }, Array.IndexOf(kinds, _s.PetKind), i =>
             {
                 Set(nameof(AppSettings.PetKind), kinds[i], kinds[i] == PetKind.Cat ? $"{PetLook.Name} is a cat" : "Just the eyes");
                 face.Restyle();

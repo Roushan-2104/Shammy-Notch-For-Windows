@@ -16,7 +16,7 @@ internal static class PetLook
     public static string Name { get; private set; } = PetLooks.DefaultName;
 
     /// <summary>A cat or the plain eyes (see <see cref="Views.CatParts"/>).</summary>
-    public static PetKind Kind { get; private set; } = PetKind.Cat;
+    public static PetKind Kind { get; private set; } = PetKind.Eyes;
 
     /// <summary>The cat purrs when the pointer rests on it.</summary>
     public static bool Purrs { get; private set; } = true;

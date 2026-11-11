@@ -125,7 +125,7 @@ public static class FeatureGuide
         F("system", 5, "System", "CPU, memory and battery, with alerts.", "cpu", "cpu",
             "slow battery memory performance hot fan", "cpu|system", "", GuideSwitch.Module, "system"),
 
-        F("pet", 6, "Shammy the cat", "Ears, whiskers and a purr. Or just the eyes.", "pet on · pet off", "",
+        F("pet", 6, "Shammy the pet", "Eyes that react to what you do, or a cat with ears and a purr.", "pet on · pet off", "",
             "eyes ears purr cute animal mascot hide kitten", "pet on|pet off", "cat|pet|purr", GuideSwitch.Setting, "PetEnabled", "0.6"),
         F("cattheme", 6, "Cat theme", "A cat that listens while you talk, and paws on the choices.", "Settings › Notch & pet", "",
             "paws paw cat theme kitty listening ears", "", "", GuideSwitch.Setting, "CatTheme", "0.7"),
