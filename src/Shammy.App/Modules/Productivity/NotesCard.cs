@@ -165,7 +165,7 @@ internal sealed class NotesCard
             Root.Body.Children.Add(WallDetail.Scroll(_rows));
 
             // The add box in the corner: Enter saves.
-            _input = new TextBox { Style = (Style)Application.Current.Resources["BareTextBox"], FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
+            _input = new TextBox { Style = Ui.Tokens.StyleRes("BareTextBox"), FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
             var hint = CardKit.Text("Add a note", 13, FontWeights.Medium, secondary: true);
             hint.IsHitTestVisible = false;
             _input.TextChanged += (_, _) => hint.Visibility = _input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;

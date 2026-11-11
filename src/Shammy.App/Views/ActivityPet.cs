@@ -278,10 +278,10 @@ internal sealed class ActivityPet : Canvas
             : new RadialGradientBrush(new GradientStopCollection { new(Color.FromRgb(0x3A, 0x3A, 0x44), 0), new(Color.FromRgb(0x3A, 0x3A, 0x44), 0.3), new(Color.FromRgb(0x17, 0x17, 0x1B), 0.32) });
         disc.Children.Add(new Ellipse { Fill = face });
         // The rim and a groove, then the spindle hole.
-        disc.Children.Add(new Ellipse { Stroke = Solid(Color.FromRgb(0, 0, 0)), StrokeThickness = 1.5 });
-        disc.Children.Add(new Ellipse { Margin = new Thickness(1.5), Stroke = Solid(Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1 });
-        disc.Children.Add(new Ellipse { Margin = new Thickness(4.5), Stroke = Solid(Color.FromArgb(0x30, 0, 0, 0)), StrokeThickness = 1.5 });
-        disc.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Solid(Color.FromRgb(0, 0, 0)), Stroke = Solid(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1.2 });
+        disc.Children.Add(new Ellipse { Stroke = Ui.Tokens.Frozen(Color.FromRgb(0, 0, 0)), StrokeThickness = 1.5 });
+        disc.Children.Add(new Ellipse { Margin = new Thickness(1.5), Stroke = Ui.Tokens.Frozen(Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1 });
+        disc.Children.Add(new Ellipse { Margin = new Thickness(4.5), Stroke = Ui.Tokens.Frozen(Color.FromArgb(0x30, 0, 0, 0)), StrokeThickness = 1.5 });
+        disc.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Ui.Tokens.Frozen(Color.FromRgb(0, 0, 0)), Stroke = Ui.Tokens.Frozen(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1.2 });
         if (!spinning) disc.Opacity = 0.55;
         layer.Children.Add(At(disc, Cx - size / 2, (ColumnHeight - size) / 2));
         Pop(disc, 0.4, 0);
@@ -323,7 +323,7 @@ internal sealed class ActivityPet : Canvas
         // A resting cat folds its ears flat.
         AddCat(face, 11.75, 18.25, whiskers: true, tilt: 20, drop: 3);
         foreach (double x in new[] { Cx - 15, Cx + 4 })
-            face.Children.Add(At(new Rectangle { Width = 11, Height = 2.5, RadiusX = 1.25, RadiusY = 1.25, Fill = Solid(Ink) }, x, 17));
+            face.Children.Add(At(new Rectangle { Width = 11, Height = 2.5, RadiusX = 1.25, RadiusY = 1.25, Fill = Ui.Tokens.Frozen(Ink) }, x, 17));
         _rest = 1;
         Loop(faceT.Scale, ScaleTransform.ScaleYProperty, 3.2, 0, (0, 1), (0.5, 1.06), (1, 1));
         Loop(faceT.Translate, TranslateTransform.YProperty, 3.2, 0, (0, 0), (0.5, -1), (1, 0));
@@ -356,7 +356,7 @@ internal sealed class ActivityPet : Canvas
             var zip = PathOf("M 1,3 H 11.5 M 3.5,1.2 V 4.8 M 6,1.2 V 4.8 M 8.5,1.2 V 4.8", Ink, 1.2);
             var zipCanvas = new Canvas { Width = 15, Height = 6 };
             zipCanvas.Children.Add(zip);
-            zipCanvas.Children.Add(At(new Ellipse { Width = 3.2, Height = 3.2, Fill = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0D)), Stroke = Solid(Ink), StrokeThickness = 1.2 }, 11.2, 1.4));
+            zipCanvas.Children.Add(At(new Ellipse { Width = 3.2, Height = 3.2, Fill = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0D)), Stroke = Ui.Tokens.Frozen(Ink), StrokeThickness = 1.2 }, 11.2, 1.4));
             Pop(zipCanvas, 0.4, 0);
             face.Children.Add(At(zipCanvas, Cx - 7.5, mouth));
         }
@@ -376,10 +376,10 @@ internal sealed class ActivityPet : Canvas
         // The headset drops on.
         var headset = new Canvas { Width = 46, Height = 28 };
         headset.Children.Add(PathOf("M 5,14 V 12 A 18,10 0 0 1 41,12 V 14", Ink, 2));
-        headset.Children.Add(At(new Rectangle { Width = 6, Height = 10, RadiusX = 2.5, RadiusY = 2.5, Fill = Solid(Ink) }, 1, 10));
-        headset.Children.Add(At(new Rectangle { Width = 6, Height = 10, RadiusX = 2.5, RadiusY = 2.5, Fill = Solid(Ink) }, 39, 10));
+        headset.Children.Add(At(new Rectangle { Width = 6, Height = 10, RadiusX = 2.5, RadiusY = 2.5, Fill = Ui.Tokens.Frozen(Ink) }, 1, 10));
+        headset.Children.Add(At(new Rectangle { Width = 6, Height = 10, RadiusX = 2.5, RadiusY = 2.5, Fill = Ui.Tokens.Frozen(Ink) }, 39, 10));
         headset.Children.Add(PathOf("M 4,20 Q 5,26 14,26", Ink2, 1.4));
-        headset.Children.Add(At(new Ellipse { Width = 3.4, Height = 3.4, Fill = Solid(Ink) }, 13.3, 24.3));
+        headset.Children.Add(At(new Ellipse { Width = 3.4, Height = 3.4, Fill = Ui.Tokens.Frozen(Ink) }, 13.3, 24.3));
         DropOn(headset, 0.5, 10);
         face.Children.Add(At(headset, Cx - 23, row - 9));
         // Leans in a little now and then, like listening.
@@ -424,7 +424,7 @@ internal sealed class ActivityPet : Canvas
         var eyes = AddEyes(face, 10, 13, shift);
         face.Children.Add(At(Flat(), Cx - 3 + shift, 26));
         var clock = new Canvas { Width = 13, Height = 14 };
-        clock.Children.Add(At(new Ellipse { Width = 10, Height = 10, Stroke = Solid(Ink), StrokeThickness = 1.4 }, 1.5, 3));
+        clock.Children.Add(At(new Ellipse { Width = 10, Height = 10, Stroke = Ui.Tokens.Frozen(Ink), StrokeThickness = 1.4 }, 1.5, 3));
         clock.Children.Add(PathOf("M 5,1.4 H 8 M 10.4,3.4 L 11.3,2.5", Ink, 1.4));
         var hand = PathOf("M 6.5,8 V 4.8", Ink, 1.4);
         var spin = new RotateTransform(0, 6.5, 8);
@@ -449,7 +449,7 @@ internal sealed class ActivityPet : Canvas
         AddBlush(face, row + 7, 32);
         var grin = new Border
         {
-            Width = 11, Height = 6, BorderThickness = new Thickness(2), BorderBrush = Solid(Ink), Background = Solid(Pink),
+            Width = 11, Height = 6, BorderThickness = new Thickness(2), BorderBrush = Ui.Tokens.Frozen(Ink), Background = Ui.Tokens.Frozen(Pink),
             CornerRadius = new CornerRadius(2, 2, 5, 5),
         };
         face.Children.Add(At(grin, Cx - 5.5, mouth));
@@ -469,7 +469,7 @@ internal sealed class ActivityPet : Canvas
             var arm = new Canvas { RenderTransform = new RotateTransform(angles[i]) };
             var bit = new Rectangle
             {
-                Width = i % 3 == 0 ? 5 : 4, Height = 5, Fill = Solid(colours[i]),
+                Width = i % 3 == 0 ? 5 : 4, Height = 5, Fill = Ui.Tokens.Frozen(colours[i]),
                 RadiusX = i % 3 == 0 ? 2.5 : 1, RadiusY = i % 3 == 0 ? 2.5 : 1,
                 RenderTransformOrigin = new Point(0.5, 0.5), Opacity = 0,
             };
@@ -492,8 +492,8 @@ internal sealed class ActivityPet : Canvas
         const double top = 11; // a 56 × 16 face
         double left = Cx - 28;
         // Mask ties flap behind.
-        var tie1 = new Rectangle { Width = 9, Height = 3, RadiusX = 1.5, RadiusY = 1.5, Fill = Solid(Mask), RenderTransformOrigin = new Point(1, 0.5) };
-        var tie2 = new Rectangle { Width = 8, Height = 3, RadiusX = 1.5, RadiusY = 1.5, Fill = Solid(Mask), RenderTransformOrigin = new Point(1, 0.5) };
+        var tie1 = new Rectangle { Width = 9, Height = 3, RadiusX = 1.5, RadiusY = 1.5, Fill = Ui.Tokens.Frozen(Mask), RenderTransformOrigin = new Point(1, 0.5) };
+        var tie2 = new Rectangle { Width = 8, Height = 3, RadiusX = 1.5, RadiusY = 1.5, Fill = Ui.Tokens.Frozen(Mask), RenderTransformOrigin = new Point(1, 0.5) };
         var r1 = new RotateTransform();
         var r2 = new RotateTransform();
         tie1.RenderTransform = r1;
@@ -524,10 +524,10 @@ internal sealed class ActivityPet : Canvas
         eyes.Translate.Y = 1;
         // Two little hands hold the bar.
         double barLeft = Cx - 15, barTop = 25;
-        face.Children.Add(At(new Ellipse { Width = 5, Height = 5, Fill = Solid(Ink) }, barLeft - 3, barTop));
-        face.Children.Add(At(new Ellipse { Width = 5, Height = 5, Fill = Solid(Ink) }, barLeft + 28, barTop));
+        face.Children.Add(At(new Ellipse { Width = 5, Height = 5, Fill = Ui.Tokens.Frozen(Ink) }, barLeft - 3, barTop));
+        face.Children.Add(At(new Ellipse { Width = 5, Height = 5, Fill = Ui.Tokens.Frozen(Ink) }, barLeft + 28, barTop));
         var track = new Border { Width = 24, Height = 3, CornerRadius = new CornerRadius(1.5), Background = new SolidColorBrush(Color.FromArgb(0x38, 0xF5, 0xF5, 0xF7)) };
-        _barFill = new Border { Width = 24 * _progress, Height = 3, CornerRadius = new CornerRadius(1.5), Background = Solid(Ink), HorizontalAlignment = HorizontalAlignment.Left };
+        _barFill = new Border { Width = 24 * _progress, Height = 3, CornerRadius = new CornerRadius(1.5), Background = Ui.Tokens.Frozen(Ink), HorizontalAlignment = HorizontalAlignment.Left };
         track.Child = _barFill;
         face.Children.Add(At(track, barLeft + 3, barTop + 1));
         Loop(faceT.Translate, TranslateTransform.YProperty, 1.6, 0, (0, 0), (0.5, 1), (1, 0));
@@ -549,7 +549,7 @@ internal sealed class ActivityPet : Canvas
         blush.Opacity = 0;
         Once(blush, OpacityProperty, 0.3, 2.9, (0, 0), (1, 1));
         // The mouth opens, gulps the file and chews.
-        var chomp = new Ellipse { Width = 10, Height = 7, Fill = Solid(Pink), Stroke = Solid(Ink), StrokeThickness = 1.5, RenderTransformOrigin = new Point(0.5, 0.5) };
+        var chomp = new Ellipse { Width = 10, Height = 7, Fill = Ui.Tokens.Frozen(Pink), Stroke = Ui.Tokens.Frozen(Ink), StrokeThickness = 1.5, RenderTransformOrigin = new Point(0.5, 0.5) };
         var chompScale = new ScaleTransform(1, 0.15);
         chomp.RenderTransform = chompScale;
         face.Children.Add(At(chomp, Cx - 5, mouth));
@@ -645,7 +645,7 @@ internal sealed class ActivityPet : Canvas
         Once(faceT.Scale, ScaleTransform.ScaleXProperty, 0.9, 2.7, (0, 1), (0.4, 1.08), (1, 1));
         Once(faceT.Scale, ScaleTransform.ScaleYProperty, 0.9, 2.7, (0, 1), (0.4, 0.86), (1, 1));
         var puff = new Canvas { Width = 10, Height = 6, Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5) };
-        var puffColor = Solid(Color.FromRgb(0xC9, 0xCC, 0xD3));
+        var puffColor = Ui.Tokens.Frozen(Color.FromRgb(0xC9, 0xCC, 0xD3));
         puff.Children.Add(At(new Ellipse { Width = 3.2, Height = 3.2, Fill = puffColor }, 0.4, 1.9));
         puff.Children.Add(At(new Ellipse { Width = 4, Height = 4, Fill = puffColor }, 3.5, 0.5));
         puff.Children.Add(At(new Ellipse { Width = 2.6, Height = 2.6, Fill = puffColor }, 7.2, 2.5));
@@ -668,8 +668,8 @@ internal sealed class ActivityPet : Canvas
         face.Children.Add(At(Smile(), Cx - 4.5, mouth));
         var phones = new Canvas { Width = 46, Height = 24 };
         phones.Children.Add(PathOf("M 5,15 V 12 A 18,10 0 0 1 41,12 V 15", Ink, 2.2));
-        phones.Children.Add(At(new Rectangle { Width = 7, Height = 11, RadiusX = 3, RadiusY = 3, Fill = Solid(Ink) }, 1, 11));
-        phones.Children.Add(At(new Rectangle { Width = 7, Height = 11, RadiusX = 3, RadiusY = 3, Fill = Solid(Ink) }, 38, 11));
+        phones.Children.Add(At(new Rectangle { Width = 7, Height = 11, RadiusX = 3, RadiusY = 3, Fill = Ui.Tokens.Frozen(Ink) }, 1, 11));
+        phones.Children.Add(At(new Rectangle { Width = 7, Height = 11, RadiusX = 3, RadiusY = 3, Fill = Ui.Tokens.Frozen(Ink) }, 38, 11));
         DropOn(phones, 0.55, 10);
         face.Children.Add(At(phones, Cx - 23, row - 9));
         Loop(faceT.Translate, TranslateTransform.YProperty, 1.4, 0.6, (0, 0), (0.5, 1), (1, 0));
@@ -781,7 +781,7 @@ internal sealed class ActivityPet : Canvas
     {
         if (!CatParts.On) return;
         double left = Cx - 15 + shift, right = Cx + 4 + shift;
-        var ink = Solid(Ink);
+        var ink = Ui.Tokens.Frozen(Ink);
         var leftEar = new CatParts.Ear(false, ink);
         var rightEar = new CatParts.Ear(true, ink);
         // Eyes near the top of the notch leave less room: the ears shorten rather than lose their tips.
@@ -800,8 +800,8 @@ internal sealed class ActivityPet : Canvas
     {
         var host = new Canvas { Width = ColumnWidth, Height = ColumnHeight, IsHitTestVisible = false };
         double left = Cx - rowWidth / 2;
-        host.Children.Add(At(new Ellipse { Width = 8, Height = 4, Fill = Solid(Pink), Opacity = 0.4 }, left - 6, top + 1));
-        host.Children.Add(At(new Ellipse { Width = 8, Height = 4, Fill = Solid(Pink), Opacity = 0.4 }, left + rowWidth - 2, top + 1));
+        host.Children.Add(At(new Ellipse { Width = 8, Height = 4, Fill = Ui.Tokens.Frozen(Pink), Opacity = 0.4 }, left - 6, top + 1));
+        host.Children.Add(At(new Ellipse { Width = 8, Height = 4, Fill = Ui.Tokens.Frozen(Pink), Opacity = 0.4 }, left + rowWidth - 2, top + 1));
         face.Children.Add(host);
         return host;
     }
@@ -834,37 +834,31 @@ internal sealed class ActivityPet : Canvas
 
     static Path Smile() => PathOf("M 1,0 V 0.5 A 3.5,3.5 0 0 0 8,0.5 V 0", Ink, 2, PenLineCap.Flat);
 
-    static Ellipse OMouth() => new() { Width = 6, Height = 6, Stroke = Solid(Ink), StrokeThickness = 2, Fill = Solid(MouthInside) };
+    static Ellipse OMouth() => new() { Width = 6, Height = 6, Stroke = Ui.Tokens.Frozen(Ink), StrokeThickness = 2, Fill = Ui.Tokens.Frozen(MouthInside) };
 
-    static Rectangle Flat() => new() { Width = 6, Height = 2, RadiusX = 1, RadiusY = 1, Fill = Solid(Ink) };
+    static Rectangle Flat() => new() { Width = 6, Height = 2, RadiusX = 1, RadiusY = 1, Fill = Ui.Tokens.Frozen(Ink) };
 
     static Canvas Note(Color color, double scale)
     {
         var c = new Canvas { Width = 9, Height = 11, LayoutTransform = new ScaleTransform(scale, scale), Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5) };
         c.Children.Add(PathOf("M 3,9 V 2.2 L 8,1 V 7.4", color, 1.5, PenLineCap.Flat));
-        c.Children.Add(At(new Ellipse { Width = 3.6, Height = 3.6, Fill = Solid(color) }, 0.1, 7.2));
-        c.Children.Add(At(new Ellipse { Width = 3.6, Height = 3.6, Fill = Solid(color) }, 5.1, 5.8));
+        c.Children.Add(At(new Ellipse { Width = 3.6, Height = 3.6, Fill = Ui.Tokens.Frozen(color) }, 0.1, 7.2));
+        c.Children.Add(At(new Ellipse { Width = 3.6, Height = 3.6, Fill = Ui.Tokens.Frozen(color) }, 5.1, 5.8));
         return c;
     }
 
     static Path PathOf(string data, Color stroke, double thickness, PenLineCap cap = PenLineCap.Round) => new()
     {
         Data = Geometry.Parse(data),
-        Stroke = Solid(stroke),
+        Stroke = Ui.Tokens.Frozen(stroke),
         StrokeThickness = thickness,
         StrokeStartLineCap = cap,
         StrokeEndLineCap = cap,
         StrokeLineJoin = PenLineJoin.Round,
     };
 
-    static Path Fill(string data, Color fill) => new() { Data = Geometry.Parse(data), Fill = Solid(fill) };
+    static Path Fill(string data, Color fill) => new() { Data = Geometry.Parse(data), Fill = Ui.Tokens.Frozen(fill) };
 
-    static SolidColorBrush Solid(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
-    }
 
     static T At<T>(T element, double x, double y) where T : UIElement
     {

@@ -83,7 +83,7 @@ internal sealed class WhatsNewCard : Grid
         {
             Width = 4,
             Height = 4,
-            Fill = (Brush)Application.Current.Resources["WallAccent"],
+            Fill = Ui.Tokens.Res("WallAccent"),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(0, 6, 0, 0),

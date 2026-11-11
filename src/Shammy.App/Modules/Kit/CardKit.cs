@@ -14,17 +14,9 @@ namespace Shammy.Modules.Kit;
 /// </summary>
 internal static class CardKit
 {
-    static readonly Dictionary<string, SolidColorBrush> Brushes = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A frozen brush for "#RRGGBB" or "#AARRGGBB".</summary>
-    public static SolidColorBrush Brush(string hex)
-    {
-        if (Brushes.TryGetValue(hex, out var b)) return b;
-        b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        b.Freeze();
-        Brushes[hex] = b;
-        return b;
-    }
+    public static SolidColorBrush Brush(string hex) => Ui.Tokens.Brush(hex);
 
     /// <summary>A colour at an alpha (0–1).</summary>
     public static SolidColorBrush Tint(string hex, double alpha)
@@ -43,7 +35,7 @@ internal static class CardKit
 
     public static FontFamily Font => Wall.Font;
     public static FontFamily DisplayFont => Wall.Font;
-    public static FontFamily IconFont => (FontFamily)Application.Current.Resources["IconFont"];
+    public static FontFamily IconFont => Ui.Tokens.FontRes("IconFont");
 
     public static TextBlock Label(string text, double size = 13, FontWeight? weight = null, Brush? brush = null)
     {

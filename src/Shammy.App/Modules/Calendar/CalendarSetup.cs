@@ -41,7 +41,7 @@ internal sealed class CalendarSetup : Border
 
         _box = new TextBox
         {
-            Style = (Style)Application.Current.Resources["BareTextBox"],
+            Style = Ui.Tokens.StyleRes("BareTextBox"),
             FontSize = 12.5,
             FontFamily = CardKit.Font,
         };

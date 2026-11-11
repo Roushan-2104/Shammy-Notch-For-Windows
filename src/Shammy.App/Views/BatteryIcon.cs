@@ -6,10 +6,10 @@ namespace Shammy.Views;
 /// <summary>An iOS-style battery glyph: green while charging, red when low.</summary>
 internal sealed class BatteryIcon : FrameworkElement
 {
-    static readonly Brush Outline = Frozen(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF));
-    static readonly Brush Green = Frozen(Color.FromRgb(0x30, 0xD1, 0x58));
-    static readonly Brush Red = Frozen(Color.FromRgb(0xFF, 0x45, 0x3A));
-    static readonly Brush White = Frozen(Colors.White);
+    static readonly Brush Outline = Ui.Tokens.Frozen(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF));
+    static readonly Brush Green = Ui.Tokens.Frozen(Color.FromRgb(0x30, 0xD1, 0x58));
+    static readonly Brush Red = Ui.Tokens.Frozen(Color.FromRgb(0xFF, 0x45, 0x3A));
+    static readonly Brush White = Ui.Tokens.Frozen(Colors.White);
 
     int _percent = 100;
     bool _charging;
@@ -39,10 +39,4 @@ internal sealed class BatteryIcon : FrameworkElement
         if (inner > 0.5) dc.DrawRoundedRectangle(fill, null, new Rect(2, 2, inner, h - 4), 1.6, 1.6);
     }
 
-    static Brush Frozen(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
-    }
 }

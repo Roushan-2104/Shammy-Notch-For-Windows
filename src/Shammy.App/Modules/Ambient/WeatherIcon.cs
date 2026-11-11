@@ -38,9 +38,9 @@ internal sealed class WeatherIcon : FrameworkElement
         if (!_set) return;
         double s = Math.Min(ActualWidth, ActualHeight);
         if (s <= 0) return;
-        var fg = (Brush)Application.Current.Resources["Fg"];
-        var amber = Sun ?? (Brush)Application.Current.Resources["Amber"];
-        var accent = (Brush)Application.Current.Resources["AccentBrush"];
+        var fg = Ui.Tokens.Res("Fg");
+        var amber = Sun ?? Ui.Tokens.Res("Amber");
+        var accent = Ui.Tokens.Res("AccentBrush");
         var sky = _isDay ? WeatherCodes.SunGlyph : WeatherCodes.MoonGlyph;
         var skyBrush = _isDay ? amber : fg;
 
@@ -120,7 +120,7 @@ internal sealed class WeatherIcon : FrameworkElement
     (Geometry Shape, Geometry Backing) Shapes(string glyph)
     {
         if (Cache.TryGetValue(glyph, out var cached)) return cached;
-        var typeface = new Typeface((FontFamily)Application.Current.Resources["IconFont"], FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        var typeface = new Typeface(Ui.Tokens.FontRes("IconFont"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         var text = new FormattedText(glyph, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, 100, Brushes.White,
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var shape = text.BuildGeometry(new Point(0, 0));

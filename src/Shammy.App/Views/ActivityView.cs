@@ -69,13 +69,13 @@ internal sealed class ActivityView : Grid
 
         _line.SetResourceReference(TextBlock.FontFamilyProperty, "WallFontSemiBold");
         _line.FontWeight = FontWeights.SemiBold;
-        _line.Foreground = (Brush)Application.Current.Resources["WallText"];
+        _line.Foreground = Ui.Tokens.Res("WallText");
         SetRow(_line, 1);
         SetColumnSpan(_line, 3);
         Children.Add(_line);
 
-        _value.FontFamily = (FontFamily)Application.Current.Resources["WallFont"];
-        _value.Foreground = (Brush)Application.Current.Resources["WallText"];
+        _value.FontFamily = Ui.Tokens.FontRes("WallFont");
+        _value.Foreground = Ui.Tokens.Res("WallText");
 
         // WallFont + SemiBold falls back to Regular; the SemiBold family is the real weight.
         _label.SetResourceReference(TrackedText.FontFamilyProperty, "WallFontSemiBold");
@@ -181,11 +181,11 @@ internal sealed class ActivityView : Grid
             ? new Border { Width = 14, Height = 14, CornerRadius = new CornerRadius(4), Background = new ImageBrush(icon) { Stretch = Stretch.UniformToFill } }
             : new Border
             {
-                Width = 14, Height = 14, CornerRadius = new CornerRadius(4), Background = (Brush)Application.Current.Resources["WallHairline"],
+                Width = 14, Height = 14, CornerRadius = new CornerRadius(4), Background = Ui.Tokens.Res("WallHairline"),
                 Child = new TextBlock
                 {
                     Text = live.State.Label.Length > 0 ? live.State.Label[..1].ToUpperInvariant() : "•",
-                    FontSize = 9, FontWeight = FontWeights.Bold, Foreground = (Brush)Application.Current.Resources["WallText"],
+                    FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Ui.Tokens.Res("WallText"),
                     HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                 },
             };
@@ -246,7 +246,7 @@ internal sealed class ActivityView : Grid
     {
         var dot = new Ellipse
         {
-            Width = 7, Height = 7, Fill = (Brush)Application.Current.Resources["Red"], VerticalAlignment = VerticalAlignment.Center,
+            Width = 7, Height = 7, Fill = Ui.Tokens.Res("Red"), VerticalAlignment = VerticalAlignment.Center,
             RenderTransformOrigin = new Point(0.5, 0.5),
         };
         var scale = new ScaleTransform();
@@ -279,10 +279,10 @@ internal sealed class ActivityView : Grid
     FrameworkElement Battery(double level)
     {
         var c = new Canvas { Width = 20, Height = 12, VerticalAlignment = VerticalAlignment.Center };
-        var stroke = (Brush)Application.Current.Resources["WallText2"];
+        var stroke = Ui.Tokens.Res("WallText2");
         c.Children.Add(Place(new Rectangle { Width = 16, Height = 10, RadiusX = 2.5, RadiusY = 2.5, Stroke = stroke, StrokeThickness = 1.4 }, 1, 1));
         c.Children.Add(Place(new Rectangle { Width = 1.4, Height = 3, RadiusX = 0.7, RadiusY = 0.7, Fill = stroke }, 18, 4.5));
-        _batteryFill = new Rectangle { Width = 12 * Math.Clamp(level, 0, 1), Height = 6, RadiusX = 1, RadiusY = 1, Fill = (Brush)Application.Current.Resources["BatteryAccent"] };
+        _batteryFill = new Rectangle { Width = 12 * Math.Clamp(level, 0, 1), Height = 6, RadiusX = 1, RadiusY = 1, Fill = Ui.Tokens.Res("BatteryAccent") };
         c.Children.Add(Place(_batteryFill, 3, 3));
         return c;
     }
@@ -291,7 +291,7 @@ internal sealed class ActivityView : Grid
     {
         Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center,
         Data = Geometry.Parse("M 3.5,2.5 A 2.2,2.2 0 0 1 5.7,4.7 V 5.9 A 2.2,2.2 0 0 1 3.5,8.1 V 12.5 M 10.5,2.5 A 2.2,2.2 0 0 0 8.3,4.7 V 5.9 A 2.2,2.2 0 0 0 10.5,8.1 V 12.5"),
-        Stroke = (Brush)Application.Current.Resources["WallText2"], StrokeThickness = 1.4,
+        Stroke = Ui.Tokens.Res("WallText2"), StrokeThickness = 1.4,
         StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
     };
 

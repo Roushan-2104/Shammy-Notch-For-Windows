@@ -133,8 +133,8 @@ internal sealed class CompactView : Grid
         }
         else
         {
-            frame.Background = (Brush)Application.Current.Resources["Fill2"];
-            frame.Child = Glyph("", glyphSize + 4, (Brush)Application.Current.Resources["Fg2"]);
+            frame.Background = Ui.Tokens.Res("Fill2");
+            frame.Child = Glyph("", glyphSize + 4, Ui.Tokens.Res("Fg2"));
         }
     }
 
@@ -152,10 +152,10 @@ internal sealed class CompactView : Grid
         var p = (BatteryPayload)a.Payload!;
         bool low = a.Kind == ActivityKind.LowBattery;
         _left.Content = Label(low ? "Low Battery" : "Charging",
-            (Brush)Application.Current.Resources[low ? "Red" : "Fg"]);
+            Ui.Tokens.Res(low ? "Red" : "Fg"));
         _battery = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center };
         _battery.Set(p.Percent, p.Charging);
-        _rightText = Label($"{p.Percent}%", (Brush)Application.Current.Resources[low ? "Red" : "Green"]);
+        _rightText = Label($"{p.Percent}%", Ui.Tokens.Res(low ? "Red" : "Green"));
         _rightText.Margin = new Thickness(0, 0, 6, 0);
         _right.Content = Row(_rightText, _battery);
         return 78;
@@ -163,12 +163,12 @@ internal sealed class CompactView : Grid
 
     double BuildBluetooth(BluetoothPayload p)
     {
-        _left.Content = Glyph("", 15, (Brush)Application.Current.Resources["AccentBrush"]);
+        _left.Content = Glyph("", 15, Ui.Tokens.Res("AccentBrush"));
         // "Airdopes 311 Pro · 80%" once the headset has reported its battery.
-        var name = Label(Shammy.Core.Devices.BluetoothBattery.Pill(p.Name, p.Battery), (Brush)Application.Current.Resources["Fg"]);
+        var name = Label(Shammy.Core.Devices.BluetoothBattery.Pill(p.Name, p.Battery), Ui.Tokens.Res("Fg"));
         double width = p.Battery is null ? 120 : 150;
         name.MaxWidth = width;
-        var state = Label(p.Connected ? "Connected" : "Disconnected", (Brush)Application.Current.Resources["Fg2"]);
+        var state = Label(p.Connected ? "Connected" : "Disconnected", Ui.Tokens.Res("Fg2"));
         state.FontWeight = FontWeights.Normal;
         state.FontSize = 10.5;
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -183,17 +183,17 @@ internal sealed class CompactView : Grid
 
     double BuildDownloading(DownloadPayload p)
     {
-        var spinner = new Spinner { Width = 15, Height = 15, Stroke = (Brush)Application.Current.Resources["AccentBrush"] };
-        _left.Content = Row(Glyph("", 14, (Brush)Application.Current.Resources["AccentBrush"]), new FrameworkElement { Width = 7 }, spinner);
-        _rightText = Label(Shammy.Core.Connect.ConnectText.DownloadProgress(p.Bytes, p.Total), (Brush)Application.Current.Resources["Fg"]);
+        var spinner = new Spinner { Width = 15, Height = 15, Stroke = Ui.Tokens.Res("AccentBrush") };
+        _left.Content = Row(Glyph("", 14, Ui.Tokens.Res("AccentBrush")), new FrameworkElement { Width = 7 }, spinner);
+        _rightText = Label(Shammy.Core.Connect.ConnectText.DownloadProgress(p.Bytes, p.Total), Ui.Tokens.Res("Fg"));
         _right.Content = _rightText;
         return 70;
     }
 
     double BuildDownloadDone(DownloadPayload p)
     {
-        _left.Content = Glyph("", 15, (Brush)Application.Current.Resources["Green"]);
-        var name = Label(p.Name, (Brush)Application.Current.Resources["Fg"]);
+        _left.Content = Glyph("", 15, Ui.Tokens.Res("Green"));
+        var name = Label(p.Name, Ui.Tokens.Res("Fg"));
         name.MaxWidth = 130;
         _right.Content = name;
         return 130;
@@ -202,9 +202,9 @@ internal sealed class CompactView : Grid
     double BuildProgress(ProgressPayload p)
     {
         _ring = new ProgressRing { Value = p.Progress };
-        _left.Content = Row(Glyph(p.Glyph, 14, (Brush)Application.Current.Resources["Fg"]), new FrameworkElement { Width = 8 },
-            Label(p.Label, (Brush)Application.Current.Resources["Fg2"]));
-        _rightText = Label($"{p.Progress:P0}", (Brush)Application.Current.Resources["Fg"]);
+        _left.Content = Row(Glyph(p.Glyph, 14, Ui.Tokens.Res("Fg")), new FrameworkElement { Width = 8 },
+            Label(p.Label, Ui.Tokens.Res("Fg2")));
+        _rightText = Label($"{p.Progress:P0}", Ui.Tokens.Res("Fg"));
         _rightText.Margin = new Thickness(0, 0, 6, 0);
         _right.Content = Row(_rightText, _ring);
         return 96;
@@ -212,9 +212,9 @@ internal sealed class CompactView : Grid
 
     double BuildMessage(MessagePayload p)
     {
-        var brush = (Brush)Application.Current.Resources[p.IsError ? "Red" : "AccentBrush"];
+        var brush = Ui.Tokens.Res(p.IsError ? "Red" : "AccentBrush");
         _left.Content = Glyph(p.Glyph, 15, brush);
-        var text = Label(p.Text, (Brush)Application.Current.Resources["Fg"]);
+        var text = Label(p.Text, Ui.Tokens.Res("Fg"));
         text.MaxWidth = 170;
         _right.Content = text;
         return 170;
@@ -223,7 +223,7 @@ internal sealed class CompactView : Grid
     internal static TextBlock Glyph(string glyph, double size, Brush brush) => new()
     {
         Text = glyph,
-        FontFamily = (FontFamily)Application.Current.Resources["IconFont"],
+        FontFamily = Ui.Tokens.FontRes("IconFont"),
         FontSize = size,
         Foreground = brush,
         VerticalAlignment = VerticalAlignment.Center,
@@ -266,14 +266,14 @@ internal sealed class CompactView : Grid
 
         public HudParts()
         {
-            Icon = Glyph("", 15, (Brush)Application.Current.Resources["Fg"]);
-            _fill = new Border { Height = 5, CornerRadius = new CornerRadius(2.5), Background = (Brush)Application.Current.Resources["Fg"], HorizontalAlignment = HorizontalAlignment.Left, Width = 0 };
+            Icon = Glyph("", 15, Ui.Tokens.Res("Fg"));
+            _fill = new Border { Height = 5, CornerRadius = new CornerRadius(2.5), Background = Ui.Tokens.Res("Fg"), HorizontalAlignment = HorizontalAlignment.Left, Width = 0 };
             Track = new Border
             {
                 Width = TrackWidth,
                 Height = 5,
                 CornerRadius = new CornerRadius(2.5),
-                Background = (Brush)Application.Current.Resources["Fill2"],
+                Background = Ui.Tokens.Res("Fill2"),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = _fill,
             };
@@ -290,7 +290,7 @@ internal sealed class CompactView : Grid
                 : p.Muted || level <= 0 ? ""
                 : level < 0.34 ? ""
                 : level < 0.67 ? "" : "";
-            _fill.Background = (Brush)Application.Current.Resources[p.Muted ? "Fg3" : "Fg"];
+            _fill.Background = Ui.Tokens.Res(p.Muted ? "Fg3" : "Fg");
             if (_fill.Width == 0 && _level.Value == 0) _level.Snap(level);
             _level.AnimateTo(level, 0.3, 0.86);
             _frames ??= Motion.Animator.Subscribe(_ =>
@@ -331,11 +331,11 @@ internal sealed class ProgressRing : FrameworkElement
     {
         double t = 2.2, r = (Width - t) / 2;
         var c = new Point(Width / 2, Height / 2);
-        dc.DrawEllipse(null, new Pen((Brush)Application.Current.Resources["Fill2"], t), c, r, r);
+        dc.DrawEllipse(null, new Pen(Ui.Tokens.Res("Fill2"), t), c, r, r);
         if (_value <= 0) return;
         if (_value >= 0.999)
         {
-            dc.DrawEllipse(null, new Pen((Brush)Application.Current.Resources["AccentBrush"], t), c, r, r);
+            dc.DrawEllipse(null, new Pen(Ui.Tokens.Res("AccentBrush"), t), c, r, r);
             return;
         }
         double a = -Math.PI / 2 + _value * 2 * Math.PI;
@@ -345,6 +345,6 @@ internal sealed class ProgressRing : FrameworkElement
             ctx.BeginFigure(new Point(c.X, c.Y - r), false, false);
             ctx.ArcTo(new Point(c.X + r * Math.Cos(a), c.Y + r * Math.Sin(a)), new Size(r, r), 0, _value > 0.5, SweepDirection.Clockwise, true, false);
         }
-        dc.DrawGeometry(null, new Pen((Brush)Application.Current.Resources["AccentBrush"], t) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, g);
+        dc.DrawGeometry(null, new Pen(Ui.Tokens.Res("AccentBrush"), t) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, g);
     }
 }

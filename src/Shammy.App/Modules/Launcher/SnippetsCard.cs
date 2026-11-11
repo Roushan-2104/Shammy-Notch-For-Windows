@@ -108,7 +108,7 @@ internal sealed class SnippetsCard
     /// <summary>";sig Best regards" + Enter: the first word is the trigger, the rest what it types.</summary>
     FrameworkElement AddBox(WallDetail d)
     {
-        var input = new TextBox { Style = (Style)Application.Current.Resources["BareTextBox"], FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
+        var input = new TextBox { Style = Ui.Tokens.StyleRes("BareTextBox"), FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
         var hint = CardKit.Text(";sig Best regards", 13, FontWeights.Medium, secondary: true);
         hint.IsHitTestVisible = false;
         input.TextChanged += (_, _) => hint.Visibility = input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;

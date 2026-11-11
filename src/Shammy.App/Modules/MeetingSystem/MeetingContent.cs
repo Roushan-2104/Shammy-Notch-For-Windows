@@ -58,7 +58,7 @@ internal sealed class MeetingContent : ICompactContent, IPetActivity
         _gap = new FrameworkElement { Width = 9 };
         _cam = Glyph(15);
         _cam.Text = "";
-        _cam.Foreground = Res("Fg");
+        _cam.Foreground = Ui.Tokens.Res("Fg");
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_mic);
         row.Children.Add(_gap);
@@ -70,7 +70,7 @@ internal sealed class MeetingContent : ICompactContent, IPetActivity
             Text = AppName,
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = Res("Fg"),
+            Foreground = Ui.Tokens.Res("Fg"),
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = MaxNameWidth,
@@ -104,7 +104,7 @@ internal sealed class MeetingContent : ICompactContent, IPetActivity
         {
             if (mic is null) continue;
             mic.Text = _muted ? "" : "";
-            mic.Foreground = Res(_muted ? "Red" : "Green");
+            mic.Foreground = Ui.Tokens.Res(_muted ? "Red" : "Green");
         }
         var camVisibility = _camera ? Visibility.Visible : Visibility.Collapsed;
         if (_cam is not null) _cam.Visibility = camVisibility;
@@ -113,11 +113,10 @@ internal sealed class MeetingContent : ICompactContent, IPetActivity
 
     static TextBlock Glyph(double size) => new()
     {
-        FontFamily = (FontFamily)Application.Current.Resources["IconFont"],
+        FontFamily = Ui.Tokens.FontRes("IconFont"),
         FontSize = size,
         VerticalAlignment = VerticalAlignment.Center,
         HorizontalAlignment = HorizontalAlignment.Center,
     };
 
-    static Brush Res(string key) => (Brush)Application.Current.Resources[key];
 }

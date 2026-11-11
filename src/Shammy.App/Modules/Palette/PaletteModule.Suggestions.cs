@@ -215,7 +215,7 @@ internal partial class PaletteModule
             var s = new MiniSlider { VerticalAlignment = VerticalAlignment.Center };
             var mute = new Button
             {
-                Style = (Style)Application.Current.Resources["WallIconButton"],
+                Style = Ui.Tokens.StyleRes("WallIconButton"),
                 Width = 24,
                 Height = 24,
                 FontSize = 12,

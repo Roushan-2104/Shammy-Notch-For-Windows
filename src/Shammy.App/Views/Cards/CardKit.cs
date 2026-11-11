@@ -21,20 +21,15 @@ internal static class CardKit
 {
     // ---- Tokens ----------------------------------------------------------------------------------
 
-    public static Brush Hex(string hex)
-    {
-        var b = new SolidColorBrush(Color(hex));
-        b.Freeze();
-        return b;
-    }
+    public static Brush Hex(string hex) => Ui.Tokens.Brush(hex);
 
-    public static Color Color(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+    public static Color Color(string hex) => Ui.Tokens.Color(hex);
 
-    public static Brush Res(string key) => (Brush)Application.Current.Resources[key];
+    public static Brush Res(string key) => Ui.Tokens.Res(key);
 
     /// <summary>The notch ground, a tile's surface, the hairline, the two text colours and the accent.</summary>
-    public static readonly Brush Ground = Hex("#0B0B0D"), Surface = Hex("#16161A"), Hairline = Hex("#26282E"),
-        Ink = Hex("#F5F5F7"), Ink2 = Hex("#A3A3AB"), OnAccent = Hex("#0B0B0D");
+    public static readonly Brush Ground = Ui.Tokens.Ground, Surface = Ui.Tokens.Tile, Hairline = Ui.Tokens.Hairline,
+        Ink = Ui.Tokens.Text, Ink2 = Ui.Tokens.Text2, OnAccent = Ui.Tokens.OnAccent;
 
     /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>
     public static Brush Accent => Theme.AccentTheme.Brush;
@@ -42,16 +37,16 @@ internal static class CardKit
     public static Brush AccentHover => Theme.AccentTheme.Hover;
 
     /// <summary>Meaning colours (never decoration): red for recording, muted, alarms and anything wrong.</summary>
-    public static readonly Brush Alarm = Hex("#FF453A");
+    public static readonly Brush Alarm = Ui.Tokens.Alarm;
 
     /// <summary>Quiet controls: a translucent white circle over artwork (Wall's .ib) and a dark pill with a hairline (.qb).</summary>
-    public static readonly Brush QuietBg = Hex("#29F5F5F7"), QuietHover = Hex("#42F5F5F7"), PillBg = Hex("#1E1E23"), PillHover = Hex("#26262C");
+    public static readonly Brush QuietBg = Ui.Tokens.QuietBg, QuietHover = Ui.Tokens.QuietHover, PillBg = Ui.Tokens.Pill, PillHover = Ui.Tokens.PillHover;
 
     /// <summary>Tracks under meters, rings and scrubbers, and the hairline between list rows.</summary>
-    public static readonly Brush TrackBg = Hex("#2A2A31"), RingTrack = Hex("#2E2F36"), Divider = Hairline;
+    public static readonly Brush TrackBg = Ui.Tokens.Track, RingTrack = Ui.Tokens.RingTrack, Divider = Hairline;
 
     /// <summary>Older names some views still use.</summary>
-    public static readonly Brush ControlBg = PillBg, ControlHover = PillHover, RowBg = Hex("#1A1A1F");
+    public static readonly Brush ControlBg = PillBg, ControlHover = PillHover, RowBg = Ui.Tokens.Row;
 
     public static readonly Thickness CompactPadding = new(12), DetailPadding = new(0);
 
@@ -59,12 +54,12 @@ internal static class CardKit
 
     /// <summary>Schibsted Grotesk at Regular/Bold. Medium, SemiBold and ExtraBold are their own embedded families:
     /// use <see cref="Face"/> (asking this family for SemiBold renders Regular).</summary>
-    public static FontFamily Font => (FontFamily)Application.Current.Resources["WallFont"];
+    public static FontFamily Font => Ui.Tokens.FontRes("WallFont");
 
     /// <summary>The embedded cut for a weight (see <see cref="WallParts.Family"/>).</summary>
     public static FontFamily Face(FontWeight weight) => WallParts.Family(weight);
 
-    static FontFamily IconFont => (FontFamily)Application.Current.Resources["IconFont"];
+    static FontFamily IconFont => Ui.Tokens.FontRes("IconFont");
 
     /// <summary>
     /// Body text: white, or the secondary grey (≥ 4.5:1 on tiles). Proportional figures (this face's tabular set

@@ -14,7 +14,7 @@ internal static class WallParts
 {
     public const double Radius = 16, SmallRadius = 12;
 
-    public static Brush Res(string key) => (Brush)Application.Current.Resources[key];
+    public static Brush Res(string key) => Ui.Tokens.Res(key);
 
     /// <summary>
     /// The embedded face for a weight. Regular and Bold share the "Schibsted Grotesk" family; the others are their
@@ -31,7 +31,7 @@ internal static class WallParts
             >= 450 => "WallFontMedium",
             _ => "WallFont",
         };
-        return (FontFamily)Application.Current.Resources[key];
+        return Ui.Tokens.FontRes(key);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ internal static class WallParts
     public static TextBlock Glyph(string glyph, double size, string brush = "WallText") => new()
     {
         Text = glyph,
-        FontFamily = (FontFamily)Application.Current.Resources["IconFont"],
+        FontFamily = Ui.Tokens.FontRes("IconFont"),
         FontSize = size,
         Foreground = Res(brush),
         HorizontalAlignment = HorizontalAlignment.Center,
@@ -92,7 +92,7 @@ internal static class WallParts
         row.Children.Add(text);
         var b = new Button
         {
-            Style = (Style)Application.Current.Resources[primary ? "WallPrimaryButton" : "WallQuietButton"],
+            Style = Ui.Tokens.StyleRes(primary ? "WallPrimaryButton" : "WallQuietButton"),
             Height = height,
             Padding = new Thickness(11, 0, 12, 0),
             Content = row,
@@ -111,7 +111,7 @@ internal static class WallParts
     {
         var b = new Button
         {
-            Style = (Style)Application.Current.Resources["WallIconButton"],
+            Style = Ui.Tokens.StyleRes("WallIconButton"),
             Content = glyph,
             Width = size,
             Height = size,
@@ -129,7 +129,7 @@ internal static class WallParts
 
     static Button TextButton(string style, string label, Action onClick, double height)
     {
-        var b = new Button { Style = (Style)Application.Current.Resources[style], Height = height, Content = label };
+        var b = new Button { Style = Ui.Tokens.StyleRes(style), Height = height, Content = label };
         AutomationProperties.SetName(b, label);
         b.Click += (_, e) =>
         {

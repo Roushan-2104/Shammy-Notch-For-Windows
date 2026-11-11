@@ -32,7 +32,7 @@ internal sealed class UpdateReadyContent(string version, Action restart) : IComp
             Text = $"Update {version}",
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources["Fg"],
+            Foreground = Ui.Tokens.Res("Fg"),
             VerticalAlignment = VerticalAlignment.Center,
         };
         return 100;

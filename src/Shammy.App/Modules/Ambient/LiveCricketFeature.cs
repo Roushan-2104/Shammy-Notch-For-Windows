@@ -332,7 +332,7 @@ internal sealed class LiveCricketFeature : IDisposable
         {
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources[secondary ? "Fg2" : "Fg"],
+            Foreground = Ui.Tokens.Res(secondary ? "Fg2" : "Fg"),
             VerticalAlignment = VerticalAlignment.Center,
         };
     }

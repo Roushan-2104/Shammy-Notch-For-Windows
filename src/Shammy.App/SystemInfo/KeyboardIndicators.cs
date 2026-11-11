@@ -90,7 +90,7 @@ internal sealed class KeyPill(string? keyCap, string text, bool lit) : ICompactC
 
     public double Build(ContentControl left, ContentControl right)
     {
-        var fg = (Brush)Application.Current.Resources["CardText"];
+        var fg = Ui.Tokens.Res("CardText");
         if (keyCap is not null)
         {
             left.Content = new Border

@@ -195,7 +195,7 @@ public partial class NotchWindow
                     Background = new ImageBrush(art) { Stretch = Stretch.UniformToFill },
                 },
                 ActivityKind.NowPlaying => CompactView.Glyph("", 13, Brushes.White),
-                ActivityKind.Downloading => new Spinner { Width = 16, Height = 16, Stroke = (Brush)Application.Current.Resources["AccentBrush"] },
+                ActivityKind.Downloading => new Spinner { Width = 16, Height = 16, Stroke = Ui.Tokens.Res("AccentBrush") },
                 ActivityKind.Custom when _secondary.Payload is Modules.ICompactContent c && c.BuildBubble() is { } bubble => bubble,
                 _ => CompactView.Glyph("", 13, Brushes.White),
             };

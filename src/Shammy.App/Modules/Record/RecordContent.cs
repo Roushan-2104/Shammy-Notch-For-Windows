@@ -36,17 +36,17 @@ internal sealed class RecordContent(Func<TimeSpan> elapsed, Action stop) : IComp
     // The plain pill, for anywhere the pet doesn't draw it.
     public double Build(ContentControl left, ContentControl right)
     {
-        left.Content = new Ellipse { Width = 8, Height = 8, Fill = (Brush)Application.Current.Resources["Red"], VerticalAlignment = VerticalAlignment.Center };
+        left.Content = new Ellipse { Width = 8, Height = 8, Fill = Ui.Tokens.Res("Red"), VerticalAlignment = VerticalAlignment.Center };
         right.Content = new TextBlock
         {
             Text = "Recording",
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources["Fg"],
+            Foreground = Ui.Tokens.Res("Fg"),
             VerticalAlignment = VerticalAlignment.Center,
         };
         return 72;
     }
 
-    public UIElement? BuildBubble() => new Ellipse { Width = 9, Height = 9, Fill = (Brush)Application.Current.Resources["Red"] };
+    public UIElement? BuildBubble() => new Ellipse { Width = 9, Height = 9, Fill = Ui.Tokens.Res("Red") };
 }

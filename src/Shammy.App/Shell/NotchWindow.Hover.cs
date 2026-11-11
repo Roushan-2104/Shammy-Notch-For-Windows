@@ -22,6 +22,7 @@ public partial class NotchWindow
 
     internal string HoverDiag =>
         $"root={Root.IsMouseOver} bubble={Bubble.IsMouseOver} bubbleHit={Bubble.IsHitTestVisible} bubbleLeft={Canvas.GetLeft(Bubble):0} " +
+        $"tab={TuckTab.IsMouseOver} tabTop={Canvas.GetTop(TuckTab):0} tabVis={TuckTab.Visibility} hitH={HitArea.Height:0} " +
         $"bubbleOpacity={Bubble.Opacity:0.00} mode={_mode} hoverExpanded={_hoverExpanded} hoverInMs={_hoverIn.Interval.TotalMilliseconds} dpiX={System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX}";
 
     bool CanHover => _searchMode is null && !_fullscreen && !_dragging;

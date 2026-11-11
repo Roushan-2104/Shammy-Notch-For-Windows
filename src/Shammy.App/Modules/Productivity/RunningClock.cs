@@ -118,26 +118,26 @@ internal sealed class ClockContent : ICompactContent, IPetActivity
     {
         var now = DateTime.UtcNow;
         _ring = new ProgressRing();
-        _glyph = CompactView.Glyph(_clock.Glyph, 13, Res("Fg"));
+        _glyph = CompactView.Glyph(_clock.Glyph, 13, Ui.Tokens.Res("Fg"));
         _glyph.Margin = new Thickness(7, 0, 0, 0);
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_ring);
         row.Children.Add(_glyph);
         if (_clock.Label.Length > 0)
         {
-            var label = Text(_clock.Label, Res("Fg2"));
+            var label = Text(_clock.Label, Ui.Tokens.Res("Fg2"));
             label.MaxWidth = 86;
             label.Margin = new Thickness(6, 0, 0, 0);
             row.Children.Add(label);
         }
         left.Content = row;
 
-        _time = Text("", Res("Fg"));
+        _time = Text("", Ui.Tokens.Res("Fg"));
         right.Content = _time;
 
         // Size the ear for the widest reading this clock will show, so the pill doesn't jiggle.
         _hours = _clock.IsCountdown ? _clock.Total.TotalHours >= 1 : _clock.Elapsed(now).TotalHours >= 1;
-        var widest = Text(_hours ? "00:00:00" : "00:00", Res("Fg"));
+        var widest = Text(_hours ? "00:00:00" : "00:00", Ui.Tokens.Res("Fg"));
         Refresh(now);
         return Math.Ceiling(Math.Max(Measure(row), Measure(widest))) + 2;
     }
@@ -145,7 +145,7 @@ internal sealed class ClockContent : ICompactContent, IPetActivity
     public UIElement? BuildBubble()
     {
         _bubbleRing = new ProgressRing { Width = 22, Height = 22 };
-        _bubbleGlyph = CompactView.Glyph(_clock.Glyph, 9, Res("Fg"));
+        _bubbleGlyph = CompactView.Glyph(_clock.Glyph, 9, Ui.Tokens.Res("Fg"));
         var grid = new Grid { Width = 22, Height = 22 };
         grid.Children.Add(_bubbleRing);
         grid.Children.Add(_bubbleGlyph);
@@ -169,7 +169,7 @@ internal sealed class ClockContent : ICompactContent, IPetActivity
         if (_time is not null)
         {
             _time.Text = _clock.Display(utcNow);
-            _time.Foreground = Res(_clock.Paused ? "Fg2" : "Fg");
+            _time.Foreground = Ui.Tokens.Res(_clock.Paused ? "Fg2" : "Fg");
         }
     }
 
@@ -178,7 +178,7 @@ internal sealed class ClockContent : ICompactContent, IPetActivity
         var t = new TextBlock
         {
             Text = text,
-            FontFamily = (FontFamily)Application.Current.Resources["ShammyFont"],
+            FontFamily = Ui.Tokens.FontRes("ShammyFont"),
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             Foreground = brush,
@@ -196,5 +196,4 @@ internal sealed class ClockContent : ICompactContent, IPetActivity
         return e.DesiredSize.Width;
     }
 
-    static Brush Res(string key) => (Brush)Application.Current.Resources[key];
 }

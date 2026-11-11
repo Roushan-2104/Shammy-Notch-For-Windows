@@ -146,7 +146,7 @@ internal sealed class ClipboardCard
             Root.Body.Children.Add(WallDetail.Scroll(_rows));
             _undoExpiry.Tick += (_, _) => ShowUndo(null);
 
-            _search = new TextBox { Style = (Style)Application.Current.Resources["BareTextBox"], FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
+            _search = new TextBox { Style = Ui.Tokens.StyleRes("BareTextBox"), FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
             var hint = CardKit.Text("Search clipboard", 13, FontWeights.Medium, secondary: true);
             hint.IsHitTestVisible = false;
             _search.TextChanged += (_, _) =>

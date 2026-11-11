@@ -90,7 +90,7 @@ internal sealed class LyricsPanel : Grid
         SetRow(_plainScroll, 1);
         Children.Add(_plainScroll);
 
-        _statusGlyph = new TextBlock { FontFamily = (FontFamily)Application.Current.Resources["IconFont"], FontSize = 20, Foreground = Shammy.Views.Cards.CardKit.Ink2, HorizontalAlignment = HorizontalAlignment.Center };
+        _statusGlyph = new TextBlock { FontFamily = Ui.Tokens.FontRes("IconFont"), FontSize = 20, Foreground = Shammy.Views.Cards.CardKit.Ink2, HorizontalAlignment = HorizontalAlignment.Center };
         _statusText = new TextBlock { FontSize = 12.5, Foreground = Shammy.Views.Cards.CardKit.Ink2, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
         _status = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 14) };
         _status.Children.Add(_statusGlyph);
@@ -338,5 +338,4 @@ internal sealed class LyricsPanel : Grid
         }
     }
 
-    static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
 }

@@ -41,13 +41,13 @@ internal sealed class TimerDoneContent : ICompactContent, IPetActivity
 
     public double Build(ContentControl left, ContentControl right)
     {
-        left.Content = CompactView.Glyph(_glyph, 15, (Brush)Application.Current.Resources["AccentBrush"]);
+        left.Content = CompactView.Glyph(_glyph, 15, Ui.Tokens.Res("AccentBrush"));
         right.Content = new TextBlock
         {
             Text = _text,
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources["Fg"],
+            Foreground = Ui.Tokens.Res("Fg"),
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = 170,

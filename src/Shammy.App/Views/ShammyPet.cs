@@ -225,7 +225,7 @@ internal sealed class ShammyPet : Grid
 
     // ---- Moods -----------------------------------------------------------------------------------
 
-    static Brush Res(string key) => (Brush)Application.Current.Resources[key];
+    static Brush Res(string key) => Ui.Tokens.Res(key);
 
     void ApplyMood()
     {
@@ -570,7 +570,8 @@ internal sealed class ShammyPet : Grid
     {
         if (!IsVisible || PresentationSource.FromVisual(this) is null || !Native.GetCursorPos(out var p)) return;
         var now = DateTime.UtcNow;
-        if (p.X == _lastPointer.X && p.Y == _lastPointer.Y)
+        // Still and nowhere near the pet: back off. On or near it, resting still is what makes it purr, so keep going.
+        if (p.X == _lastPointer.X && p.Y == _lastPointer.Y && !_following && _overSince is null)
         {
             var still = now - _stillSince;
             if (!_following && still > StillAfter && _pointerTimer.Interval != StillPoll) _pointerTimer.Interval = StillPoll;

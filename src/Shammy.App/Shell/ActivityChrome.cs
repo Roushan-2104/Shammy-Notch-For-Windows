@@ -76,7 +76,7 @@ internal sealed class ActivityChrome
             Width = CircleSize, Height = CircleSize, CornerRadius = new CornerRadius(CircleSize / 2), Background = notchFill,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _circleScale, Child = _disc, Cursor = Cursors.Hand, Opacity = 0,
         };
-        _circle.MouseEnter += (_, _) => _disc.BorderBrush = _spec is { Enabled: true } ? Solid(HoverRing) : Brushes.Transparent;
+        _circle.MouseEnter += (_, _) => _disc.BorderBrush = _spec is { Enabled: true } ? Ui.Tokens.Frozen(HoverRing) : Brushes.Transparent;
         _circle.MouseLeave += (_, _) =>
         {
             _disc.BorderBrush = Brushes.Transparent;
@@ -95,7 +95,7 @@ internal sealed class ActivityChrome
             RenderTransform = _dotBridgeScale,
             Opacity = 0,
         };
-        _dotLight = new Ellipse { Width = 6, Height = 6, Fill = Solid(Ink) };
+        _dotLight = new Ellipse { Width = 6, Height = 6, Fill = Ui.Tokens.Frozen(Ink) };
         _dotInner = new Border
         {
             Width = 14, Height = 14, CornerRadius = new CornerRadius(7), Background = notchFill,
@@ -161,7 +161,7 @@ internal sealed class ActivityChrome
         if (dot is not null)
         {
             // Called every second: only a new colour repaints the dot.
-            if (_dotLight.Fill is not SolidColorBrush { Color: var was } || was != DotColour(dot)) _dotLight.Fill = Solid(DotColour(dot));
+            if (_dotLight.Fill is not SolidColorBrush { Color: var was } || was != DotColour(dot)) _dotLight.Fill = Ui.Tokens.Frozen(DotColour(dot));
             AutomationProperties.SetName(_dot, $"Also live: {dot.State.Label}. Give it the circle");
             _dot.ToolTip = $"{Describe(dot)} · click to swap";
             if (newDot || _dotPop.Target == 0) Bubble(_dotPop, delay: 0.25);
@@ -225,11 +225,11 @@ internal sealed class ActivityChrome
 
     void ApplyCircle(CircleSpec spec, PetLive owner)
     {
-        var accent = (Brush)Application.Current.Resources["WallAccent"];
+        var accent = Ui.Tokens.Res("WallAccent");
         _disc.Background = spec.Tone switch
         {
             CircleTone.Accent => accent,
-            CircleTone.Red => Solid(RecRed),
+            CircleTone.Red => Ui.Tokens.Frozen(RecRed),
             _ => Brushes.Transparent,
         };
         _circle.Cursor = spec.Enabled ? Cursors.Hand : null;
@@ -238,20 +238,20 @@ internal sealed class ActivityChrome
         _circle.ToolTip = spec.Description;
 
         // Dark marks on the accent disc, light ones elsewhere.
-        var onAccent = Solid(Ground);
+        var onAccent = Ui.Tokens.Frozen(Ground);
         _ring = null;
         _icon.Content = spec.Action switch
         {
-            CircleAction.Mute => Icon(15, Stroke("M 9,6 A 3,3 0 0 1 15,6 V 11 A 3,3 0 0 1 9,11 Z M 5,11 A 7,7 0 0 0 19,11 M 12,18 V 21", Solid(Ink), 2.2)),
+            CircleAction.Mute => Icon(15, Stroke("M 9,6 A 3,3 0 0 1 15,6 V 11 A 3,3 0 0 1 9,11 Z M 5,11 A 7,7 0 0 0 19,11 M 12,18 V 21", Ui.Tokens.Frozen(Ink), 2.2)),
             CircleAction.Unmute => Icon(15, Stroke("M 9,6 A 3,3 0 0 1 15,6 V 11 A 3,3 0 0 1 9,11 Z M 5,11 A 7,7 0 0 0 19,11 M 12,18 V 21 M 4,4 L 20,20", Brushes.White, 2.2)),
-            CircleAction.Pause => Icon(12, FillPath("M 6.5,4 H 8.5 A 1.5,1.5 0 0 1 10,5.5 V 18.5 A 1.5,1.5 0 0 1 8.5,20 H 6.5 A 1.5,1.5 0 0 1 5,18.5 V 5.5 A 1.5,1.5 0 0 1 6.5,4 Z M 15.5,4 H 17.5 A 1.5,1.5 0 0 1 19,5.5 V 18.5 A 1.5,1.5 0 0 1 17.5,20 H 15.5 A 1.5,1.5 0 0 1 14,18.5 V 5.5 A 1.5,1.5 0 0 1 15.5,4 Z", Solid(Ink))),
-            CircleAction.Play or CircleAction.Resume => Icon(12, FillPath("M 7,4.5 V 19.5 A 1,1 0 0 0 8.5,20.36 L 20.5,12.86 A 1,1 0 0 0 20.5,11.14 L 8.5,3.64 A 1,1 0 0 0 7,4.5 Z", Solid(Ink))),
-            CircleAction.Stop => Icon(12, new Rectangle { Width = 16, Height = 16, RadiusX = 4, RadiusY = 4, Fill = spec.Tone == CircleTone.Red ? Brushes.White : Solid(RecRed), Margin = new Thickness(4) }),
-            CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
-            CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.8)),
+            CircleAction.Pause => Icon(12, FillPath("M 6.5,4 H 8.5 A 1.5,1.5 0 0 1 10,5.5 V 18.5 A 1.5,1.5 0 0 1 8.5,20 H 6.5 A 1.5,1.5 0 0 1 5,18.5 V 5.5 A 1.5,1.5 0 0 1 6.5,4 Z M 15.5,4 H 17.5 A 1.5,1.5 0 0 1 19,5.5 V 18.5 A 1.5,1.5 0 0 1 17.5,20 H 15.5 A 1.5,1.5 0 0 1 14,18.5 V 5.5 A 1.5,1.5 0 0 1 15.5,4 Z", Ui.Tokens.Frozen(Ink))),
+            CircleAction.Play or CircleAction.Resume => Icon(12, FillPath("M 7,4.5 V 19.5 A 1,1 0 0 0 8.5,20.36 L 20.5,12.86 A 1,1 0 0 0 20.5,11.14 L 8.5,3.64 A 1,1 0 0 0 7,4.5 Z", Ui.Tokens.Frozen(Ink))),
+            CircleAction.Stop => Icon(12, new Rectangle { Width = 16, Height = 16, RadiusX = 4, RadiusY = 4, Fill = spec.Tone == CircleTone.Red ? Brushes.White : Ui.Tokens.Frozen(RecRed), Margin = new Thickness(4) }),
+            CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.8)),
             CircleAction.OpenWhenDone => DownloadWait(owner.State.Progress ?? 0),
-            CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
-            CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", spec.Tone == CircleTone.Accent ? onAccent : Solid(Ink), 2.6)),
+            CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
             _ => null,
         };
     }
@@ -267,7 +267,7 @@ internal sealed class ActivityChrome
         var grid = new Grid { Width = DiscSize, Height = DiscSize };
         _ring = new ProgressArc { Width = 28, Height = 28, Margin = new Thickness(-2.5), Value = progress };
         grid.Children.Add(_ring);
-        var file = Icon(13, Stroke("M 6,3 H 14 L 19,8 V 21 H 6 Z M 14,3 V 8 H 19", Solid(Ink2), 2.2));
+        var file = Icon(13, Stroke("M 6,3 H 14 L 19,8 V 21 H 6 Z M 14,3 V 8 H 19", Ui.Tokens.Frozen(Ink2), 2.2));
         file.HorizontalAlignment = HorizontalAlignment.Center;
         file.VerticalAlignment = VerticalAlignment.Center;
         grid.Children.Add(file);
@@ -289,12 +289,6 @@ internal sealed class ActivityChrome
 
     static Path FillPath(string data, Brush brush) => new() { Data = Geometry.Parse(data), Fill = brush };
 
-    static SolidColorBrush Solid(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
-    }
 
     static Color Mix(Color a, Color b, double t) => Color.FromRgb(
         (byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
@@ -386,9 +380,9 @@ internal sealed class ActivityChrome
         {
             double t = 2, r = (Width - t) / 2 - 0.5;
             var c = new Point(Width / 2, Height / 2);
-            dc.DrawEllipse(null, new Pen(Solid(Hairline), t), c, r, r);
+            dc.DrawEllipse(null, new Pen(Ui.Tokens.Frozen(Hairline), t), c, r, r);
             if (_value <= 0) return;
-            var pen = new Pen(Solid(Ink), t) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            var pen = new Pen(Ui.Tokens.Frozen(Ink), t) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
             if (_value >= 0.999)
             {
                 dc.DrawEllipse(null, pen, c, r, r);

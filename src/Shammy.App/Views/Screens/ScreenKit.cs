@@ -19,22 +19,15 @@ internal enum Weight { Regular, Medium, SemiBold, Bold, ExtraBold }
 /// </summary>
 internal static class ScreenKit
 {
-    static readonly Dictionary<string, SolidColorBrush> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public static SolidColorBrush B(string hex)
-    {
-        if (Cache.TryGetValue(hex, out var b)) return b;
-        b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        b.Freeze();
-        return Cache[hex] = b;
-    }
+    public static SolidColorBrush B(string hex) => Ui.Tokens.Brush(hex);
 
-    public static Color C(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+    public static Color C(string hex) => Ui.Tokens.Color(hex);
 
-    public static readonly SolidColorBrush Ground = B("#0B0B0D"), Tile = B("#16161A"), TileHover = B("#1E1E24"),
-        Hairline = B("#26282E"), HairlineHover = B("#3A3C44"), HairlineStrong = B("#4A4C55"), Fg = B("#F5F5F7"),
-        Fg2 = B("#A3A3AB"), OnAccent = B("#0B0B0D"),
-        Blush = B("#FF6B8A");
+    public static readonly SolidColorBrush Ground = Ui.Tokens.Ground, Tile = Ui.Tokens.Tile, TileHover = Ui.Tokens.TileHover,
+        Hairline = Ui.Tokens.Hairline, HairlineHover = Ui.Tokens.HairlineHover, HairlineStrong = Ui.Tokens.HairlineStrong, Fg = Ui.Tokens.Text,
+        Fg2 = Ui.Tokens.Text2, OnAccent = Ui.Tokens.OnAccent,
+        Blush = Ui.Tokens.Blush;
 
     /// <summary>Animations snap when Windows' "Animation effects" are off.</summary>
     /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>

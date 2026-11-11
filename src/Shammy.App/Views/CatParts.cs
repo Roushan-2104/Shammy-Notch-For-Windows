@@ -13,8 +13,8 @@ namespace Shammy.Views;
 /// </summary>
 internal static class CatParts
 {
-    static readonly Brush Pink = Frozen(Color.FromRgb(0xFF, 0x9D, 0xB0));
-    static readonly Brush PupilInk = Frozen(Color.FromRgb(0x0C, 0x0D, 0x10));
+    static readonly Brush Pink = Ui.Tokens.Frozen(Color.FromRgb(0xFF, 0x9D, 0xB0));
+    static readonly Brush PupilInk = Ui.Tokens.Frozen(Color.FromRgb(0x0C, 0x0D, 0x10));
 
     // Drawn for the left eye, with (0,0) at that eye's top-left corner: the ear leans outward, its tip a third
     // of the way in from the outer edge. The right ear is the mirror image.
@@ -29,12 +29,6 @@ internal static class CatParts
 
     public static bool On => Screens.PetLook.Kind == PetKind.Cat;
 
-    static Brush Frozen(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
-    }
 
     static Geometry Parsed(string data)
     {

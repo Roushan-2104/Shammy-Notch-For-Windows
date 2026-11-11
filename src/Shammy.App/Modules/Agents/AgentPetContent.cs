@@ -89,7 +89,7 @@ internal sealed class AgentPetContent(AgentsModule module, string sessionId, boo
         Text = text,
         FontSize = 12,
         FontWeight = FontWeights.SemiBold,
-        Foreground = (Brush)Application.Current.Resources[brush],
+        Foreground = Ui.Tokens.Res(brush),
         VerticalAlignment = VerticalAlignment.Center,
     };
 

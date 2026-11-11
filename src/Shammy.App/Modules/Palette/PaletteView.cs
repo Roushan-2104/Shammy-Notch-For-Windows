@@ -293,7 +293,7 @@ internal sealed class PaletteView : Border
     /// <summary>Forget the pointer position, so the first move after the palette opens isn't read as a hover.</summary>
     public void ResetPointer() => _lastMouse = null;
 
-    internal static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+    internal static Brush Brush(string key) => Ui.Tokens.Res(key);
 }
 
 /// <summary>A thin slider (0–1) that never takes focus; drag or click anywhere on the track. A white meter on a dark track.</summary>
