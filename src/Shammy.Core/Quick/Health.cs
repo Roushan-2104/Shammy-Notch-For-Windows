@@ -68,6 +68,9 @@ public static class Cleanup
     /// <summary>Downloads untouched for this long count as old.</summary>
     public static readonly TimeSpan OldAfter = TimeSpan.FromDays(90);
 
+    /// <summary>Temporary files newer than this are left alone: a running app may still need them (Windows' own cleanup waits a week too).</summary>
+    public static readonly TimeSpan TempOldAfter = TimeSpan.FromDays(7);
+
     public static string Name(CleanupKind kind) => kind switch
     {
         CleanupKind.TempFiles => "Temporary files",
@@ -77,7 +80,7 @@ public static class Cleanup
 
     public static string Explain(CleanupKind kind) => kind switch
     {
-        CleanupKind.TempFiles => "Left behind by apps and installers; anything in use is skipped",
+        CleanupKind.TempFiles => "Left behind by apps and installers; anything from this week or in use is skipped",
         CleanupKind.RecycleBin => "Emptied for good",
         _ => "Not opened in 3 months; moved to the Recycle Bin, so you can still get them back",
     };

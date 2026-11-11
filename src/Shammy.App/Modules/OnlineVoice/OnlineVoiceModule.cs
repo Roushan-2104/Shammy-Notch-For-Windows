@@ -98,6 +98,23 @@ internal sealed class OnlineVoiceModule : IShammyModule
 
         ctx.AddPipeCommand("onlinevoice-state", _ => State());
         ctx.AddPipeCommand("onlinevoice-say", arg => Speak(arg));
+        // Test only: fetch a line in the chosen voice and write it to a WAV file instead of playing it (for videos).
+        ctx.AddPipeCommand("onlinevoice-render", arg =>
+        {
+            var parts = arg.Split('|', 2);
+            if (parts.Length < 2 || SpokenPhrases.Clean(parts[1]) is not { Length: > 0 } text) return "error: usage onlinevoice-render <out.wav>|<text>";
+            if (_store.Key is not { Length: > 0 } key) return "error: no key";
+            var outPath = parts[0].Trim().Trim('"');
+            var voice = GnaniVoices.Find(_ctx.Settings.OnlineVoiceName);
+            var request = GnaniApi.Tts(new TtsOptions(text, voice.Name, GnaniVoices.LanguageFor(voice, text)), key);
+            _ = Task.Run(async () =>
+            {
+                var reply = await FetchAsync(request);
+                if (reply.Ok) File.WriteAllBytes(outPath, reply.Audio!);
+                else File.WriteAllText(outPath + ".error.txt", reply.Error?.ToString() ?? "failed");
+            });
+            return "started: " + voice.Name;
+        });
         ctx.AddPipeCommand("onlinevoice-fake-tts", arg =>
         {
             var path = arg.Trim().Trim('"');

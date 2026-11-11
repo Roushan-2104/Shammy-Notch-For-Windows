@@ -125,7 +125,7 @@ internal static class HealthScan
     /// <summary>The bytes and files a cleanup would touch.</summary>
     public static (long Bytes, int Files) Measure(CleanupKind kind) => kind switch
     {
-        CleanupKind.TempFiles => Sum(Files(Path.GetTempPath(), null)),
+        CleanupKind.TempFiles => Sum(Files(Path.GetTempPath(), DateTime.Now - Cleanup.TempOldAfter)),
         CleanupKind.RecycleBin => RecycleBin(),
         _ => Sum(Files(DownloadsFolder, DateTime.Now - Cleanup.OldAfter)),
     };
@@ -168,7 +168,7 @@ internal static class HealthScan
                 long bytes = 0;
                 int count = 0;
                 var temp = Path.GetTempPath();
-                foreach (var f in Files(temp, null).ToList())
+                foreach (var f in Files(temp, DateTime.Now - Cleanup.TempOldAfter).ToList())
                 {
                     try
                     {
