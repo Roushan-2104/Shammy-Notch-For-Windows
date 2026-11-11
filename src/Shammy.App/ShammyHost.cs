@@ -403,6 +403,9 @@ internal sealed class ShammyHost : IDisposable
                 if (_settings.ShowNotifications) _ = StartNotificationsAsync();
                 else _activities.Remove("notification");
                 break;
+            case nameof(AppSettings.TuckAwayEnabled):
+                _notch.TuckSettingChanged();
+                break;
             case nameof(AppSettings.NotchSize):
                 _notch.ApplyScale();
                 break;
@@ -838,7 +841,7 @@ internal sealed class ShammyHost : IDisposable
             case "pet-mood": return _notch.SetPetMood(arg);
             // "pet-purr": the cat purrs as if the pointer had rested on it.
             case "pet-purr": return _notch.PetPurr();
-            // "tuck" slides the notch away as a push would, "tuck back" brings it back, "tuck state" says where it is.
+            // "tuck" slides the notch away as its tab would, "tuck back" brings it back, "tuck state" says where it is.
             case "tuck": return _notch.TuckForTest(arg);
             // "pet-greet": as if the PC had just been unlocked.
             case "pet-greet": return _notch.GreetBack();

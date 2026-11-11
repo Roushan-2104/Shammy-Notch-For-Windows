@@ -34,6 +34,13 @@
             <views:NotificationView x:Name="NotificationCard" />
             <ContentControl x:Name="CardHost" Focusable="False" />
         </Canvas>
+        <!-- A small tab hanging under the notch: click it and the notch slides out of the way for a few seconds. -->
+        <Border x:Name="TuckTab" Width="30" Height="12" CornerRadius="0,0,6,6" Background="Black" Cursor="Hand" Opacity="0" Visibility="Collapsed"
+                ToolTip="Move out of the way for 5 seconds" AutomationProperties.Name="Move the notch out of the way for 5 seconds">
+            <Path x:Name="TuckArrow" Data="M0,4 L4,0 L8,4" Width="8" Height="4" Stretch="None" Stroke="#B3FFFFFF" StrokeThickness="1.5"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="0,0,0,1" IsHitTestVisible="False" />
+        </Border>
         <!-- Where the notch was while it is tucked away; never takes a click. -->
         <Border x:Name="TuckLine" Width="56" Height="3" CornerRadius="1.5" Background="#8CFFFFFF" Opacity="0" IsHitTestVisible="False"
                 Canvas.Top="2" />

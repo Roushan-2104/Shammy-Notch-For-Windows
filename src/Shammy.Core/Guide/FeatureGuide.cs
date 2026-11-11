@@ -108,7 +108,7 @@ public static class FeatureGuide
 
         F("quick", 5, "Quick actions", "Keep awake, lock, sleep and mute in one card.", "quick actions · keep awake", "quick actions",
             "stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake", GuideSwitch.Module, "quick", "0.6"),
-        F("tuck", 5, "Tuck it away", "Push the pointer up into the notch and it slides away for a few seconds.", "push up into the notch", "",
+        F("tuck", 5, "Tuck it away", "Click the small tab under the notch and it slides away for a few seconds.", "the tab under the notch", "",
             "hide move out of the way covering behind under tab title reach click underneath", "", "", GuideSwitch.Setting, "TuckAwayEnabled", "0.6"),
         F("launcher", 5, "App launcher", "Apps, sites and folders, typos forgiven.", "open spotify", "",
             "open start run program website folder", "open ", "", GuideSwitch.Module, "launcher"),

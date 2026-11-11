@@ -103,7 +103,7 @@ internal sealed class AppSettings
     /// <summary>The glanceable peek on a resting pointer; off opens the notch after the whole wait instead.</summary>
     public bool PeekEnabled { get; set; } = true;
 
-    /// <summary>Pushing the pointer up into the notch slides it away for a few seconds, to reach what is under it.</summary>
+    /// <summary>A small tab under the notch slides it away for a few seconds, to reach what is under it.</summary>
     public bool TuckAwayEnabled { get; set; } = true;
 
     /// <summary>Wheel and swipe over the notch (volume, next/previous track).</summary>

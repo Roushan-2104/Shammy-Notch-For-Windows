@@ -179,6 +179,13 @@ public partial class NotchWindow : Window
             e.Handled = true;
             _secondary?.Click?.Invoke();
         };
+        // The tab under the notch: a click tucks the notch away instead of opening it.
+        TuckTab.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            TuckAway();
+        };
+        TuckTab.MouseLeftButtonDown += (_, e) => e.Handled = true;
         // Pressing on the notch means a click (or a drag-swipe) is coming; don't let a pending hover expand it away first.
         Root.PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -269,14 +276,13 @@ public partial class NotchWindow : Window
     // The one or two cards that peek out under a message when more wait beneath it.
     readonly SpringValue _stackA = new(0, 0.002), _stackB = new(0, 0.002);
 
-    // Tucked away: pushing the pointer up into the notch slides it out of sight for a few seconds, so whatever an
-    // app has under it can be clicked. A short line stays where it was.
-    readonly SpringValue _tuck = new(0, 0.002);
+    // Tucked away: the small tab under the notch slides it out of sight for a few seconds, so whatever an app has
+    // under it can be clicked. A short line stays where it was.
+    const long WS_EX_TRANSPARENT = 0x00000020;
+    readonly SpringValue _tuck = new(0, 0.002), _tabShown = new(0, 0.002);
     readonly TranslateTransform _rootShift = new(), _lineShift = new();
-    readonly PushDetector _push = new();
-    readonly System.Diagnostics.Stopwatch _pushClock = System.Diagnostics.Stopwatch.StartNew();
     DispatcherTimer? _untuck, _blockCheck;
-    bool _tucked, _listeningRaw, _hoverBlocked;
+    bool _tucked, _hoverBlocked;
     int _tucks;
     int _stackDepth;
     DateTime? _greetedAt;
@@ -340,11 +346,6 @@ public partial class NotchWindow : Window
         {
             handled = true;
             return new IntPtr(Native.MA_NOACTIVATE);
-        }
-        if (msg == RawMouse.WM_INPUT && _listeningRaw)
-        {
-            OnRawMove(lParam);
-            return IntPtr.Zero;
         }
         const int WM_MOUSEHWHEEL = 0x020E;
         if (msg == WM_MOUSEHWHEEL && Root.IsMouseOver && GesturesOn)
@@ -840,6 +841,7 @@ public partial class NotchWindow : Window
         // The side bubble belongs next to the compact pill only; hide it whenever a card, tab or drop zone opens.
         UpdateBubble();
         UpdateStack();
+        UpdateTuckTab();
     }
 
     void PrepareCompact()
@@ -925,7 +927,8 @@ public partial class NotchWindow : Window
         foreach (var layer in _layers) SetLayerActive(layer, layer == target, grow);
 
         EnsureWindowHeight(Math.Max(_h.Value, spec.H));
-        if (changed) Animator.Kick();
+        UpdateTuckTab();
+        Animator.Kick();
     }
 
     void SetLayerActive(Layer layer, bool active, bool grow)
@@ -1144,6 +1147,12 @@ public partial class NotchWindow : Window
             }
         }
 
+        double tab = _tabShown.Value;
+        TuckTab.Opacity = tab;
+        TuckTab.IsHitTestVisible = _tabShown.Target > 0 && !_tucked;
+        TuckTab.Visibility = tab > 0.003 ? Visibility.Visible : Visibility.Collapsed;
+        Canvas.SetLeft(TuckTab, Cx - TuckTab.Width / 2);
+        Canvas.SetTop(TuckTab, h - 1);
         double away = _tuck.Value;
         _rootShift.Y = -away * (h + 24);
         _lineShift.Y = -_rootShift.Y;
@@ -1208,7 +1217,6 @@ public partial class NotchWindow : Window
 
     void OnRootMouseEnter(object sender, MouseEventArgs e)
     {
-        ListenForPush(true);
         _hoverOut.Stop();
         if (_held) _visitedWhileHeld = true;
         _wiggle.Reset();
@@ -1237,7 +1245,7 @@ public partial class NotchWindow : Window
     /// </summary>
     void StartHoverIn()
     {
-        if (!CanHover || Bubble.IsMouseOver || _chrome.IsMouseOver || _hoverBlocked) return;
+        if (!CanHover || Bubble.IsMouseOver || _chrome.IsMouseOver || TuckTab.IsMouseOver || _hoverBlocked) return;
         // The pet's own body opens the notch (its action is on the circle), so it peeks like the resting notch.
         bool clickable = _mode == NotchMode.Compact && !_petShowing && _activity is { Click: not null, Kind: not ActivityKind.NowPlaying };
         _intent.Reset();
@@ -1251,7 +1259,6 @@ public partial class NotchWindow : Window
 
     void OnRootMouseLeave(object sender, MouseEventArgs e)
     {
-        ListenForPush(false);
         _hoverBlocked = false;
         _hoverIn.Stop();
         _press = null;
@@ -1286,8 +1293,8 @@ public partial class NotchWindow : Window
         // Hovering a notification holds it to be read, and an action pill waits to be clicked: neither peeks.
         if (_mode == NotchMode.Notification || (_mode == NotchMode.Compact && IsAction(_activity))) return;
 
-        // Pushing up into the notch is a request to get out of the way, not to open.
-        if (_push.InProgress(_pushClock.Elapsed))
+        // Over the tuck tab the pointer is on its way to click it, not resting on the notch.
+        if (TuckTab.IsMouseOver)
         {
             _intent.Reset();
             return;
@@ -1489,29 +1496,18 @@ public partial class NotchWindow : Window
 
     // ---- Tucking away -----------------------------------------------------------------------------
 
-    void ListenForPush(bool on)
+    /// <summary>The tab hangs under the notch whenever it is closed (resting, a live pill, the peek), if it is switched on.</summary>
+    void UpdateTuckTab()
     {
-        on &= _services.Settings.TuckAwayEnabled && !_tucked && _hwnd != IntPtr.Zero;
-        if (on == _listeningRaw) return;
-        _listeningRaw = on;
-        _push.Reset();
-        try
-        {
-            if (!RawMouse.Listen(_hwnd, on)) Log.Warn($"Couldn't {(on ? "start" : "stop")} reading the mouse for push-to-tuck");
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Reading the mouse for push-to-tuck failed", ex);
-            _listeningRaw = false;
-        }
+        bool show = _services.Settings.TuckAwayEnabled && _mode is NotchMode.Idle or NotchMode.Compact or NotchMode.Peek;
+        _tabShown.AnimateTo(show ? 1 : 0, 0.25, 1);
     }
 
-    void OnRawMove(IntPtr lParam)
+    /// <summary>The setting changed: show or hide the tab at once.</summary>
+    internal void TuckSettingChanged()
     {
-        if (RawMouse.VerticalMove(lParam) is not { } dy) return;
-        bool atEdge = !_tucked && !_fullscreen && _searchMode is null && Root.IsMouseOver && Native.GetCursorPos(out var p)
-            && p.Y <= Native.MonitorBounds(Monitor).Top + 1;
-        if (_push.Add(dy, atEdge, _pushClock.Elapsed)) TuckAway();
+        UpdateTuckTab();
+        Animator.Kick();
     }
 
     /// <summary>Slides the whole notch up out of sight; it comes back by itself after a few seconds.</summary>
@@ -1520,7 +1516,6 @@ public partial class NotchWindow : Window
         if (_tucked || _hwnd == IntPtr.Zero) return;
         _tucked = true;
         _tucks++;
-        ListenForPush(false);
         _hoverIn.Stop();
         // An open or peeking notch goes back to what it was showing, out of sight.
         if (_hoverExpanded || _peeking)
@@ -1531,7 +1526,7 @@ public partial class NotchWindow : Window
             UpdateBubble();
         }
         // Clicks fall through to the app underneath while it is away, the line included.
-        Native.SetExStyle(_hwnd, RawMouse.WS_EX_TRANSPARENT);
+        Native.SetExStyle(_hwnd, WS_EX_TRANSPARENT);
         if (MotionPrefs.Lively) _tuck.AnimateTo(1, 0.32, 1);
         else _tuck.Snap(1);
         Animator.Kick();
@@ -1546,7 +1541,7 @@ public partial class NotchWindow : Window
         _untuck?.Stop();
         if (!_tucked) return;
         _tucked = false;
-        Native.SetExStyle(_hwnd, 0, RawMouse.WS_EX_TRANSPARENT);
+        Native.SetExStyle(_hwnd, 0, WS_EX_TRANSPARENT);
         // Coming back under a pointer that is working there must not pop the notch open; it may once the pointer
         // has been somewhere else. Checked by position, so a missed mouse-leave can never keep it blocked.
         _hoverBlocked = PointerOverNotch();
@@ -1581,7 +1576,7 @@ public partial class NotchWindow : Window
         if (arg.Trim() == "back") ComeBack();
         else if (arg.Trim() != "state") TuckAway();
         long ex = Native.GetWindowLongPtr(_hwnd, Native.GWL_EXSTYLE).ToInt64();
-        return $"tucked={_tucked} tucks={_tucks} away={_tuck.Target:0} listening={_listeningRaw} clickThrough={(ex & RawMouse.WS_EX_TRANSPARENT) != 0} " +
+        return $"tucked={_tucked} tucks={_tucks} away={_tuck.Target:0} tab={(_tabShown.Target > 0 ? "shown" : "hidden")} clickThrough={(ex & WS_EX_TRANSPARENT) != 0} " +
                $"hoverBlocked={_hoverBlocked} mode={_mode} enabled={_services.Settings.TuckAwayEnabled}";
     }
 

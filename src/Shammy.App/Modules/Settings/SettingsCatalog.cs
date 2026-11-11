@@ -31,7 +31,7 @@ internal static class SettingsCatalog
         ("AgentsAskInNotch", "General", "Ask me in the notch", 1),
         ("HoverSpeed", "Notch & pet", "Hover speed", 1),
         ("PeekEnabled", "Notch & pet", "Peek", 1),
-        ("TuckAwayEnabled", "Notch & pet", "Push up to tuck away", 1),
+        ("TuckAwayEnabled", "Notch & pet", "Tuck-away tab", 1),
         ("PetEnabled", "Notch & pet", "Pet", 1),
         ("PetKind", "Notch & pet", "Pet style", 1),
         ("PetPurrs", "Notch & pet", "Purr", 1),
