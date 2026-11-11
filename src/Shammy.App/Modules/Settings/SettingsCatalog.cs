@@ -36,6 +36,8 @@ internal static class SettingsCatalog
         ("PetKind", "Notch & pet", "Pet style", 1),
         ("PetPurrs", "Notch & pet", "Purr", 1),
         ("CatTheme", "Notch & pet", "Cat theme", 1),
+        ("DockEnabled", "Notch & pet", "Dock", 1),
+        ("NowLineEnabled", "Notch & pet", "Right now line", 1),
         ("WheelEnabled", "Wheel", "Wheel", 1),
         ("PetEyeStyle", "Notch & pet", "Eye style", 1),
         ("PetEyeColor", "Notch & pet", "Eye colour", 1),

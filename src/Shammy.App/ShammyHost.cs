@@ -764,6 +764,8 @@ internal sealed class ShammyHost : IDisposable
             case "voice-route": return _search.RouteForTest(arg);
             case "voice-plan": return _search.PlanFor(arg);
             case "voice-state": return _search.LiveState;
+            case "home-state": return _notch.ExpandedView.DescribeHomeTop();
+            case "dock-click": return int.TryParse(arg.Trim(), out var key) ? _notch.ExpandedView.ClickDockForTest(key) : "error: dock-click <0-7>";
             case "listen-start": _search.ListenUntilSilence(); return "ok";
             case "listen-state": return _search.SilenceState;
             // "voice-hear <words>": as if a held talk key brought these words back; "voice-live <words>": the listening view.

@@ -130,7 +130,7 @@ public partial class ExpandedView
         RailStrip.RenderTransform = _railShift;
         EmptyText.Visibility = _openId is null && cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         // The notch is as wide as its tiles need; an opened view sets its own size.
-        if (_openId is null) SetBodySize(WallRail.OpenWidth(cards.Count), cards.Count == 0 ? EmptyHeight : HomeHeight);
+        if (_openId is null) SetBodySize(WallRail.OpenWidth(cards.Count), (cards.Count == 0 ? EmptyHeight : HomeHeight) + HomeTopHeight);
         int focus = WallRail.Keep(ids, _focusedId, cards.Select(LiveOf).ToList());
         if (changed || focus != _focus) SetFocus(focus, animate);
     }

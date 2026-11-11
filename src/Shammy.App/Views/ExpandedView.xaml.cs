@@ -56,8 +56,10 @@ public partial class ExpandedView : UserControl
                 if (_openId is not null) GoHome(animate: false);
                 _focusedId = null;
                 StopMotion();
+                _nowTimer?.Stop();
                 return;
             }
+            RefreshHomeTop();
             // Opening (by hover or by a command): no chip is lit until the pointer actually moves over it.
             ClearTabHover();
             DisarmHover();
@@ -188,6 +190,17 @@ public partial class ExpandedView : UserControl
         // A call starting or ending hides or reveals the alerts' text in place, even with the view open.
         PrivacyState.Changed += _ => Dispatcher.BeginInvoke(RebuildAlertRows);
         services.Media.Changed += () => Dispatcher.BeginInvoke(RefreshNowPlaying);
+        services.Settings.Changed += name =>
+        {
+            if (name is not (nameof(Infrastructure.AppSettings.DockEnabled) or nameof(Infrastructure.AppSettings.NowLineEnabled)
+                or nameof(Infrastructure.AppSettings.CatTheme) or "")) return;
+            Dispatcher.BeginInvoke(() =>
+            {
+                _dockKey = "";
+                RefreshHomeTop();
+                RebuildRail(animate: false);
+            });
+        };
         RefreshShelf();
         RefreshNowPlaying();
     }
@@ -289,6 +302,7 @@ public partial class ExpandedView : UserControl
         if (wall) AddBack((WallDetail)content!);
 
         Rail.Visibility = EmptyText.Visibility = Visibility.Collapsed;
+        RefreshHomeTop();
         DetailFrame.Visibility = Visibility.Visible;
         SyncChips();
         Refresh();
@@ -323,6 +337,7 @@ public partial class ExpandedView : UserControl
         DetailFrame.Visibility = Visibility.Collapsed;
         DetailFrame.Clip = null;
         Rail.Visibility = Visibility.Visible;
+        RefreshHomeTop();
         SyncChips();
         DisarmHover();
         RebuildRail(animate: false);

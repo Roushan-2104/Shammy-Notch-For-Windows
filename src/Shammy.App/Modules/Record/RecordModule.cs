@@ -48,6 +48,8 @@ internal sealed class RecordModule : IShammyModule
     {
         _ctx = ctx;
         _recorder = new ScreenRecorder(ctx.Warn);
+        ctx.AddGlance("record", () => _phase == Phase.Recording
+            ? new GlanceItem("Recording · " + RecordText.Elapsed(_recorder.Elapsed), NotchPalette.Alarm, 90) : null);
         _recorder.Finished += result => ctx.Ui.BeginInvoke(() => OnFinished(result));
 
         // A screenshot taken meanwhile lets the notch back into captures when it is done; put that right.

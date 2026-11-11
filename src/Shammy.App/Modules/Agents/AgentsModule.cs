@@ -89,6 +89,10 @@ internal sealed class AgentsModule : IShammyModule
     {
         _ctx = ctx;
         _store = ctx.Load<AgentsStore>();
+        // The right-now line and the peek: an agent waiting on you outranks everything else there.
+        ctx.AddGlance("agents", () => _asks.Count == 0 ? null
+            : new GlanceItem(_asks.Count == 1 ? "Claude Code is waiting for you" : $"{_asks.Count} Claude Code requests are waiting", NotchPalette.Purple, 120,
+                () => ctx.OpenCard(CardId)));
         _settingsPath = ClaudeSettingsFile.DefaultPath();
         // A test run can keep Shammy away from the real file from its first moment.
         if (CommandServer.IsEnabled && Environment.GetEnvironmentVariable("SHAMMY_CLAUDE_SETTINGS") is { Length: > 0 } testPath

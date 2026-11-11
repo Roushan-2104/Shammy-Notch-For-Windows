@@ -31,6 +31,31 @@ internal sealed class WheelModule : IShammyModule
 {
     const int MaxUsesKept = 40;
 
+    /// <summary>The icon for an action (Segoe Fluent Icons).</summary>
+    public static string GlyphFor(string id) => Glyphs.TryGetValue(id, out var g) ? g : "";
+
+    /// <summary>Actions that open in the notch itself; the rest close the open notch first (a screenshot mustn't catch it).</summary>
+    static readonly HashSet<string> OpensInNotch = new() { "timer", "notes", "mirror", "clipboard", "calendar", "weather", "mixer", "settings" };
+
+    /// <summary>A dock key was clicked: counts as a use, like a wheel pick.</summary>
+    public void RunFromDock(string id)
+    {
+        if (WheelSlots.ById(id) is null) return;
+        RecordUse(id);
+        if (OpensInNotch.Contains(id))
+        {
+            Run(id);
+            return;
+        }
+        _ctx.Notch.Collapse();
+        var t = new DispatcherTimer(TimeSpan.FromMilliseconds(220), DispatcherPriority.Normal, (s, _) =>
+        {
+            ((DispatcherTimer)s!).Stop();
+            Run(id);
+        }, _ctx.Ui);
+        t.Start();
+    }
+
     static readonly IReadOnlyDictionary<string, string> Glyphs = new Dictionary<string, string>
     {
         ["screenshot"] = "", ["record"] = "", ["timer"] = "", ["music"] = "", ["notes"] = "",
