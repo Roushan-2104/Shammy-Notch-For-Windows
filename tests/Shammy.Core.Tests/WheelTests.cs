@@ -269,3 +269,31 @@ public class HealthTextTests
     [InlineData("balanced mode", Shammy.Core.Quick.PowerModeKind.Balanced)]
     public void Power_mode_words(string said, Shammy.Core.Quick.PowerModeKind kind) => Assert.Equal(kind, Shammy.Core.Quick.PowerMode.Parse(said));
 }
+
+public class OtpFinderTests
+{
+    [Theory]
+    [InlineData("VM-HDFCBK", "482913 is your OTP for login. Do not share it with anyone.", "482913")]
+    [InlineData("Swiggy", "Your verification code is 4821", "4821")]
+    [InlineData("Google", "G-123456 is your Google verification code.", "123456")]
+    [InlineData("Microsoft", "Use 739 201 to sign in. Security code", "739201")]
+    [InlineData("Amazon", "OTP 55210839 for your order of Rs 1,299. Valid 10 min.", "55210839")]
+    [InlineData("Bank", "Rs.500 debited. OTP for txn is 662211, card ending 4321", "662211")]
+    [InlineData("Zomato", "आपका OTP 5521 है", "5521")]
+    [InlineData("Paytm", "Your login code: 908-776", "908776")]
+    public void Finds_the_code(string title, string body, string code) => Assert.Equal(code, Shammy.Core.Notifications.OtpFinder.Find(title, body));
+
+    [Theory]
+    [InlineData("Riya", "Meet at 7, table for 4 at 2026 Brigade Road")]
+    [InlineData("Bank", "Rs 4500 credited to your account ending 4321")]
+    [InlineData("Swiggy", "Your order #482913 is on the way")]
+    [InlineData("Mom", "Call me on 9876543210")]
+    [InlineData("", "")]
+    public void Leaves_ordinary_messages_alone(string title, string body) => Assert.Null(Shammy.Core.Notifications.OtpFinder.Find(title, body));
+
+    [Theory]
+    [InlineData("482913", "482 913")]
+    [InlineData("55210839", "5521 0839")]
+    [InlineData("4821", "4821")]
+    public void Spaced_for_reading(string code, string shown) => Assert.Equal(shown, Shammy.Core.Notifications.OtpFinder.Spaced(code));
+}

@@ -116,6 +116,8 @@ public static class FeatureGuide
         F("snippets", 4, "Snippets", "Short triggers that expand in any app.", ";date · ;shrug", "snippets",
             "shortcut typing expand signature faster abbreviation", "snippet|snippets", "snippets", GuideSwitch.Module, "snippets"),
 
+        F("otp", 1, "Codes at a glance", "A one-time code in a message shows big in the notch, with Copy.", "a message with an OTP", "",
+            "otp code one time password verification sms login bank copy", "", "otp|codes", GuideSwitch.Setting, "OtpEnabled"),
         F("health", 5, "Health", "Storage, a careful cleanup and a daily check of this laptop.", "open health", "",
             "health storage disk space full clean cleanup temp recycle bin downloads battery wear startup apps restart updates check", "", "health|cleanup|storage", GuideSwitch.Module, "health"),
         F("quick", 5, "Laptop controls", "Wi-Fi, Bluetooth, power mode, lock, sleep, restart in one card.", "quick actions · keep awake", "quick actions",

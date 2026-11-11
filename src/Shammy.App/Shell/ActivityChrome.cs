@@ -251,6 +251,8 @@ internal sealed class ActivityChrome
             CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.8)),
             CircleAction.OpenWhenDone => DownloadWait(owner.State.Progress ?? 0),
             CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            // Two overlapping sheets: copy.
+            CircleAction.Copy => Icon(14, Stroke("M 9,9 H 18 A 1.5,1.5 0 0 1 19.5,10.5 V 19 A 1.5,1.5 0 0 1 18,20.5 H 10.5 A 1.5,1.5 0 0 1 9,19 Z M 15,9 V 6 A 1.5,1.5 0 0 0 13.5,4.5 H 6 A 1.5,1.5 0 0 0 4.5,6 V 13.5 A 1.5,1.5 0 0 0 6,15 H 9", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.2)),
             CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
             _ => null,
         };

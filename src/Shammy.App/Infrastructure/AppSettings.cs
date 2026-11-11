@@ -161,6 +161,9 @@ internal sealed class AppSettings
     /// <summary>One line at the top of the open notch with what matters right now (a meeting soon, Claude waiting…).</summary>
     public bool NowLineEnabled { get; set; } = true;
 
+    /// <summary>A one-time code in a message shows big in the notch with Copy, for two minutes.</summary>
+    public bool OtpEnabled { get; set; } = true;
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 

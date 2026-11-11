@@ -26,6 +26,8 @@ internal partial class SettingsView
     {
         SwitchRow("Show notifications in the notch", "Windows still keeps them in the Action Center.", nameof(AppSettings.ShowNotifications),
             "Notifications show in the notch", "Notifications stay in Windows only");
+        SwitchRow("Codes in the notch", "A one-time code (OTP) in a message shows big with Copy for two minutes. Hidden while you share your screen; never logged.",
+            nameof(AppSettings.OtpEnabled), "Codes show in the notch", "Codes stay in the message");
         var seconds = new SlimSlider(Math.Min(_s.NotificationPopupSeconds, 20), 2, 20, 1);
         TextBlock hint = null!;
         Row("Show for", ShowForHint(_s.NotificationPopupSeconds), seconds, out hint);
