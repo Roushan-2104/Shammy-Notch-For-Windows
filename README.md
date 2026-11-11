@@ -185,7 +185,9 @@ Say *"wake me up at 6:30 every weekday"*, or add one yourself in the Alarms view
 ### 🎛️ Make it yours
 **Settings** opens right in the notch and saves as you go, in seven sections: General, Notch & pet, Voice, Notifications, Time & units, Clipboard & privacy, and Calendar. Choose a cat or just the eyes, the eye style and colour, the notch's size and accent colour, which screen it lives on, apps it should stay away in, lively or calm motion, how quickly the notch opens, your microphone, 12 or 24-hour time, and which features run at all.
 
-New here? A **welcome tour** takes about thirty seconds, and that's where you can give the pet its own name. Say or type *"help"* to see it again.
+New here? A **welcome tour** takes about thirty seconds, and that's where you can give the pet its own name. Say or type *"tour"* to see it again.
+
+Not sure what Shammy can do? Click the **?** in the open notch, or say *"help"*. The **guide** lists every feature with what it does, the words that start it, a **Try it** button and its switch. Its finder takes everyday words (*"save what is on my screen"*), and it suggests things that fit the moment.
 
 </td>
 <td><img src="docs/images/settings.png" alt="Settings"><br><img src="docs/images/tour.png" alt="Welcome tour"></td>
@@ -279,7 +281,8 @@ Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the 
 | `record my screen` · `stop recording` | The recording card · stops and saves the MP4 |
 | `live captions` · `captions off` | Captions for whatever the PC is playing |
 | `volume mixer` · `quick actions` · `teleprompter` · `teleprompter from clipboard` | The mixer · the quick actions card · your script under the camera |
-| `help` · `tour` | The welcome tour |
+| `help` · `features` · `what can you do` · `how do I record my screen` | The guide: everything Shammy does, with a finder that takes your own words |
+| `tour` | The welcome tour |
 | `volume 50` · `brightness to 70%` · `volume up` · `mute` | Sets the level directly |
 | `mute mic` · `cpu` · `clipboard` · `clear clipboard` · `send to phone` · `take a screenshot` | Mic toggle · System card · Clipboard card · Clears it (with Undo) · QR transfer · Screenshot |
 | *"…only from Reddit"*, *"…from the past week"*, *"…no junk"*, *"…from the docs"* | Search filters, spoken |

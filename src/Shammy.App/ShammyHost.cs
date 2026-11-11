@@ -257,6 +257,7 @@ internal sealed class ShammyHost : IDisposable
         _modules.SearchImage = png => _search.SearchImageAsync(png);
         // What the designed screens borrow from the host (the tour opens the palette, Settings asks about voice).
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
+        Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);
         Modules.HostLinks.HinglishAvailable = () => _whisper.HinglishAvailable;
         Modules.HostLinks.Voice = _whisper;
         Modules.HostLinks.Glances = _modules.Glances;

@@ -54,7 +54,24 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <!-- The way into the guide: everything Shammy does, in one place. Shown once the guide has registered. -->
+            <Border x:Name="GuideButton" Grid.Column="3" Width="32" Height="32" CornerRadius="16" Margin="8,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                    MouseLeftButtonUp="OnGuideClicked" ToolTip="What Shammy can do" AutomationProperties.Name="What Shammy can do">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource WallTile}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="?" FontFamily="{StaticResource WallFontExtraBold}" FontWeight="ExtraBold" FontSize="15" Foreground="{StaticResource WallText}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
+            </Border>
             <Button x:Name="HomeButton" Width="54" Height="32" Margin="0,0,12,0" Cursor="Hand" Focusable="False" ToolTip="Home"
                     AutomationProperties.Name="Home, Shammy" Click="OnHomeClicked">
                 <Button.Template>

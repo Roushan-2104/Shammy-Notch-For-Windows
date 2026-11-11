@@ -436,6 +436,7 @@ internal sealed class SettingsView : Grid
         ["cricket"] = ("Cricket scores", "Live scores in the ticker."),
         ["crypto"] = ("Crypto prices", "Prices in the ticker."),
         ["dropactions"] = ("Drop actions", "Drag files onto the notch to convert or share."),
+        ["guide"] = ("Feature guide", "Everything Shammy does, in one place."),
         ["launcher"] = ("App launcher", "“open spotify” from the palette."),
         ["levels"] = ("Volume and brightness", "The notch’s own volume and brightness HUD."),
         ["meeting"] = ("Meetings", "Mic and camera pills during calls."),

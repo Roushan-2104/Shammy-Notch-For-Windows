@@ -18,7 +18,8 @@ internal sealed class WhatsNewCard : Grid
     /// <summary>The card's height for this many lines (it was designed at 190 for three).</summary>
     public static double HeightFor(int lines) => 190 - 21 * (3 - Math.Clamp(lines, 1, 3));
 
-    public WhatsNewCard(string version, IReadOnlyList<string> lines, Action gotIt)
+    /// <param name="seeAll">Opens the guide on everything that is new; null leaves the link out.</param>
+    public WhatsNewCard(string version, IReadOnlyList<string> lines, Action gotIt, Action? seeAll = null)
     {
         Width = CardWidth;
         Height = HeightFor(lines.Count);
@@ -59,6 +60,16 @@ internal sealed class WhatsNewCard : Grid
         got.VerticalAlignment = VerticalAlignment.Bottom;
         SetColumn(got, 2);
         grid.Children.Add(got);
+        if (seeAll is not null)
+        {
+            // Three lines can't hold a big update: the guide lists the rest, each with its Try it.
+            var all = ScreenKit.Secondary("See everything new", seeAll, 30, 8, 12.5);
+            all.HorizontalAlignment = HorizontalAlignment.Right;
+            all.VerticalAlignment = VerticalAlignment.Bottom;
+            all.Margin = new Thickness(0, 0, 88, 0);
+            SetColumn(all, 2);
+            grid.Children.Add(all);
+        }
 
         System.Windows.Automation.AutomationProperties.SetName(this, $"Updated to {version}. {string.Join(". ", lines)}");
     }

@@ -375,6 +375,8 @@ public partial class ExpandedView : UserControl
     void OnBackClicked(object sender, RoutedEventArgs e) => ShowHome();
     void OnSearchClicked(object sender, MouseButtonEventArgs e) => SearchRequested?.Invoke();
 
+    void OnGuideClicked(object sender, MouseButtonEventArgs e) => OpenView("guide");
+
     // ---- Chips --------------------------------------------------------------------------------
 
     void ClearTabHover()
@@ -506,6 +508,7 @@ public partial class ExpandedView : UserControl
     /// <summary>Registers a card (a card with the same id replaces the earlier one).</summary>
     internal void AddCard(NotchCard card)
     {
+        if (card.Id == "guide") GuideButton.Visibility = Visibility.Visible;
         foreach (var old in _cards.Where(c => c.Id == card.Id).ToList())
         {
             ForgetSlot(old);

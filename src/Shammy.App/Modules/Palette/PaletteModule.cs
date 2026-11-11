@@ -410,6 +410,7 @@ internal sealed class PaletteModule : IShammyModule
         try
         {
             result = await cmd.RunAsync(clean);
+            HostLinks.RaiseCommandRan(clean);
         }
         catch (Exception ex)
         {

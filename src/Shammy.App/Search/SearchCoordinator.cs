@@ -423,6 +423,7 @@ internal sealed class SearchCoordinator
         try
         {
             result = await command.RunAsync(clean);
+            Modules.HostLinks.RaiseCommandRan(clean);
         }
         catch (Exception ex)
         {

@@ -12,6 +12,18 @@ internal static class HostLinks
     /// <summary>Opens the typing palette (as a tap of Right Alt does), with its empty-state suggestions.</summary>
     public static Action? OpenPalette { get; set; }
 
+    /// <summary>Runs text as if it had been typed into the palette (a command if one answers, a search if not).</summary>
+    public static Action<string>? RunText { get; set; }
+
+    /// <summary>A typed or spoken command just ran, with its text (the guide notes which features get used).</summary>
+    public static event Action<string>? CommandRan;
+
+    public static void RaiseCommandRan(string text)
+    {
+        try { CommandRan?.Invoke(text); }
+        catch (Exception ex) { Infrastructure.Log.Warn("A CommandRan listener failed", ex); }
+    }
+
     /// <summary>Whether this PC can run the Hinglish voice (it needs the graphics-card engine).</summary>
     public static Func<bool>? HinglishAvailable { get; set; }
 
