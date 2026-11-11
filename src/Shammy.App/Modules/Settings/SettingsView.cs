@@ -471,6 +471,8 @@ internal sealed class SettingsView : Grid
             new Segmented(new[] { "Quick", "Normal", "Relaxed" }, Array.IndexOf(speeds, _s.HoverSpeed), i =>
                 Set(nameof(AppSettings.HoverSpeed), speeds[i], $"Hover speed · {speeds[i]}")));
         SwitchRow("Peek", "A quick glance when you rest the pointer, before it opens.", nameof(AppSettings.PeekEnabled), "Peek on", "Peek off");
+        SwitchRow("Push up to tuck away", "Keep pushing the pointer up into the notch and it slides away for a few seconds, so you can click what is under it.",
+            nameof(AppSettings.TuckAwayEnabled), "Push to tuck away on", "Push to tuck away off");
 
         // The pet: a little notch preview, the switch, then its eyes and name (dimmed while it's off).
         var dependents = new List<FrameworkElement>();

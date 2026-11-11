@@ -43,6 +43,8 @@ It runs on your PC with **no paid AI**:
 
 Everything else is a **hover** away.
 
+Something of yours under the notch, like a browser tab? **Push the pointer up into the notch** and it slides out of the way for five seconds, leaving a thin line, so you can click what was underneath. It can be turned off in Settings › Notch & pet.
+
 > On layouts where Right Alt is AltGr (English India, German, French…), Right Alt on its own is the talk key, and AltGr + a key still types (₹, €, @). Right Ctrl only counts when held on its own, so Ctrl shortcuts are unaffected.
 
 ## A day with Shammy

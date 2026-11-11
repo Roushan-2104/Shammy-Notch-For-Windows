@@ -838,6 +838,8 @@ internal sealed class ShammyHost : IDisposable
             case "pet-mood": return _notch.SetPetMood(arg);
             // "pet-purr": the cat purrs as if the pointer had rested on it.
             case "pet-purr": return _notch.PetPurr();
+            // "tuck" slides the notch away as a push would, "tuck back" brings it back, "tuck state" says where it is.
+            case "tuck": return _notch.TuckForTest(arg);
             // "pet-greet": as if the PC had just been unlocked.
             case "pet-greet": return _notch.GreetBack();
             // "notify-dismiss": the message on screen is sent away (the next in the pile comes up).
