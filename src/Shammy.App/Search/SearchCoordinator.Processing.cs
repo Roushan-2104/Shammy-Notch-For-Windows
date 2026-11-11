@@ -246,11 +246,22 @@ internal partial class SearchCoordinator
         _notch.SetSearchMode(NotchMode.Answer);
         Log.Info($"Command result ({(result.IsError ? "error" : "ok")})");
         int session = _session;
-        // An answer with a Copy button stays long enough to reach it.
-        _ = Task.Delay(result.IsError ? 4000 : result.CopyText is not null ? 5000 : 2600).ContinueWith(_ =>
+        // An answer with a Copy button stays long enough to reach it, and any answer stays while the pointer is on it.
+        _ = CloseResultLaterAsync(session, result.IsError ? 4000 : result.CopyText is not null ? 5000 : 2600);
+    }
+
+    /// <summary>Closes a command's answer after its time, but not while you're reading it: the pointer on the notch holds it.</summary>
+    async Task CloseResultLaterAsync(int session, int ms)
+    {
+        await Task.Delay(ms);
+        bool held = false;
+        while (session == _session && _notch.PointerOverNotch())
         {
-            if (session == _session) Cancel();
-        }, TaskScheduler.FromCurrentSynchronizationContext());
+            held = true;
+            await Task.Delay(250);
+        }
+        if (held) await Task.Delay(1200);
+        if (session == _session) Cancel();
     }
 
     async Task ProcessTextAsync(string text)

@@ -24,7 +24,14 @@ internal sealed class ShammyPet : Grid
 {
     const double Gap = 8;
 
-    static readonly TimeSpan FarPoll = TimeSpan.FromMilliseconds(250), NearPoll = TimeSpan.FromMilliseconds(33);
+    static readonly TimeSpan FarPoll = TimeSpan.FromMilliseconds(250), NearPoll = TimeSpan.FromMilliseconds(33), StillPoll = TimeSpan.FromSeconds(1);
+
+    // When the pointer hasn't moved for a while the pet looks less often, and once you're away it stops its
+    // blinks and fidgets until the pointer moves again: an unattended PC isn't woken four times a second.
+    static readonly TimeSpan StillAfter = TimeSpan.FromSeconds(5), AwayAfter = TimeSpan.FromMinutes(2);
+    Native.POINT _lastPointer;
+    DateTime _stillSince = DateTime.UtcNow;
+    bool _away;
 
     readonly Eye _leftEye = new(), _rightEye = new();
     readonly StackPanel _eyes = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
@@ -562,6 +569,30 @@ internal sealed class ShammyPet : Grid
     void TrackPointer()
     {
         if (!IsVisible || PresentationSource.FromVisual(this) is null || !Native.GetCursorPos(out var p)) return;
+        var now = DateTime.UtcNow;
+        if (p.X == _lastPointer.X && p.Y == _lastPointer.Y)
+        {
+            var still = now - _stillSince;
+            if (!_following && still > StillAfter && _pointerTimer.Interval != StillPoll) _pointerTimer.Interval = StillPoll;
+            if (!_away && still > AwayAfter)
+            {
+                _away = true;
+                _blinkTimer.Stop();
+                _glanceTimer.Stop();
+                _fidgetTimer.Stop();
+            }
+            return;
+        }
+        _lastPointer = p;
+        _stillSince = now;
+        if (_away)
+        {
+            _away = false;
+            Reschedule(_blinkTimer, EyeLogic.NextBlink(_random, Mood == PetMood.Sleepy));
+            Reschedule(_glanceTimer, EyeLogic.NextGlance(_random));
+            Reschedule(_fidgetTimer, CatLooks.NextFidget(_random));
+        }
+        if (_pointerTimer.Interval == StillPoll) _pointerTimer.Interval = FarPoll;
         var centre = _eyes.PointToScreen(new Point(_eyes.ActualWidth / 2, _eyes.ActualHeight / 2));
         double scale = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double dx = (p.X - centre.X) / scale, dy = (p.Y - centre.Y) / scale;

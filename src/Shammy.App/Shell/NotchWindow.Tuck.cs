@@ -84,7 +84,7 @@ public partial class NotchWindow
         Animator.Kick();
     }
 
-    bool PointerOverNotch()
+    internal bool PointerOverNotch()
     {
         if (!Native.GetCursorPos(out var screen)) return false;
         // The window's own coordinates: the notch itself may still be part-way out of sight.

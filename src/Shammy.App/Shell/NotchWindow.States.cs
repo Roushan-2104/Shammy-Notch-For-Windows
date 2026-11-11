@@ -120,8 +120,9 @@ public partial class NotchWindow
         if (changed)
         {
             // Growing is a touch bouncy, like Dynamic Island; shrinking settles without overshoot.
-            double response = grow ? 0.5 : 0.4;
-            double damping = grow ? 0.72 : 0.9;
+            // Quick enough to feel like it answers you, still with a little give when it grows.
+            double response = grow ? 0.38 : 0.3;
+            double damping = grow ? 0.74 : 0.9;
             if (mode == NotchMode.Hidden) (response, damping) = (0.32, 1);
             // Calm: the notch still moves to its new size, but never overshoots.
             if (!MotionPrefs.Lively) damping = 1;
@@ -162,9 +163,9 @@ public partial class NotchWindow
                 layer.El.Visibility = Visibility.Visible;
             }
             Canvas.SetLeft(layer.El, Cx - layer.El.Width / 2);
-            double delay = grow ? 0.06 : 0.03;
-            layer.Opacity.AnimateTo(1, 0.3, 1, delay);
-            layer.Size.AnimateTo(1, 0.5, MotionPrefs.Lively ? 0.78 : 1, delay);
+            double delay = grow ? 0.03 : 0.02;
+            layer.Opacity.AnimateTo(1, 0.24, 1, delay);
+            layer.Size.AnimateTo(1, 0.38, MotionPrefs.Lively ? 0.8 : 1, delay);
         }
         else if (layer.Active || layer.Opacity.Target > 0)
         {
