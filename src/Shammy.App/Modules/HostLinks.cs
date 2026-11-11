@@ -75,6 +75,12 @@ internal static class HostLinks
     public static Action<string>? Say { get; set; }
 
     /// <summary>
+    /// Says something the user asked for (the morning brief) whenever a Gnani key is saved, even with "Shammy
+    /// speaks" off; still never in a call, a meeting or with the sounds off. Null without the online voice.
+    /// </summary>
+    public static Action<string>? SayAnyway { get; set; }
+
+    /// <summary>
     /// Online listening: the talk key's recording (16 kHz mono) as text, or null when the local voice model
     /// should transcribe it (the mode is off, the service was slow or failed). Asked before the local model.
     /// </summary>

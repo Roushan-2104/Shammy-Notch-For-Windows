@@ -167,6 +167,9 @@ internal sealed class AppSettings
     /// <summary>Starting a focus session also plays focus music (when nothing is playing).</summary>
     public bool FocusMusic { get; set; }
 
+    /// <summary>The first unlock of a morning: the weather, meetings, reminders, said aloud with a Gnani key.</summary>
+    public bool MorningBrief { get; set; } = true;
+
     /// <summary>What the pet calls itself in the tour and on Settings; picked in the tour's last step.</summary>
     public string PetName { get; set; } = PetLooks.DefaultName;
 

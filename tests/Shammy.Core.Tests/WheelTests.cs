@@ -310,3 +310,41 @@ public class FocusSummaryTests
     [Fact]
     public void Nothing_waited() => Assert.Null(Shammy.Core.Productivity.FocusSummary.Waited(0, Array.Empty<string>()));
 }
+
+public class MorningBriefTests
+{
+    static readonly DateTime Eight = new(2026, 11, 12, 8, 0, 0);
+
+    [Fact]
+    public void Says_the_day_in_one_go()
+    {
+        var (spoken, line) = Shammy.Core.Productivity.MorningBrief.Compose(Eight, "28° and cloudy",
+            new[] { new Shammy.Core.Productivity.BriefMeeting(Eight.AddHours(2.5), "Standup"), new Shammy.Core.Productivity.BriefMeeting(Eight.AddHours(6), "1:1") },
+            new[] { "pay rent" }, 80, use24Hour: false);
+        Assert.Equal("Good morning! It's 28° and cloudy. You have 2 meetings, the first at 10:30 AM, Standup. One reminder: pay rent. Battery's at 80%.", spoken);
+        Assert.Equal("Good morning · 28° and cloudy · 2 meetings, first 10:30 AM · 1 reminder", line);
+    }
+
+    [Fact]
+    public void A_clear_day()
+    {
+        var (spoken, line) = Shammy.Core.Productivity.MorningBrief.Compose(Eight, null, Array.Empty<Shammy.Core.Productivity.BriefMeeting>(), Array.Empty<string>(), null, true);
+        Assert.Equal("Good morning! No meetings today.", spoken);
+        Assert.Equal("Good morning · a clear day", line);
+    }
+
+    [Fact]
+    public void Low_battery_is_said()
+    {
+        var (spoken, line) = Shammy.Core.Productivity.MorningBrief.Compose(Eight, null, Array.Empty<Shammy.Core.Productivity.BriefMeeting>(), Array.Empty<string>(), 15, true);
+        Assert.Contains("Battery's low, at 15%. Plug in soon.", spoken);
+        Assert.Contains("battery 15%", line);
+    }
+
+    [Theory]
+    [InlineData(4, false)]
+    [InlineData(5, true)]
+    [InlineData(11, true)]
+    [InlineData(12, false)]
+    public void Only_in_the_morning(int hour, bool morning) => Assert.Equal(morning, Shammy.Core.Productivity.MorningBrief.IsMorning(Eight.Date.AddHours(hour)));
+}

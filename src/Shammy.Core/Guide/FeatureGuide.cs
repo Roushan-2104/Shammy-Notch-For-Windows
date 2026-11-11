@@ -116,6 +116,8 @@ public static class FeatureGuide
         F("snippets", 4, "Snippets", "Short triggers that expand in any app.", ";date · ;shrug", "snippets",
             "shortcut typing expand signature faster abbreviation", "snippet|snippets", "snippets", GuideSwitch.Module, "snippets"),
 
+        F("brief", 1, "Morning brief", "Weather, meetings and reminders the first time you unlock each morning.", "good morning", "",
+            "morning brief good morning day today weather meetings reminders spoken summary", "good morning|morning brief", "brief|good morning", GuideSwitch.Setting, "MorningBrief"),
         F("otp", 1, "Codes at a glance", "A one-time code in a message shows big in the notch, with Copy.", "a message with an OTP", "",
             "otp code one time password verification sms login bank copy", "", "otp|codes", GuideSwitch.Setting, "OtpEnabled"),
         F("health", 5, "Health", "Storage, a careful cleanup and a daily check of this laptop.", "open health", "",

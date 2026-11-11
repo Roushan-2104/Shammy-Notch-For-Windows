@@ -90,6 +90,7 @@ internal sealed class OnlineVoiceModule : IShammyModule
         }
 
         HostLinks.Say = Say;
+        HostLinks.SayAnyway = text => _ctx.Ui.BeginInvoke(() => Speak(text, test: true));
         HostLinks.OnlineTranscribe = TranscribeAsync;
         HostLinks.OnlineListening = ListeningOnline;
         OnlineVoiceLink.Current = this;
@@ -136,6 +137,7 @@ internal sealed class OnlineVoiceModule : IShammyModule
         QuietState.Changed -= OnQuietChanged;
         if (OnlineVoiceLink.Current == this) OnlineVoiceLink.Current = null;
         HostLinks.Say = null;
+        HostLinks.SayAnyway = null;
         HostLinks.OnlineTranscribe = null;
         HostLinks.OnlineListening = null;
         _player.Dispose();

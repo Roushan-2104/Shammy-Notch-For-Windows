@@ -29,6 +29,8 @@ internal partial class SettingsView
             new Segmented(new[] { "Quick", "Normal", "Relaxed" }, Array.IndexOf(speeds, _s.HoverSpeed), i =>
                 Set(nameof(AppSettings.HoverSpeed), speeds[i], $"Hover speed · {speeds[i]}")));
         SwitchRow("Peek", "A quick glance when you rest the pointer, before it opens.", nameof(AppSettings.PeekEnabled), "Peek on", "Peek off");
+        SwitchRow("Morning brief", "The first unlock of a morning: weather, meetings, reminders and battery in one line, said aloud when a Gnani key is saved. Say “good morning” for it any time.",
+            nameof(AppSettings.MorningBrief), "Morning brief on", "Morning brief off");
         SwitchRow("Right now line", "One line at the top of the open notch with what matters this minute: a meeting soon, Claude waiting, a timer, new messages.",
             nameof(AppSettings.NowLineEnabled), "Right now line on", "Right now line off");
         SwitchRow("Dock", "The wheel's eight actions as keys at the top of the open notch, plus a few for the app you're in (a meeting, a browser, code). Pick the eight in Settings › Wheel.",
