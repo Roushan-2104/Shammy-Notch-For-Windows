@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Shammy.Core.Quick;
 
 /// <summary>Windows 11's power mode (Settings › Power › Power mode): the overlay on top of the Balanced plan.</summary>
@@ -36,14 +38,30 @@ public static class PowerMode
         _ => "Balanced",
     };
 
-    /// <summary>"power mode performance", "battery saver mode", "balanced mode" → the mode; null otherwise.</summary>
+    // The whole phrase must be a power-mode request: "performance mode", "best battery", "switch to balanced
+    // mode", "power mode performance". A bare "performance" or "battery saver" (Windows' own, different switch)
+    // is not one, and nor is a question ("how to change power mode").
+    static readonly Regex Phrase = new(
+        @"^(?:(?:turn on|switch to|switch on|set|use|enable|go to|change to|put (?:it |the pc |my pc |my laptop |the laptop )?(?:in|on|to)) )?" +
+        @"(?:(?:the )?power mode (?:to )?)?(?<mode>best performance|high performance|performance|best battery|best power efficiency|battery saver|" +
+        @"battery saving|power saving|power saver|efficiency|balanced|normal)(?<tail> (?:power )?mode)?(?: on)?$",
+        RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// "performance mode", "best battery", "balanced mode", "power mode performance", "battery saver mode" → the
+    /// mode; null for anything else. Strict on purpose: the Laptop commands run before every other command.
+    /// </summary>
     public static PowerModeKind? Parse(string? text)
     {
-        var t = Text.PhraseText.Normalize(text);
-        if (!t.Contains("mode") && !t.StartsWith("power ", StringComparison.Ordinal)) return null;
-        if (t.Contains("performance") || t.Contains("fast") || t.Contains("gaming")) return PowerModeKind.Performance;
-        if (t.Contains("efficien") || t.Contains("battery") || t.Contains("saver") || t.Contains("save power")) return PowerModeKind.Efficiency;
-        if (t.Contains("balanced") || t.Contains("normal")) return PowerModeKind.Balanced;
-        return null;
+        var t = Text.PhraseText.Normalize(text).Replace("power-mode", "power mode");
+        var m = Phrase.Match(t);
+        if (!m.Success) return null;
+        var mode = m.Groups["mode"].Value;
+        // Without "mode" or "power mode" only the slider's own names count ("best battery", "best performance").
+        if (!m.Groups["tail"].Success && !t.Contains("power mode", StringComparison.Ordinal) && !mode.StartsWith("best ", StringComparison.Ordinal))
+            return null;
+        if (mode.Contains("performance", StringComparison.Ordinal)) return PowerModeKind.Performance;
+        if (mode is "balanced" or "normal") return PowerModeKind.Balanced;
+        return PowerModeKind.Efficiency;
     }
 }
