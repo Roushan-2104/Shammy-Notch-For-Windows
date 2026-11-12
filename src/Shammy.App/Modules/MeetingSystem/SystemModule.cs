@@ -20,8 +20,16 @@ internal sealed class SystemModule : IShammyModule
     /// machine" rule never fired there. Capped at 80% so small machines behave as before.
     /// </summary>
     static readonly double HogPercent = Math.Min(80, 150.0 / Environment.ProcessorCount);
+
+    /// <summary>
+    /// While the card isn't showing, the (costlier) walk over every process only happens when the whole machine is
+    /// at least this busy: a runaway worth a heads-up then shows long before anything is missed, and a quiet PC
+    /// with a busy browser tab isn't scanned every few seconds.
+    /// </summary>
+    static readonly double HiddenScanPercent = Math.Max(50, HogPercent);
+
     static readonly TimeSpan VisibleInterval = TimeSpan.FromSeconds(1);
-    static readonly TimeSpan HiddenInterval = TimeSpan.FromSeconds(10);
+    static readonly TimeSpan HiddenInterval = TimeSpan.FromSeconds(30);
     static readonly TimeSpan BatteryStep = TimeSpan.FromMinutes(30);
     static readonly TimeSpan HeadsetRefresh = TimeSpan.FromSeconds(60);
     const int BatteryPoints = 12;
@@ -107,7 +115,7 @@ internal sealed class SystemModule : IShammyModule
             var sampler = _sampler;
             bool visible = _card.IsShowing;
             if (visible) RefreshHeadsets(DateTime.UtcNow);
-            var sample = await Task.Run(() => sampler.Sample(visible, HogPercent));
+            var sample = await Task.Run(() => sampler.Sample(visible, visible ? HogPercent : HiddenScanPercent));
             Apply(sample);
         }
         catch (Exception ex)

@@ -85,6 +85,26 @@ internal static class MeetingSystemNative
         return families;
     }
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetProcessTimes(IntPtr process, out FILETIME creation, out FILETIME exit, out FILETIME kernel, out FILETIME user);
+
+    /// <summary>A process's total CPU time (kernel + user), or null when it won't say (protected, or already gone).</summary>
+    public static TimeSpan? ProcessCpuTime(uint pid)
+    {
+        var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            if (!GetProcessTimes(handle, out _, out _, out var kernel, out var user)) return null;
+            ulong ticks = ((ulong)kernel.High << 32 | kernel.Low) + ((ulong)user.High << 32 | user.Low);
+            return TimeSpan.FromTicks((long)ticks);
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
+    }
+
     public static string? ProcessPath(uint pid)
     {
         var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);

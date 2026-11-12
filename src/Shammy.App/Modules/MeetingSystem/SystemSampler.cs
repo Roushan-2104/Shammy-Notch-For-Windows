@@ -93,18 +93,12 @@ internal sealed class SystemSampler
         var samples = new List<ProcessSample>();
         foreach (var p in Process.GetProcesses())
         {
-            try
+            using (p)
             {
-                // The idle "process" is the machine doing nothing.
-                if (p.Id != 0) samples.Add(new ProcessSample(p.Id, p.ProcessName, p.TotalProcessorTime));
-            }
-            catch (Exception)
-            {
-                // Protected/system processes deny access to their times; they are rarely the culprit.
-            }
-            finally
-            {
-                p.Dispose();
+                // The idle "process" is the machine doing nothing. Protected/system processes deny their times
+                // (they are rarely the culprit): asked with the limited right, they just say no, with no exception.
+                if (p.Id != 0 && MeetingSystemNative.ProcessCpuTime((uint)p.Id) is { } cpu)
+                    samples.Add(new ProcessSample(p.Id, p.ProcessName, cpu));
             }
         }
         var usage = _processes.Update(samples, now, Environment.ProcessorCount);

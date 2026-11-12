@@ -55,7 +55,9 @@ internal sealed class NotificationService : IDisposable
     FileSystemWatcher? _store;
     DispatcherTimer? _storeDebounce, _storeCheck;
     (long, DateTime, long, DateTime) _storeStamp;
-    bool _polling;
+    bool _polling, _enabled = true;
+
+    static readonly TimeSpan StoreCheckEvery = TimeSpan.FromMilliseconds(2500);
 
     public NotificationService(Dispatcher ui)
     {
@@ -146,7 +148,29 @@ internal sealed class NotificationService : IDisposable
             _poll.Interval = TimeSpan.FromSeconds(2);
             Log.Info("Notifications: polling every 2 s");
         }
+        if (_enabled) _poll.Start();
+    }
+
+    /// <summary>
+    /// Off ("Show notifications in the notch" switched off): nothing is polled or watched, so the service costs no
+    /// wake-ups; on again, it catches up with one read. Safe to call before <see cref="StartAsync"/>.
+    /// </summary>
+    public void SetEnabled(bool on)
+    {
+        if (_enabled == on) return;
+        _enabled = on;
+        if (_store is not null) _store.EnableRaisingEvents = on;
+        if (!on)
+        {
+            _poll.Stop();
+            _storeCheck?.Stop();
+            _storeDebounce?.Stop();
+            return;
+        }
+        if (!IsAvailable) return;
         _poll.Start();
+        _storeCheck?.Start();
+        _ui.BeginInvoke(async () => await PollAsync());
     }
 
     bool WatchStore()
@@ -173,16 +197,16 @@ internal sealed class NotificationService : IDisposable
             });
             // SQLite appends to the -wal file through an open handle, and Windows often holds back change
             // notifications for that until the handle is flushed or closed: toasts then showed up to 30 s late
-            // (on the slow poll). Checking the files' size and time once a second costs two stats.
+            // (on the slow poll). Checking the files' size and time every 2.5 s costs two stats, at idle priority.
             _storeStamp = StoreStamp(dir);
-            _storeCheck = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Normal, (_, _) =>
+            _storeCheck = new DispatcherTimer(StoreCheckEvery, DispatcherPriority.Background, (_, _) =>
             {
                 var stamp = StoreStamp(dir);
                 if (stamp == _storeStamp) return;
                 _storeStamp = stamp;
                 _storeDebounce.Stop();
                 _storeDebounce.Start();
-            }, _ui);
+            }, _ui) { IsEnabled = _enabled };
             return true;
         }
         catch (Exception ex)
@@ -202,7 +226,7 @@ internal sealed class NotificationService : IDisposable
 
     async Task PollAsync()
     {
-        if (_listener is null || _polling) return;
+        if (_listener is null || _polling || !_enabled) return;
         _polling = true;
         try
         {
