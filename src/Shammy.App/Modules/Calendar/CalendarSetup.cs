@@ -50,7 +50,7 @@ internal sealed class CalendarSetup : Border
             if (e.Key == Key.Enter) _ = ConnectAsync();
             else if (e.Key == Key.Escape) _close?.Invoke();
         };
-        var hint = CardKit.Label("https://calendar.google.com/calendar/ical/…/private-…/basic.ics", 12.5, FontWeights.Normal, CardKit.Brush("#5CFFFFFF"));
+        var hint = CardKit.Label("https://calendar.google.com/calendar/ical/…/private-…/basic.ics", 12.5, FontWeights.Normal, CardKit.Text2);
         hint.IsHitTestVisible = false;
         _box.TextChanged += (_, _) => hint.Visibility = _box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         var field = new Border
@@ -67,8 +67,7 @@ internal sealed class CalendarSetup : Border
         stack.Children.Add(field);
 
         var bottom = new DockPanel { Margin = new Thickness(0, 12, 0, 0), LastChildFill = true };
-        _connect = CardKit.PillButton("Connect", () => _ = ConnectAsync(), height: 30, background: CardKit.Brush(NotchPalette.Calendar),
-            hover: CardKit.Brush("#6AACFF"), foreground: CardKit.Brush("#000000"), fontSize: 13);
+        _connect = CardKit.PrimaryPillButton("Connect", () => _ = ConnectAsync(), height: 30, fontSize: 13);
         DockPanel.SetDock(_connect, Dock.Right);
         bottom.Children.Add(_connect);
         if (_close is not null)
@@ -123,6 +122,6 @@ internal sealed class CalendarSetup : Border
         }
         _status.Text = error;
         _status.ToolTip = error;
-        _status.Foreground = CardKit.Brush(NotchPalette.Alarm);
+        _status.Foreground = Ui.Tokens.Alarm;
     }
 }

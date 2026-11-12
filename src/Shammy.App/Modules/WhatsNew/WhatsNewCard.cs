@@ -63,7 +63,7 @@ internal sealed class WhatsNewCard : Grid
         if (seeAll is not null)
         {
             // Three lines can't hold a big update: the guide lists the rest, each with its Try it.
-            var all = ScreenKit.Secondary("See everything new", seeAll, 30, 8, 12.5);
+            var all = ScreenKit.Secondary("See everything new", seeAll, 30, fontSize: 12.5);
             all.HorizontalAlignment = HorizontalAlignment.Right;
             all.VerticalAlignment = VerticalAlignment.Bottom;
             all.Margin = new Thickness(0, 0, 88, 0);

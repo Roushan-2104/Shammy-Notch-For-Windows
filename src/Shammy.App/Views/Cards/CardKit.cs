@@ -268,24 +268,17 @@ internal static class CardKit
         {
             Content = face,
             Height = height,
-            Focusable = false,
             Cursor = Cursors.Hand,
             Template = BareTemplate,
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = new ScaleTransform(1, 1),
             ToolTip = name,
         };
         if (!double.IsNaN(width)) button.Width = width;
         AutomationProperties.SetName(button, name);
-        var scale = (ScaleTransform)button.RenderTransform;
+        // A tab stop with the accent ring once the notch has the keyboard; the shared press.
+        Ui.FocusKit.Button(button);
+        Ui.Press.Attach(button);
         button.MouseEnter += (_, _) => face.Background = hover;
-        button.MouseLeave += (_, _) =>
-        {
-            face.Background = bg;
-            scale.ScaleX = scale.ScaleY = 1;
-        };
-        button.PreviewMouseLeftButtonDown += (_, _) => scale.ScaleX = scale.ScaleY = 0.94;
-        button.PreviewMouseLeftButtonUp += (_, _) => scale.ScaleX = scale.ScaleY = 1;
+        button.MouseLeave += (_, _) => face.Background = bg;
         button.Click += (_, e) =>
         {
             onClick();

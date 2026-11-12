@@ -26,18 +26,14 @@ internal sealed class ChoiceChips : WrapPanel
         {
             int at = i;
             bool first = i == 0;
-            var chip = new Border
-            {
-                Height = ChipHeight,
-                CornerRadius = new CornerRadius(ChipHeight / 2),
-                Padding = new Thickness(8, 0, 13, 0),
-                Margin = new Thickness(0, 0, 8, 8),
-                Cursor = Cursors.Hand,
-                BorderThickness = new Thickness(1),
-                Focusable = false,
-            };
-            chip.SetResourceReference(Border.BackgroundProperty, first ? "WallAccent" : "WallRaised");
-            chip.SetResourceReference(Border.BorderBrushProperty, first ? "WallAccent" : "WallHairline");
+            // A Pressable: hover (the accent chip too), the kit's press, a tab stop and a button to screen readers.
+            var chip = first
+                ? new Screens.Pressable(Ui.Tokens.Accent, Ui.Tokens.AccentHover, Ui.Tokens.Accent, Ui.Tokens.AccentHover)
+                : new Screens.Pressable(Ui.Tokens.Pill, Ui.Tokens.PillHover, Ui.Tokens.Hairline, Ui.Tokens.HairlineHover);
+            chip.Height = ChipHeight;
+            chip.CornerRadius = new CornerRadius(ChipHeight / 2);
+            chip.Padding = new Thickness(8, 0, 13, 0);
+            chip.Margin = new Thickness(0, 0, 8, 8);
             string text = first ? "WallOnAccent" : "WallText";
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -61,14 +57,7 @@ internal sealed class ChoiceChips : WrapPanel
 
             AutomationProperties.SetName(chip, $"{i + 1}: {chips[i].Title}");
             chip.ToolTip = $"Press {i + 1}{(first ? " or Enter" : "")}";
-            chip.MouseEnter += (_, _) => { if (!first) chip.SetResourceReference(Border.BackgroundProperty, "WallRaisedHover"); };
-            chip.MouseLeave += (_, _) => { if (!first) chip.SetResourceReference(Border.BackgroundProperty, "WallRaised"); };
-            chip.MouseLeftButtonDown += (_, e) => e.Handled = true;
-            chip.MouseLeftButtonUp += (_, e) =>
-            {
-                e.Handled = true;
-                pick(at);
-            };
+            chip.Click += () => pick(at);
             Children.Add(chip);
         }
     }
