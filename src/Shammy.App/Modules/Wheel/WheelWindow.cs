@@ -88,8 +88,9 @@ internal sealed class WheelWindow : Window
         }
 
         _tetherBrush = new LinearGradientBrush { MappingMode = BrushMappingMode.Absolute };
-        _tetherBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 138, 61), 0));
-        _tetherBrush.GradientStops.Add(new GradientStop(Color.FromArgb(230, 255, 138, 61), 1));
+        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
+        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+        TintTether();
         _tether = new Line { Stroke = _tetherBrush, StrokeThickness = 3, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Opacity = 0 };
         _canvas.Children.Add(_tether);
 
@@ -148,10 +149,19 @@ internal sealed class WheelWindow : Window
     static double Response => MotionPrefs.Lively ? 0.32 : 0.22;
     static double Bouncy => MotionPrefs.Lively ? 0.58 : 1.0;
 
+    /// <summary>The tether is the user's accent, fading in from the hub (re-read each time the wheel opens).</summary>
+    void TintTether()
+    {
+        var a = Ui.Tokens.Accent.Color;
+        _tetherBrush.GradientStops[0].Color = Color.FromArgb(0, a.R, a.G, a.B);
+        _tetherBrush.GradientStops[1].Color = Color.FromArgb(230, a.R, a.G, a.B);
+    }
+
     /// <summary>Opens around the screen point (physical pixels) with these actions on the beads.</summary>
     public void OpenAt(int x, int y, IReadOnlyList<(string Glyph, string Name, bool Pinned)> beads, bool cat)
     {
         _open = true;
+        TintTether();
         _selected = -1;
         _flying = -1;
         _face.CatOverride = cat ? null : false;

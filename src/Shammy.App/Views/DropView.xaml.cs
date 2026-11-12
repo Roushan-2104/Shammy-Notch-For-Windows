@@ -28,8 +28,9 @@ public partial class DropView : UserControl
     readonly TextBlock _chipText = WallParts.Text("", 13, FontWeights.SemiBold);
     readonly TextBlock _chipSize = WallParts.Text("", 12, FontWeights.Normal, "WallText2");
     readonly TextBlock _chipIcon = WallParts.Glyph("", 15);
-    /// <summary>The Wall's focus glow (accent, soft, no offset); shared and frozen since one tile wears it at a time.</summary>
-    static readonly DropShadowEffect Glow = MakeGlow();
+    /// <summary>The Wall's focus glow (accent, soft, no offset); frozen, and made again when the accent changes.</summary>
+    static DropShadowEffect? _glow;
+    static Color _glowFor;
     IDataObject? _data;
     string[] _files = Array.Empty<string>();
     DropAction? _hovered;
@@ -157,16 +158,19 @@ public partial class DropView : UserControl
     void Paint(Target t, bool hot)
     {
         t.Tile.BorderBrush = WallParts.Res(hot ? "WallAccent" : "WallHairline");
-        t.Tile.Effect = hot ? Glow : null;
+        t.Tile.Effect = hot ? Glow() : null;
         Panel.SetZIndex(t.Root, hot ? 1 : 0);
         AutomationProperties.SetItemStatus(t.Root, hot ? "Selected" : "");
     }
 
-    static DropShadowEffect MakeGlow()
+    static DropShadowEffect Glow()
     {
-        var glow = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x8A, 0x3D), BlurRadius = 24, ShadowDepth = 0, Opacity = 0.32 };
+        var accent = Ui.Tokens.Accent.Color;
+        if (_glow is not null && _glowFor == accent) return _glow;
+        var glow = new DropShadowEffect { Color = accent, BlurRadius = 24, ShadowDepth = 0, Opacity = 0.32 };
         glow.Freeze();
-        return glow;
+        _glowFor = accent;
+        return _glow = glow;
     }
 
     void SetHovered(DropAction? action)
