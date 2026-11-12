@@ -63,6 +63,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         _store.Reminders.RemoveAll(r => r.FiredAt is { } fired && fired < DateTime.Now.AddDays(-7)
                                         || r.DoneAt is { } done && done < DateTime.Now.AddDays(-7));
 
+        ctx.Services.Notifications.Arrived += OnNotificationArrived;
         _tick.Tick += (_, _) => OnTick();
         _reminders.Tick += (_, _) => OnReminderTick();
         _glowOff.Tick += (_, _) => ClearGlow();
@@ -152,6 +153,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         _reminders.Stop();
         _cardClose.Stop();
         if (_ctx is null) return;
+        _ctx.Services.Notifications.Arrived -= OnNotificationArrived;
         foreach (var c in _clocks) _ctx.Remove(c.ActivityId);
         _clocks.Clear();
         _focus.Dispose();
@@ -307,20 +309,32 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         return new CommandResult(pomodoro.Glyph, $"Pomodoro \u00B7 {pomodoro.Label}", TimeFormat.Describe(pomodoro.Total));
     }
 
-    DateTimeOffset _focusSince;
+    // Notifications that arrived while a focus clock ran, counted as they come: the history only keeps the last
+    // few dozen, so a long focus would undercount from it.
+    int _focusArrived;
+    readonly List<string> _focusApps = new();
+
+    void OnNotificationArrived(Notifications.ShammyNotification n)
+    {
+        if (!_ctx.Ui.CheckAccess())
+        {
+            _ctx.Ui.BeginInvoke(() => OnNotificationArrived(n));
+            return;
+        }
+        if (Find(ClockKind.Focus) is null) return;
+        _focusArrived++;
+        // A handful of app names is all the summary says.
+        if (_focusApps.Count < 20 && !string.IsNullOrWhiteSpace(n.AppName)) _focusApps.Add(n.AppName);
+    }
 
     /// <summary>"3 messages waited · WhatsApp, Gmail": the notifications that came in since focus began.</summary>
-    string? FocusWaited()
-    {
-        var since = _focusSince;
-        var held = _ctx.Services.Notifications.History.Where(n => n.Time >= since).ToList();
-        return Core.Productivity.FocusSummary.Waited(held.Count, held.Select(n => n.AppName));
-    }
+    string? FocusWaited() => Core.Productivity.FocusSummary.Waited(_focusArrived, _focusApps);
 
     CommandResult StartFocus(TimeSpan duration)
     {
         if (Find(ClockKind.Focus) is { } old) RemoveClock(old);
-        _focusSince = DateTimeOffset.Now;
+        _focusArrived = 0;
+        _focusApps.Clear();
         // Optional music for the session (Settings › Time & units › Focus music).
         if (_ctx.Settings.FocusMusic && !_ctx.Services.Media.IsPlaying) HostLinks.RunText?.Invoke("play lofi focus music on youtube music");
         AddClock(ClockKind.Focus, "Focus", FocusGlyph, duration);
@@ -426,10 +440,26 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
     void SetPaused(RunningClock clock, bool pause)
     {
         var now = DateTime.UtcNow;
+        bool changed = clock.Paused != pause;
         if (pause) clock.Pause(now);
         else clock.Resume(now);
         clock.Content.Refresh(now);
+        if (changed) WindowsFocusFollows(clock, pause);
         ScheduleTick();
+    }
+
+    /// <summary>
+    /// Windows' focus session can't pause: pausing the clock that owns it ends it, and resuming starts it again
+    /// for the time that's left. A focus clock owns it; a pomodoro does in a focus phase when no focus clock runs.
+    /// </summary>
+    void WindowsFocusFollows(RunningClock clock, bool paused)
+    {
+        bool owns = clock.Kind == ClockKind.Focus
+                    || clock.Kind == ClockKind.Pomodoro && Find(ClockKind.Focus) is null && Pomodoro.PhaseAt(clock.PomodoroStep) == PomodoroPhase.Focus;
+        if (!owns) return;
+        if (paused) _focus.End();
+        else if (clock.Remaining(DateTime.UtcNow) is var left && left > TimeSpan.Zero) _focus.TryStart(DateTimeOffset.Now + left);
+        _ctx.Info($"{ClockName(clock)} {(paused ? "paused" : "resumed")}; Windows focus session: {_focus.Status}");
     }
 
     RunningClock? Find(ClockKind kind) => _clocks.LastOrDefault(c => c.Kind == kind);
