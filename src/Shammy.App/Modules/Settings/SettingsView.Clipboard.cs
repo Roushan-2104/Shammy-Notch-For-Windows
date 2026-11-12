@@ -20,9 +20,10 @@ namespace Shammy.Modules.Settings;
 
 internal partial class SettingsView
 {
-    // ---- Clipboard & privacy -----------------------------------------------------------------------
+    // ---- Clipboard -------------------------------------------------------------------------------
 
-    void ClipboardAndPrivacy()
+    /// <summary>History and how long it's kept, the copy preview, and clearing it.</summary>
+    void ClipboardPage()
     {
         Border? keepRow = null;
         Row("Clipboard history", "Keeps what you copy so you can paste it again.", new ToggleSwitch(_s.ClipboardHistoryEnabled, on =>
@@ -35,9 +36,8 @@ internal partial class SettingsView
             new Segmented(new[] { "1 hour", "24 hours", "7 days" }, Array.IndexOf(hours, _s.ClipboardRetentionHours), i =>
                 Set(nameof(AppSettings.ClipboardRetentionHours), hours[i], $"Keeps clipboard for {(i == 0 ? "1 hour" : i == 1 ? "24 hours" : "7 days")}")));
         Dim(keepRow, _s.ClipboardHistoryEnabled);
-        SwitchRow("Copy preview", $"{PetLook.Name} shows a peek of what you copy.", nameof(AppSettings.CopyPreviewEnabled), "Copy preview on", "Copy preview off");
-        SwitchRow("Always hide message text", "Notifications show who, never what. While you share your screen it’s hidden anyway.",
-            nameof(AppSettings.AlwaysHideNotificationText), "Message text always hidden", "Message text shows unless you’re sharing");
+        SwitchRow("Copy preview", $"{PetLook.Name} shows a peek of what you copy.", nameof(AppSettings.CopyPreviewEnabled), "Copy preview on", "Copy preview off",
+            words: "copied");
 
         if (Links.Clipboard is { } clip)
         {

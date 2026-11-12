@@ -1,20 +1,11 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using Shammy.Core.Notch;
-using Shammy.Core.OnlineVoice;
-using Shammy.Core.Productivity;
-using Shammy.Core.Search;
 using Shammy.Core.Settings;
 using Shammy.Core.Updates;
 using Shammy.Infrastructure;
-using Shammy.Modules.Connect;
-using Shammy.Modules.OnlineVoice;
 using Shammy.Search;
 using Shammy.Views.Screens;
-using PetFace = Shammy.Views.Screens.PetFace;
 
 namespace Shammy.Modules.Settings;
 
@@ -22,8 +13,11 @@ internal partial class SettingsView
 {
     // ---- General ---------------------------------------------------------------------------------
 
+    /// <summary>The version and updates, start with Windows, sounds and their volume, and which screen.</summary>
     void General()
     {
+        UpdateRow();
+
         bool startup;
         try { startup = _s.StartWithWindows; }
         catch (Exception) { startup = false; }
@@ -39,18 +33,14 @@ internal partial class SettingsView
                 Log.Warn("Updating the startup entry failed", ex);
                 Say("Couldn’t change the startup entry");
             }
-        }, "Start with Windows"));
+        }, "Start with Windows"), words: "startup sign in boot login");
 
-        var modes = new[] { SearchMode.Ai, SearchMode.Web };
-        Row("Default search", "What Enter does when you type in the palette.",
-            new Segmented(new[] { "AI Mode", "Web" }, Array.IndexOf(modes, _s.DefaultSearchMode), i =>
-                Set(nameof(AppSettings.DefaultSearchMode), modes[i], $"Enter now searches with {(i == 0 ? "AI Mode" : "Web")}")));
-        SwitchRow("Gestures", "Wheel over the notch for volume, swipe sideways to skip a track.", nameof(AppSettings.GesturesEnabled), "Gestures on", "Gestures off");
-        SwitchRow("Notch sounds", "A soft ping for notifications, a chime for timers.", nameof(AppSettings.NotchSounds), "Sounds on", "Sounds off");
+        SwitchRow("Notch sounds", "A soft ping for notifications, a chime for timers.", nameof(AppSettings.NotchSounds), "Sounds on", "Sounds off",
+            words: "ping chime sound audio");
 
         var volume = new SlimSlider(_s.NotchSoundVolume, 0, 100, 10);
         TextBlock volumeHint = null!;
-        Row("Sound volume", VolumeHint(_s.NotchSoundVolume), volume, out volumeHint);
+        Row("Sound volume", VolumeHint(_s.NotchSoundVolume), volume, out volumeHint, words: "loud quiet sounds");
         volume.Changed += v => volumeHint.Text = VolumeHint(v);
         volume.Committed += v =>
         {
@@ -58,21 +48,26 @@ internal partial class SettingsView
             if (_s.NotchSounds) NotchSound.Play(Shammy.Core.Audio.PingKind.Notification);
         };
 
-        ClaudeCodeRows();
+        ScreenRow();
+    }
 
-        Section("Features", "Turned-off features stay off from the next start.");
-        foreach (var name in _modules().Where(m => m != SettingsModule.ModuleName).Order())
+    /// <summary>Which screen the notch lives on (a choice only with two or more).</summary>
+    void ScreenRow()
+    {
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        var names = screens.Select(s => s.DeviceName).ToList();
+        var primary = screens.FirstOrDefault(s => s.Primary)?.DeviceName ?? names.FirstOrDefault() ?? "";
+        var options = NotchDisplay.Options(names, primary);
+        if (options.Count < 2)
+            Row("Show on", "Only one screen is connected. With a second one you can choose where the notch lives.", null, words: "screen monitor display");
+        else
         {
-            bool off = _s.DisabledModules.Contains(name, StringComparer.OrdinalIgnoreCase);
-            Row(FeatureName(name), FeatureHint(name), new ToggleSwitch(!off, on =>
-            {
-                var list = _s.DisabledModules.Where(m => !string.Equals(m, name, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (!on) list.Add(name);
-                Set(nameof(AppSettings.DisabledModules), list, $"{FeatureName(name)} {(on ? "on" : "off")} after a restart");
-            }, FeatureName(name)));
+            int chosen = Math.Max(0, options.ToList().FindIndex(o => o.Value.Equals(_s.NotchDisplay, StringComparison.OrdinalIgnoreCase)));
+            Row("Show on", "Which screen the notch lives on.",
+                new Segmented(options.Select(o => o.Label).ToList(), chosen, i =>
+                    Set(nameof(AppSettings.NotchDisplay), options[i].Value, $"Showing on · {options[i].Label}"), minWidth: 54),
+                words: "screen monitor display");
         }
-
-        UpdateRow();
     }
 
     /// <summary>The version, where updates stand, and the one button that makes sense right now.</summary>
@@ -100,7 +95,7 @@ internal partial class SettingsView
             hint.Text = UpdateText.Hint(result, installed);
             slot.Child = !installed || UpdateText.IsBusy(result) ? null : UpdateText.IsReady(result) ? restart : check;
         }
-        Row($"Version {HostLinks.Version?.Invoke() ?? "?"}", UpdateText.Hint(Status().Result, Status().Installed), slot, out hint);
+        Row($"Version {HostLinks.Version?.Invoke() ?? "?"}", UpdateText.Hint(Status().Result, Status().Installed), slot, out hint, words: "update updates version check");
         Show();
         slot.Loaded += (_, _) =>
         {
@@ -110,83 +105,99 @@ internal partial class SettingsView
         slot.Unloaded += (_, _) => HostLinks.UpdateChanged -= Show;
     }
 
-    /// <summary>Claude Code: the connection (the one button that edits Claude Code's settings) and the Allow/Deny cards.</summary>
-    void ClaudeCodeRows()
+    static string VolumeHint(int v) => v == 0 ? "0% · alarms still ring at 20%" : $"{v}% · pings, chimes and alarms";
+
+    // ---- Advanced --------------------------------------------------------------------------------
+
+    /// <summary>The switches that used to live only in the tray menu, then every feature that can be turned off.</summary>
+    void Advanced()
     {
-        Section("Claude Code", "");
-        if (Shammy.Modules.Agents.AgentsLink.View is not { } view || Shammy.Modules.Agents.AgentsLink.Press is not { } press)
+        Section("Switches", "");
+        SwitchRow("Replace the Windows volume popup", "The volume keys show Shammy’s level in the notch instead.",
+            nameof(AppSettings.ReplaceVolumeFlyout), "Volume keys show in the notch", "Volume keys show Windows’ popup", words: "flyout hud");
+        SwitchRow("Audio visualizer", "Bars that move with the music in the resting notch.", nameof(AppSettings.ShowVisualizer),
+            "Visualizer on", "Visualizer off", words: "bars music");
+        SwitchRow("Compact search results", "Google’s phone layout, which fits the notch. After a restart.", nameof(AppSettings.CompactResults),
+            "Compact results after a restart", "Full results after a restart", words: "mobile layout google");
+        SwitchRow("Pin to the very top edge", "The notch sits on the screen’s edge, over a top taskbar.", nameof(AppSettings.PinToScreenEdge),
+            "Pinned to the top edge", "Below a top taskbar", words: "taskbar position place");
+        Row("Detect voice language", "Listens for Hindi and other languages on this PC. Slower than English only.",
+            new ToggleSwitch(_s.VoiceLanguage == "auto", on =>
+                Set(nameof(AppSettings.VoiceLanguage), on ? "auto" : "en", on ? "Voice detects the language" : "Voice listens for English"), "Detect voice language"),
+            words: "hindi language auto whisper");
+        foreach (var sw in SettingsCatalog.TraySwitches)
         {
-            Row("Not available", "The Claude Code feature is turned off (see Features below).", null);
-            return;
+            if (Infrastructure.TrayIcon.Toggles.FirstOrDefault(t => t.Text == sw.TrayText) is not { IsChecked: { } isChecked, SetChecked: { } setChecked }) continue;
+            var label = sw.Label;
+            Row(label, sw.Hint, new ToggleSwitch(isChecked(), on =>
+            {
+                _changing = true;
+                try { setChecked(on); }
+                catch (Exception ex) { Log.Warn($"Switching {label} failed", ex); }
+                finally { _changing = false; }
+                Say($"{label} {(on ? "on" : "off")}");
+            }, label));
         }
-        const string connectHint = Shammy.Core.Agents.AgentText.ConnectHint;
-        TextBlock hint = null!, title = null!;
-        string problem = "";
-        Pressable button = null!;
-        void Show()
+
+        Section("Features", "Turned-off features stay off from the next start.");
+        foreach (var name in _modules().Where(m => m != SettingsModule.ModuleName).OrderBy(FeatureName, StringComparer.CurrentCultureIgnoreCase))
         {
-            var now = view();
-            title.Text = now.Status;
-            hint.Text = problem.Length > 0 ? problem : connectHint;
-            ((TextBlock)button.Child).Text = now.Button;
-            Dim(button, now.Enabled);
+            bool off = _s.DisabledModules.Contains(name, StringComparer.OrdinalIgnoreCase);
+            // A feature with its own switch elsewhere shows here only while it is off, so it can be turned back on.
+            if (HasOwnSwitch.Contains(name) && !off) continue;
+            Row(FeatureName(name), FeatureHint(name), new ToggleSwitch(!off, on =>
+            {
+                var list = _s.DisabledModules.Where(m => !string.Equals(m, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (!on) list.Add(name);
+                Set(nameof(AppSettings.DisabledModules), list, $"{FeatureName(name)} {(on ? "on" : "off")} after a restart");
+            }, FeatureName(name)), words: "feature module");
         }
-        button = ScreenKit.Secondary(view().Button, () =>
-        {
-            var (ok, said) = press();
-            problem = ok ? "" : said;
-            if (ok) Say(said);
-            Show();
-        });
-        button.MinWidth = 96;
-        var row = Row(view().Status, connectHint, button, out hint);
-        title = (TextBlock)((StackPanel)hint.Parent).Children[0];
-        Show();
-        row.Loaded += (_, _) =>
-        {
-            Shammy.Modules.Agents.AgentsLink.Changed -= Show;
-            Shammy.Modules.Agents.AgentsLink.Changed += Show;
-            Show();
-        };
-        row.Unloaded += (_, _) => Shammy.Modules.Agents.AgentsLink.Changed -= Show;
-        SwitchRow("Ask me in the notch", "Allow and Deny drop from the notch when Claude Code needs an OK. Off shows status only.",
-            nameof(AppSettings.AgentsAskInNotch), "Asking in the notch", "Status only");
     }
 
-    static string VolumeHint(int v) => v == 0 ? "0% · alarms still ring at 20%" : $"{v}% · pings, chimes and alarms";
+    /// <summary>Features switched elsewhere: Live cricket, Morning brief, Codes, the Wheel, Eye breaks and water, Claude Code, Online voice, Text snippets.</summary>
+    static readonly HashSet<string> HasOwnSwitch = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cricket", "brief", "otp", "wheel", "nudges", "agents", "onlinevoice", "snippets",
+    };
 
     static readonly Dictionary<string, (string Name, string Hint)> Features = new(StringComparer.OrdinalIgnoreCase)
     {
         ["agents"] = ("Claude Code", "Sessions at work, done, or waiting for your OK."),
-        ["ambient"] = ("Weather and pet", "The sky, the ticker and the pet’s moods."),
+        ["ambient"] = ("Weather and pet moods", "The sky, the ticker and the pet’s moods."),
+        ["answers"] = ("Answers on your PC", "Battery, time, date and new messages, answered without a search."),
+        ["brief"] = ("Morning brief", "Weather, meetings and reminders at the first unlock of a morning."),
         ["whatsnew"] = ("What’s new", "A short note after each update."),
         ["calendar"] = ("Calendar", "Your Google Calendar in the notch."),
         ["captions"] = ("Live captions", "Captions for anything playing, made on this PC."),
         ["clipboard"] = ("Clipboard", "History, screenshots, copy previews."),
-        ["connect"] = ("Connect", "Downloads and the links between features."),
-        ["cricket"] = ("Cricket scores", "Live scores in the ticker."),
+        ["connect"] = ("Downloads and links", "Downloads, and the links between features."),
+        ["cricket"] = ("Live cricket", "Live scores in the ticker."),
         ["crypto"] = ("Crypto prices", "Prices in the ticker."),
-        ["dropactions"] = ("Drop actions", "Drag files onto the notch to convert or share."),
-        ["guide"] = ("Feature guide", "Everything Shammy does, in one place."),
+        ["dropactions"] = ("Shelf", "Park files on the notch, then convert or share them."),
+        ["guide"] = ("Guide", "Everything Shammy does, in one place."),
+        ["health"] = ("Health", "Storage, a careful cleanup and a daily check of this laptop."),
         ["launcher"] = ("App launcher", "“open spotify” from the palette."),
-        ["levels"] = ("Volume and brightness", "The notch’s own volume and brightness HUD."),
+        ["levels"] = ("Volume and brightness", "The notch’s own volume and brightness levels."),
         ["meeting"] = ("Meetings", "Mic and camera pills during calls."),
         ["mirror"] = ("Mirror", "A quick camera check."),
         ["mixer"] = ("Volume mixer", "A volume slider for each app."),
         ["music"] = ("Music", "Now playing, lyrics, play commands."),
         ["nudges"] = ("Eye breaks and water", "Gentle nudges from the pet."),
         ["onlinevoice"] = ("Online voice (Gnani)", "Speaking and Hinglish listening with your own Gnani key."),
+        ["otp"] = ("Codes in the notch", "One-time codes from messages, big, with Copy."),
         ["palette"] = ("Palette", "Search apps, files and settings as you type."),
         ["phonesend"] = ("Send to phone", "Files to your phone over Wi-Fi."),
         ["productivity"] = ("Timers, alarms and notes", "Timers, pomodoro, reminders, alarms, notes."),
         ["prompter"] = ("Teleprompter", "Your script under the camera."),
-        ["quick"] = ("Quick actions", "Keep awake, lock, sleep and mute in one place."),
+        ["quick"] = ("Laptop", "Wi-Fi, Bluetooth, power mode, keep awake, lock and sleep."),
         ["record"] = ("Screen recording", "Record the screen from the notch."),
         ["screenshot"] = ("Screenshots", "Saves and offers what you capture."),
         ["selection"] = ("Selection tools", "Convert prices, read QR codes."),
-        ["snippets"] = ("Snippets", "Text that expands as you type."),
+        ["snippets"] = ("Text snippets", "Text that expands as you type."),
         ["stocks"] = ("Stock prices", "Prices in the ticker."),
         ["system"] = ("System", "Battery, CPU and memory."),
+        ["tour"] = ("Welcome tour", "The first-run tour; say “tour” to see it again."),
+        ["wheel"] = ("Wheel", "Eight actions around the pointer on a held middle button."),
     };
 
     static string FeatureName(string module) => Features.TryGetValue(module, out var f) ? f.Name : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(module);

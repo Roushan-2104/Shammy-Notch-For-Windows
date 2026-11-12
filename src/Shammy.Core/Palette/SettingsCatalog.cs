@@ -93,3 +93,50 @@ public static class SettingsCatalog
         return results.OrderByDescending(r => r.Match).ThenBy(r => r.Order).Take(max).Select(r => (r.Entry, r.Match)).ToList();
     }
 }
+
+/// <summary>
+/// Matching typed words against Shammy's own settings (a row's label, its one-line hint, its tab): the Settings
+/// screen's search box filters with <see cref="Matches"/>, the palette ranks with <see cref="Score"/>.
+/// </summary>
+public static class ShammySettingSearch
+{
+    static readonly string[] Fillers = { "open ", "show ", "change ", "turn on ", "turn off ", "switch on ", "switch off ", "shammy " };
+
+    static string Clean(string? text)
+    {
+        var q = AppMatcher.Normalize(text ?? "");
+        foreach (var f in Fillers)
+            if (q.StartsWith(f, StringComparison.Ordinal)) q = q[f.Length..];
+        if (q.EndsWith(" settings", StringComparison.Ordinal)) q = q[..^" settings".Length];
+        else if (q.EndsWith(" setting", StringComparison.Ordinal)) q = q[..^" setting".Length];
+        return q.Trim();
+    }
+
+    /// <summary>Every word typed begins a word of <paramref name="text"/> ("eye br" matches "Eye breaks").</summary>
+    public static bool Matches(string? query, string? text)
+    {
+        var words = AppMatcher.Normalize(query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return true;
+        var hay = AppMatcher.Normalize(text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.All(w => hay.Any(h => h.StartsWith(w, StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// How well the text means this setting, 0–100: 100 its label exactly, 90 the start of its label (3+ letters),
+    /// 85 every word begins a word of the label, 70 every word begins a word of the label, hint or tab; else 0.
+    /// "turn off peek" and "peek settings" count as "peek".
+    /// </summary>
+    public static int Score(string? query, string label, string hint = "", string section = "")
+    {
+        var q = Clean(query);
+        if (q.Length < 2) return 0;
+        var l = AppMatcher.Normalize(label);
+        if (q == l) return 100;
+        if (q.Length >= 3 && l.StartsWith(q, StringComparison.Ordinal)) return 90;
+        // A letter or two is too loose to mean a setting.
+        if (q.Replace(" ", "").Length < 3) return 0;
+        if (Matches(q, l)) return 85;
+        if (Matches(q, l + " " + hint + " " + section)) return 70;
+        return 0;
+    }
+}

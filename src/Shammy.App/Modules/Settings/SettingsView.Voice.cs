@@ -50,7 +50,13 @@ internal partial class SettingsView
             Row("Language on this PC", "English. Hinglish on this PC needs a graphics card; with a Gnani key, Hinglish works online instead.", null);
         Row("Push to talk", "Hold to talk, tap to type.", ScreenKit.KeyCap("Right Alt"));
         Row("Circle to search", "Or hold Right Ctrl, then draw around anything.",
-            ScreenKit.KeyCap("Copilot", icon: ScreenKit.Icon(ScreenKit.Paths.Copilot, ScreenKit.Fg, 12, 2)));
+            ScreenKit.KeyCap("Copilot", icon: ScreenKit.Icon(ScreenKit.Paths.Copilot, ScreenKit.Fg, 12, 2)), words: "lens copilot");
+
+        var modes = new[] { SearchMode.Ai, SearchMode.Web };
+        Row("Default search", "What Enter does when you type in the palette.",
+            new Segmented(new[] { "AI Mode", "Web" }, Array.IndexOf(modes, _s.DefaultSearchMode), i =>
+                Set(nameof(AppSettings.DefaultSearchMode), modes[i], $"Enter now searches with {(i == 0 ? "AI Mode" : "Web")}")),
+            words: "google ai web palette enter");
         OnlineVoice();
     }
 
@@ -64,7 +70,7 @@ internal partial class SettingsView
         var link = OnlineVoiceLink.Current;
         if (link is null)
         {
-            Row("Gnani key", "The online voice feature is turned off (General → Features).", null);
+            Row("Gnani key", "The online voice feature is turned off (Settings › Advanced).", null);
             return;
         }
         bool hasKey = link.HasKey;
