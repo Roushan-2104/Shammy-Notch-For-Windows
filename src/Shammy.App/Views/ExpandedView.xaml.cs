@@ -130,8 +130,10 @@ public partial class ExpandedView : UserControl
             e.Handled = true;
             return;
         }
-        // Arrows and Enter drive the rail, unless someone is typing.
+        // Arrows and Enter drive the rail, unless someone is typing or a control in the view has the keyboard
+        // (Tab reached a button or a slider: Enter presses it, the arrows move it).
         if (_openId is not null || Keyboard.FocusedElement is TextBoxBase or PasswordBox) return;
+        if (Keyboard.FocusedElement is Visual focused && focused != this && IsAncestorOf(focused)) return;
         switch (e.Key)
         {
             case Key.Left:
