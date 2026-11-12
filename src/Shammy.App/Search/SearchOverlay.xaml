@@ -5,13 +5,18 @@
         ShowActivated="False" Background="Black" Cursor="Cross" Left="-32000" Top="-32000" Width="400" Height="300"
         FontFamily="{StaticResource ShammyFont}">
     <Grid x:Name="Root">
-        <Image x:Name="Shot" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality" />
+        <!-- Cached: the full-screen still is scaled once, not again each time the glow above it turns. -->
+        <Image x:Name="Shot" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.CacheMode>
+                <BitmapCache SnapsToDevicePixels="True" />
+            </Image.CacheMode>
+        </Image>
         <Rectangle x:Name="Dim" Fill="Black" Opacity="0" />
         <Path x:Name="Outside" Fill="Black" Opacity="0" IsHitTestVisible="False" />
 
         <Border x:Name="GlowSoft" BorderThickness="14" Opacity="0" IsHitTestVisible="False">
             <Border.Effect>
-                <BlurEffect Radius="30" />
+                <BlurEffect Radius="30" RenderingBias="Performance" />
             </Border.Effect>
         </Border>
         <Border x:Name="GlowEdge" BorderThickness="3" Opacity="0" IsHitTestVisible="False" />
@@ -19,7 +24,7 @@
         <Canvas x:Name="Ink" IsHitTestVisible="False">
             <Path x:Name="StrokeGlow" StrokeThickness="16" Opacity="0.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
                 <Path.Effect>
-                    <BlurEffect Radius="14" />
+                    <BlurEffect Radius="14" RenderingBias="Performance" />
                 </Path.Effect>
             </Path>
             <Path x:Name="StrokeCore" StrokeThickness="4.5" Stroke="White" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
