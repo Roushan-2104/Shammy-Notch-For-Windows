@@ -46,7 +46,7 @@ internal sealed class Capture
 internal sealed class ScreenshotCard : Grid
 {
     // Taller than the first version: seven actions wrap two to a row where they fit.
-    public const double CardWidth = 460, CardHeight = 232;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 232;
     const double BoxWidth = 204, BoxHeight = 200;
 
     readonly ClipboardModule _module;
@@ -88,7 +88,7 @@ internal sealed class ScreenshotCard : Grid
 
         var details = new StackPanel();
         SetColumn(details, 2);
-        var title = Views.WallParts.Text("Screenshot", 17, FontWeights.Bold);
+        var title = Views.WallParts.PopupTitle("Screenshot");
         title.Margin = new Thickness(0, 0, 26, 0);
         _details = Views.WallParts.Text("", 12, FontWeights.Normal, "WallText2");
         _details.Margin = new Thickness(0, 2, 0, 10);
@@ -97,7 +97,7 @@ internal sealed class ScreenshotCard : Grid
         details.Children.Add(_buttons);
         Children.Add(details);
 
-        var close = Views.WallParts.Icon("", "Close", _module.CloseCard, 24, 10);
+        var close = Views.Cards.CardKit.CloseButton(_module.CloseCard);
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.VerticalAlignment = VerticalAlignment.Top;
         close.Margin = new Thickness(0, -2, -4, 0);

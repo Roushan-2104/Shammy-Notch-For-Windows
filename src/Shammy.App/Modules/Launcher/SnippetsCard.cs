@@ -96,7 +96,7 @@ internal sealed class SnippetsCard
         key.MinWidth = 64;
         var body = CardKit.Text(OneLine(text), 13, FontWeights.Medium, secondary: true);
         body.ToolTip = text;
-        var remove = CardKit.Quiet($"Delete {trigger}", CardKit.Icon(CardKit.Paths.Close, CardKit.Ink, 10, 2.4), () => _delete(trigger), 22);
+        var remove = CardKit.CloseButton(() => _delete(trigger), $"Delete {trigger}");
         remove.Visibility = Visibility.Hidden;
         var row = WallDetail.ListRow(key, body, remove);
         row.MouseEnter += (_, _) => remove.Visibility = Visibility.Visible;

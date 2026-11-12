@@ -44,8 +44,8 @@ internal static class CardKit
         return t;
     }
 
-    /// <summary>The tiny uppercase caption ("NEXT", "CLIPBOARD"): bold and secondary grey.</summary>
-    public static TextBlock Caption(string text, Brush? brush = null) => Label(text.ToUpperInvariant(), 11, FontWeights.Bold, brush ?? Text2);
+    /// <summary>The tiny uppercase caption ("NEXT", "CLIPBOARD"): the kit's section label (11 Bold, +0.12 em, grey).</summary>
+    public static Shammy.Views.TrackedText Caption(string text, Brush? brush = null) => Wall.Label(text, brush ?? Text2);
 
     /// <summary>A big bold number ("10:30", "30°").</summary>
     public static TextBlock Big(string text, double size = 30) => Label(text, size, FontWeights.ExtraBold, Text);

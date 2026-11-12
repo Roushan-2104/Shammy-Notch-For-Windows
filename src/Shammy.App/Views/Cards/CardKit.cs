@@ -93,6 +93,30 @@ internal static class CardKit
         Foreground = brush ?? Ink,
     };
 
+    /// <summary>The section label (the kit's one style): 11 px Bold, uppercase, +0.12 em, secondary grey.</summary>
+    public static TrackedText SectionLabel(string text) => Label(text, Ink2);
+
+    /// <summary>
+    /// An empty list's words, the same everywhere: what isn't there (13.5 SemiBold, white) and, under it, how it
+    /// gets there (12, grey). Screen readers hear both.
+    /// </summary>
+    public static FrameworkElement Empty(string title, string? hint = null)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+        var head = Text(title, 13.5, FontWeights.SemiBold);
+        head.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(head);
+        if (!string.IsNullOrEmpty(hint))
+        {
+            var line = Text(hint, 12, FontWeights.Normal, secondary: true);
+            line.HorizontalAlignment = HorizontalAlignment.Left;
+            line.Margin = new Thickness(0, 3, 0, 0);
+            panel.Children.Add(line);
+        }
+        AutomationProperties.SetName(panel, string.IsNullOrEmpty(hint) ? title : $"{title}. {hint}");
+        return panel;
+    }
+
     /// <summary>A poster: the big tight ExtraBold title or number (−0.035 em, line-height about 1), even digits.</summary>
     public static TrackedText Poster(string text, double size) => new()
     {
@@ -224,9 +248,19 @@ internal static class CardKit
         return b;
     }
 
-    /// <summary>The detail's Back control: a dark translucent circle over the artwork with a chevron.</summary>
-    public static Button BackButton(Action onClick) =>
-        Make("Back", Icon(Paths.Back, Ink, 16, 2.4), onClick, 36, 36, 18, Hex("#9E0B0B0D"), Hex("#C40B0B0D"), null);
+    /// <summary>THE Back control (32 px): a dark translucent circle with a chevron, over artwork or on the ground.</summary>
+    public static Button Back(Action onClick, string name = "Back") =>
+        Make(name, Icon(Paths.Back, Ink, 15, 2.4), onClick, Ui.Tokens.BackSize, Ui.Tokens.BackSize, Ui.Tokens.BackSize / 2, Hex("#9E0B0B0D"), Hex("#C40B0B0D"), null);
+
+    /// <summary>Older name for <see cref="Back"/>.</summary>
+    public static Button BackButton(Action onClick) => Back(onClick);
+
+    /// <summary>
+    /// THE close (×) control of pop-up cards and list rows (24 px, quiet translucent circle). <paramref name="name"/>
+    /// says what it closes or removes ("Close", "Delete :sig").
+    /// </summary>
+    public static Button CloseButton(Action onClick, string name = "Close") =>
+        Make(name, Icon(Paths.Close, Ink, 10, 2.4), onClick, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize / 2, QuietBg, QuietHover, null);
 
     /// <summary>Older call shape: a 36 px round control; with an accent it is the primary one.</summary>
     public static Button RoundButton(string name, FrameworkElement icon, Action onClick, Brush? accent = null, double size = 36) =>
@@ -349,7 +383,7 @@ internal static class CardKit
         Background = Surface,
         BorderBrush = Hairline,
         BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(14),
+        CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
         Padding = new Thickness(padding),
         Child = child,
     };

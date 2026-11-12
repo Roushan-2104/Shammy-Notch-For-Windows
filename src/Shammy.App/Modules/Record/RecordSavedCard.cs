@@ -19,7 +19,7 @@ namespace Shammy.Modules.Record;
 /// </summary>
 internal sealed class RecordSavedCard : Grid
 {
-    public const double CardWidth = 460, CardHeight = 168;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 168;
     const double BoxWidth = 160, BoxHeight = 90;
 
     internal sealed record Actions(Func<bool> Open, Func<bool> ShowInFolder, Func<bool>? SendToPhone, Func<bool> AddToShelf, Func<bool> Delete, Action Close);
@@ -91,7 +91,7 @@ internal sealed class RecordSavedCard : Grid
         if (actions.SendToPhone is { } phone) Add(second, "", "Send to phone", null, null, phone);
         Add(second, "", "Add to shelf", "", "On the shelf", actions.AddToShelf);
 
-        var close = WallParts.Icon("", "Close", actions.Close, 24, 10);
+        var close = Views.Cards.CardKit.CloseButton(actions.Close);
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.VerticalAlignment = VerticalAlignment.Top;
         close.Margin = new Thickness(0, -4, -4, 0);
@@ -145,10 +145,10 @@ internal sealed class RecordSavedCard : Grid
     }
 }
 
-/// <summary>Why a recording could not start or be saved, in plain words, with OK (380 wide, like the start card).</summary>
+/// <summary>Why a recording could not start or be saved, in plain words, with OK (as wide as the other pop-ups).</summary>
 internal sealed class RecordFailedCard : Grid
 {
-    public const double CardWidth = 380, CardHeight = 124;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 124;
 
     public RecordFailedCard(string? failure, Action close)
     {
@@ -160,7 +160,7 @@ internal sealed class RecordFailedCard : Grid
         Children.Add(rows);
 
         var words = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
-        var title = ScreenKit.Display(RecordText.FailureTitle(failure), 17, Weight.ExtraBold, -0.015);
+        var title = ScreenKit.PopupTitle(RecordText.FailureTitle(failure));
         title.HorizontalAlignment = HorizontalAlignment.Left;
         words.Children.Add(title);
         var why = ScreenKit.Para(RecordText.Failure(failure), 12.5, ScreenKit.Fg2, 17);
@@ -168,7 +168,7 @@ internal sealed class RecordFailedCard : Grid
         words.Children.Add(why);
         rows.Children.Add(words);
 
-        var ok = ScreenKit.Secondary("OK", close, 30, 15, 12.5);
+        var ok = ScreenKit.Secondary("OK", close, 30, fontSize: 12.5);
         ok.HorizontalAlignment = HorizontalAlignment.Right;
         ok.VerticalAlignment = VerticalAlignment.Bottom;
         rows.Children.Add(ok);

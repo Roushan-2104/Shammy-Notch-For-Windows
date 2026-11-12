@@ -90,6 +90,10 @@ internal static class ScreenKit
     public static SpacedText Label(string text, Brush? brush = null, double size = 11) =>
         new() { Text = text.ToUpperInvariant(), FontSize = size, Weight = Weight.Bold, Foreground = brush ?? Fg2, Tracking = 0.12 };
 
+    /// <summary>A pop-up card's title (the kit's one style): 17 px ExtraBold, −0.015 em, one line, trimmed.</summary>
+    public static SpacedText PopupTitle(string text, Brush? brush = null) =>
+        Display(text, Ui.Tokens.PopupTitleSize, Weight.ExtraBold, Ui.Tokens.PopupTitleTracking, brush);
+
     /// <summary>A big tight display line (times, titles): letter-spacing in em, usually negative.</summary>
     public static SpacedText Display(string text, double size, Weight w = Weight.ExtraBold, double tracking = -0.03, Brush? brush = null) =>
         new() { Text = text, FontSize = size, Weight = w, Foreground = brush ?? ScreenKit.Fg, Tracking = tracking };
@@ -749,7 +753,9 @@ internal sealed class SpacedText : FrameworkElement
     Weight _weight = Weight.Regular;
     Brush _brush = Brushes.White;
     List<(FormattedText Text, double X)>? _runs;
-    double _width, _height, _baseline;
+    // What is drawn: all the runs, or as many as fit followed by an ellipsis (see Fit).
+    List<(FormattedText Text, double X)>? _shown;
+    double _width, _height, _baseline, _shownWidth, _fitFor = double.NaN;
 
     public SpacedText()
     {
@@ -761,7 +767,7 @@ internal sealed class SpacedText : FrameworkElement
     public string Text { get => _text; set { _text = value ?? ""; Invalidate(); } }
     public double FontSize { get => _size; set { _size = value; Invalidate(); } }
     public Weight Weight { get => _weight; set { _weight = value; Invalidate(); } }
-    public Brush Foreground { get => _brush; set { _brush = value; _runs = null; InvalidateVisual(); } }
+    public Brush Foreground { get => _brush; set { _brush = value; _runs = null; _shown = null; InvalidateVisual(); } }
 
     /// <summary>Letter-spacing in em.</summary>
     public double Tracking { get => _tracking; set { _tracking = value; Invalidate(); } }
@@ -782,6 +788,7 @@ internal sealed class SpacedText : FrameworkElement
     void Invalidate()
     {
         _runs = null;
+        _shown = null;
         InvalidateMeasure();
         InvalidateVisual();
     }
@@ -813,17 +820,54 @@ internal sealed class SpacedText : FrameworkElement
         _baseline = whole.Baseline;
         _width = Math.Max(0, x);
         _runs = runs;
+        _ellipsis = Make("…");
+        _shown = null;
+    }
+
+    FormattedText? _ellipsis;
+
+    /// <summary>Lays out what fits in <paramref name="max"/>: everything, or the letters that fit and an ellipsis (like TrackedText).</summary>
+    void Fit(double max)
+    {
+        Build();
+        if (_shown is not null && _fitFor.Equals(max)) return;
+        _fitFor = max;
+        if (double.IsInfinity(max) || _width <= max + 0.5 || _ellipsis is null)
+        {
+            _shown = _runs;
+            _shownWidth = _width;
+            return;
+        }
+        double e = _ellipsis.WidthIncludingTrailingWhitespace, space = _tracking * _size, end = 0;
+        var shown = new List<(FormattedText, double)>();
+        foreach (var (text, x) in _runs!)
+        {
+            double right = x + text.WidthIncludingTrailingWhitespace;
+            if (right + space + e > max) break;
+            shown.Add((text, x));
+            end = right + space;
+        }
+        shown.Add((_ellipsis, end));
+        _shown = shown;
+        _shownWidth = Math.Min(max, end + e);
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        Build();
-        return new Size(Math.Ceiling(_width), Math.Ceiling(_height));
+        Fit(availableSize.Width);
+        return new Size(Math.Ceiling(_shownWidth), Math.Ceiling(_height));
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        // Narrower than measured (a star column shrank): trim to what is really there.
+        if (finalSize.Width + 0.5 < _shownWidth) Fit(finalSize.Width);
+        return finalSize;
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        Build();
-        foreach (var (text, x) in _runs!) dc.DrawText(text, new Point(x, 0));
+        if (_shown is null) Fit(double.IsNaN(_fitFor) ? double.PositiveInfinity : _fitFor);
+        foreach (var (text, x) in _shown!) dc.DrawText(text, new Point(x, 0));
     }
 }

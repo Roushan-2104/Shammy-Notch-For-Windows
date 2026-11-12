@@ -16,7 +16,7 @@ namespace Shammy.Modules.Agents;
 /// </summary>
 internal sealed class ApprovalCard : Grid
 {
-    public const double CardWidth = 460;
+    public const double CardWidth = Ui.Tokens.PopupWidth;
 
     const double WithBox = 170, WithoutBox = 128;
 
@@ -24,7 +24,7 @@ internal sealed class ApprovalCard : Grid
 
     readonly SpacedText _label = ScreenKit.Label("Claude Code");
     readonly TextBlock _waiting = ScreenKit.Text("", 12.5, Weight.Regular, ScreenKit.Fg2);
-    readonly TextBlock _title = ScreenKit.Text("", 14, Weight.Bold);
+    readonly TextBlock _title = Views.WallParts.PopupTitle("");
     readonly TextBlock _code = new()
     {
         FontFamily = Mono,
@@ -60,7 +60,7 @@ internal sealed class ApprovalCard : Grid
         {
             Width = 56,
             Height = 56,
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             Background = ScreenKit.Tile,
             BorderBrush = ScreenKit.Hairline,
             BorderThickness = new Thickness(1),
@@ -100,7 +100,7 @@ internal sealed class ApprovalCard : Grid
         rows.Children.Add(_box);
 
         // ---- Deny and Allow; Allow is the one accent control.
-        var denyButton = ScreenKit.Secondary("Deny", deny, 30, 15, 12.5, ScreenKit.Tile);
+        var denyButton = ScreenKit.Secondary("Deny", deny, 30, fontSize: 12.5, background: ScreenKit.Tile);
         denyButton.Padding = new Thickness(16, 0, 16, 0);
         var allowButton = ScreenKit.Primary("Allow", allow, 30, 12.5, null, 16);
         System.Windows.Automation.AutomationProperties.SetName(denyButton, "Deny");

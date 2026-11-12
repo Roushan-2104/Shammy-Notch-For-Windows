@@ -55,6 +55,9 @@ internal static class Tokens
     /// <summary>The width of a pop-up card under the notch (reminders, approvals, screenshots, downloads…).</summary>
     public const double PopupWidth = 460;
 
+    /// <summary>A pop-up card's title: 17 px ExtraBold, tracked −0.015 em.</summary>
+    public const double PopupTitleSize = 17, PopupTitleTracking = -0.015;
+
     /// <summary>The kit's close (×) and back (‹) controls.</summary>
     public const double CloseSize = 24, BackSize = 32;
 

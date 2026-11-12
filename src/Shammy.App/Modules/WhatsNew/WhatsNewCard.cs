@@ -13,7 +13,7 @@ namespace Shammy.Modules.WhatsNew;
 /// </summary>
 internal sealed class WhatsNewCard : Grid
 {
-    public const double CardWidth = 460;
+    public const double CardWidth = Ui.Tokens.PopupWidth;
 
     /// <summary>The card's height for this many lines (it was designed at 190 for three).</summary>
     public static double HeightFor(int lines) => 190 - 21 * (3 - Math.Clamp(lines, 1, 3));
@@ -35,7 +35,7 @@ internal sealed class WhatsNewCard : Grid
         {
             Width = 56,
             Height = 56,
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             Background = ScreenKit.Tile,
             VerticalAlignment = VerticalAlignment.Top,
             ClipToBounds = true,
@@ -47,7 +47,7 @@ internal sealed class WhatsNewCard : Grid
         grid.Children.Add(words);
 
         words.Children.Add(ScreenKit.Label($"Updated to {version}"));
-        var title = ScreenKit.Display("Look what’s new!", 17, Weight.ExtraBold, -0.015);
+        var title = ScreenKit.PopupTitle("Look what’s new!");
         title.Margin = new Thickness(0, 2, 0, 0);
         words.Children.Add(title);
 
