@@ -12,6 +12,10 @@ internal partial class WheelModule
 
     bool Filter(MouseHook.Kind kind, int x, int y, uint time)
     {
+        // The setting can switch the wheel off (and null the hook) on the UI thread while this runs on the hook's
+        // own: read it once, and with no hook let the click through untouched.
+        var hook = Volatile.Read(ref _hook);
+        if (hook is null) return false;
         long ms = _clock.ElapsedMilliseconds;
         switch (kind)
         {
@@ -19,7 +23,7 @@ internal partial class WheelModule
             {
                 var step = _gesture.Down(x, y, ms, _active);
                 if (step != WheelStep.Swallow) return false;
-                _hook!.WatchMoves = true;
+                hook.WatchMoves = true;
                 _ctx.Ui.BeginInvoke(() =>
                 {
                     _holdStarts++;
@@ -32,14 +36,14 @@ internal partial class WheelModule
             case MouseHook.Kind.Move:
             {
                 if (_gesture.Move(x, y) != WheelStep.ReplayDownThenPass) return false;
-                _hook!.WatchMoves = false;
+                hook.WatchMoves = false;
                 Interlocked.Increment(ref _replays);
                 ThreadPool.QueueUserWorkItem(_ => MouseHook.SendMiddle(down: true, up: false));
                 return false;
             }
             case MouseHook.Kind.MiddleUp:
             {
-                _hook!.WatchMoves = false;
+                hook.WatchMoves = false;
                 var step = _gesture.Up(ms);
                 switch (step)
                 {
