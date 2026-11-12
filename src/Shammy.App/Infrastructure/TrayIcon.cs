@@ -7,72 +7,95 @@ using Shammy.Interop;
 
 namespace Shammy.Infrastructure;
 
-/// <summary>The tray icon and its menu: the only chrome Shammy has outside the notch.</summary>
+/// <summary>
+/// The tray icon and its menu: the only chrome Shammy has outside the notch. Settings… and Guide come first; every
+/// switch here is also in Settings (General, Voice &amp; search, Notifications or Advanced), and both stay in step:
+/// a switch saves and announces the change, and the change (from here, Settings, the palette or the pipe) is what
+/// applies it.
+/// </summary>
 internal sealed class TrayIcon : IDisposable
 {
     readonly NotifyIcon _icon;
     readonly Icon _image;
+    readonly AppSettings _settings;
+    readonly Action<string> _onChanged;
+
+    /// <summary>The modules' tray switches (the ticker, text snippets…), so Settings and the palette can show them too.</summary>
+    public static IReadOnlyList<Modules.ModuleTrayItem> Toggles { get; private set; } = Array.Empty<Modules.ModuleTrayItem>();
+
+    /// <summary>The guide's own tray item, replaced by "Guide" at the top.</summary>
+    const string OldGuideItem = "What Shammy can do";
 
     public TrayIcon(AppSettings settings, Action onQuit, Action<bool> onReplaceVolumeChanged, Action<bool> onVisualizerChanged,
         Action onPlacementChanged, Action onVoiceLanguageChanged, Func<bool> hinglishAvailable, Action onVoiceModeChanged,
         Action onNotificationSettingsChanged,
         IReadOnlyList<Modules.ModuleTrayItem> moduleItems, UpdateService updates, Action onRestartForUpdate)
     {
+        _settings = settings;
         _image = DrawIcon();
+        Toggles = moduleItems.Where(i => i.IsChecked is not null && i.SetChecked is not null).ToList();
         var menu = new ContextMenuStrip { ShowImageMargin = false };
         menu.Items.Add(new ToolStripLabel("Shammy") { Font = new Font(SystemFonts.MenuFont ?? SystemFonts.DefaultFont, System.Drawing.FontStyle.Bold) });
+
+        var openSettings = new ToolStripMenuItem("Settings…");
+        openSettings.Click += (_, _) => Modules.Settings.SettingsModule.OpenAt?.Invoke(null);
+        var guide = new ToolStripMenuItem("Guide") { ToolTipText = "Everything Shammy does, in one place" };
+        guide.Click += (_, _) => Modules.Guide.GuideLinks.OpenFeature?.Invoke("");
+        menu.Opening += (_, _) =>
+        {
+            openSettings.Available = Modules.Settings.SettingsModule.OpenAt is not null;
+            guide.Available = Modules.Guide.GuideLinks.OpenFeature is not null;
+        };
+        menu.Items.Add(openSettings);
+        menu.Items.Add(guide);
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripLabel("Right Alt: hold to talk · tap to type") { ForeColor = Color.Gray });
         menu.Items.Add(new ToolStripLabel("Copilot key or hold Right Ctrl: circle to search") { ForeColor = Color.Gray });
         menu.Items.Add(new ToolStripSeparator());
 
         var startup = new ToolStripMenuItem("Start with Windows") { Checked = settings.StartWithWindows, CheckOnClick = true };
-        // It can also be turned on from the first-run question; show the real state each time.
-        menu.Opening += (_, _) => startup.Checked = settings.StartWithWindows;
+        // It can also be turned on from the first-run question or Settings; show the real state each time.
+        menu.Opening += (_, _) =>
+        {
+            try { startup.Checked = settings.StartWithWindows; }
+            catch (Exception) { }
+        };
         startup.CheckedChanged += (_, _) =>
         {
-            try { settings.StartWithWindows = startup.Checked; }
+            try
+            {
+                if (settings.StartWithWindows != startup.Checked) settings.StartWithWindows = startup.Checked;
+            }
             catch (Exception ex) { Log.Warn("Updating startup entry failed", ex); }
         };
-        var volume = new ToolStripMenuItem("Replace Windows volume popup") { Checked = settings.ReplaceVolumeFlyout, CheckOnClick = true };
-        volume.CheckedChanged += (_, _) =>
-        {
-            settings.ReplaceVolumeFlyout = volume.Checked;
-            settings.Save();
-            onReplaceVolumeChanged(volume.Checked);
-        };
-        var viz = new ToolStripMenuItem("Audio visualizer") { Checked = settings.ShowVisualizer, CheckOnClick = true };
-        viz.CheckedChanged += (_, _) =>
-        {
-            settings.ShowVisualizer = viz.Checked;
-            settings.Save();
-            onVisualizerChanged(viz.Checked);
-        };
-        var compact = new ToolStripMenuItem("Compact (mobile) results layout") { Checked = settings.CompactResults, CheckOnClick = true, ToolTipText = "Applies after restarting Shammy" };
-        compact.CheckedChanged += (_, _) =>
-        {
-            settings.CompactResults = compact.Checked;
-            settings.Save();
-        };
 
-        var pin = new ToolStripMenuItem("Pin to the very top edge (over a top taskbar)") { Checked = settings.PinToScreenEdge, CheckOnClick = true };
-        pin.CheckedChanged += (_, _) =>
+        // A switch over one yes/no setting: shows the setting as the menu opens, and a click saves and announces it.
+        ToolStripMenuItem Switch(string text, Func<bool> get, Action<bool> set, string name)
         {
-            settings.PinToScreenEdge = pin.Checked;
-            settings.Save();
-            onPlacementChanged();
-        };
+            var item = new ToolStripMenuItem(text) { Checked = get(), CheckOnClick = true };
+            menu.Opening += (_, _) => item.Checked = get();
+            item.CheckedChanged += (_, _) =>
+            {
+                if (item.Checked == get()) return;
+                set(item.Checked);
+                settings.Save();
+                settings.NotifyChanged(name);
+            };
+            return item;
+        }
 
-        var autoLang = new ToolStripMenuItem("Detect voice language (Hindi etc., slower)") { Checked = settings.VoiceLanguage == "auto", CheckOnClick = true };
-        autoLang.CheckedChanged += (_, _) =>
-        {
-            settings.VoiceLanguage = autoLang.Checked ? "auto" : "en";
-            settings.Save();
-            onVoiceLanguageChanged();
-        };
+        var volume = Switch("Replace Windows volume popup", () => settings.ReplaceVolumeFlyout, v => settings.ReplaceVolumeFlyout = v, nameof(AppSettings.ReplaceVolumeFlyout));
+        var viz = Switch("Audio visualizer", () => settings.ShowVisualizer, v => settings.ShowVisualizer = v, nameof(AppSettings.ShowVisualizer));
+        var compact = Switch("Compact (mobile) results layout", () => settings.CompactResults, v => settings.CompactResults = v, nameof(AppSettings.CompactResults));
+        compact.ToolTipText = "Applies after restarting Shammy";
+        var pin = Switch("Pin to the very top edge (over a top taskbar)", () => settings.PinToScreenEdge, v => settings.PinToScreenEdge = v, nameof(AppSettings.PinToScreenEdge));
+        var autoLang = Switch("Detect voice language (Hindi etc., slower)", () => settings.VoiceLanguage == "auto",
+            v => settings.VoiceLanguage = v ? "auto" : "en", nameof(AppSettings.VoiceLanguage));
 
         // Opt-in Hinglish model. Graphics-card PCs only: on the CPU it would take several seconds per command.
         const string HinglishText = "Hinglish voice (Hindi + English)";
-        var hinglish = new ToolStripMenuItem(HinglishText) { Checked = settings.VoiceMode == AppSettings.HinglishVoice, CheckOnClick = true };
+        var hinglish = Switch(HinglishText, () => settings.VoiceMode == AppSettings.HinglishVoice,
+            v => settings.VoiceMode = v ? AppSettings.HinglishVoice : AppSettings.EnglishVoice, nameof(AppSettings.VoiceMode));
         menu.Opening += (_, _) =>
         {
             bool available = hinglishAvailable() || hinglish.Checked;
@@ -82,20 +105,8 @@ internal sealed class TrayIcon : IDisposable
                 ? "A voice model that understands Hindi mixed with English (one-time 574 MB download)"
                 : "This PC runs voice on the processor, where the Hinglish model would be too slow";
         };
-        hinglish.CheckedChanged += (_, _) =>
-        {
-            settings.VoiceMode = hinglish.Checked ? AppSettings.HinglishVoice : AppSettings.EnglishVoice;
-            settings.Save();
-            onVoiceModeChanged();
-        };
 
-        var notifications = new ToolStripMenuItem("Show notifications in the notch") { Checked = settings.ShowNotifications, CheckOnClick = true };
-        notifications.CheckedChanged += (_, _) =>
-        {
-            settings.ShowNotifications = notifications.Checked;
-            settings.Save();
-            onNotificationSettingsChanged();
-        };
+        var notifications = Switch("Show notifications in the notch", () => settings.ShowNotifications, v => settings.ShowNotifications = v, nameof(AppSettings.ShowNotifications));
         // Only Windows can hide its own pop-ups; this opens the page with Do Not Disturb and per-app banners.
         var windowsPopups = new ToolStripMenuItem("Turn off Windows pop-ups and sounds…")
         {
@@ -107,8 +118,27 @@ internal sealed class TrayIcon : IDisposable
         {
             settings.MutedNotificationApps.Clear();
             settings.Save();
+            settings.NotifyChanged(nameof(AppSettings.MutedNotificationApps));
         };
         menu.Opening += (_, _) => unmute.Enabled = settings.MutedNotificationApps.Count > 0;
+
+        // VoiceMode and ShowNotifications are applied by the host when they change; these by the tray's owner.
+        _onChanged = name =>
+        {
+            void Ui(Action a)
+            {
+                if (System.Windows.Application.Current?.Dispatcher is { } d) d.BeginInvoke(a);
+                else a();
+            }
+            switch (name)
+            {
+                case nameof(AppSettings.ReplaceVolumeFlyout): Ui(() => onReplaceVolumeChanged(settings.ReplaceVolumeFlyout)); break;
+                case nameof(AppSettings.ShowVisualizer): Ui(() => onVisualizerChanged(settings.ShowVisualizer)); break;
+                case nameof(AppSettings.PinToScreenEdge): Ui(onPlacementChanged); break;
+                case nameof(AppSettings.VoiceLanguage): Ui(onVoiceLanguageChanged); break;
+            }
+        };
+        settings.Changed += _onChanged;
 
         menu.Items.Add(startup);
         menu.Items.Add(pin);
@@ -121,17 +151,21 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(volume);
         menu.Items.Add(viz);
         menu.Items.Add(compact);
-        if (moduleItems.Count > 0)
+        var shown = moduleItems.Where(i => i.Text != OldGuideItem).ToList();
+        if (shown.Count > 0)
         {
             menu.Items.Add(new ToolStripSeparator());
-            foreach (var item in moduleItems)
+            foreach (var item in shown)
             {
                 var mi = new ToolStripMenuItem(item.Text);
                 if (item.IsChecked is { } isChecked)
                 {
                     mi.CheckOnClick = true;
                     mi.Checked = isChecked();
-                    mi.CheckedChanged += (_, _) => item.SetChecked?.Invoke(mi.Checked);
+                    mi.CheckedChanged += (_, _) =>
+                    {
+                        if (mi.Checked != isChecked()) item.SetChecked?.Invoke(mi.Checked);
+                    };
                     menu.Opening += (_, _) => mi.Checked = isChecked();
                 }
                 else
@@ -201,6 +235,7 @@ internal sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
+        _settings.Changed -= _onChanged;
         _icon.Visible = false;
         _icon.Dispose();
         _image.Dispose();
