@@ -552,7 +552,8 @@ internal sealed class Ring : FrameworkElement
 
 /// <summary>
 /// A progress track with a white fill and an optional knob (the music scrubber, the volume slider). Click or
-/// drag to set; <see cref="Changed"/> reports the new fraction.
+/// drag to set; with the keyboard, Left/Right step by <see cref="KeyStep"/> and Home/End jump to the ends.
+/// <see cref="Changed"/> reports the new fraction.
 /// </summary>
 internal sealed class CardTrack : FrameworkElement
 {
@@ -562,8 +563,13 @@ internal sealed class CardTrack : FrameworkElement
     public CardTrack()
     {
         Cursor = Cursors.Hand;
-        Focusable = false;
+        Ui.FocusKit.Focusable(this);
+        FocusVisualStyle = null; // the knob wears the ring (see OnRender) rather than a pill around the whole track
+        IsKeyboardFocusedChanged += (_, _) => InvalidateVisual();
     }
+
+    /// <summary>How far one Left/Right press moves it (Page Up/Down move four times as far).</summary>
+    public double KeyStep { get; init; } = 0.05;
 
     public double TrackHeight { get; init; } = 4;
     public double KnobSize { get; init; } = 8;
@@ -605,11 +611,71 @@ internal sealed class CardTrack : FrameworkElement
         dc.DrawRoundedRectangle(Track, null, new Rect(0, y, w, TrackHeight), rad, rad);
         double x = w * _value;
         if (x > 0) dc.DrawRoundedRectangle(Fill, null, new Rect(0, y, Math.Max(TrackHeight, x), TrackHeight), rad, rad);
+        var knob = new Point(Math.Clamp(x, Math.Max(KnobSize, 6) / 2, w - Math.Max(KnobSize, 6) / 2), h / 2);
         if (KnobSize > 0)
         {
-            var c = new Point(Math.Clamp(x, KnobSize / 2, w - KnobSize / 2), h / 2);
-            if (KnobHalo != Brushes.Transparent) dc.DrawEllipse(KnobHalo, null, c, KnobSize / 2 + 3, KnobSize / 2 + 3);
-            dc.DrawEllipse(CardKit.Ink, null, c, KnobSize / 2, KnobSize / 2);
+            if (KnobHalo != Brushes.Transparent) dc.DrawEllipse(KnobHalo, null, knob, KnobSize / 2 + 3, KnobSize / 2 + 3);
+            dc.DrawEllipse(CardKit.Ink, null, knob, KnobSize / 2, KnobSize / 2);
+        }
+        // Reached with the keyboard: the accent ring around the knob (or where it would be).
+        if (IsKeyboardFocused && Interactive && InputManager.Current.MostRecentInputDevice is KeyboardDevice)
+        {
+            double r = Math.Max(KnobSize, 6) / 2 + 3;
+            dc.DrawEllipse(null, new Pen(Ui.Tokens.Accent, 1.5), knob, r, r);
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!Interactive) return;
+        double? to = e.Key switch
+        {
+            Key.Left or Key.Down => _value - KeyStep,
+            Key.Right or Key.Up => _value + KeyStep,
+            Key.PageDown => _value - KeyStep * 4,
+            Key.PageUp => _value + KeyStep * 4,
+            Key.Home => 0,
+            Key.End => 1,
+            _ => null,
+        };
+        if (to is not { } v) return;
+        e.Handled = true;
+        _value = Math.Clamp(v, 0, 1);
+        InvalidateVisual();
+        Changed?.Invoke(_value);
+        Committed?.Invoke(_value);
+    }
+
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new TrackPeer(this);
+
+    /// <summary>Screen readers see a slider with its value in percent.</summary>
+    sealed class TrackPeer(CardTrack owner) : System.Windows.Automation.Peers.FrameworkElementAutomationPeer(owner),
+        System.Windows.Automation.Provider.IRangeValueProvider
+    {
+        CardTrack Track => (CardTrack)Owner;
+
+        protected override System.Windows.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() =>
+            System.Windows.Automation.Peers.AutomationControlType.Slider;
+
+        protected override string GetClassNameCore() => nameof(CardTrack);
+
+        public override object? GetPattern(System.Windows.Automation.Peers.PatternInterface p) =>
+            p == System.Windows.Automation.Peers.PatternInterface.RangeValue ? this : base.GetPattern(p);
+
+        public double Value => Math.Round(Track._value * 100);
+        public bool IsReadOnly => !Track.Interactive;
+        public double Maximum => 100;
+        public double Minimum => 0;
+        public double LargeChange => Track.KeyStep * 400;
+        public double SmallChange => Track.KeyStep * 100;
+
+        public void SetValue(double value)
+        {
+            if (IsReadOnly) throw new ElementNotEnabledException();
+            Track._value = Math.Clamp(value / 100, 0, 1);
+            Track.InvalidateVisual();
+            Track.Changed?.Invoke(Track._value);
+            Track.Committed?.Invoke(Track._value);
         }
     }
 

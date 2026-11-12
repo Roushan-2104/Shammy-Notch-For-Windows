@@ -62,7 +62,8 @@ public partial class NotchWindow
         _holdOpen--;
         var back = _typingReturnTo;
         _typingReturnTo = IntPtr.Zero;
-        if (_searchMode is null)
+        // In keyboard mode the notch keeps the keyboard after the text box (Esc or a click elsewhere ends that).
+        if (_searchMode is null && !_keyboardMode)
         {
             SetInteractive(false);
             if (giveBack && back != IntPtr.Zero && Native.GetForegroundWindow() == _hwnd) Native.ForceForeground(back);
@@ -70,8 +71,53 @@ public partial class NotchWindow
         if (!Root.IsMouseOver && _mode == NotchMode.Expanded) _hoverOut.Start();
     }
 
+    // ---- Keyboard mode ---------------------------------------------------------------------------
+
+    // A hover never gives the notch the keyboard. One click on the open notch does: from then on Tab, the arrows,
+    // Enter, Space and Esc work (kit controls wear the accent focus ring). Esc on the home rail closes it and hands
+    // the keyboard back to the window that had it; so does the notch closing as usual when the pointer leaves.
+    bool _keyboardMode;
+    IntPtr _keyboardReturnTo;
+
+    void BeginKeyboard()
+    {
+        if (_keyboardMode || _searchMode is not null || _mode != NotchMode.Expanded) return;
+        _keyboardMode = true;
+        var current = Native.GetForegroundWindow();
+        _keyboardReturnTo = current == _hwnd ? IntPtr.Zero : current;
+        if (_interactive) Activate();
+        else SetInteractive(true);
+        // Give the open view the keyboard (unless a control in it already has it), so the first Tab lands inside.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_keyboardMode && Expanded.IsVisible && !Expanded.IsKeyboardFocusWithin) Expanded.Focus();
+        }, DispatcherPriority.Input);
+    }
+
+    /// <summary>Back to never taking focus; with <paramref name="giveBack"/> the app that had focus gets it back.</summary>
+    void EndKeyboard(bool giveBack)
+    {
+        if (!_keyboardMode) return;
+        _keyboardMode = false;
+        var back = _keyboardReturnTo;
+        _keyboardReturnTo = IntPtr.Zero;
+        if (_searchMode is null && !_detailTyping)
+        {
+            SetInteractive(false);
+            if (giveBack && back != IntPtr.Zero && Native.GetForegroundWindow() == _hwnd) Native.ForceForeground(back);
+        }
+    }
+
+    /// <summary>Esc on the open notch's home: close it and give the keyboard back.</summary>
+    void CloseFromKeyboard()
+    {
+        if (_detailTyping) EndDetailTyping(giveBack: !_keyboardMode);
+        EndKeyboard(giveBack: true);
+        if (_mode == NotchMode.Expanded) Collapse();
+    }
+
     internal string DescribeTyping() =>
-        $"typing={_detailTyping} interactive={_interactive} focused={(Keyboard.FocusedElement as FrameworkElement)?.GetType().Name ?? "-"} " +
+        $"typing={_detailTyping} keyboard={_keyboardMode} interactive={_interactive} focused={(Keyboard.FocusedElement as FrameworkElement)?.GetType().Name ?? "-"} " +
         $"active={(Native.GetForegroundWindow() == _hwnd ? "notch" : "other")} hold={_holdOpen}";
 
     /// <summary>Test hook: as if the user clicked into the open view's first text box.</summary>

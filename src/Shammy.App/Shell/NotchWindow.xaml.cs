@@ -159,6 +159,13 @@ public partial class NotchWindow : Window
             if (_mode == NotchMode.Expanded) Transition(NotchMode.Expanded);
         };
         Expanded.TextInputWanted += BeginDetailTyping;
+        // One click on the open notch hands it the keyboard; Esc at home closes it and hands the keyboard back.
+        Expanded.KeyboardWanted += BeginKeyboard;
+        Expanded.CloseRequested += CloseFromKeyboard;
+        Expanded.IsVisibleChanged += (_, _) =>
+        {
+            if (!Expanded.IsVisible) EndKeyboard(giveBack: true);
+        };
         // Leaving the view (Back, Esc, another chip) drops the text box; once focus has settled, see if typing is over.
         Expanded.ViewChanged += () => Dispatcher.BeginInvoke(CheckDetailTyping, DispatcherPriority.Background);
         Expanded.ShelfDragging += dragging =>
@@ -224,6 +231,7 @@ public partial class NotchWindow : Window
         {
             // The user clicked another window while typing in the notch: they're done, and that window keeps focus.
             if (_detailTyping) EndDetailTyping(giveBack: false);
+            EndKeyboard(giveBack: false);
             if (_cardOpen && _cardInteractive && _searchMode is null) CloseCard();
             else if (_interactive) InteractiveDeactivated?.Invoke();
         };
@@ -448,6 +456,7 @@ public partial class NotchWindow : Window
     {
         // The search bar takes over the keyboard (and manages SetInteractive itself).
         if (mode is not null && _detailTyping) EndDetailTyping(giveBack: false);
+        if (mode is not null) EndKeyboard(giveBack: false);
         _searchMode = mode;
         _restView.Mood.SetSearch(mode);
         if (mode is not null)

@@ -74,10 +74,15 @@ public partial class ExpandedView : UserControl
         PreviewKeyDown += OnKey;
         // The hover-opened notch never takes focus, so a click into a text box (Notes' add box, the clipboard
         // search) has to ask for it, or the typing goes to the app underneath.
+        // Any other click hands the notch the keyboard (Tab, arrows, Enter, Space, Esc) until Esc or a click elsewhere.
         PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (TextInputAt(e.OriginalSource as DependencyObject) is { } input) TextInputWanted?.Invoke(input);
+            else KeyboardWanted?.Invoke();
         };
+        // The guide's "?" is a plain border: a tab stop that Enter or Space opens.
+        Ui.FocusKit.Focusable(GuideButton);
+        Ui.FocusKit.Activates(GuideButton, () => OpenView("guide"));
         RebuildChips();
         RebuildRail(animate: false);
     }
@@ -101,6 +106,12 @@ public partial class ExpandedView : UserControl
     /// <summary>The user clicked into a text box, or opened a view with one: the notch should take keyboard focus.</summary>
     internal event Action<Control>? TextInputWanted;
 
+    /// <summary>The open notch was clicked (not into a text box): it should take the keyboard (see NotchWindow's keyboard mode).</summary>
+    internal event Action? KeyboardWanted;
+
+    /// <summary>Esc on the home rail: close the notch and hand the keyboard back.</summary>
+    internal event Action? CloseRequested;
+
     /// <summary>A view opened or went home: whatever had keyboard focus may be gone.</summary>
     internal event Action? ViewChanged;
 
@@ -112,9 +123,10 @@ public partial class ExpandedView : UserControl
 
     void OnKey(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && _openId is not null)
+        if (e.Key == Key.Escape)
         {
-            GoHome(animate: true);
+            if (_openId is not null) GoHome(animate: true);
+            else CloseRequested?.Invoke();
             e.Handled = true;
             return;
         }
