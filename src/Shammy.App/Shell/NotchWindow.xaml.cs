@@ -187,12 +187,15 @@ public partial class NotchWindow : Window
             _secondary?.Click?.Invoke();
         };
         // The tab under the notch: a click tucks the notch away instead of opening it.
-        TuckTab.MouseLeftButtonUp += (_, e) =>
+        foreach (var tab in new UIElement[] { TuckTab, TuckHit })
         {
-            e.Handled = true;
-            TuckAway();
-        };
-        TuckTab.MouseLeftButtonDown += (_, e) => e.Handled = true;
+            tab.MouseLeftButtonUp += (_, e) =>
+            {
+                e.Handled = true;
+                TuckAway();
+            };
+            tab.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        }
         // Pressing on the notch means a click (or a drag-swipe) is coming; don't let a pending hover expand it away first.
         Root.PreviewMouseLeftButtonDown += (_, e) =>
         {
