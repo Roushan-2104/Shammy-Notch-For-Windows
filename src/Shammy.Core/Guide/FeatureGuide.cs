@@ -132,7 +132,7 @@ public static class FeatureGuide
         F("health", 5, "Health", "Storage, a careful cleanup and a daily check of this laptop.", "open health", "",
             "health storage disk space full clean cleanup temp recycle bin downloads battery wear startup apps restart updates check", "", "health|cleanup|storage", GuideSwitch.Module, "health", "0.8"),
         F("quick", 5, "Laptop", "Wi-Fi, Bluetooth, power mode, quiet, night light, lock and sleep.", "turn off wifi · night light on · quiet for an hour", "card:quick",
-            "laptop control center controller wifi off bluetooth on power mode best battery night light do not disturb quiet restart shut down stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake|laptop|control center", GuideSwitch.Module, "quick", "0.8"),
+            "laptop control center controller wifi off bluetooth on power mode best battery night light do not disturb quiet restart shut down stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake|laptop|control center", GuideSwitch.Module, "quick", "0.9"),
         F("tuck", 5, "Tuck it away", "Click the small tab under the notch and it slides away for a few seconds.", "the tab under the notch", "",
             "hide move out of the way covering behind under tab title reach click underneath", "", "", GuideSwitch.Setting, "TuckAwayEnabled", "0.6"),
         F("peek", 5, "Peek", "Rest the pointer on the notch for a quick glance before it opens.", "rest the pointer on the notch", "",
