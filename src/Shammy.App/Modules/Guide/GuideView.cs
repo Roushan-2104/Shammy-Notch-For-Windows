@@ -279,7 +279,7 @@ internal sealed class GuideView : Grid
         var line = ScreenKit.Text(f.Line, 12, Weight.Regular, ScreenKit.Fg2);
         line.TextWrapping = TextWrapping.Wrap;
         var say = new StackPanel { Orientation = Orientation.Horizontal };
-        var sayLabel = ScreenKit.Label("Say or type", ScreenKit.Fg2, 9.5);
+        var sayLabel = ScreenKit.Label(PhraseLabel(f.Phrase), ScreenKit.Fg2, 9.5);
         sayLabel.VerticalAlignment = VerticalAlignment.Center;
         sayLabel.Margin = new Thickness(0, 0, 7, 0);
         say.Children.Add(sayLabel);
@@ -296,6 +296,15 @@ internal sealed class GuideView : Grid
             Child = say,
         };
         var words = ScreenKit.Column(1, name, line, phrase);
+        // A switch that turns off more than its name says, says so.
+        if (f.Also.Length > 0 && f.Switch != GuideSwitch.None)
+        {
+            var also = ScreenKit.Text(f.Also, 11.5, Weight.Regular, ScreenKit.Fg2);
+            also.TextWrapping = TextWrapping.Wrap;
+            also.FontStyle = FontStyles.Italic;
+            also.Margin = new Thickness(0, 3, 0, 0);
+            words.Children.Add(also);
+        }
         words.VerticalAlignment = VerticalAlignment.Center;
         grid.Children.Add(words);
 
@@ -333,6 +342,14 @@ internal sealed class GuideView : Grid
             Tag = f.Id,
         };
     }
+
+    static readonly string[] Gestures = { "hold ", "hover", "rest the", "scroll ", "drag ", "tap ", "copy anything", "the tab", "a message", "Copilot" };
+
+    /// <summary>"Say or type" for words, "How" for something you do with the keys or the pointer, "Find it in" for a Settings place.</summary>
+    static string PhraseLabel(string phrase) =>
+        phrase.StartsWith("Settings ›", StringComparison.Ordinal) ? "Find it in"
+        : Gestures.Any(g => phrase.StartsWith(g, StringComparison.Ordinal)) ? "How"
+        : "Say or type";
 
     /// <summary>What just happened, in place of the counts until the list is next rebuilt from scratch.</summary>
     void Announce(string text)

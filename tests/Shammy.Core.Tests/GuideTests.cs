@@ -43,6 +43,43 @@ public class FeatureGuideTests
         Assert.False(FeatureGuide.IsNew(FeatureGuide.ById("alarms")!, "0.6.0"));
     }
 
+    [Theory]
+    [InlineData("nowline", "NowLineEnabled")]
+    [InlineData("peek", "PeekEnabled")]
+    [InlineData("gestures", "GesturesEnabled")]
+    [InlineData("copypreview", "CopyPreviewEnabled")]
+    public void Notch_features_have_their_own_switch(string id, string setting)
+    {
+        var f = FeatureGuide.ById(id)!;
+        Assert.Equal(GuideSwitch.Setting, f.Switch);
+        Assert.Equal(setting, f.SwitchName);
+        Assert.Equal("", f.NewIn);
+    }
+
+    [Fact]
+    public void Chained_requests_and_hide_while_using_are_explained()
+    {
+        Assert.Equal("timer 5m and pause music", FeatureGuide.ById("chain")!.Phrase);
+        Assert.NotNull(FeatureGuide.ById("hideapps"));
+    }
+
+    [Theory]
+    [InlineData("weather")]
+    [InlineData("answers")]
+    [InlineData("shelf")]
+    public void A_switch_that_turns_off_more_says_so(string id) => Assert.StartsWith("Also turns off ", FeatureGuide.ById(id)!.Also);
+
+    [Fact]
+    public void One_name_per_feature()
+    {
+        Assert.Equal("Laptop", FeatureGuide.ById("quick")!.Name);
+        Assert.Equal("Settings › Connections", FeatureGuide.ById("claude")!.Phrase);
+        Assert.DoesNotContain(FeatureGuide.All, f => f.Phrase.Contains("General ›") || f.Phrase.Contains("Notch & pet"));
+    }
+
+    [Fact]
+    public void Nothing_mentions_the_dock() => Assert.Empty(FeatureFinder.Find("dock"));
+
     [Fact]
     public void What_Try_it_types_is_something_its_own_feature_answers_to()
     {
