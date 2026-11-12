@@ -41,6 +41,12 @@ public static class PaletteSources
         new("notes", "Notes", "", new[] { "notes", "reminders" }),
         new("clipboard", "Clipboard", "", new[] { "clipboard", "clipboard history" }),
         new("battery", "Battery", "", new[] { "battery", "system" }),
+        // Cards opened by their id (see each module's AddCard).
+        new("health", "Health", "", new[] { "health", "pc health", "cleanup", "clean up", "storage", "disk space", "free up space" }),
+        new("quick", "Laptop", "", new[] { "laptop", "laptop controls", "quick actions", "power mode", "do not disturb", "quiet" }),
+        new("guide", "Guide", "", new[] { "guide", "help", "what can you do", "tips" }),
+        new("mixer", "Volume mixer", "", new[] { "volume mixer", "mixer", "app volume", "app volumes" }),
+        new("agents", "Claude Code", "", new[] { "claude code", "coding agents", "agents" }),
     };
 
     /// <summary>Clipboard and notes rows are personal; they never show while the screen is shared.</summary>

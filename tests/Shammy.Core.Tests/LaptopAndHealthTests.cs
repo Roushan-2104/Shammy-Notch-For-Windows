@@ -21,6 +21,19 @@ public class HealthPhraseTests
     public void Leaves_searches_alone(string text) => Assert.False(HealthPhrases.IsOpen(text));
 }
 
+public class PaletteCardRowTests
+{
+    [Theory]
+    [InlineData("health", "health")]
+    [InlineData("disk space", "health")]
+    [InlineData("laptop", "quick")]
+    [InlineData("guide", "guide")]
+    [InlineData("volume mixer", "mixer")]
+    [InlineData("claude code", "agents")]
+    public void Each_card_has_a_row(string typed, string id) =>
+        Assert.Equal(id, Shammy.Core.Palette.PaletteSources.FindViews(typed)[0].View.Id);
+}
+
 public class HealthAttentionTests
 {
     static readonly DriveSpace Roomy = new("C:", 120L << 30, 476L << 30);
