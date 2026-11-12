@@ -372,7 +372,11 @@ internal sealed partial class SettingsView : Grid
         Say(said);
     }
 
-    void Say(string said) => _status.Text = said.StartsWith("Saved", StringComparison.Ordinal) ? said : "Saved · " + said;
+    void Say(string said)
+    {
+        _status.Text = said.StartsWith("Saved", StringComparison.Ordinal) ? said : "Saved · " + said;
+        Ui.A11y.Announce(_status.Text, _status);
+    }
 
     // ---- Rows ------------------------------------------------------------------------------------
 

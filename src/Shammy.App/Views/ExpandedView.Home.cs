@@ -85,7 +85,7 @@ public partial class ExpandedView
         {
             Height = NowHeight,
             Width = NowWidth,
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(12, 0, 6, 0),
             Margin = new Thickness(0, 0, 0, StripGap),

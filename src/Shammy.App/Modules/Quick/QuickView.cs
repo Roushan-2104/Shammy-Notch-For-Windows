@@ -210,7 +210,7 @@ internal sealed class QuickTile : Pressable
         : base(ScreenKit.Tile, ScreenKit.TileHover, ScreenKit.Hairline, ScreenKit.HairlineHover)
     {
         _name = name;
-        CornerRadius = new CornerRadius(14);
+        CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius);
         Padding = new Thickness(12, 11, 12, 11);
         PressScale = 0.98;
 

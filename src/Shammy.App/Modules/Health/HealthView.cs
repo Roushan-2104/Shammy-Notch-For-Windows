@@ -71,7 +71,7 @@ internal sealed class HealthView : Grid
             Background = ScreenKit.Tile,
             BorderBrush = ScreenKit.Hairline,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             Padding = new Thickness(14, 12, 14, 12),
             Child = stack,
         };
@@ -125,7 +125,7 @@ internal sealed class HealthView : Grid
     void Check(string text, bool attention, FrameworkElement? action = null)
     {
         var words = ScreenKit.Row(8,
-            new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(3.5), Background = attention ? Ui.Tokens.Alarm : Ui.Tokens.Brush("#34C759"), VerticalAlignment = VerticalAlignment.Center },
+            new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(3.5), Background = attention ? Ui.Tokens.Alarm : Ui.Tokens.Ok, VerticalAlignment = VerticalAlignment.Center },
             ScreenKit.Text(text, 12.5, Weight.Medium));
         words.VerticalAlignment = VerticalAlignment.Center;
         var row = new Grid { Margin = new Thickness(0, 0, 0, action is null ? 9 : 5) };

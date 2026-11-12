@@ -57,6 +57,7 @@ internal sealed partial class ShammyHost : IDisposable
         _battery = new BatteryService(_ui);
         _shelf = new ShelfStore(_settings);
         _notifications = Own(new NotificationService(_ui));
+        _notifications.SetEnabled(_settings.ShowNotifications);
         var services = new ShammyServices(_media, _visualizer, _battery, _shelf, _notifications, _settings);
 
         _notch = new NotchWindow(services);
@@ -434,6 +435,8 @@ internal sealed partial class ShammyHost : IDisposable
                 _ = _whisper.SetHinglishAsync(on);
                 break;
             case nameof(AppSettings.ShowNotifications):
+                // Off: the service stops polling and watching (no idle wake-ups); on: it catches up once.
+                _notifications.SetEnabled(_settings.ShowNotifications);
                 if (_settings.ShowNotifications) _ = StartNotificationsAsync();
                 else _activities.Remove("notification");
                 break;

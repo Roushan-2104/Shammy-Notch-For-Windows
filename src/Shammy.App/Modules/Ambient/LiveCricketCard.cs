@@ -41,7 +41,7 @@ internal sealed class LiveCricketCard
         rest.Children.Add(_teamsRest);
         _tile.Rest.Children.Add(rest);
 
-        var words = WallTile.Words("", "", out _teams, out _line, CardKit.Hex("#E4E4EA"));
+        var words = WallTile.Words("", "", out _teams, out _line, Ui.Tokens.InkOnArt);
         words.Margin = new Thickness(WallTile.Pad, WallTile.Pad + 39, WallTile.Pad, 0);
         words.VerticalAlignment = VerticalAlignment.Top;
         _tile.Lit.Children.Add(words);

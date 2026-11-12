@@ -52,7 +52,7 @@ internal sealed class WeatherCard
         rest.Children.Add(_cityRest);
         _tile.Rest.Children.Add(rest);
 
-        var words = WallTile.Words("", "", out _city, out _condition, CardKit.Hex("#E4E4EA"));
+        var words = WallTile.Words("", "", out _city, out _condition, Ui.Tokens.InkOnArt);
         words.Margin = new Thickness(WallTile.Pad, WallTile.Pad + 39, WallTile.Pad, 0);
         words.VerticalAlignment = VerticalAlignment.Top;
         _tile.Lit.Children.Add(words);

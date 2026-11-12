@@ -39,7 +39,7 @@ internal sealed class CalendarCard
         _tile.Art.Children.Add(top);
         _rest.HorizontalAlignment = HorizontalAlignment.Left;
         _tile.Rest.Children.Add(CardKit.At(_rest, HorizontalAlignment.Left, VerticalAlignment.Top, WallTile.Pad, WallTile.Pad + 14 + 8 + 40 + 10, WallTile.Pad));
-        var words = WallTile.Words("", "", out _title, out _line, CardKit.Hex("#D6E9E5"));
+        var words = WallTile.Words("", "", out _title, out _line, Ui.Tokens.InkOnArt);
         words.Margin = new Thickness(WallTile.Pad, WallTile.Pad + 14 + 8 + 40 + 8, WallTile.Pad, 0);
         words.VerticalAlignment = VerticalAlignment.Top;
         _tile.Lit.Children.Add(words);
@@ -115,7 +115,7 @@ internal sealed class CalendarCard
         var until = CalendarText.Until(next.Start, next.End, now);
         _line.Text = _module.SyncProblem is not null ? "Couldn’t refresh"
             : today ? until + (next.Provider is { } p ? $" · {p}" : "") : CalendarText.ClockAmPm(next.Start, h24);
-        _line.Foreground = _module.SyncProblem is not null ? CardKit.Alarm : CardKit.Hex("#D6E9E5");
+        _line.Foreground = _module.SyncProblem is not null ? CardKit.Alarm : Ui.Tokens.InkOnArt;
         if (next.HasLink) SetJoin(CardKit.PrimaryPill("Join", $"Join {next.Title} on {next.Provider}", () => _module.Join(next), 28, 12));
         CardKit.Name(_tile, $"Calendar: next {next.Title} at {CalendarText.ClockAmPm(next.Start, h24)}, {until}");
     }

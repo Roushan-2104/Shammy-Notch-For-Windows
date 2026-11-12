@@ -191,7 +191,7 @@ internal sealed class AlarmRingView : Grid
             Height = 56,
             MinWidth = 84,
             Padding = new Thickness(12, 0, 12, 0),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             Child = stack,
             ToolTip = $"Snooze {minutes} minutes, until {ClockPreference.Format(until)}",
         };

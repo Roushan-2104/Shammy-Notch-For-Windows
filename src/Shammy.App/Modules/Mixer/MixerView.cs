@@ -56,7 +56,7 @@ internal sealed class MixerView : Grid
             Background = CardKit.Surface,
             BorderBrush = CardKit.Hairline,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
             Child = WallDetail.Scroll(CardKit.Column(0, _list, _note)),
         };
         Children.Add(panel);

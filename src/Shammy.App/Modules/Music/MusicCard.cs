@@ -58,7 +58,7 @@ internal sealed class MusicCard
         DockPanel.SetDock(buttons, Dock.Right);
         top.Children.Add(buttons);
         top.Children.Add(words);
-        _elapsed.Foreground = _total.Foreground = CardKit.Hex("#D4D4DA");
+        _elapsed.Foreground = _total.Foreground = Ui.Tokens.InkOnArt;
         _scrubRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _scrubRow.ColumnDefinitions.Add(new ColumnDefinition());
         _scrubRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
