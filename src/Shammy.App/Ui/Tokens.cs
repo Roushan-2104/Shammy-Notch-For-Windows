@@ -118,9 +118,12 @@ internal static class Tokens
             SystemParameters.StaticPropertyChanged += OnSystemChanged;
         }
         bool hc = SystemParameters.HighContrast;
-        Set(Text, hc ? SystemColors.WindowTextColor : Color(TextHex));
-        Set(Text2, hc ? SystemColors.WindowTextColor : Color(Text2Hex));
-        Set(Hairline, hc ? SystemColors.WindowTextColor : Color(HairlineHex));
+        // The notch stays black (it stands in for a hardware notch), so text takes whichever of the theme's pair
+        // reads on black: WindowText in a dark theme, Window in a light one (High Contrast White).
+        var ink = Lighter(SystemColors.WindowTextColor, SystemColors.WindowColor);
+        Set(Text, hc ? ink : Color(TextHex));
+        Set(Text2, hc ? ink : Color(Text2Hex));
+        Set(Hairline, hc ? ink : Color(HairlineHex));
         Set(OnAccent, hc ? SystemColors.HighlightTextColor : Color(GroundHex));
         if (Application.Current is not { } app) return;
         app.Resources["WallText"] = Frozen(Text.Color);
@@ -128,6 +131,10 @@ internal static class Tokens
         app.Resources["WallHairline"] = Frozen(Hairline.Color);
         app.Resources["WallOnAccent"] = Frozen(OnAccent.Color);
     }
+
+    static Color Lighter(Color a, Color b) => Luma(a) >= Luma(b) ? a : b;
+
+    static double Luma(Color c) => 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B;
 
     static void Set(SolidColorBrush brush, Color color)
     {
