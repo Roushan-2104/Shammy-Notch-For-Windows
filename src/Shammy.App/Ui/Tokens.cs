@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
 
@@ -44,16 +45,44 @@ internal static class Tokens
 
     // ---- The Focus Wall tokens --------------------------------------------------------------------
 
+    /// <summary>The hex behind the text tokens, for code that wants a string (NotchPalette, glance items).</summary>
+    public const string TextHex = "#F5F5F7", Text2Hex = "#A3A3AB", HairlineHex = "#26282E", GroundHex = "#0B0B0D",
+        InkOnArtHex = "#E4E4EA", OkHex = "#30D158", PawHex = "#FF9DB0", BlushHex = "#FF6B8A";
+
+    /// <summary>Corner radius of a section inside a detail or pop-up (a rounded tile-coloured panel).</summary>
+    public const double DetailRadius = 14;
+
+    /// <summary>The width of a pop-up card under the notch (reminders, approvals, screenshots, downloads…).</summary>
+    public const double PopupWidth = 460;
+
+    /// <summary>A pop-up card's title: 17 px ExtraBold, tracked −0.015 em.</summary>
+    public const double PopupTitleSize = 17, PopupTitleTracking = -0.015;
+
+    /// <summary>The kit's close (×) and back (‹) controls.</summary>
+    public const double CloseSize = 24, BackSize = 32;
+
+    /// <summary>
+    /// The text and hairline tokens. Not frozen: with Windows' high contrast on they turn into the system's own
+    /// colours, live (see <see cref="ApplyContrast"/>), so everything already on screen follows.
+    /// </summary>
     public static readonly SolidColorBrush
-        Ground = Brush("#0B0B0D"),
+        Text = new(Color(TextHex)),
+        Text2 = new(Color(Text2Hex)),
+        Hairline = new(Color(HairlineHex)),
+        OnAccent = new(Color(GroundHex));
+
+    public static readonly SolidColorBrush
+        Ground = Brush(GroundHex),
         Tile = Brush("#16161A"),
         TileHover = Brush("#1E1E24"),
-        Hairline = Brush("#26282E"),
         HairlineHover = Brush("#3A3C44"),
         HairlineStrong = Brush("#4A4C55"),
-        Text = Brush("#F5F5F7"),
-        Text2 = Brush("#A3A3AB"),
-        OnAccent = Brush("#0B0B0D"),
+        // Secondary text laid over artwork (a song's artist, a weather line): a little softer than white.
+        InkOnArt = Brush(InkOnArtHex),
+        // Meaning only: something is fine, charged or done.
+        Ok = Brush(OkHex),
+        // The cat's paw pads and the pin dots on the wheel.
+        Paw = Brush(PawHex),
         Alarm = Brush("#FF453A"),
         Pill = Brush("#1E1E23"),
         PillHover = Brush("#26262C"),
@@ -62,10 +91,60 @@ internal static class Tokens
         Row = Brush("#1A1A1F"),
         QuietBg = Brush("#29F5F5F7"),
         QuietHover = Brush("#42F5F5F7"),
-        Blush = Brush("#FF6B8A");
+        Blush = Brush(BlushHex);
 
     /// <summary>The accent the user picked (orange by default); it changes live.</summary>
     public static SolidColorBrush Accent => Theme.AccentTheme.Brush;
 
     public static SolidColorBrush AccentHover => Theme.AccentTheme.Hover;
+
+    // ---- High contrast ---------------------------------------------------------------------------
+
+    static bool _watching;
+
+    /// <summary>Whether Windows' high contrast is on (the tokens then follow its colours).</summary>
+    public static bool HighContrast => SystemParameters.HighContrast;
+
+    /// <summary>
+    /// Maps the text, hairline and accent tokens (and the theme's WallText / WallText2 / WallHairline resources) to
+    /// the system colours while high contrast is on, and back when it goes off. Runs on the UI thread the first
+    /// time the accent is applied, then follows the Windows setting by itself.
+    /// </summary>
+    public static void ApplyContrast()
+    {
+        if (!_watching)
+        {
+            _watching = true;
+            SystemParameters.StaticPropertyChanged += OnSystemChanged;
+        }
+        bool hc = SystemParameters.HighContrast;
+        // The notch stays black (it stands in for a hardware notch), so text takes whichever of the theme's pair
+        // reads on black: WindowText in a dark theme, Window in a light one (High Contrast White).
+        var ink = Lighter(SystemColors.WindowTextColor, SystemColors.WindowColor);
+        Set(Text, hc ? ink : Color(TextHex));
+        Set(Text2, hc ? ink : Color(Text2Hex));
+        Set(Hairline, hc ? ink : Color(HairlineHex));
+        Set(OnAccent, hc ? SystemColors.HighlightTextColor : Color(GroundHex));
+        if (Application.Current is not { } app) return;
+        app.Resources["WallText"] = Frozen(Text.Color);
+        app.Resources["WallText2"] = Frozen(Text2.Color);
+        app.Resources["WallHairline"] = Frozen(Hairline.Color);
+        app.Resources["WallOnAccent"] = Frozen(OnAccent.Color);
+    }
+
+    static Color Lighter(Color a, Color b) => Luma(a) >= Luma(b) ? a : b;
+
+    static double Luma(Color c) => 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B;
+
+    static void Set(SolidColorBrush brush, Color color)
+    {
+        if (brush.IsFrozen || brush.Color == color) return;
+        brush.Color = color;
+    }
+
+    static void OnSystemChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SystemParameters.HighContrast)) return;
+        Application.Current?.Dispatcher.BeginInvoke(() => Theme.AccentTheme.Reapply());
+    }
 }

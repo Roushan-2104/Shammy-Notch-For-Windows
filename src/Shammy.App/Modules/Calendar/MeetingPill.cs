@@ -28,8 +28,7 @@ internal sealed class MeetingPill : ICompactContent
 
         _label = CardKit.Label(_text, 12, FontWeights.SemiBold);
         _label.MaxWidth = MaxText;
-        var join = CardKit.PillButton("Join", _join, height: 20, glyph: "", background: CardKit.Brush(NotchPalette.Calendar),
-            hover: CardKit.Brush("#6AACFF"), foreground: CardKit.Brush("#000000"), fontSize: 11, tip: "Join the meeting");
+        var join = CardKit.PrimaryPillButton("Join", _join, height: 20, glyph: "", fontSize: 11, tip: "Join the meeting");
         join.Margin = new Thickness(8, 0, 0, 0);
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_label);

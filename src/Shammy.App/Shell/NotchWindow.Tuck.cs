@@ -20,6 +20,9 @@ public partial class NotchWindow
 {
     // ---- Tucking away -----------------------------------------------------------------------------
 
+    /// <summary>The pointer is on the tuck tab or the invisible pad around it.</summary>
+    bool OverTuckTab => TuckTab.IsMouseOver || TuckHit.IsMouseOver;
+
     /// <summary>The tab hangs under the notch whenever it is closed (resting, a live pill, the peek), if it is switched on.</summary>
     void UpdateTuckTab()
     {

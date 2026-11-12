@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -29,7 +31,6 @@ internal static class ScreenKit
         Fg2 = Ui.Tokens.Text2, OnAccent = Ui.Tokens.OnAccent,
         Blush = Ui.Tokens.Blush;
 
-    /// <summary>Animations snap when Windows' "Animation effects" are off.</summary>
     /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>
     public static SolidColorBrush Accent => Theme.AccentTheme.Brush;
 
@@ -85,9 +86,13 @@ internal static class ScreenKit
         return t;
     }
 
-    /// <summary>The design's small uppercase label: 11 px semibold, tracked 0.12 em, secondary grey.</summary>
+    /// <summary>The section label (the kit's one style): 11 px Bold, uppercase, tracked +0.12 em, secondary grey.</summary>
     public static SpacedText Label(string text, Brush? brush = null, double size = 11) =>
-        new() { Text = text.ToUpperInvariant(), FontSize = size, Weight = Weight.SemiBold, Foreground = brush ?? Fg2, Tracking = 0.12 };
+        new() { Text = text.ToUpperInvariant(), FontSize = size, Weight = Weight.Bold, Foreground = brush ?? Fg2, Tracking = 0.12 };
+
+    /// <summary>A pop-up card's title (the kit's one style): 17 px ExtraBold, −0.015 em, one line, trimmed.</summary>
+    public static SpacedText PopupTitle(string text, Brush? brush = null) =>
+        Display(text, Ui.Tokens.PopupTitleSize, Weight.ExtraBold, Ui.Tokens.PopupTitleTracking, brush);
 
     /// <summary>A big tight display line (times, titles): letter-spacing in em, usually negative.</summary>
     public static SpacedText Display(string text, double size, Weight w = Weight.ExtraBold, double tracking = -0.03, Brush? brush = null) =>
@@ -146,20 +151,22 @@ internal static class ScreenKit
             Padding = new Thickness(padding, 0, padding, 0),
             Child = row,
         };
+        AutomationProperties.SetName(p, text);
         p.Click += click;
         return p;
     }
 
-    /// <summary>A quiet secondary button: notch-black with a hairline ring that brightens on hover.</summary>
-    public static Pressable Secondary(string text, Action click, double height = 30, double radius = 8, double fontSize = 12, Brush? background = null)
+    /// <summary>A quiet secondary button: notch-black with a hairline ring that brightens on hover; a pill unless given a radius.</summary>
+    public static Pressable Secondary(string text, Action click, double height = 30, double radius = -1, double fontSize = 12, Brush? background = null)
     {
         var p = new Pressable(background ?? Ground, TileHover, Hairline, HairlineStrong)
         {
             Height = height,
-            CornerRadius = new CornerRadius(radius),
+            CornerRadius = new CornerRadius(radius < 0 ? height / 2 : radius),
             Padding = new Thickness(12, 0, 12, 0),
             Child = Centered(Text(text, fontSize, Weight.SemiBold)),
         };
+        AutomationProperties.SetName(p, text);
         p.Click += click;
         return p;
     }
@@ -175,6 +182,7 @@ internal static class ScreenKit
             Child = Centered(Icon(icon, Fg, iconSize, 2.4)),
             ToolTip = tip,
         };
+        if (tip is not null) AutomationProperties.SetName(p, tip);
         p.Click += click;
         return p;
     }
@@ -264,14 +272,16 @@ internal static class ScreenKit
 
 /// <summary>
 /// A clickable surface with the wall's hover and press: background (and optional hairline ring) brighten on
-/// hover, a press scales it to 0.96. Handles its own mouse so the notch behind never sees the click.
+/// hover, a press scales it to 0.96 (<see cref="Ui.Press"/>). Handles its own mouse so the notch behind never sees
+/// the click. A tab stop with the accent focus ring once the notch has the keyboard (Enter or Space clicks it), and
+/// a button to screen readers.
 /// </summary>
 internal class Pressable : Border
 {
     readonly Brush _bg, _bgHover;
     readonly Brush? _ring, _ringHover;
     readonly ScaleTransform _press = new(1, 1);
-    bool _down, _enabled = true;
+    bool _down, _keyDown, _enabled = true;
 
     public event Action? Click;
 
@@ -291,6 +301,29 @@ internal class Pressable : Border
         RenderTransformOrigin = new Point(0.5, 0.5);
         RenderTransform = _press;
         SnapsToDevicePixels = true;
+        Ui.FocusKit.Focusable(this);
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is not (Key.Enter or Key.Space) || e.OriginalSource != this) return;
+            e.Handled = true;
+            if (e.IsRepeat || !_enabled) return;
+            SetPressed(true);
+            _keyDown = true;
+        };
+        KeyUp += (_, e) =>
+        {
+            if (!_keyDown || e.Key is not (Key.Enter or Key.Space)) return;
+            e.Handled = true;
+            _keyDown = false;
+            SetPressed(false);
+            if (_enabled) Click?.Invoke();
+        };
+        LostKeyboardFocus += (_, _) =>
+        {
+            if (!_keyDown) return;
+            _keyDown = false;
+            SetPressed(false);
+        };
         MouseEnter += (_, _) => Paint();
         MouseLeave += (_, _) =>
         {
@@ -329,6 +362,7 @@ internal class Pressable : Border
             _enabled = value;
             Opacity = value ? 1 : 0.4;
             Cursor = value ? Cursors.Hand : null;
+            Focusable = value;
         }
     }
 
@@ -341,18 +375,15 @@ internal class Pressable : Border
         if (_ring is not null) BorderBrush = hover ? _ringHover : _ring;
     }
 
-    void SetPressed(bool down)
+    void SetPressed(bool down) => Ui.Press.To(_press, down, PressScale);
+
+    /// <summary>Runs the click as a press would (screen readers' Invoke).</summary>
+    protected void Invoke()
     {
-        double s = down ? PressScale : 1;
-        if (ScreenKit.ReducedMotion)
-        {
-            _press.ScaleX = _press.ScaleY = s;
-            return;
-        }
-        var a = new DoubleAnimation(s, TimeSpan.FromMilliseconds(down ? 90 : 160)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
-        _press.BeginAnimation(ScaleTransform.ScaleXProperty, a);
-        _press.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+        if (_enabled && IsVisible) Click?.Invoke();
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new Ui.InvokePeer(this, Invoke);
 }
 
 /// <summary>The design's 38×22 switch: grey track and knob off; white track, dark knob slid right on.</summary>
@@ -381,6 +412,7 @@ internal sealed class ToggleSwitch : Pressable
         {
             _on = !_on;
             Apply(animate: true);
+            Announce(!_on);
             Toggled?.Invoke(_on);
         };
     }
@@ -393,8 +425,13 @@ internal sealed class ToggleSwitch : Pressable
             if (_on == value) return;
             _on = value;
             Apply(animate: true);
+            Announce(!_on);
         }
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new Ui.TogglePeer(this, () => _on, Invoke);
+
+    void Announce(bool was) => (UIElementAutomationPeer.FromElement(this) as Ui.TogglePeer)?.Changed(was, _on);
 
     void Apply(bool animate)
     {
@@ -605,9 +642,12 @@ internal sealed class DayToggle : Pressable
         {
             _on = !_on;
             PaintDay();
+            (UIElementAutomationPeer.FromElement(this) as Ui.TogglePeer)?.Changed(!_on, _on);
             toggled(_on);
         };
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new Ui.TogglePeer(this, () => _on, Invoke);
 
     void PaintDay()
     {
@@ -713,7 +753,9 @@ internal sealed class SpacedText : FrameworkElement
     Weight _weight = Weight.Regular;
     Brush _brush = Brushes.White;
     List<(FormattedText Text, double X)>? _runs;
-    double _width, _height, _baseline;
+    // What is drawn: all the runs, or as many as fit followed by an ellipsis (see Fit).
+    List<(FormattedText Text, double X)>? _shown;
+    double _width, _height, _baseline, _shownWidth, _fitFor = double.NaN;
 
     public SpacedText()
     {
@@ -725,7 +767,7 @@ internal sealed class SpacedText : FrameworkElement
     public string Text { get => _text; set { _text = value ?? ""; Invalidate(); } }
     public double FontSize { get => _size; set { _size = value; Invalidate(); } }
     public Weight Weight { get => _weight; set { _weight = value; Invalidate(); } }
-    public Brush Foreground { get => _brush; set { _brush = value; _runs = null; InvalidateVisual(); } }
+    public Brush Foreground { get => _brush; set { _brush = value; _runs = null; _shown = null; InvalidateVisual(); } }
 
     /// <summary>Letter-spacing in em.</summary>
     public double Tracking { get => _tracking; set { _tracking = value; Invalidate(); } }
@@ -746,6 +788,7 @@ internal sealed class SpacedText : FrameworkElement
     void Invalidate()
     {
         _runs = null;
+        _shown = null;
         InvalidateMeasure();
         InvalidateVisual();
     }
@@ -777,17 +820,54 @@ internal sealed class SpacedText : FrameworkElement
         _baseline = whole.Baseline;
         _width = Math.Max(0, x);
         _runs = runs;
+        _ellipsis = Make("…");
+        _shown = null;
+    }
+
+    FormattedText? _ellipsis;
+
+    /// <summary>Lays out what fits in <paramref name="max"/>: everything, or the letters that fit and an ellipsis (like TrackedText).</summary>
+    void Fit(double max)
+    {
+        Build();
+        if (_shown is not null && _fitFor.Equals(max)) return;
+        _fitFor = max;
+        if (double.IsInfinity(max) || _width <= max + 0.5 || _ellipsis is null)
+        {
+            _shown = _runs;
+            _shownWidth = _width;
+            return;
+        }
+        double e = _ellipsis.WidthIncludingTrailingWhitespace, space = _tracking * _size, end = 0;
+        var shown = new List<(FormattedText, double)>();
+        foreach (var (text, x) in _runs!)
+        {
+            double right = x + text.WidthIncludingTrailingWhitespace;
+            if (right + space + e > max) break;
+            shown.Add((text, x));
+            end = right + space;
+        }
+        shown.Add((_ellipsis, end));
+        _shown = shown;
+        _shownWidth = Math.Min(max, end + e);
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        Build();
-        return new Size(Math.Ceiling(_width), Math.Ceiling(_height));
+        Fit(availableSize.Width);
+        return new Size(Math.Ceiling(_shownWidth), Math.Ceiling(_height));
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        // Narrower than measured (a star column shrank): trim to what is really there.
+        if (finalSize.Width + 0.5 < _shownWidth) Fit(finalSize.Width);
+        return finalSize;
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        Build();
-        foreach (var (text, x) in _runs!) dc.DrawText(text, new Point(x, 0));
+        if (_shown is null) Fit(double.IsNaN(_fitFor) ? double.PositiveInfinity : _fitFor);
+        foreach (var (text, x) in _shown!) dc.DrawText(text, new Point(x, 0));
     }
 }

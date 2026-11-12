@@ -14,7 +14,7 @@ namespace Shammy.Modules.Productivity;
 /// </summary>
 internal sealed class ReminderCard : Grid
 {
-    public const double CardWidth = 460, CardHeight = 96;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 96;
 
     public ReminderCard(ReminderItem reminder, Action done, Action snooze, int snoozeMinutes = 10)
     {
@@ -24,9 +24,8 @@ internal sealed class ReminderCard : Grid
         Background = Brushes.Transparent;
 
         // While the screen is shared the card only says "Reminder"; it follows a share starting or ending.
-        var title = WallParts.Text(PrivacyText.Reminder(reminder.Title, PrivacyState.Presenting), 14, FontWeights.Bold);
-        title.TextWrapping = TextWrapping.Wrap;
-        title.MaxHeight = 38;
+        var title = WallParts.PopupTitle(PrivacyText.Reminder(reminder.Title, PrivacyState.Presenting), wrap: true);
+        title.MaxHeight = 46;
         Action<bool> privacy = presenting => Dispatcher.BeginInvoke(() =>
         {
             title.Text = PrivacyText.Reminder(reminder.Title, presenting);

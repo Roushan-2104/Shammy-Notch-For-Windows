@@ -159,6 +159,13 @@ public partial class NotchWindow : Window
             if (_mode == NotchMode.Expanded) Transition(NotchMode.Expanded);
         };
         Expanded.TextInputWanted += BeginDetailTyping;
+        // One click on the open notch hands it the keyboard; Esc at home closes it and hands the keyboard back.
+        Expanded.KeyboardWanted += BeginKeyboard;
+        Expanded.CloseRequested += CloseFromKeyboard;
+        Expanded.IsVisibleChanged += (_, _) =>
+        {
+            if (!Expanded.IsVisible) EndKeyboard(giveBack: true);
+        };
         // Leaving the view (Back, Esc, another chip) drops the text box; once focus has settled, see if typing is over.
         Expanded.ViewChanged += () => Dispatcher.BeginInvoke(CheckDetailTyping, DispatcherPriority.Background);
         Expanded.ShelfDragging += dragging =>
@@ -180,12 +187,15 @@ public partial class NotchWindow : Window
             _secondary?.Click?.Invoke();
         };
         // The tab under the notch: a click tucks the notch away instead of opening it.
-        TuckTab.MouseLeftButtonUp += (_, e) =>
+        foreach (var tab in new UIElement[] { TuckTab, TuckHit })
         {
-            e.Handled = true;
-            TuckAway();
-        };
-        TuckTab.MouseLeftButtonDown += (_, e) => e.Handled = true;
+            tab.MouseLeftButtonUp += (_, e) =>
+            {
+                e.Handled = true;
+                TuckAway();
+            };
+            tab.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        }
         // Pressing on the notch means a click (or a drag-swipe) is coming; don't let a pending hover expand it away first.
         Root.PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -224,6 +234,7 @@ public partial class NotchWindow : Window
         {
             // The user clicked another window while typing in the notch: they're done, and that window keeps focus.
             if (_detailTyping) EndDetailTyping(giveBack: false);
+            EndKeyboard(giveBack: false);
             if (_cardOpen && _cardInteractive && _searchMode is null) CloseCard();
             else if (_interactive) InteractiveDeactivated?.Invoke();
         };
@@ -448,6 +459,7 @@ public partial class NotchWindow : Window
     {
         // The search bar takes over the keyboard (and manages SetInteractive itself).
         if (mode is not null && _detailTyping) EndDetailTyping(giveBack: false);
+        if (mode is not null) EndKeyboard(giveBack: false);
         _searchMode = mode;
         _restView.Mood.SetSearch(mode);
         if (mode is not null)
@@ -646,7 +658,8 @@ public partial class NotchWindow : Window
         Recompute();
     }
 
-    static readonly Color Green = Color.FromRgb(0x30, 0xD1, 0x58), Red = Color.FromRgb(0xFF, 0x45, 0x3A);
+    static Color Green => Ui.Tokens.Ok.Color;
+    static Color Red => Ui.Tokens.Alarm.Color;
 
     /// <summary>Keep the edge lit in a module's colour (e.g. a finished timer); null releases it.</summary>
     internal void SetGlow(Color? color)
@@ -673,6 +686,15 @@ public partial class NotchWindow : Window
         _flashedId = a.Id;
         _flashedPayload = a.Payload;
         if (a.Payload is NotificationPayload np) _restView.Mood.Notified(np.Notification.AppName, np.Notification.Title);
+        // Screen readers hear what just arrived: a message ("Saved · click to show"), a notification (as the list
+        // shows it, so it stays hidden while presenting) or a finished download.
+        Ui.A11y.Announce(a.Payload switch
+        {
+            MessagePayload m when a.Kind is ActivityKind.Message or ActivityKind.Custom => m.Text,
+            NotificationPayload n => $"{n.Notification.ListTitle}. {n.Notification.ListDetail}",
+            DownloadPayload d when a.Kind == ActivityKind.DownloadComplete => $"Downloaded {d.Name}",
+            _ => null,
+        }, this, a.Id);
         Color? color = a switch
         {
             { Kind: ActivityKind.Notification } => Theme.Accent.Current,

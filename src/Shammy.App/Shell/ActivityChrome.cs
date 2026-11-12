@@ -22,9 +22,14 @@ internal sealed class ActivityChrome
 {
     const double CircleSize = 32, DiscSize = 26, Gap = 8, BridgeLeft = 12;
 
-    static readonly Color Ink = Color.FromRgb(0xF5, 0xF5, 0xF7), Ink2 = Color.FromRgb(0xA3, 0xA3, 0xAB),
-        Hairline = Color.FromRgb(0x26, 0x28, 0x2E), HoverRing = Color.FromRgb(0x4A, 0x4C, 0x55), Ground = Color.FromRgb(0x0B, 0x0B, 0x0D),
-        Warm = Color.FromRgb(0xF0, 0xA2, 0x7A), RecRed = Color.FromRgb(0xFF, 0x45, 0x3A);
+    // The kit's tokens (read each time, so high contrast is followed); Warm is the action circle's own.
+    static Color Ink => Ui.Tokens.Text.Color;
+    static Color Ink2 => Ui.Tokens.Text2.Color;
+    static Color Hairline => Ui.Tokens.Hairline.Color;
+    static Color HoverRing => Ui.Tokens.HairlineStrong.Color;
+    static Color Ground => Ui.Tokens.OnAccent.Color;
+    static Color RecRed => Ui.Tokens.Alarm.Color;
+    static readonly Color Warm = Color.FromRgb(0xF0, 0xA2, 0x7A);
 
     // A soft gradient pool under the notch rather than a blur effect: effects are re-rasterised on every repaint
     // of the (software-rendered, layered) window, a gradient is nearly free.
@@ -71,8 +76,13 @@ internal sealed class ActivityChrome
             BorderBrush = Brushes.Transparent,
             Child = _icon,
         };
-        _circle = new Border
+        // Screen readers see the circle and the dot as buttons (named by their tooltips); Invoke runs the click.
+        _circle = new Ui.InvokableBorder
         {
+            Invoked = () =>
+            {
+                if (_spec is { Enabled: true } spec) CircleClicked?.Invoke(spec.Action);
+            },
             Width = CircleSize, Height = CircleSize, CornerRadius = new CornerRadius(CircleSize / 2), Background = notchFill,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _circleScale, Child = _disc, Cursor = Cursors.Hand, Opacity = 0,
         };
@@ -101,8 +111,12 @@ internal sealed class ActivityChrome
             Width = 14, Height = 14, CornerRadius = new CornerRadius(7), Background = notchFill,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Child = _dotLight,
         };
-        _dot = new Border
+        _dot = new Ui.InvokableBorder
         {
+            Invoked = () =>
+            {
+                if (_dotId is { } id) DotClicked?.Invoke(id);
+            },
             Width = 20, Height = 20, Background = Brushes.Transparent, Child = _dotInner, Cursor = Cursors.Hand,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _dotScale, Opacity = 0,
         };

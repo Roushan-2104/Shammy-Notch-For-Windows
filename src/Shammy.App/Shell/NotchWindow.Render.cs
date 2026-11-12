@@ -70,6 +70,10 @@ public partial class NotchWindow
         TuckTab.Visibility = tab > 0.003 ? Visibility.Visible : Visibility.Collapsed;
         Canvas.SetLeft(TuckTab, Cx - TuckTab.Width / 2);
         Canvas.SetTop(TuckTab, h - 1);
+        TuckHit.IsHitTestVisible = TuckTab.IsHitTestVisible;
+        TuckHit.Visibility = TuckTab.Visibility;
+        Canvas.SetLeft(TuckHit, Cx - TuckHit.Width / 2);
+        Canvas.SetTop(TuckHit, h - 1);
         double away = _tuck.Value;
         _rootShift.Y = -away * (h + 24);
         _lineShift.Y = -_rootShift.Y;

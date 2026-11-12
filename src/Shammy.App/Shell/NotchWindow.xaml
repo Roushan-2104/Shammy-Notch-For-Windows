@@ -34,6 +34,10 @@
             <views:NotificationView x:Name="NotificationCard" />
             <ContentControl x:Name="CardHost" Focusable="False" />
         </Canvas>
+        <!-- The tab's hit area: an invisible (alpha 1, so the layered window still takes the click) pad around and below
+             the small tab, so it is at least 32 x 20 to aim at. The tab itself (size, place, look) is unchanged. -->
+        <Border x:Name="TuckHit" Width="44" Height="22" Background="#01000000" Cursor="Hand" Visibility="Collapsed"
+                ToolTip="Move out of the way for 5 seconds" />
         <!-- A small tab hanging under the notch: click it and the notch slides out of the way for a few seconds. -->
         <Border x:Name="TuckTab" Width="30" Height="12" CornerRadius="0,0,6,6" Background="Black" Cursor="Hand" Opacity="0" Visibility="Collapsed"
                 ToolTip="Move out of the way for 5 seconds" AutomationProperties.Name="Move the notch out of the way for 5 seconds">

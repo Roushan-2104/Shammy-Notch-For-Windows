@@ -22,7 +22,10 @@ public partial class SearchOverlay : Window
     IDisposable? _frames;
     IntPtr _hwnd;
     bool _drawing, _closing;
-    double _angle;
+    double _angle, _turnWait;
+
+    /// <summary>The glow turns at about 30 fps: each turn repaints a blurred full-screen border.</summary>
+    const double TurnEvery = 1.0 / 30;
 
     internal SearchOverlay(ScreenShot shot)
     {
@@ -115,8 +118,14 @@ public partial class SearchOverlay : Window
 
     void OnFrame(double dt)
     {
+        // A functional indicator (searching is live), so it keeps turning with Calm on, but only ~30 times a second.
         _angle = (_angle + dt * 40) % 360;
-        _rotation.Angle = _angle;
+        _turnWait += dt;
+        if (_turnWait >= TurnEvery)
+        {
+            _turnWait = 0;
+            _rotation.Angle = _angle;
+        }
         Dim.Opacity = _dim.Value;
         GlowSoft.Opacity = _glow.Value * 0.9;
         GlowEdge.Opacity = _glow.Value;

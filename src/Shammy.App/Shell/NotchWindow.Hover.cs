@@ -57,7 +57,7 @@ public partial class NotchWindow
     /// </summary>
     void StartHoverIn()
     {
-        if (!CanHover || Bubble.IsMouseOver || _chrome.IsMouseOver || TuckTab.IsMouseOver || _hoverBlocked) return;
+        if (!CanHover || Bubble.IsMouseOver || _chrome.IsMouseOver || OverTuckTab || _hoverBlocked) return;
         // The pet's own body opens the notch (its action is on the circle), so it peeks like the resting notch.
         bool clickable = _mode == NotchMode.Compact && !_petShowing && _activity is { Click: not null, Kind: not ActivityKind.NowPlaying };
         _intent.Reset();
@@ -106,7 +106,7 @@ public partial class NotchWindow
         if (_mode == NotchMode.Notification || (_mode == NotchMode.Compact && IsAction(_activity))) return;
 
         // Over the tuck tab the pointer is on its way to click it, not resting on the notch.
-        if (TuckTab.IsMouseOver)
+        if (OverTuckTab)
         {
             _intent.Reset();
             return;

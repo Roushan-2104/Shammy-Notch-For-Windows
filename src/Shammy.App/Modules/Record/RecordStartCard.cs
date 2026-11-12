@@ -17,7 +17,7 @@ internal enum RecordChoice { WholeScreen, Window }
 /// </summary>
 internal sealed class RecordStartCard : Grid
 {
-    public const double CardWidth = 380, CardHeight = 134;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 134;
 
     readonly TextBlock _sound, _mic;
 
@@ -34,14 +34,14 @@ internal sealed class RecordStartCard : Grid
         Children.Add(rows);
 
         var head = new Grid { Height = 22 };
-        var title = ScreenKit.Display(RecordText.Title, 17, Weight.ExtraBold, -0.015);
+        var title = ScreenKit.PopupTitle(RecordText.Title);
         title.HorizontalAlignment = HorizontalAlignment.Left;
         title.VerticalAlignment = VerticalAlignment.Center;
         head.Children.Add(title);
-        var shut = WallParts.Icon("", "Close", close, 24, 10);
+        var shut = Views.Cards.CardKit.CloseButton(close);
         shut.HorizontalAlignment = HorizontalAlignment.Right;
         shut.VerticalAlignment = VerticalAlignment.Center;
-        shut.Margin = new Thickness(0, 0, -4, 0);
+        shut.Margin = new Thickness(0, 0, -2, 0);
         head.Children.Add(shut);
         rows.Children.Add(head);
 

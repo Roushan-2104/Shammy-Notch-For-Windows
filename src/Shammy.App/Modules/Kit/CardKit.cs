@@ -44,8 +44,8 @@ internal static class CardKit
         return t;
     }
 
-    /// <summary>The tiny uppercase caption ("NEXT", "CLIPBOARD"): bold and secondary grey.</summary>
-    public static TextBlock Caption(string text, Brush? brush = null) => Label(text.ToUpperInvariant(), 11, FontWeights.Bold, brush ?? Text2);
+    /// <summary>The tiny uppercase caption ("NEXT", "CLIPBOARD"): the kit's section label (11 Bold, +0.12 em, grey).</summary>
+    public static Shammy.Views.TrackedText Caption(string text, Brush? brush = null) => Wall.Label(text, brush ?? Text2);
 
     /// <summary>A big bold number ("10:30", "30°").</summary>
     public static TextBlock Big(string text, double size = 30) => Label(text, size, FontWeights.ExtraBold, Text);
@@ -54,29 +54,22 @@ internal static class CardKit
 
     public static System.Windows.Shapes.Ellipse Dot(double size, Brush fill) => Wall.Dot(size, fill);
 
-    /// <summary>A clickable rounded element with a hover colour; the click doesn't also open the card under it.</summary>
+    /// <summary>
+    /// A clickable rounded element with a hover colour and the kit's press (a <see cref="Shammy.Views.Screens.Pressable"/>:
+    /// a tab stop, a button to screen readers); the click doesn't also open the card under it.
+    /// </summary>
     public static Border Button(UIElement content, Action onClick, Brush background, Brush hover, double height,
         double? width = null, double radius = -1, string? tip = null)
     {
-        var b = new Border
+        var b = new Shammy.Views.Screens.Pressable(background, hover)
         {
             Height = height,
             CornerRadius = new CornerRadius(radius < 0 ? height / 2 : radius),
-            Background = background,
-            Cursor = Cursors.Hand,
             Child = content,
             ToolTip = tip,
-            SnapsToDevicePixels = true,
         };
         if (width is { } w) b.Width = w;
-        b.MouseEnter += (_, _) => b.Background = hover;
-        b.MouseLeave += (_, _) => b.Background = background;
-        b.MouseLeftButtonDown += (_, e) => e.Handled = true;
-        b.MouseLeftButtonUp += (_, e) =>
-        {
-            e.Handled = true;
-            onClick();
-        };
+        b.Click += onClick;
         AutomationName(b, tip);
         return b;
     }
@@ -99,6 +92,10 @@ internal static class CardKit
         b.Padding = new Thickness(glyph is null ? 12 : 11, 0, glyph is null ? 12 : 14, 0);
         return b;
     }
+
+    /// <summary>The surface's one primary text button ("Join", "Connect"): the user's accent with dark text, a pill.</summary>
+    public static Border PrimaryPillButton(string text, Action onClick, double height = 26, string? glyph = null, double fontSize = 11, string? tip = null) =>
+        PillButton(text, onClick, height, glyph, Ui.Tokens.Accent, Ui.Tokens.AccentHover, Ui.Tokens.OnAccent, fontSize, tip);
 
     /// <summary>A quiet chip (no tint: Focus Wall keeps colour for artwork and meaning).</summary>
     public static Border Chip(UIElement content, string accentHex, double height = 26) => new()

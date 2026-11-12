@@ -49,8 +49,10 @@ internal sealed class ShammyPet : Grid
     readonly Random _random = new();
     readonly List<DispatcherTimer> _waits = new();
     readonly Func<double> _musicLevel;
-    IDisposable? _swayFrames;
+    DispatcherTimer? _swayTimer;
+    readonly System.Diagnostics.Stopwatch _swayClock = new();
     double _swayTime;
+    Window? _wakeOn;
     bool _following, _subscribed, _alternate;
     double _glanceShift;
     DateTime? _overSince;
@@ -165,6 +167,10 @@ internal sealed class ShammyPet : Grid
 
     void UpdateRunning()
     {
+        if (_wakeOn is not null) _wakeOn.PreviewMouseMove -= OnWakeMove;
+        _wakeOn = null;
+        _away = false;
+        _stillSince = DateTime.UtcNow;
         if (IsVisible)
         {
             Reschedule(_blinkTimer, EyeLogic.NextBlink(_random, Mood == PetMood.Sleepy));
@@ -258,7 +264,7 @@ internal sealed class ShammyPet : Grid
                 break;
             case PetMood.TimerDone:
                 SetEyes(EyeShape.Arc, 12, 7, Res("TimerAccent"));
-                Repeat(_bounce, TranslateTransform.YProperty, 1000, (0, 0), (200, -4), (400, 0), (600, -2.5), (800, 0));
+                if (Decorative) Repeat(_bounce, TranslateTransform.YProperty, 1000, (0, 0), (200, -4), (400, 0), (600, -2.5), (800, 0));
                 break;
             case PetMood.Listening:
                 SetEyes(EyeShape.Pill, 11, 14, white);
@@ -267,7 +273,7 @@ internal sealed class ShammyPet : Grid
             case PetMood.Thinking:
                 SetEyes(EyeShape.Pill, 10, 11, white);
                 _pose.Y = -1.5;
-                Repeat(_glance, TranslateTransform.XProperty, 1200, (0, -2.5), (600, 2.5), (1200, -2.5));
+                if (Decorative) Repeat(_glance, TranslateTransform.XProperty, 1200, (0, -2.5), (600, 2.5), (1200, -2.5));
                 break;
             case PetMood.MeetingSoon:
                 SetEyes(EyeShape.Pill, 11, 13, white);
@@ -438,29 +444,44 @@ internal sealed class ShammyPet : Grid
         _perk.BeginAnimation(ScaleTransform.ScaleYProperty, a);
     }
 
-    /// <summary>Sways to the beat: the visualizer's level sets how much (it's already running for the music).</summary>
+    /// <summary>
+    /// Decorative motion (the music sway, floating notes, z's and hearts, the Thinking and TimerDone loops) plays only
+    /// when motion is Lively: Calm or Windows' "animations off" stops it. Functional indicators are not decoration.
+    /// </summary>
+    static bool Decorative => Infrastructure.MotionPrefs.Lively;
+
+    /// <summary>
+    /// Sways to the beat: the visualizer's level sets how much (it's already running for the music). About 30 steps
+    /// a second on a timer, not every display frame, for as long as the song plays.
+    /// </summary>
     void StartSway()
     {
-        if (!IsVisible || _swayFrames is not null) return;
-        _swayFrames = Animator.Subscribe(dt =>
+        if (!IsVisible || _swayTimer is not null || !Decorative) return;
+        _swayClock.Restart();
+        _swayTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
+        _swayTimer.Tick += (_, _) =>
         {
+            double dt = Math.Min(_swayClock.Elapsed.TotalSeconds, 0.1);
+            _swayClock.Restart();
             _swayTime += dt;
             double phase = _swayTime * 2 * Math.PI / 0.9;
             double energy = 0.35 + 0.65 * Math.Clamp(_musicLevel(), 0, 1);
             _sway.Angle = 7 * Math.Sin(phase) * energy;
             _pose.Y = -1.5 * (1 + Math.Sin(phase * 2)) * energy;
-        });
+        };
+        _swayTimer.Start();
     }
 
     void StopSway()
     {
-        _swayFrames?.Dispose();
-        _swayFrames = null;
+        _swayTimer?.Stop();
+        _swayTimer = null;
+        _swayClock.Stop();
     }
 
     void StartParticles(TimeSpan every)
     {
-        if (!IsVisible) return;
+        if (!IsVisible || !Decorative) return;
         _particleTimer.Interval = every;
         _particleTimer.Start();
     }
@@ -468,7 +489,7 @@ internal sealed class ShammyPet : Grid
     /// <summary>One note, z or heart floats up and fades; it removes itself when done.</summary>
     void SpawnParticle()
     {
-        if (!IsVisible) return;
+        if (!IsVisible || !Decorative) return;
         _alternate = !_alternate;
         (string text, string brush, double size, double x, double y, double dx, double dy, double ms) = Mood switch
         {
@@ -483,7 +504,7 @@ internal sealed class ShammyPet : Grid
             Text = text,
             FontSize = size,
             FontWeight = FontWeights.Bold,
-            Foreground = brush.Length > 0 ? Res(brush) : new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x8A)),
+            Foreground = brush.Length > 0 ? Res(brush) : Ui.Tokens.Blush,
             RenderTransform = new TranslateTransform(),
             Opacity = 0,
         };
@@ -575,24 +596,12 @@ internal sealed class ShammyPet : Grid
         {
             var still = now - _stillSince;
             if (!_following && still > StillAfter && _pointerTimer.Interval != StillPoll) _pointerTimer.Interval = StillPoll;
-            if (!_away && still > AwayAfter)
-            {
-                _away = true;
-                _blinkTimer.Stop();
-                _glanceTimer.Stop();
-                _fidgetTimer.Stop();
-            }
+            if (!_away && still > AwayAfter) GoAway();
             return;
         }
         _lastPointer = p;
         _stillSince = now;
-        if (_away)
-        {
-            _away = false;
-            Reschedule(_blinkTimer, EyeLogic.NextBlink(_random, Mood == PetMood.Sleepy));
-            Reschedule(_glanceTimer, EyeLogic.NextGlance(_random));
-            Reschedule(_fidgetTimer, CatLooks.NextFidget(_random));
-        }
+        if (_away) WakeUp();
         if (_pointerTimer.Interval == StillPoll) _pointerTimer.Interval = FarPoll;
         var centre = _eyes.PointToScreen(new Point(_eyes.ActualWidth / 2, _eyes.ActualHeight / 2));
         double scale = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -618,6 +627,38 @@ internal sealed class ShammyPet : Grid
         {
             _pointerTimer.Interval = FarPoll;
         }
+    }
+
+    /// <summary>
+    /// Nobody at the PC: blinks, glances, fidgets and the pointer poll all stop, so an unattended PC isn't woken at
+    /// all. The next mouse move over the notch (or the pet becoming visible again) wakes it.
+    /// </summary>
+    void GoAway()
+    {
+        _away = true;
+        _blinkTimer.Stop();
+        _glanceTimer.Stop();
+        _fidgetTimer.Stop();
+        _pointerTimer.Stop();
+        _wakeOn = Window.GetWindow(this);
+        if (_wakeOn is not null) _wakeOn.PreviewMouseMove += OnWakeMove;
+    }
+
+    void OnWakeMove(object sender, System.Windows.Input.MouseEventArgs e) => WakeUp();
+
+    void WakeUp()
+    {
+        if (_wakeOn is not null) _wakeOn.PreviewMouseMove -= OnWakeMove;
+        _wakeOn = null;
+        if (!_away) return;
+        _away = false;
+        _stillSince = DateTime.UtcNow;
+        if (!IsVisible) return;
+        Reschedule(_blinkTimer, EyeLogic.NextBlink(_random, Mood == PetMood.Sleepy));
+        Reschedule(_glanceTimer, EyeLogic.NextGlance(_random));
+        Reschedule(_fidgetTimer, CatLooks.NextFidget(_random));
+        _pointerTimer.Interval = FarPoll;
+        _pointerTimer.Start();
     }
 
     /// <summary>A happy little hop (a song started).</summary>

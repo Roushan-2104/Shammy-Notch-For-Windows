@@ -16,9 +16,18 @@ internal static class AccentTheme
 
     public static SolidColorBrush Hover { get; private set; } = new(Parse("#FFA466"));
 
+    static AccentColor _chosen;
+
+    /// <summary>Applies the accent again (Windows' high contrast turned on or off).</summary>
+    public static void Reapply() => Apply(_chosen);
+
     public static void Apply(AccentColor colour)
     {
+        _chosen = colour;
+        // High contrast first: the text and hairline tokens follow the system colours, and so does the accent.
+        Ui.Tokens.ApplyContrast();
         var (accent, hover) = NotchLook.Colours(colour);
+        if (SystemParameters.HighContrast) accent = hover = SystemColors.HighlightColor.ToString();
         // Something froze a shared brush (a Pen or Drawing that was frozen with it inside): start a new one. Views
         // already built keep the old colour until they are rebuilt; everything new follows.
         if (Brush.IsFrozen) Brush = new SolidColorBrush();

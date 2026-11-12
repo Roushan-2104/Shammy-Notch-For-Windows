@@ -93,6 +93,30 @@ internal static class CardKit
         Foreground = brush ?? Ink,
     };
 
+    /// <summary>The section label (the kit's one style): 11 px Bold, uppercase, +0.12 em, secondary grey.</summary>
+    public static TrackedText SectionLabel(string text) => Label(text, Ink2);
+
+    /// <summary>
+    /// An empty list's words, the same everywhere: what isn't there (13.5 SemiBold, white) and, under it, how it
+    /// gets there (12, grey). Screen readers hear both.
+    /// </summary>
+    public static FrameworkElement Empty(string title, string? hint = null)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+        var head = Text(title, 13.5, FontWeights.SemiBold);
+        head.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(head);
+        if (!string.IsNullOrEmpty(hint))
+        {
+            var line = Text(hint, 12, FontWeights.Normal, secondary: true);
+            line.HorizontalAlignment = HorizontalAlignment.Left;
+            line.Margin = new Thickness(0, 3, 0, 0);
+            panel.Children.Add(line);
+        }
+        AutomationProperties.SetName(panel, string.IsNullOrEmpty(hint) ? title : $"{title}. {hint}");
+        return panel;
+    }
+
     /// <summary>A poster: the big tight ExtraBold title or number (−0.035 em, line-height about 1), even digits.</summary>
     public static TrackedText Poster(string text, double size) => new()
     {
@@ -224,9 +248,19 @@ internal static class CardKit
         return b;
     }
 
-    /// <summary>The detail's Back control: a dark translucent circle over the artwork with a chevron.</summary>
-    public static Button BackButton(Action onClick) =>
-        Make("Back", Icon(Paths.Back, Ink, 16, 2.4), onClick, 36, 36, 18, Hex("#9E0B0B0D"), Hex("#C40B0B0D"), null);
+    /// <summary>THE Back control (32 px): a dark translucent circle with a chevron, over artwork or on the ground.</summary>
+    public static Button Back(Action onClick, string name = "Back") =>
+        Make(name, Icon(Paths.Back, Ink, 15, 2.4), onClick, Ui.Tokens.BackSize, Ui.Tokens.BackSize, Ui.Tokens.BackSize / 2, Hex("#9E0B0B0D"), Hex("#C40B0B0D"), null);
+
+    /// <summary>Older name for <see cref="Back"/>.</summary>
+    public static Button BackButton(Action onClick) => Back(onClick);
+
+    /// <summary>
+    /// THE close (×) control of pop-up cards and list rows (24 px, quiet translucent circle). <paramref name="name"/>
+    /// says what it closes or removes ("Close", "Delete :sig").
+    /// </summary>
+    public static Button CloseButton(Action onClick, string name = "Close") =>
+        Make(name, Icon(Paths.Close, Ink, 10, 2.4), onClick, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize / 2, QuietBg, QuietHover, null);
 
     /// <summary>Older call shape: a 36 px round control; with an accent it is the primary one.</summary>
     public static Button RoundButton(string name, FrameworkElement icon, Action onClick, Brush? accent = null, double size = 36) =>
@@ -268,24 +302,17 @@ internal static class CardKit
         {
             Content = face,
             Height = height,
-            Focusable = false,
             Cursor = Cursors.Hand,
             Template = BareTemplate,
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = new ScaleTransform(1, 1),
             ToolTip = name,
         };
         if (!double.IsNaN(width)) button.Width = width;
         AutomationProperties.SetName(button, name);
-        var scale = (ScaleTransform)button.RenderTransform;
+        // A tab stop with the accent ring once the notch has the keyboard; the shared press.
+        Ui.FocusKit.Button(button);
+        Ui.Press.Attach(button);
         button.MouseEnter += (_, _) => face.Background = hover;
-        button.MouseLeave += (_, _) =>
-        {
-            face.Background = bg;
-            scale.ScaleX = scale.ScaleY = 1;
-        };
-        button.PreviewMouseLeftButtonDown += (_, _) => scale.ScaleX = scale.ScaleY = 0.94;
-        button.PreviewMouseLeftButtonUp += (_, _) => scale.ScaleX = scale.ScaleY = 1;
+        button.MouseLeave += (_, _) => face.Background = bg;
         button.Click += (_, e) =>
         {
             onClick();
@@ -356,7 +383,7 @@ internal static class CardKit
         Background = Surface,
         BorderBrush = Hairline,
         BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(14),
+        CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
         Padding = new Thickness(padding),
         Child = child,
     };
@@ -525,7 +552,8 @@ internal sealed class Ring : FrameworkElement
 
 /// <summary>
 /// A progress track with a white fill and an optional knob (the music scrubber, the volume slider). Click or
-/// drag to set; <see cref="Changed"/> reports the new fraction.
+/// drag to set; with the keyboard, Left/Right step by <see cref="KeyStep"/> and Home/End jump to the ends.
+/// <see cref="Changed"/> reports the new fraction.
 /// </summary>
 internal sealed class CardTrack : FrameworkElement
 {
@@ -535,8 +563,13 @@ internal sealed class CardTrack : FrameworkElement
     public CardTrack()
     {
         Cursor = Cursors.Hand;
-        Focusable = false;
+        Ui.FocusKit.Focusable(this);
+        FocusVisualStyle = null; // the knob wears the ring (see OnRender) rather than a pill around the whole track
+        IsKeyboardFocusedChanged += (_, _) => InvalidateVisual();
     }
+
+    /// <summary>How far one Left/Right press moves it (Page Up/Down move four times as far).</summary>
+    public double KeyStep { get; init; } = 0.05;
 
     public double TrackHeight { get; init; } = 4;
     public double KnobSize { get; init; } = 8;
@@ -578,11 +611,71 @@ internal sealed class CardTrack : FrameworkElement
         dc.DrawRoundedRectangle(Track, null, new Rect(0, y, w, TrackHeight), rad, rad);
         double x = w * _value;
         if (x > 0) dc.DrawRoundedRectangle(Fill, null, new Rect(0, y, Math.Max(TrackHeight, x), TrackHeight), rad, rad);
+        var knob = new Point(Math.Clamp(x, Math.Max(KnobSize, 6) / 2, w - Math.Max(KnobSize, 6) / 2), h / 2);
         if (KnobSize > 0)
         {
-            var c = new Point(Math.Clamp(x, KnobSize / 2, w - KnobSize / 2), h / 2);
-            if (KnobHalo != Brushes.Transparent) dc.DrawEllipse(KnobHalo, null, c, KnobSize / 2 + 3, KnobSize / 2 + 3);
-            dc.DrawEllipse(CardKit.Ink, null, c, KnobSize / 2, KnobSize / 2);
+            if (KnobHalo != Brushes.Transparent) dc.DrawEllipse(KnobHalo, null, knob, KnobSize / 2 + 3, KnobSize / 2 + 3);
+            dc.DrawEllipse(CardKit.Ink, null, knob, KnobSize / 2, KnobSize / 2);
+        }
+        // Reached with the keyboard: the accent ring around the knob (or where it would be).
+        if (IsKeyboardFocused && Interactive && InputManager.Current.MostRecentInputDevice is KeyboardDevice)
+        {
+            double r = Math.Max(KnobSize, 6) / 2 + 3;
+            dc.DrawEllipse(null, new Pen(Ui.Tokens.Accent, 1.5), knob, r, r);
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!Interactive) return;
+        double? to = e.Key switch
+        {
+            Key.Left or Key.Down => _value - KeyStep,
+            Key.Right or Key.Up => _value + KeyStep,
+            Key.PageDown => _value - KeyStep * 4,
+            Key.PageUp => _value + KeyStep * 4,
+            Key.Home => 0,
+            Key.End => 1,
+            _ => null,
+        };
+        if (to is not { } v) return;
+        e.Handled = true;
+        _value = Math.Clamp(v, 0, 1);
+        InvalidateVisual();
+        Changed?.Invoke(_value);
+        Committed?.Invoke(_value);
+    }
+
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new TrackPeer(this);
+
+    /// <summary>Screen readers see a slider with its value in percent.</summary>
+    sealed class TrackPeer(CardTrack owner) : System.Windows.Automation.Peers.FrameworkElementAutomationPeer(owner),
+        System.Windows.Automation.Provider.IRangeValueProvider
+    {
+        CardTrack Track => (CardTrack)Owner;
+
+        protected override System.Windows.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() =>
+            System.Windows.Automation.Peers.AutomationControlType.Slider;
+
+        protected override string GetClassNameCore() => nameof(CardTrack);
+
+        public override object? GetPattern(System.Windows.Automation.Peers.PatternInterface p) =>
+            p == System.Windows.Automation.Peers.PatternInterface.RangeValue ? this : base.GetPattern(p);
+
+        public double Value => Math.Round(Track._value * 100);
+        public bool IsReadOnly => !Track.Interactive;
+        public double Maximum => 100;
+        public double Minimum => 0;
+        public double LargeChange => Track.KeyStep * 400;
+        public double SmallChange => Track.KeyStep * 100;
+
+        public void SetValue(double value)
+        {
+            if (IsReadOnly) throw new ElementNotEnabledException();
+            Track._value = Math.Clamp(value / 100, 0, 1);
+            Track.InvalidateVisual();
+            Track.Changed?.Invoke(Track._value);
+            Track.Committed?.Invoke(Track._value);
         }
     }
 

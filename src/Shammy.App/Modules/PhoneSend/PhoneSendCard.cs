@@ -15,7 +15,7 @@ namespace Shammy.Modules.PhoneSend;
 /// </summary>
 internal sealed class PhoneSendCard : Grid
 {
-    public const double CardWidth = 460, CardHeight = 230;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 230;
     const double Tile = 190;
 
     // Inverted (light-on-dark) codes look more at home in the notch, but plenty of phone scanners
@@ -51,13 +51,13 @@ internal sealed class PhoneSendCard : Grid
         header.HorizontalAlignment = HorizontalAlignment.Left;
         header.Margin = new Thickness(0, 2, 34, 0);
         right.Children.Add(header);
-        var close = WallParts.Icon("", "Stop sharing", () => CloseRequested?.Invoke(), 26, 10);
+        var close = Views.Cards.CardKit.CloseButton(() => CloseRequested?.Invoke(), "Stop sharing");
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.VerticalAlignment = VerticalAlignment.Top;
-        close.Margin = new Thickness(0, -5, -8, 0);
+        close.Margin = new Thickness(0, -3, -4, 0);
         right.Children.Add(close);
 
-        var name = WallParts.Text(fileName, 18, FontWeights.Bold);
+        var name = WallParts.PopupTitle(fileName, wrap: true);
         name.TextWrapping = TextWrapping.Wrap;
         name.MaxHeight = 48;
         name.Margin = new Thickness(0, 10, 0, 0);

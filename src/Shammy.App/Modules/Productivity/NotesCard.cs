@@ -222,20 +222,13 @@ internal sealed class NotesCard
             _rows.Children.Clear();
             if (Private)
             {
-                _rows.Children.Add(Empty(PrivacyText.Hidden));
+                _rows.Children.Add(CardKit.Empty(PrivacyText.Hidden));
                 return;
             }
             // Today's calendar first (read-only, Join where there's a call link), then notes and reminders.
             foreach (var e in _card.Today(now, 3)) _rows.Children.Add(EventRow(e, now));
             foreach (var line in lines) _rows.Children.Add(Item(line, now));
-            if (_rows.Children.Count == 0) _rows.Children.Add(Empty("No notes or reminders yet"));
-        }
-
-        static TextBlock Empty(string text)
-        {
-            var t = CardKit.Text(text, 13, FontWeights.Medium, secondary: true);
-            t.Margin = new Thickness(0, 8, 0, 0);
-            return t;
+            if (_rows.Children.Count == 0) _rows.Children.Add(CardKit.Empty("Nothing to do yet", "Notes and reminders you add show up here"));
         }
 
         FrameworkElement EventRow(Shammy.Core.Calendar.CalendarOccurrence e, DateTime now)
@@ -263,7 +256,7 @@ internal sealed class NotesCard
                 text.TextDecorations = TextDecorations.Strikethrough;
             }
             var meta = CardKit.Text(line.Due is { } due ? When(due, now) : "", 12, FontWeights.Medium, secondary: true);
-            var remove = CardKit.Quiet("Delete", CardKit.Icon(CardKit.Paths.Close, CardKit.Ink, 10, 2.4), () => Delete(line.Id), 22);
+            var remove = CardKit.CloseButton(() => Delete(line.Id), "Delete");
             remove.Visibility = Visibility.Hidden;
             remove.Margin = new Thickness(10, 0, 0, 0);
             var row = WallDetail.ListRow(CheckBox(line.Done), text, CardKit.Row(0, meta, remove));

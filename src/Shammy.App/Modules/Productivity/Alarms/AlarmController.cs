@@ -193,7 +193,7 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         _ringing = a;
         _sound.Start(_ctx.Settings.NotchSoundVolume, _ctx.Settings.AlarmGentleWake);
         // The ring around the notch is the wall's accent, like the pulsing ring on the ringing screen.
-        _ctx.SetGlow((Color)ColorConverter.ConvertFromString("#FF8A3D"));
+        _ctx.SetGlow(Ui.Tokens.Accent.Color);
         _ctx.Remove(StoppedId);
         SyncSnoozedPill();
         // If the card gets covered (a search, another card), the pill brings it back.

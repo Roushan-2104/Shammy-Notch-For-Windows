@@ -64,9 +64,9 @@ public sealed class NotchCard
 /// <summary>The design's colours, one accent per kind of activity (see the v2 mockup).</summary>
 public static class NotchPalette
 {
-    public const string Music = "#FF8A3D", Calendar = "#4C9AFF", Timer = "#5AC8FA", Battery = "#34C759",
+    public const string Music = "#FF8A3D", Calendar = "#4C9AFF", Timer = "#5AC8FA", Battery = Ui.Tokens.OkHex,
         Weather = "#FFC233", Purple = "#B48CFF", Alarm = "#FF453A",
-        CardBackground = "#121214", CardStroke = "#1F1F23", Text = "#F5F5F7", Text2 = "#A1A1A6";
+        CardBackground = "#121214", CardStroke = "#1F1F23", Text = Ui.Tokens.TextHex, Text2 = Ui.Tokens.Text2Hex;
 
     public const double CardHeight = 176, DetailWidth = 924, DetailHeight = 248;
 }

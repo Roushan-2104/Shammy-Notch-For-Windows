@@ -96,7 +96,7 @@ internal sealed class SnippetsCard
         key.MinWidth = 64;
         var body = CardKit.Text(OneLine(text), 13, FontWeights.Medium, secondary: true);
         body.ToolTip = text;
-        var remove = CardKit.Quiet($"Delete {trigger}", CardKit.Icon(CardKit.Paths.Close, CardKit.Ink, 10, 2.4), () => _delete(trigger), 22);
+        var remove = CardKit.CloseButton(() => _delete(trigger), $"Delete {trigger}");
         remove.Visibility = Visibility.Hidden;
         var row = WallDetail.ListRow(key, body, remove);
         row.MouseEnter += (_, _) => remove.Visibility = Visibility.Visible;
@@ -118,7 +118,7 @@ internal sealed class SnippetsCard
             e.Handled = true;
             var parts = input.Text.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
             string? error = parts.Length < 2 ? "Type the trigger, a space, then the text"
-                : !SnippetText.IsValidTrigger(parts[0]) ? $"{parts[0]} can't be a trigger (start it with ; and no spaces)"
+                : !SnippetText.IsValidTrigger(parts[0]) ? $"{parts[0]} can’t be a trigger (start it with ; and no spaces)"
                 : _add(parts[0].ToLowerInvariant(), parts[1]);
             if (error is null)
             {
@@ -131,6 +131,7 @@ internal sealed class SnippetsCard
                 d.Line.Text = error;
                 d.Line.Foreground = CardKit.Alarm;
             }
+            Ui.A11y.Announce(d.Line.Text, input);
         };
         var plus = CardKit.Icon(CardKit.Paths.Plus, CardKit.Ink2, 14, 2.2);
         plus.Margin = new Thickness(0, 0, 8, 0);

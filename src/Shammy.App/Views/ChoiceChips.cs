@@ -26,28 +26,26 @@ internal sealed class ChoiceChips : WrapPanel
         {
             int at = i;
             bool first = i == 0;
-            var chip = new Border
-            {
-                Height = ChipHeight,
-                CornerRadius = new CornerRadius(ChipHeight / 2),
-                Padding = new Thickness(8, 0, 13, 0),
-                Margin = new Thickness(0, 0, 8, 8),
-                Cursor = Cursors.Hand,
-                BorderThickness = new Thickness(1),
-                Focusable = false,
-            };
-            chip.SetResourceReference(Border.BackgroundProperty, first ? "WallAccent" : "WallRaised");
-            chip.SetResourceReference(Border.BorderBrushProperty, first ? "WallAccent" : "WallHairline");
+            // A Pressable: hover (the accent chip too), the kit's press, a tab stop and a button to screen readers.
+            var chip = first
+                ? new Screens.Pressable(Ui.Tokens.Accent, Ui.Tokens.AccentHover, Ui.Tokens.Accent, Ui.Tokens.AccentHover)
+                : new Screens.Pressable(Ui.Tokens.Pill, Ui.Tokens.PillHover, Ui.Tokens.Hairline, Ui.Tokens.HairlineHover);
+            chip.Height = ChipHeight;
+            chip.CornerRadius = new CornerRadius(ChipHeight / 2);
+            chip.Padding = new Thickness(8, 0, 13, 0);
+            chip.Margin = new Thickness(0, 0, 8, 8);
             string text = first ? "WallOnAccent" : "WallText";
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var key = new TextBlock { Text = (i + 1).ToString(), FontSize = 11, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0.75 };
+            var key = WallParts.Text((i + 1).ToString(), 11, FontWeights.SemiBold, text);
+            key.Margin = new Thickness(2, 0, 6, 0);
+            key.Opacity = 0.75;
             key.SetResourceReference(TextBlock.ForegroundProperty, text);
             row.Children.Add(key);
             if (cat) row.Children.Add(Paw(first ? "WallOnAccent" : i == chips.Count - 1 ? "WallText2" : "PawPink"));
             else
             {
-                var glyph = new TextBlock { Text = chips[i].Glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 7, 0) };
+                var glyph = new TextBlock { Text = chips[i].Glyph, FontFamily = Ui.Tokens.FontRes("IconFont"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 7, 0) };
                 glyph.SetResourceReference(TextBlock.ForegroundProperty, text);
                 row.Children.Add(glyph);
             }
@@ -59,14 +57,7 @@ internal sealed class ChoiceChips : WrapPanel
 
             AutomationProperties.SetName(chip, $"{i + 1}: {chips[i].Title}");
             chip.ToolTip = $"Press {i + 1}{(first ? " or Enter" : "")}";
-            chip.MouseEnter += (_, _) => { if (!first) chip.SetResourceReference(Border.BackgroundProperty, "WallRaisedHover"); };
-            chip.MouseLeave += (_, _) => { if (!first) chip.SetResourceReference(Border.BackgroundProperty, "WallRaised"); };
-            chip.MouseLeftButtonDown += (_, e) => e.Handled = true;
-            chip.MouseLeftButtonUp += (_, e) =>
-            {
-                e.Handled = true;
-                pick(at);
-            };
+            chip.Click += () => pick(at);
             Children.Add(chip);
         }
     }
@@ -88,7 +79,7 @@ internal sealed class ChoiceChips : WrapPanel
         g.Children.Add(new EllipseGeometry(new Point(14.6, 6.6), 2.1, 2.7));
         g.Children.Add(new EllipseGeometry(new Point(18.4, 10.4), 2.1, 2.6));
         var path = new Path { Data = g, Width = 15, Height = 15, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center };
-        if (brush == "PawPink") path.Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0x9D, 0xB0));
+        if (brush == "PawPink") path.Fill = Ui.Tokens.Paw;
         else path.SetResourceReference(Shape.FillProperty, brush);
         return path;
     }

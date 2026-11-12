@@ -93,17 +93,8 @@ internal sealed class PrompterCard : Grid
         }, minWidth: 50, height: 24, fontSize: 12);
         SetColumn(_paces, 1);
         bar.Children.Add(_paces);
-        var x = new Pressable(ScreenKit.Tile, ScreenKit.TileHover)
-        {
-            Width = 24,
-            Height = 24,
-            CornerRadius = new CornerRadius(12),
-            Margin = new Thickness(8, 0, 0, 0),
-            Child = ScreenKit.Icon("M 6,6 L 18,18 M 18,6 L 6,18", ScreenKit.Fg, 10, 2.4),
-            ToolTip = "Close the teleprompter",
-        };
-        System.Windows.Automation.AutomationProperties.SetName(x, "Close the teleprompter");
-        x.Click += close;
+        var x = Views.Cards.CardKit.CloseButton(close, "Close the teleprompter");
+        x.Margin = new Thickness(8, 0, 0, 0);
         SetColumn(x, 2);
         bar.Children.Add(x);
         SetRow(bar, 1);

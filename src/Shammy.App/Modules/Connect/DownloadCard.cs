@@ -13,7 +13,7 @@ namespace Shammy.Modules.Connect;
 /// </summary>
 internal sealed class DownloadCard : Grid
 {
-    public const double CardWidth = 440, CardHeight = 118;
+    public const double CardWidth = Ui.Tokens.PopupWidth, CardHeight = 118;
 
     readonly string _path;
     readonly Action _close;
@@ -37,7 +37,7 @@ internal sealed class DownloadCard : Grid
         else icon.Child = CardKit.Glyph("", 16, CardKit.Text2);
         head.Children.Add(icon);
         var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        words.Children.Add(CardKit.Label(Path.GetFileName(path), 14, FontWeights.SemiBold));
+        words.Children.Add(Views.WallParts.PopupTitle(Path.GetFileName(path)));
         words.Children.Add(CardKit.Label(Details(path), 11.5, FontWeights.Medium, CardKit.Text2));
         head.Children.Add(words);
         DockPanel.SetDock(head, Dock.Top);

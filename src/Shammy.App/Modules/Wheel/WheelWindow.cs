@@ -88,8 +88,9 @@ internal sealed class WheelWindow : Window
         }
 
         _tetherBrush = new LinearGradientBrush { MappingMode = BrushMappingMode.Absolute };
-        _tetherBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 138, 61), 0));
-        _tetherBrush.GradientStops.Add(new GradientStop(Color.FromArgb(230, 255, 138, 61), 1));
+        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
+        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+        TintTether();
         _tether = new Line { Stroke = _tetherBrush, StrokeThickness = 3, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Opacity = 0 };
         _canvas.Children.Add(_tether);
 
@@ -101,9 +102,12 @@ internal sealed class WheelWindow : Window
             body.Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 8, Direction = 270, Opacity = 0.45, Color = Colors.Black };
             var ring = new Ellipse { StrokeThickness = 1.5, Opacity = 0 };
             ring.SetResourceReference(Shape.StrokeProperty, "WallAccent");
-            var glyph = new TextBlock { FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 20, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            var key = new TextBlock { Text = (i + 1).ToString(), FontSize = 9, Foreground = new SolidColorBrush(Color.FromRgb(0xA3, 0xA3, 0xAB)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 4) };
-            var pin = new Ellipse { Width = 6, Height = 6, Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0x9D, 0xB0)), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 8, 0), Visibility = Visibility.Collapsed };
+            var glyph = new TextBlock { FontFamily = Ui.Tokens.FontRes("IconFont"), FontSize = 20, Foreground = Ui.Tokens.Text, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var key = Views.WallParts.Text((i + 1).ToString(), 9, FontWeights.SemiBold, "WallText2");
+            key.HorizontalAlignment = HorizontalAlignment.Center;
+            key.VerticalAlignment = VerticalAlignment.Bottom;
+            key.Margin = new Thickness(0, 0, 0, 4);
+            var pin = new Ellipse { Width = 6, Height = 6, Fill = Ui.Tokens.Paw, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 8, 0), Visibility = Visibility.Collapsed };
             g.Children.Add(body);
             g.Children.Add(ring);
             g.Children.Add(glyph);
@@ -148,10 +152,19 @@ internal sealed class WheelWindow : Window
     static double Response => MotionPrefs.Lively ? 0.32 : 0.22;
     static double Bouncy => MotionPrefs.Lively ? 0.58 : 1.0;
 
+    /// <summary>The tether is the user's accent, fading in from the hub (re-read each time the wheel opens).</summary>
+    void TintTether()
+    {
+        var a = Ui.Tokens.Accent.Color;
+        _tetherBrush.GradientStops[0].Color = Color.FromArgb(0, a.R, a.G, a.B);
+        _tetherBrush.GradientStops[1].Color = Color.FromArgb(230, a.R, a.G, a.B);
+    }
+
     /// <summary>Opens around the screen point (physical pixels) with these actions on the beads.</summary>
     public void OpenAt(int x, int y, IReadOnlyList<(string Glyph, string Name, bool Pinned)> beads, bool cat)
     {
         _open = true;
+        TintTether();
         _selected = -1;
         _flying = -1;
         _face.CatOverride = cat ? null : false;

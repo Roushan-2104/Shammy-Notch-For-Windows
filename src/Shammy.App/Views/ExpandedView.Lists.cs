@@ -68,7 +68,7 @@ public partial class ExpandedView
         _shelfRows.Children.Clear();
         if (n == 0)
         {
-            _shelfRows.Children.Add(Empty("Nothing parked yet"));
+            _shelfRows.Children.Add(CardKit.Empty("Nothing on the shelf yet", "Drop files on the notch to park them here"));
             return;
         }
         foreach (var item in items) _shelfRows.Children.Add(ShelfRow(item));
@@ -80,14 +80,6 @@ public partial class ExpandedView
         return e;
     }
 
-    static TextBlock Empty(string text)
-    {
-        var t = CardKit.Text(text, 13, FontWeights.Medium, secondary: true);
-        t.Margin = new Thickness(0, 8, 0, 0);
-        t.HorizontalAlignment = HorizontalAlignment.Left;
-        return t;
-    }
-
     FrameworkElement ShelfRow(ShelfItem item)
     {
         var icon = new Image { Width = 20, Height = 20, Stretch = Stretch.Uniform };
@@ -96,7 +88,7 @@ public partial class ExpandedView
         var name = CardKit.Text(item.Name, 13.5, FontWeights.SemiBold);
         var meta = CardKit.Text("", 12, FontWeights.Medium, secondary: true);
         meta.SetBinding(TextBlock.TextProperty, new Binding(nameof(ShelfItem.Details)) { Source = item, Mode = BindingMode.OneWay });
-        var remove = CardKit.Quiet("Remove from shelf", CardKit.Icon(CardKit.Paths.Close, CardKit.Ink, 10, 2.4), () => _s?.Shelf.Remove(item), 22);
+        var remove = CardKit.CloseButton(() => _s?.Shelf.Remove(item), "Remove from shelf");
         remove.Visibility = Visibility.Hidden;
         remove.Margin = new Thickness(10, 0, 0, 0);
         var right = CardKit.Row(0, meta, remove);
@@ -224,7 +216,7 @@ public partial class ExpandedView
         if (history.Count == 0)
         {
             // The line above already says why when notifications aren't available.
-            if (_s.Notifications.IsAvailable) _alertRows.Children.Add(Empty("All caught up"));
+            if (_s.Notifications.IsAvailable) _alertRows.Children.Add(CardKit.Empty("All caught up", "New notifications show up here"));
             return;
         }
         foreach (var n in history) _alertRows.Children.Add(AlertRow(n));
@@ -245,7 +237,7 @@ public partial class ExpandedView
         if (n.ListDetail.Length > 0)
             text.Inlines.Add(CardKit.Run("  " + n.ListDetail, FontWeights.Medium, CardKit.Ink2));
         var time = CardKit.Text(n.TimeText, 12, FontWeights.Medium, secondary: true);
-        var dismiss = CardKit.Quiet("Dismiss", CardKit.Icon(CardKit.Paths.Close, CardKit.Ink, 10, 2.4), () => _s?.Notifications.History.Remove(n), 22);
+        var dismiss = CardKit.CloseButton(() => _s?.Notifications.History.Remove(n), "Dismiss");
         dismiss.Visibility = Visibility.Hidden;
         dismiss.Margin = new Thickness(10, 0, 0, 0);
         var row = WallDetail.ListRow(icon, text, CardKit.Row(0, time, dismiss), 36);
@@ -296,7 +288,7 @@ public partial class ExpandedView
         tile.Lit.Children.Add(shade);
         _npTitle = CardKit.Title("", 16);
         _npArtist = CardKit.Text("", 11.5, FontWeights.Medium);
-        _npArtist.Foreground = CardKit.Hex("#D4D4DA");
+        _npArtist.Foreground = Ui.Tokens.InkOnArt;
         _npPlay = new ContentControl { Focusable = false, VerticalAlignment = VerticalAlignment.Center };
         var words = CardKit.Column(0, _npTitle, _npArtist);
         var line = new DockPanel { Margin = new Thickness(12, 0, 10, 12), VerticalAlignment = VerticalAlignment.Bottom };

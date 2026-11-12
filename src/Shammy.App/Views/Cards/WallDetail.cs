@@ -32,7 +32,7 @@ internal class WallDetail : Grid
         Art.ClipToBounds = true;
         Children.Add(Art);
 
-        Kicker = CardKit.Label(kicker, CardKit.Ink2);
+        Kicker = CardKit.SectionLabel(kicker);
         Kicker.HorizontalAlignment = HorizontalAlignment.Left;
         TitleText = CardKit.Poster(title, 40);
         TitleText.HorizontalAlignment = HorizontalAlignment.Left;

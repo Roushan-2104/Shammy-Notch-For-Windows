@@ -259,18 +259,13 @@ internal sealed class ClipboardCard
             _rows.Children.Clear();
             if (Private)
             {
-                _rows.Children.Add(Empty(Shammy.Core.Connect.PrivacyText.Hidden));
+                _rows.Children.Add(CardKit.Empty(Shammy.Core.Connect.PrivacyText.Hidden));
                 return;
             }
             foreach (var e in shown) _rows.Children.Add(Row(e, now));
-            if (shown.Count == 0) _rows.Children.Add(Empty(all.Count == 0 ? "Copy something and it shows up here" : "Nothing matches"));
-        }
-
-        static TextBlock Empty(string text)
-        {
-            var t = CardKit.Text(text, 13, FontWeights.Medium, secondary: true);
-            t.Margin = new Thickness(0, 8, 0, 0);
-            return t;
+            if (shown.Count == 0)
+                _rows.Children.Add(all.Count == 0 ? CardKit.Empty("Nothing copied yet", "Copy something and it shows up here")
+                    : CardKit.Empty("Nothing matches", "Try fewer or other words"));
         }
 
         static bool Matches(ClipEntry e, string query)
@@ -296,7 +291,9 @@ internal sealed class ClipboardCard
             if (shape == ClipShape.Link) Act("Open link", CardKit.Paths.Open, () => _card._open(e.Text.Trim()));
             if (e.Kind == ClipKind.Text && _card.SaveAsNote is { } save) Act("Save as note", CardKit.Paths.Note, () =>
             {
-                if (save(e)) meta.Text = "Saved as a note";
+                if (!save(e)) return;
+                meta.Text = "Saved as a note";
+                Ui.A11y.Announce(meta.Text, meta);
             });
             Act(e.Pinned ? "Unpin" : "Pin", CardKit.Paths.Pin, () => _card._history.SetPinned(e, !e.Pinned));
             Act("Remove", CardKit.Paths.Close, () => _card._history.Remove(e));

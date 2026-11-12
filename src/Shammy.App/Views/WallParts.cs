@@ -56,6 +56,18 @@ internal static class WallParts
         VerticalAlignment = VerticalAlignment.Center,
     }, weight, tabular);
 
+    /// <summary>A pop-up card's title as a TextBlock (for titles that wrap): 17 px ExtraBold, the kit's one title style.</summary>
+    public static TextBlock PopupTitle(string text, bool wrap = false)
+    {
+        var t = Text(text, Ui.Tokens.PopupTitleSize, FontWeights.ExtraBold);
+        if (wrap)
+        {
+            t.TextWrapping = TextWrapping.Wrap;
+            t.TextTrimming = TextTrimming.CharacterEllipsis;
+        }
+        return t;
+    }
+
     /// <summary>The small tracked uppercase label (11 px, 700, 0.12em).</summary>
     public static TrackedText Label(string text, string brush = "WallText2", double size = 11) => new()
     {
