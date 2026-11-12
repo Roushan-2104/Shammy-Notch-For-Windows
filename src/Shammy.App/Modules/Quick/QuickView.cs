@@ -39,7 +39,7 @@ internal sealed class QuickView : Grid
 
         _awake = new QuickTile(Icons.Cup, "Keep awake", "Off", module.ToggleKeepAwake);
         _lengths = new Segmented(KeepAwakeClock.Choices.Select(m => m < 60 ? $"{m}m" : $"{m / 60}h").ToList(), Choice(module.Pick),
-            i => module.PickLength(KeepAwakeClock.Choices[i]), minWidth: 22, height: 22, fontSize: 10.5)
+            i => module.PickLength(KeepAwakeClock.Choices[i]), minWidth: 22, height: 22, fontSize: 10.5, sidePadding: 5)
         {
             ToolTip = "How long to keep awake",
         };

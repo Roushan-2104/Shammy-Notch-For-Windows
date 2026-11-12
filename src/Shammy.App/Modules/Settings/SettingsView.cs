@@ -355,7 +355,13 @@ internal sealed partial class SettingsView : Grid
         finally { _searching = false; }
         if (found == 0)
         {
-            var none = ScreenKit.Text($"No setting matches “{_query}”.", 13, Weight.Regular, ScreenKit.Fg2);
+            // Not a setting, but a feature (night light lives in the Laptop card): say where it is instead.
+            var feature = Core.Guide.FeatureFinder.Best(_query);
+            var said = feature is null
+                ? $"No setting matches “{_query}”."
+                : $"No setting matches “{_query}”. {feature.Name}: {feature.Line} Try “{feature.Phrase}”.";
+            var none = ScreenKit.Text(said, 13, Weight.Regular, ScreenKit.Fg2);
+            none.TextWrapping = TextWrapping.Wrap;
             none.Margin = new Thickness(0, 12, 0, 12);
             _rows.Children.Add(none);
         }

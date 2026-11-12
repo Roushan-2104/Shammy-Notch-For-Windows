@@ -461,7 +461,7 @@ internal sealed class Segmented : Border
     int _index;
 
     public Segmented(IReadOnlyList<string> labels, int index, Action<int> chosen, double minWidth = 64, double height = 26,
-        double fontSize = 12, Func<int, FrameworkElement?>? icon = null, bool stretch = false)
+        double fontSize = 12, Func<int, FrameworkElement?>? icon = null, bool stretch = false, double sidePadding = 10)
     {
         _chosen = chosen;
         _index = index;
@@ -489,7 +489,7 @@ internal sealed class Segmented : Border
                 Height = height,
                 MinWidth = minWidth,
                 CornerRadius = new CornerRadius(height > 28 ? 9 : 7),
-                Padding = new Thickness(10, 0, 10, 0),
+                Padding = new Thickness(sidePadding, 0, sidePadding, 0),
                 Child = content,
                 PressScale = 0.97,
             };
