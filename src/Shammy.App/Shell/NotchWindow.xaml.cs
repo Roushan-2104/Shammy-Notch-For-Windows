@@ -683,6 +683,15 @@ public partial class NotchWindow : Window
         _flashedId = a.Id;
         _flashedPayload = a.Payload;
         if (a.Payload is NotificationPayload np) _restView.Mood.Notified(np.Notification.AppName, np.Notification.Title);
+        // Screen readers hear what just arrived: a message ("Saved · click to show"), a notification (as the list
+        // shows it, so it stays hidden while presenting) or a finished download.
+        Ui.A11y.Announce(a.Payload switch
+        {
+            MessagePayload m when a.Kind is ActivityKind.Message or ActivityKind.Custom => m.Text,
+            NotificationPayload n => $"{n.Notification.ListTitle}. {n.Notification.ListDetail}",
+            DownloadPayload d when a.Kind == ActivityKind.DownloadComplete => $"Downloaded {d.Name}",
+            _ => null,
+        }, this, a.Id);
         Color? color = a switch
         {
             { Kind: ActivityKind.Notification } => Theme.Accent.Current,

@@ -76,8 +76,13 @@ internal sealed class ActivityChrome
             BorderBrush = Brushes.Transparent,
             Child = _icon,
         };
-        _circle = new Border
+        // Screen readers see the circle and the dot as buttons (named by their tooltips); Invoke runs the click.
+        _circle = new Ui.InvokableBorder
         {
+            Invoked = () =>
+            {
+                if (_spec is { Enabled: true } spec) CircleClicked?.Invoke(spec.Action);
+            },
             Width = CircleSize, Height = CircleSize, CornerRadius = new CornerRadius(CircleSize / 2), Background = notchFill,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _circleScale, Child = _disc, Cursor = Cursors.Hand, Opacity = 0,
         };
@@ -106,8 +111,12 @@ internal sealed class ActivityChrome
             Width = 14, Height = 14, CornerRadius = new CornerRadius(7), Background = notchFill,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Child = _dotLight,
         };
-        _dot = new Border
+        _dot = new Ui.InvokableBorder
         {
+            Invoked = () =>
+            {
+                if (_dotId is { } id) DotClicked?.Invoke(id);
+            },
             Width = 20, Height = 20, Background = Brushes.Transparent, Child = _dotInner, Cursor = Cursors.Hand,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _dotScale, Opacity = 0,
         };

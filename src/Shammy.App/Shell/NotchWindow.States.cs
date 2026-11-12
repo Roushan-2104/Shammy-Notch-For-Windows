@@ -43,6 +43,7 @@ public partial class NotchWindow
 
         // Typing in the open notch ends when the notch stops being open (closed, a card or a notification took over).
         if (mode != NotchMode.Expanded && _detailTyping) EndDetailTyping(giveBack: true);
+        if (mode != NotchMode.Expanded && _keyboardMode) EndKeyboard(giveBack: true);
         if (mode == NotchMode.Compact) PrepareCompact();
         if (mode == NotchMode.Notification && _activity?.Payload is NotificationPayload p)
         {

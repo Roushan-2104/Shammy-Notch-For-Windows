@@ -291,7 +291,9 @@ internal sealed class ClipboardCard
             if (shape == ClipShape.Link) Act("Open link", CardKit.Paths.Open, () => _card._open(e.Text.Trim()));
             if (e.Kind == ClipKind.Text && _card.SaveAsNote is { } save) Act("Save as note", CardKit.Paths.Note, () =>
             {
-                if (save(e)) meta.Text = "Saved as a note";
+                if (!save(e)) return;
+                meta.Text = "Saved as a note";
+                Ui.A11y.Announce(meta.Text, meta);
             });
             Act(e.Pinned ? "Unpin" : "Pin", CardKit.Paths.Pin, () => _card._history.SetPinned(e, !e.Pinned));
             Act("Remove", CardKit.Paths.Close, () => _card._history.Remove(e));
