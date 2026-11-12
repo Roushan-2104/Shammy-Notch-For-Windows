@@ -192,11 +192,9 @@ public partial class ExpandedView : UserControl
         services.Media.Changed += () => Dispatcher.BeginInvoke(RefreshNowPlaying);
         services.Settings.Changed += name =>
         {
-            if (name is not (nameof(Infrastructure.AppSettings.DockEnabled) or nameof(Infrastructure.AppSettings.NowLineEnabled)
-                or nameof(Infrastructure.AppSettings.CatTheme) or "")) return;
+            if (name is not (nameof(Infrastructure.AppSettings.NowLineEnabled) or nameof(Infrastructure.AppSettings.CatTheme) or "")) return;
             Dispatcher.BeginInvoke(() =>
             {
-                _dockKey = "";
                 RefreshHomeTop();
                 RebuildRail(animate: false);
             });

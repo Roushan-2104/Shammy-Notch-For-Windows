@@ -20,24 +20,32 @@ namespace Shammy.Modules.Settings;
 
 internal partial class SettingsView
 {
-    // ---- Notch & pet -------------------------------------------------------------------------------
+    // ---- Notch ------------------------------------------------------------------------------------
 
-    void NotchAndPet()
+    /// <summary>How the notch opens and moves, how it looks, and the apps it stays away from.</summary>
+    void NotchPage()
     {
         var speeds = new[] { HoverSpeed.Quick, HoverSpeed.Normal, HoverSpeed.Relaxed };
         Row("Hover speed", "How long you rest the pointer before the notch opens.",
             new Segmented(new[] { "Quick", "Normal", "Relaxed" }, Array.IndexOf(speeds, _s.HoverSpeed), i =>
-                Set(nameof(AppSettings.HoverSpeed), speeds[i], $"Hover speed · {speeds[i]}")));
+                Set(nameof(AppSettings.HoverSpeed), speeds[i], $"Hover speed · {speeds[i]}")), words: "open delay pointer");
         SwitchRow("Peek", "A quick glance when you rest the pointer, before it opens.", nameof(AppSettings.PeekEnabled), "Peek on", "Peek off");
-        SwitchRow("Morning brief", "The first unlock of a morning: weather, meetings, reminders and battery in one line, said aloud when a Gnani key is saved. Say “good morning” for it any time.",
-            nameof(AppSettings.MorningBrief), "Morning brief on", "Morning brief off");
+        SwitchRow("Gestures", "Scroll over the notch for volume, swipe sideways to skip a track.", nameof(AppSettings.GesturesEnabled), "Gestures on", "Gestures off",
+            words: "swipe scroll wheel volume");
+        SwitchRow("Tuck-away tab", "A small tab under the notch. Click it and the notch slides away for a few seconds, so you can click what is under it.",
+            nameof(AppSettings.TuckAwayEnabled), "Tuck-away tab on", "Tuck-away tab off", words: "hide");
         SwitchRow("Right now line", "One line at the top of the open notch with what matters this minute: a meeting soon, Claude waiting, a timer, new messages.",
             nameof(AppSettings.NowLineEnabled), "Right now line on", "Right now line off");
-        SwitchRow("Dock", "The wheel's eight actions as keys at the top of the open notch, plus a few for the app you're in (a meeting, a browser, code). Pick the eight in Settings › Wheel.",
-            nameof(AppSettings.DockEnabled), "Dock on", "Dock off");
-        SwitchRow("Tuck-away tab", "A small tab under the notch. Click it and the notch slides away for a few seconds, so you can click what is under it.",
-            nameof(AppSettings.TuckAwayEnabled), "Tuck-away tab on", "Tuck-away tab off");
 
+        LookAndPlace();
+        HiddenApps();
+    }
+
+    // ---- Pet -------------------------------------------------------------------------------------
+
+    /// <summary>The pet: a little notch preview with its switch, then its style, purr, cat theme, eyes and name (dimmed while it's off).</summary>
+    void PetPage()
+    {
         // The pet: a little notch preview, the switch, then its eyes and name (dimmed while it's off).
         var dependents = new List<FrameworkElement>();
         var face = new PetFace(0.82, FaceMood.Idle);
@@ -72,8 +80,8 @@ internal partial class SettingsView
         dependents.Add(kindRow);
         purrRow = SwitchRow("Purr", "A soft purr when your pointer rests on the cat. Follows Notch sounds.", nameof(AppSettings.PetPurrs), "Purr on", "Purr off");
         dependents.Add(purrRow);
-        SwitchRow("Cat theme", "Cat touches around the notch: the cat listens while you talk, and paws lead the “Did you mean” choices.",
-            nameof(AppSettings.CatTheme), "Cat theme on", "Cat theme off");
+        dependents.Add(SwitchRow("Cat theme", "Cat touches around the notch: the cat listens while you talk, and paws lead the “Did you mean” choices.",
+            nameof(AppSettings.CatTheme), "Cat theme on", "Cat theme off", words: "paws"));
 
         var styles = new[] { PetEyeStyle.Round, PetEyeStyle.Oval, PetEyeStyle.Pixel };
         var styleRow = Row("Eye style", "Shapes the eyes in every mood.",
@@ -146,28 +154,21 @@ internal partial class SettingsView
         dependents.Add(nameRow);
         foreach (var d in dependents) Dim(d, _s.PetEnabled);
         if (_s.PetKind != PetKind.Cat) Dim(purrRow, false);
-
-        // Nudges: small reminders from the pet.
-        SwitchRow("Eye breaks", "Every 20 minutes, the pet rests its eyes with you for 20 seconds.", nameof(AppSettings.EyeBreaksEnabled), "Eye breaks on", "Eye breaks off");
-        SwitchRow("Water reminders", "A gentle reminder to drink water every hour and a half.", nameof(AppSettings.WaterRemindersEnabled), "Water reminders on", "Water reminders off");
-
-        LookAndPlace();
-        HiddenApps();
     }
 
-    /// <summary>Motion, size, accent colour, which screen, and the lyric line.</summary>
+    /// <summary>Size, motion, accent colour and the lyric line.</summary>
     void LookAndPlace()
     {
         Section("Look", "");
-        var motions = new[] { MotionStyle.Lively, MotionStyle.Calm };
-        Row("Motion", "Calm stops the bounce, the spinning record and the pet’s little extras.",
-            new Segmented(new[] { "Lively", "Calm" }, Array.IndexOf(motions, _s.Motion), i =>
-                Set(nameof(AppSettings.Motion), motions[i], $"Motion · {motions[i]}")));
-
         var sizes = new[] { NotchSize.Small, NotchSize.Normal, NotchSize.Large };
         Row("Notch size", "Makes everything in the notch larger or smaller.",
             new Segmented(new[] { "Small", "Normal", "Large" }, Array.IndexOf(sizes, _s.NotchSize), i =>
-                Set(nameof(AppSettings.NotchSize), sizes[i], $"Notch size · {sizes[i]}")));
+                Set(nameof(AppSettings.NotchSize), sizes[i], $"Notch size · {sizes[i]}")), words: "scale bigger smaller");
+
+        var motions = new[] { MotionStyle.Lively, MotionStyle.Calm };
+        Row("Motion", "Calm stops the bounce, the spinning record and the pet’s little extras.",
+            new Segmented(new[] { "Lively", "Calm" }, Array.IndexOf(motions, _s.Motion), i =>
+                Set(nameof(AppSettings.Motion), motions[i], $"Motion · {motions[i]}")), words: "animation calm lively bounce");
 
         TextBlock accentHint = null!;
         var swatches = new StackPanel { Orientation = Orientation.Horizontal };
@@ -194,23 +195,9 @@ internal partial class SettingsView
             };
             swatches.Children.Add(swatch);
         }
-        Row("Accent colour", $"{_s.Accent} · buttons and highlights", swatches, out accentHint);
+        Row("Accent colour", $"{_s.Accent} · buttons and highlights", swatches, out accentHint, words: "color theme");
 
-        var screens = System.Windows.Forms.Screen.AllScreens;
-        var names = screens.Select(s => s.DeviceName).ToList();
-        var primary = screens.FirstOrDefault(s => s.Primary)?.DeviceName ?? names.FirstOrDefault() ?? "";
-        var options = NotchDisplay.Options(names, primary);
-        if (options.Count < 2)
-            Row("Show on", "Only one screen is connected. With a second one you can choose where the notch lives.", null);
-        else
-        {
-            int chosen = Math.Max(0, options.ToList().FindIndex(o => o.Value.Equals(_s.NotchDisplay, StringComparison.OrdinalIgnoreCase)));
-            Row("Show on", "Which screen the notch lives on.",
-                new Segmented(options.Select(o => o.Label).ToList(), chosen, i =>
-                    Set(nameof(AppSettings.NotchDisplay), options[i].Value, $"Showing on · {options[i].Label}"), minWidth: 54));
-        }
-
-        SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off");
+        SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off", words: "lyrics song music");
     }
 
     /// <summary>The apps the notch stays away from, with one to add from what is running now.</summary>
@@ -237,51 +224,37 @@ internal partial class SettingsView
             Row(app, "The notch hides while this is in front", remove, initial);
         }
 
-        var running = RunningApps().Where(a => !_s.HiddenApps.Contains(a)).ToList();
-        if (running.Count == 0)
+        var slot = new Border();
+        TextBlock addHint = null!;
+        Row("Add an app", "Looking at the apps that are open…", slot, out addHint);
+        void Fill(IReadOnlyList<string> apps)
         {
-            Row("Add an app", "Open the app first, then come back here to pick it.", null);
-            return;
-        }
-        var labels = new List<string> { "Choose an app" };
-        labels.AddRange(running);
-        Row("Add an app", "Pick from the apps that are open now.", Dropdown(labels, 0, 170, i =>
-        {
-            if (i == 0) return;
-            var app = running[i - 1];
-            Set(nameof(AppSettings.HiddenApps), _s.HiddenApps.Append(app).ToList(), $"The notch hides in {app}");
-            BuildPanel(keepScroll: true);
-        }));
-    }
-
-    /// <summary>Apps with a window open right now, by plain name (never Shammy itself).</summary>
-    static List<string> RunningApps()
-    {
-        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            foreach (var p in System.Diagnostics.Process.GetProcesses())
+            var running = apps.Where(a => !_s.HiddenApps.Contains(a, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (running.Count == 0)
             {
-                using (p)
-                {
-                    try
-                    {
-                        if (p.MainWindowHandle == IntPtr.Zero || string.IsNullOrWhiteSpace(p.MainWindowTitle)) continue;
-                        var key = HideRules.Key(p.ProcessName);
-                        if (key.Length > 0 && key != "shammy" && key != "explorer" && key != "textinputhost" && key != "applicationframehost") names.Add(key);
-                    }
-                    catch (Exception)
-                    {
-                        // A protected process: skip it.
-                    }
-                }
+                addHint.Text = "Open the app first, then come back here to pick it.";
+                slot.Child = null;
+                return;
             }
+            addHint.Text = "Pick from the apps that are open now.";
+            var labels = new List<string> { "Choose an app" };
+            labels.AddRange(running);
+            slot.Child = Dropdown(labels, 0, 170, i =>
+            {
+                if (i == 0) return;
+                var app = running[i - 1];
+                Set(nameof(AppSettings.HiddenApps), _s.HiddenApps.Append(app).ToList(), $"The notch hides in {app}");
+                BuildPanel(keepScroll: true);
+            });
         }
-        catch (Exception ex)
+        if (OpenApps.Fresh is { } known) Fill(known);
+        else
         {
-            Log.Warn("Listing running apps failed", ex);
+            _ = OpenApps.ListAsync().ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully) Dispatcher.BeginInvoke(() => Fill(t.Result));
+            }, TaskScheduler.Default);
         }
-        return names.ToList();
     }
 
     static void Calm(PetFace face)

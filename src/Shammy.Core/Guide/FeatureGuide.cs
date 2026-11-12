@@ -6,7 +6,7 @@ public enum GuideSwitch
     /// <summary>Always there (the keys, the palette): the guide only explains it.</summary>
     None,
 
-    /// <summary>A whole module, off from the next start (Settings › General › Features).</summary>
+    /// <summary>A whole module, off from the next start (Settings › Advanced).</summary>
     Module,
 
     /// <summary>One yes/no setting, at once.</summary>
@@ -24,8 +24,9 @@ public enum GuideSwitch
 /// <param name="Starts">Typed or spoken text beginning with one of these counts as having used it.</param>
 /// <param name="Aliases">Single words or short names that, typed alone, mean this feature.</param>
 /// <param name="NewIn">The version that brought it ("0.6"), or empty.</param>
+/// <param name="Also">What else its switch turns off, when that is more than its name says ("Also turns off …"); or empty.</param>
 public sealed record GuideFeature(string Id, int Group, string Name, string Line, string Phrase, string Try, string Words,
-    string[] Starts, string[] Aliases, GuideSwitch Switch = GuideSwitch.None, string SwitchName = "", string NewIn = "");
+    string[] Starts, string[] Aliases, GuideSwitch Switch = GuideSwitch.None, string SwitchName = "", string NewIn = "", string Also = "");
 
 /// <summary>
 /// Everything Shammy does, listed once: the guide in the open notch shows this, the finder searches it, and the
@@ -40,8 +41,8 @@ public static class FeatureGuide
     };
 
     static GuideFeature F(string id, int group, string name, string line, string phrase, string @try, string words, string starts = "", string aliases = "",
-        GuideSwitch sw = GuideSwitch.None, string switchName = "", string newIn = "") =>
-        new(id, group, name, line, phrase, @try, words, Split(starts), Split(aliases), sw, switchName, newIn);
+        GuideSwitch sw = GuideSwitch.None, string switchName = "", string newIn = "", string also = "") =>
+        new(id, group, name, line, phrase, @try, words, Split(starts), Split(aliases), sw, switchName, newIn, also);
 
     static string[] Split(string list) => list.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -64,9 +65,12 @@ public static class FeatureGuide
         F("circle", 0, "Circle to search", "Circle anything on screen to search it.", "Copilot key, or hold Right Ctrl", "",
             "what is this picture image screen google lens identify"),
         F("answers", 0, "Instant answers", "Units, currency, maths and time zones.", "5 ft in cm · 100 usd to inr", "",
-            "calculate calculator convert rupees dollars maths units time zone", sw: GuideSwitch.Module, switchName: "selection"),
+            "calculate calculator convert rupees dollars maths units time zone", sw: GuideSwitch.Module, switchName: "selection",
+            also: "Also turns off reading QR codes and converting prices you select."),
         F("translate", 0, "Translate", "Google Translate, right in the notch.", "translate good morning to hindi", "",
             "language hindi english meaning", "translate"),
+        F("chain", 0, "Several at once", "Ask for two or three things in one go; they run one after another.", "timer 5m and pause music", "",
+            "chain chained several multiple two three things together then and also one go sequence"),
 
         F("messages", 1, "Messages in the notch", "Notifications open here; swipe one away and the next comes up.", "hover to hold · swipe to dismiss", "",
             "notifications whatsapp chat alerts popups mute pile", sw: GuideSwitch.Setting, switchName: "ShowNotifications"),
@@ -76,14 +80,16 @@ public static class FeatureGuide
             "wake up morning ring clock", "set an alarm|wake me|alarms|snooze", "alarm|alarms"),
         F("reminders", 1, "Reminders and notes", "A card when it is due; notes you can type into.", "remind me at 6pm to call mom", "card:notes",
             "remember forget later todo write down list", "remind me|note:|note ", "reminder|reminders|notes"),
-        F("focus", 1, "Pomodoro and focus", "Focus in one click; the notch stays quiet and tells you what waited.", "pomodoro · focus 45m", "pomodoro",
-            "concentrate study work deep distraction session", "pomodoro|focus ", "pomodoro"),
+        F("focus", 1, "Pomodoro and focus", "Focus in one click on the wheel; the notch stays quiet, then says what waited.", "focus 45m · pomodoro", "pomodoro",
+            "concentrate study work deep distraction session quiet one click wheel waited missed messages", "pomodoro|focus ", "pomodoro"),
         F("calendar", 1, "Calendar", "Your next meeting, with Join five minutes before.", "what's next", "calendar",
             "meeting schedule today next event agenda", "calendar|my meetings|what's next|whats next", "calendar", GuideSwitch.Module, "calendar"),
         F("eyebreaks", 1, "Eye breaks", "Every 20 minutes the pet rests its eyes with you.", "take an eye break", "take an eye break",
             "eyes tired strain rest screen health look away", "take an eye break|eye break", "eye break|eye breaks", GuideSwitch.Setting, "EyeBreaksEnabled", "0.6"),
-        F("water", 1, "Water reminders", "A gentle reminder every hour and a half.", "Settings › Notch & pet", "",
-            "drink thirsty hydrate health", "", "water", GuideSwitch.Setting, "WaterRemindersEnabled", "0.6"),
+        F("water", 1, "Water reminders", "A gentle reminder every hour and a half.", "water reminders on", "",
+            "drink thirsty hydrate health", "water reminders", "water", GuideSwitch.Setting, "WaterRemindersEnabled", "0.6"),
+        F("nowline", 1, "Right now line", "The open notch’s top line: a meeting soon, Claude waiting, a timer.", "hover the notch", "",
+            "right now line top status next important minute soon waiting new messages", "", "", GuideSwitch.Setting, "NowLineEnabled"),
 
         F("music", 2, "Music", "The song's cover as a spinning record, with the line being sung.", "play kesariya · pause · next", "card:music",
             "song play spotify youtube album cover disc record player", "play |pause|next|previous", "music|song|songs", GuideSwitch.Module, "music", "0.6"),
@@ -108,11 +114,14 @@ public static class FeatureGuide
             "capture picture snip", "take a screenshot", "", GuideSwitch.Module, "screenshot"),
 
         F("shelf", 4, "Shelf", "Park files on the notch and drag them out later.", "drag files onto the notch", "",
-            "keep files hold temporary park drag drop", "", "shelf", GuideSwitch.Module, "dropactions"),
+            "keep files hold temporary park drag drop", "", "shelf", GuideSwitch.Module, "dropactions",
+            also: "Also turns off converting and sharing files you drop on the notch."),
         F("phone", 4, "Send to phone", "Over your own Wi-Fi with a QR code. No app, no account.", "send to phone", "send to phone",
             "airdrop transfer mobile share photos qr", "send to phone", "", GuideSwitch.Module, "phonesend"),
         F("clipboard", 4, "Clipboard history", "What you copied, with pinning and search.", "clipboard", "clipboard",
             "copy paste copied earlier lost history", "clipboard|clear clipboard", "clipboard", GuideSwitch.Module, "clipboard"),
+        F("copypreview", 4, "Copy preview", "A peek of what you just copied, in the notch.", "copy anything", "",
+            "copied peek glance show notch", "", "", GuideSwitch.Setting, "CopyPreviewEnabled"),
         F("snippets", 4, "Snippets", "Short triggers that expand in any app.", ";date · ;shrug", "snippets",
             "shortcut typing expand signature faster abbreviation", "snippet|snippets", "snippets", GuideSwitch.Module, "snippets"),
 
@@ -122,10 +131,16 @@ public static class FeatureGuide
             "otp code one time password verification sms login bank copy", "", "otp|codes", GuideSwitch.Setting, "OtpEnabled", "0.8"),
         F("health", 5, "Health", "Storage, a careful cleanup and a daily check of this laptop.", "open health", "",
             "health storage disk space full clean cleanup temp recycle bin downloads battery wear startup apps restart updates check", "", "health|cleanup|storage", GuideSwitch.Module, "health", "0.8"),
-        F("quick", 5, "Laptop controls", "Wi-Fi, Bluetooth, power mode, lock, sleep, restart in one card.", "quick actions · keep awake", "quick actions",
+        F("quick", 5, "Laptop", "Wi-Fi, Bluetooth, power mode, lock, sleep, restart in one card.", "turn off wifi · performance mode", "card:quick",
             "laptop control center controller wifi bluetooth power mode restart shut down stop pc sleeping stay on awake lock screen away dont sleep caffeine", "quick actions|keep awake|stay awake|lock my pc", "quick actions|keep awake|laptop|control center", GuideSwitch.Module, "quick", "0.8"),
         F("tuck", 5, "Tuck it away", "Click the small tab under the notch and it slides away for a few seconds.", "the tab under the notch", "",
             "hide move out of the way covering behind under tab title reach click underneath", "", "", GuideSwitch.Setting, "TuckAwayEnabled", "0.6"),
+        F("peek", 5, "Peek", "Rest the pointer on the notch for a quick glance before it opens.", "rest the pointer on the notch", "",
+            "peek glance hover preview quick look", "", "peek", GuideSwitch.Setting, "PeekEnabled"),
+        F("gestures", 5, "Gestures", "Scroll over the notch for volume; swipe sideways to skip a track.", "scroll over the notch", "",
+            "gesture swipe scroll touchpad volume skip track", "", "gestures", GuideSwitch.Setting, "GesturesEnabled"),
+        F("hideapps", 5, "Hide while using", "The notch stays away while the apps you pick are in front.", "Settings › Notch", "",
+            "hide away game games photoshop distraction stay away while using app", ""),
         F("launcher", 5, "App launcher", "Apps, sites and folders, typos forgiven.", "open spotify", "",
             "open start run program website folder", "open ", "", GuideSwitch.Module, "launcher"),
         F("system", 5, "System", "CPU, memory and battery, with alerts.", "cpu", "cpu",
@@ -133,17 +148,18 @@ public static class FeatureGuide
 
         F("pet", 6, "Shammy the pet", "Eyes that react to what you do, or a cat with ears and a purr.", "pet on · pet off", "",
             "eyes ears purr cute animal mascot hide kitten", "pet on|pet off", "cat|pet|purr", GuideSwitch.Setting, "PetEnabled", "0.6"),
-        F("cattheme", 6, "Cat theme", "A cat that listens while you talk, and paws on the choices.", "Settings › Notch & pet", "",
+        F("cattheme", 6, "Cat theme", "A cat that listens while you talk, and paws on the choices.", "Settings › Pet", "",
             "paws paw cat theme kitty listening ears", "", "", GuideSwitch.Setting, "CatTheme", "0.7"),
 
-        F("claude", 7, "Claude Code", "Sessions in the notch, with Allow and Deny.", "Settings › General › Connect", "",
+        F("claude", 7, "Claude Code", "Sessions in the notch, with Allow and Deny.", "Settings › Connections", "",
             "coding agent ai approve allow deny terminal", "", "claude code", GuideSwitch.Module, "agents", "0.6"),
         F("cricket", 7, "Live cricket", "The score while India is playing.", "ticker cricket", "",
             "score india match", "ticker cricket", "cricket", GuideSwitch.Setting, "LiveCricketEnabled", "0.6"),
-        F("onlinevoice", 7, "Online voice", "Speaks timers aloud with your own Gnani key.", "Settings › Voice", "",
+        F("onlinevoice", 7, "Online voice", "Speaks timers aloud with your own Gnani key.", "Settings › Voice & search", "",
             "speak aloud read out voice hinglish gnani", "", "", GuideSwitch.Module, "onlinevoice", "0.6"),
         F("weather", 7, "Weather and tickers", "Weather, and cricket, stocks or crypto in the resting notch.", "weather in mumbai tomorrow", "weather",
-            "rain temperature forecast stocks crypto price", "weather|ticker ", "weather", GuideSwitch.Module, "ambient"),
+            "rain temperature forecast stocks crypto price", "weather|ticker ", "weather", GuideSwitch.Module, "ambient",
+            also: "Also turns off the pet’s moods."),
     };
 
     public static GuideFeature? ById(string id) => All.FirstOrDefault(f => f.Id == id);

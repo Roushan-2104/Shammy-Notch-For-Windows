@@ -17,12 +17,14 @@ public static class TourScript
         2 => new("Talk · 2 of 5", "Hold Right Alt to talk", "Hold, say it, let go. Try “set a timer for 25 minutes”. English or Hinglish, I get both."),
         3 => new("Type · 3 of 5", "Tap Right Alt to type", "A quick tap opens the palette. Nothing typed yet? I suggest things. Esc brings you back here."),
         4 => new("Circle · 4 of 5", "Circle anything", "Press the Copilot key and draw around a flight, a number, a photo. I’ll peek and offer the next step."),
-        _ => new("Everything else · 5 of 5", "Hover me for the rest", "Music, calendar, weather, clipboard: all one hover away. Pick a name for me first?"),
+        _ => new("Everything else · 5 of 5", "Hover me for the rest",
+            "Tap ? for all I can do, or hold the middle mouse button for the wheel. Pick a name for me first?"),
     };
 
-    static readonly string[] Phrases = { "tour", "help", "show the tour", "show tour", "show me the tour", "welcome tour", "take the tour", "replay the tour", "how does this work" };
+    // Not "help": the guide answers that.
+    static readonly string[] Phrases = { "tour", "show the tour", "show tour", "show me the tour", "welcome tour", "take the tour", "replay the tour", "how does this work" };
 
-    /// <summary>"tour", "help", "show the tour" (any case, a trailing ?/! ignored): typed or said, it replays the tour.</summary>
+    /// <summary>"tour", "show the tour" (any case, a trailing ?/! ignored): typed or said, it replays the tour.</summary>
     public static bool IsTourCommand(string? text)
     {
         var t = (text ?? "").Trim().TrimEnd('?', '!', '.').Trim().ToLowerInvariant();

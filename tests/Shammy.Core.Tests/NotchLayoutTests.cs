@@ -90,6 +90,19 @@ public class NotchLayoutTests
     }
 
     [Fact]
+    public void Guide_Laptop_Health_and_Claude_Code_come_before_Shelf_Mirror_and_Snippets()
+    {
+        var chips = NotchChips.Build(
+            new[] { new LegacyView("Shelf", "shelf"), new LegacyView("Snippets", "tab:snippets") },
+            new[]
+            {
+                new ChipCard("mirror", "Mirror", true), new ChipCard("agents", "Claude Code", true), new ChipCard("health", "Health", true),
+                new ChipCard("quick", "Laptop", true), new ChipCard("guide", "Guide", true),
+            });
+        Assert.Equal(new[] { "Guide", "Laptop", "Health", "Claude Code", "Shelf", "Mirror", "Snippets" }, chips.Select(c => c.Label));
+    }
+
+    [Fact]
     public void A_card_with_a_tabs_title_replaces_its_chip()
     {
         var chips = NotchChips.Build(

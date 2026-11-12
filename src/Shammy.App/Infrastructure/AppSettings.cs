@@ -130,7 +130,8 @@ internal sealed class AppSettings
     public bool SystemAlertsEnabled { get; set; } = true;
 
     /// <summary>0–100: the ping, the timer/reminder chime and the alarm.</summary>
-    public int NotchSoundVolume { get; set; } = 100;
+    // 60% for new installs; saved settings keep their volume.
+    public int NotchSoundVolume { get; set; } = 60;
 
     /// <summary>Modules (by name, e.g. "music", "clipboard") that don't start. Takes effect on the next start.</summary>
     public List<string> DisabledModules { get; set; } = new();
@@ -155,8 +156,7 @@ internal sealed class AppSettings
     /// <summary>Hold the middle mouse button for the wheel: eight actions around the pointer.</summary>
     public bool WheelEnabled { get; set; } = true;
 
-    /// <summary>The wheel's eight actions as keys at the top of the open notch.</summary>
-    public bool DockEnabled { get; set; } = true;
+    // "DockEnabled" (the dock, since removed) may still be in older settings.json files: unknown names are ignored on load.
 
     /// <summary>One line at the top of the open notch with what matters right now (a meeting soon, Claude waiting…).</summary>
     public bool NowLineEnabled { get; set; } = true;
@@ -208,7 +208,8 @@ internal sealed class AppSettings
     // ---- Nudges (eye breaks, water) -------------------------------------------------------------------
 
     /// <summary>After every 20 minutes of active screen time the pet closes its eyes with you for 20 seconds.</summary>
-    public bool EyeBreaksEnabled { get; set; } = true;
+    // Off for new installs (a choice in Settings › Routines); saved settings keep theirs.
+    public bool EyeBreaksEnabled { get; set; }
 
     /// <summary>The pet asks about water every 90 minutes of active time.</summary>
     public bool WaterRemindersEnabled { get; set; }

@@ -25,16 +25,18 @@ internal partial class SettingsView
     void Notifications()
     {
         SwitchRow("Show notifications in the notch", "Windows still keeps them in the Action Center.", nameof(AppSettings.ShowNotifications),
-            "Notifications show in the notch", "Notifications stay in Windows only");
-        SwitchRow("Codes in the notch", "A one-time code (OTP) in a message shows big with Copy for two minutes. Hidden while you share your screen; never logged.",
-            nameof(AppSettings.OtpEnabled), "Codes show in the notch", "Codes stay in the message");
+            "Notifications show in the notch", "Notifications stay in Windows only", words: "messages alerts whatsapp");
         var seconds = new SlimSlider(Math.Min(_s.NotificationPopupSeconds, 20), 2, 20, 1);
         TextBlock hint = null!;
-        Row("Show for", ShowForHint(_s.NotificationPopupSeconds), seconds, out hint);
+        Row("Show for", ShowForHint(_s.NotificationPopupSeconds), seconds, out hint, words: "how long seconds notifications");
         seconds.Changed += v => hint.Text = ShowForHint(v);
         seconds.Committed += v => Set(nameof(AppSettings.NotificationPopupSeconds), v, $"Show for {v} s");
+        SwitchRow("Codes in the notch", "A one-time code (OTP) in a message shows big with Copy for two minutes. Hidden while you share your screen; never logged.",
+            nameof(AppSettings.OtpEnabled), "Codes show in the notch", "Codes stay in the message", words: "otp verification");
         SwitchRow("Battery and Bluetooth alerts", "Charging, low battery and earbuds connecting.", nameof(AppSettings.SystemAlertsEnabled), "System alerts on", "System alerts off");
-        SwitchRow("Live cricket", "Shows the score while India is playing.", nameof(AppSettings.LiveCricketEnabled), "Live cricket on", "Live cricket off");
+        SwitchRow("Always hide message text", "Notifications show who, never what. While you share your screen it’s hidden anyway.",
+            nameof(AppSettings.AlwaysHideNotificationText), "Message text always hidden", "Message text shows unless you’re sharing", words: "privacy");
+        SwitchRow("Live cricket", "Shows the score while India is playing.", nameof(AppSettings.LiveCricketEnabled), "Live cricket on", "Live cricket off", words: "score match");
 
         Section("Muted apps", "Right-click any notification to mute its app.");
         if (_s.MutedNotificationApps.Count == 0)

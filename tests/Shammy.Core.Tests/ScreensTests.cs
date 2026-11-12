@@ -107,9 +107,9 @@ public class ScreensTests
 
     [Theory]
     [InlineData("tour", true)]
-    [InlineData("Help", true)]
+    [InlineData("Help", false)] // the guide answers "help"
     [InlineData("  show the tour ", true)]
-    [InlineData("help?", true)]
+    [InlineData("help?", false)]
     [InlineData("help me write an email", false)]
     [InlineData("tourism in goa", false)]
     [InlineData("", false)]

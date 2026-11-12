@@ -8,7 +8,8 @@ namespace Shammy.Modules.Settings;
 /// <summary>
 /// The Settings card (a chip in the open notch; its detail is the designed <see cref="SettingsView"/>) and the
 /// settings pipe commands: "settings-get [name]", "settings-set &lt;name&gt; &lt;value&gt;", "settings-open [tab]",
-/// "settings-tab &lt;tab&gt;", "settings-state", "notifications-unmute &lt;appId|all&gt;" and "mic-devices".
+/// "settings-tab &lt;tab&gt;", "settings-state", "settings-search &lt;words&gt;", "notifications-unmute &lt;appId|all&gt;"
+/// and "mic-devices".
 /// Never disabled by DisabledModules, since it's how modules are turned back on.
 /// </summary>
 internal sealed class SettingsModule : IShammyModule
@@ -54,6 +55,14 @@ internal sealed class SettingsModule : IShammyModule
             return "ok tab=" + tab;
         });
         ctx.AddPipeCommand("settings-state", _ => _view is { IsVisible: true } v ? v.Describe() : $"closed tab={SettingsView.Tab}");
+        // "settings-search eye br": types into the open card's search box.
+        ctx.AddPipeCommand("settings-search", arg =>
+        {
+            if (_view is not { IsVisible: true } v) return "error: settings is closed";
+            v.Search(arg);
+            return v.Describe();
+        });
+        OpenAt = section => ctx.Ui.BeginInvoke(() => Open(section));
         ctx.AddPipeCommand("notifications-unmute", Unmute);
         ctx.AddPipeCommand("notifications-muted", _ => $"muted={string.Join(",", ctx.Settings.MutedNotificationApps)}");
         ctx.AddPipeCommand("mic-devices", _ =>
@@ -84,13 +93,20 @@ internal sealed class SettingsModule : IShammyModule
         return _view;
     }
 
-    /// <summary>"pet", "time", "Notch & pet" → the tab's name (by its first word, any case).</summary>
-    static string Tab(string arg)
+    /// <summary>"pet", "voice", "Notch & pet" → the tab's name (exactly, by an old name, or by a word of it, any case).</summary>
+    static string Tab(string arg) => SettingsCatalog.SectionFor(arg) ?? arg.Trim();
+
+    /// <summary>Opens Settings (on a tab, when one is named): from the tray and the palette.</summary>
+    public static Action<string?>? OpenAt { get; private set; }
+
+    void Open(string? section)
     {
-        var a = arg.Trim();
-        return SettingsCatalog.Sections.FirstOrDefault(t => string.Equals(t, a, StringComparison.OrdinalIgnoreCase))
-               ?? SettingsCatalog.Sections.FirstOrDefault(t => t.Split(' ').Any(w => string.Equals(w, a, StringComparison.OrdinalIgnoreCase)))
-               ?? a;
+        if (section is not null && SettingsCatalog.SectionFor(section) is { } tab)
+        {
+            if (_view is { IsVisible: true } v) v.ShowTab(tab);
+            else SettingsView.Tab = tab;
+        }
+        _ctx.OpenCard("settings");
     }
 
     /// <summary>"settings-get" lists every setting as Name=value by section; "settings-get HoverSpeed" just that one.</summary>

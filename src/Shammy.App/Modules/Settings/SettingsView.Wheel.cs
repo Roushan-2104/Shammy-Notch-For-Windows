@@ -32,7 +32,7 @@ internal partial class SettingsView
         var link = Wheel.WheelLink.Current;
         if (link is null)
         {
-            Row("Beads", "The wheel feature is turned off (General → Features).", null);
+            Row("Beads", "The wheel feature is turned off (Settings › Advanced).", null);
             return;
         }
         Section("Beads", "Pinned beads stay where they are. The others follow what you use most.");

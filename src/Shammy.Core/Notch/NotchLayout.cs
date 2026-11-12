@@ -47,9 +47,15 @@ public sealed record ChipSpec(string Label, string ViewId);
 /// </summary>
 public static class NotchChips
 {
-    /// <summary>The Focus Wall chip order (Wall.dc.html: … Calendar, Snippets, Settings), then the cards that gained a chip so every card has a way in (Timers…
-    /// Weather); anything else follows in the order it was registered. What doesn't fit goes under "More".</summary>
-    static readonly string[] Preferred = { "Clipboard", "Shelf", "Notes", "Alerts", "System", "Mirror", "Calendar", "Snippets", "Settings", "Timers", "Music", "Weather", "Alarms" };
+    /// <summary>The chip order: Clipboard, then the Guide, Laptop, Health and Claude Code (ahead of Shelf, Mirror and Snippets, so
+    /// they stay out of "More"), then the Focus Wall order (Wall.dc.html: … Calendar, Snippets, Settings), then the cards that
+    /// gained a chip so every card has a way in (Timers… Weather); anything else follows in the order it was registered. What
+    /// doesn't fit goes under "More". "Coding agents" is Claude Code's older card title.</summary>
+    static readonly string[] Preferred =
+    {
+        "Clipboard", "Guide", "Laptop", "Health", "Claude Code", "Coding agents", "Shelf", "Notes", "Alerts", "System", "Mirror", "Calendar", "Snippets",
+        "Settings", "Timers", "Music", "Weather", "Alarms",
+    };
 
     public static IReadOnlyList<ChipSpec> Build(IEnumerable<LegacyView> legacy, IEnumerable<ChipCard> cards)
     {

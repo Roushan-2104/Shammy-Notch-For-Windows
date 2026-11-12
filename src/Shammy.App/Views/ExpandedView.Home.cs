@@ -5,23 +5,23 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
-using Path = System.Windows.Shapes.Path;
 using System.Windows.Threading;
 using Shammy.Modules;
-using Shammy.Modules.Wheel;
 using Shammy.Views.Cards;
 
 namespace Shammy.Views;
 
 /// <summary>
 /// The top of the open notch's home, above the tiles: the right-now line (the one thing that matters this minute,
-/// from the glance feed: a meeting soon, Claude waiting, a timer, a recording, new messages, low battery) and the
-/// dock (the wheel's eight actions as keys, so the same favourites are one click away with or without the middle
-/// button). Each can be switched off in Settings › Notch &amp; pet. Nothing here runs while the notch is closed.
+/// from the glance feed: a meeting soon, Claude waiting, a timer, a recording, new messages, low battery). It can be
+/// switched off in Settings › Notch. Nothing here runs while the notch is closed.
 /// </summary>
 public partial class ExpandedView
 {
-    const double KeySize = 48, KeyGap = 8, NowHeight = 34, StripGap = 8;
+    const double NowHeight = 34, StripGap = 8;
+
+    /// <summary>The line's width (the narrowest the home's tiles row gets).</summary>
+    const double NowWidth = 440;
 
     /// <summary>The line shows only items at least this important (the time, the weather and the song don't qualify).</summary>
     const int NowMinPriority = 20;
@@ -32,28 +32,15 @@ public partial class ExpandedView
     Ellipse? _nowDot;
     Border? _nowAction;
     TextBlock? _nowActionText;
-    StackPanel? _dock;
     DispatcherTimer? _nowTimer;
     GlanceFeed? _feed;
     List<GlanceEntry> _nowItems = new();
     int _nowIndex;
     bool _nowPicked; // +N was clicked this time the notch is open: stay on that item while it lasts
-    string _dockKey = "";
 
-    /// <summary>The height the home strip takes above the tiles (0 when both parts are off or empty).</summary>
-    double HomeTopHeight
-    {
-        get
-        {
-            if (_homeTop is not { Visibility: Visibility.Visible }) return 0;
-            double h = 0;
-            if (_nowLine is { Visibility: Visibility.Visible }) h += NowHeight + StripGap;
-            if (_dock is { Visibility: Visibility.Visible }) h += KeySize + StripGap;
-            return h;
-        }
-    }
-
-    static double DockWidth => 8 * KeySize + 7 * KeyGap;
+    /// <summary>The height the home strip takes above the tiles (0 when the line is off or empty).</summary>
+    double HomeTopHeight =>
+        _homeTop is { Visibility: Visibility.Visible } && _nowLine is { Visibility: Visibility.Visible } ? NowHeight + StripGap : 0;
 
     void EnsureHomeTop()
     {
@@ -97,7 +84,7 @@ public partial class ExpandedView
         _nowLine = new Border
         {
             Height = NowHeight,
-            Width = DockWidth,
+            Width = NowWidth,
             CornerRadius = new CornerRadius(14),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(12, 0, 6, 0),
@@ -114,11 +101,6 @@ public partial class ExpandedView
         AutomationProperties.SetLiveSetting(_nowLine, AutomationLiveSetting.Polite);
         _homeTop.Children.Add(_nowLine);
 
-        // ---- The dock
-        _dock = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, StripGap), Visibility = Visibility.Collapsed };
-        AutomationProperties.SetName(_dock, "Dock");
-        _homeTop.Children.Add(_dock);
-
         _feed = _s is { } s ? new GlanceFeed(s) : null;
         _nowTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => RefreshNow(), Dispatcher);
     }
@@ -128,7 +110,6 @@ public partial class ExpandedView
     {
         if (_s is null) return;
         EnsureHomeTop();
-        RefreshDock();
         RefreshNow();
         bool home = _openId is null && IsVisible;
         if (!home) _nowPicked = false;
@@ -192,140 +173,7 @@ public partial class ExpandedView
         catch (Exception ex) { Infrastructure.Log.Warn("A right-now action failed", ex); }
     }
 
-    /// <summary>The dock: the wheel's beads as keys. Rebuilt only when the beads, the Cat theme or the switch change.</summary>
-    void RefreshDock()
-    {
-        if (_dock is null || _s is null) return;
-        var link = WheelLink.Current;
-        bool on = _s.Settings.DockEnabled && link is not null;
-        _dock.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
-        if (!on) return;
-        var slots = link!.Slots;
-        // The app in front adds up to three keys of its own after a divider; your eight never move.
-        var front = ForegroundApp();
-        var suggestion = Core.Wheel.WheelContext.For(front?.Process, front?.Title);
-        var extra = Core.Wheel.WheelContext.Extra(suggestion, slots.Select(s => s.ActionId));
-        string key = string.Join(",", slots.Select(s => s.ActionId)) + "|" + string.Join(",", extra) + (_s.Settings.CatTheme ? "|cat" : "");
-        if (key == _dockKey) return;
-        _dockKey = key;
-        _dockContext = extra.Count > 0 ? $"{suggestion!.Label}: {string.Join(",", extra)}" : "";
-        _dock.Children.Clear();
-        for (int i = 0; i < slots.Count; i++)
-        {
-            var id = slots[i].ActionId;
-            var name = Core.Wheel.WheelSlots.ById(id)?.Name ?? id;
-            _dock.Children.Add(DockKey(i, id, name, WheelModule.GlyphFor(id), _s.Settings.CatTheme, link));
-        }
-        if (extra.Count == 0) return;
-        var divider = new Border { Width = 1, Height = 28, Margin = new Thickness(KeyGap + 2, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
-        divider.SetResourceReference(Border.BackgroundProperty, "WallHairline");
-        _dock.Children.Add(divider);
-        foreach (var id in extra)
-        {
-            var name = Core.Wheel.WheelSlots.ById(id)?.Name ?? id;
-            var k = DockKey(-1, id, name, WheelModule.GlyphFor(id), _s.Settings.CatTheme, link);
-            ((FrameworkElement)k).ToolTip = $"For {suggestion!.Label}: {name}";
-            AutomationProperties.SetName(k, $"For {suggestion.Label}: {name}");
-            _dock.Children.Add(k);
-        }
-    }
-
-    string _dockContext = "";
-    (string Process, string Title)? _lastFront;
-
-    /// <summary>The app the user is in (the notch never takes focus while hovered, so this is what's behind it).</summary>
-    (string Process, string Title)? ForegroundApp()
-    {
-        try
-        {
-            var hwnd = Interop.Native.GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return _lastFront;
-            Interop.Native.GetWindowThreadProcessId(hwnd, out uint pid);
-            // Shammy itself in front (typing in the notch): keep the app from before.
-            if (pid == 0 || pid == Environment.ProcessId) return _lastFront;
-            using var process = System.Diagnostics.Process.GetProcessById((int)pid);
-            var title = new System.Text.StringBuilder(256);
-            GetWindowText(hwnd, title, title.Capacity);
-            _lastFront = (process.ProcessName, title.ToString());
-            return _lastFront;
-        }
-        catch (Exception)
-        {
-            return _lastFront;
-        }
-    }
-
-    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-    static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder text, int max);
-
-    FrameworkElement DockKey(int index, string id, string name, string glyph, bool cat, WheelModule link)
-    {
-        var face = new Border { Width = KeySize, Height = KeySize, CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1) };
-        face.SetResourceReference(Border.BackgroundProperty, "WallTile");
-        face.SetResourceReference(Border.BorderBrushProperty, "WallHairline");
-        var icon = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        icon.SetResourceReference(TextBlock.ForegroundProperty, "WallText");
-        var number = new TextBlock { Text = (index + 1).ToString(), FontSize = 9, Margin = new Thickness(7, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
-        number.SetResourceReference(TextBlock.ForegroundProperty, "WallText2");
-        var inner = new Grid();
-        inner.Children.Add(icon);
-        inner.Children.Add(number);
-        face.Child = inner;
-
-        if (index < 0) number.Visibility = Visibility.Collapsed;
-        var root = new Grid { Width = KeySize, Height = KeySize, Margin = new Thickness(index == 0 ? 0 : KeyGap, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = name };
-        root.Children.Add(face);
-        // With the Cat theme, the key under the pointer wears two small ears.
-        Path? ears = null;
-        if (cat)
-        {
-            ears = new Path
-            {
-                Data = Geometry.Parse("M3,12 Q3,4 7,1 Q12,5 14,12 Z M31,12 Q31,4 27,1 Q22,5 20,12 Z"),
-                Width = 34,
-                Height = 12,
-                Stretch = Stretch.Fill,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, -9, 0, 0),
-                Visibility = Visibility.Hidden,
-                IsHitTestVisible = false,
-            };
-            ears.SetResourceReference(Shape.FillProperty, "WallAccent");
-            root.Children.Add(ears);
-        }
-        AutomationProperties.SetName(root, index < 0 ? name : $"{index + 1}: {name}");
-        root.MouseEnter += (_, _) =>
-        {
-            face.SetResourceReference(Border.BackgroundProperty, "WallSurfaceHover");
-            face.SetResourceReference(Border.BorderBrushProperty, "WallAccent");
-            if (ears is not null) ears.Visibility = Visibility.Visible;
-        };
-        root.MouseLeave += (_, _) =>
-        {
-            face.SetResourceReference(Border.BackgroundProperty, "WallTile");
-            face.SetResourceReference(Border.BorderBrushProperty, "WallHairline");
-            if (ears is not null) ears.Visibility = Visibility.Hidden;
-        };
-        root.MouseLeftButtonDown += (_, e) => e.Handled = true;
-        root.MouseLeftButtonUp += (_, e) =>
-        {
-            e.Handled = true;
-            link.RunFromDock(id);
-        };
-        return root;
-    }
-
     /// <summary>For the state pipe.</summary>
     internal string DescribeHomeTop() =>
-        $"now={(_nowLine?.Visibility == Visibility.Visible ? $"'{_nowText?.Text}' of {_nowItems.Count}" : "hidden")} " +
-        $"dock={(_dock?.Visibility == Visibility.Visible ? _dockKey : "hidden")} context='{_dockContext}' top={HomeTopHeight}";
-
-    /// <summary>Test hook: what clicking dock key <paramref name="index"/> would do (0-based).</summary>
-    internal string ClickDockForTest(int index)
-    {
-        if (WheelLink.Current is not { } link || index < 0 || index >= link.Slots.Count) return "error: no such key";
-        link.RunFromDock(link.Slots[index].ActionId);
-        return "clicked " + link.Slots[index].ActionId;
-    }
+        $"now={(_nowLine?.Visibility == Visibility.Visible ? $"'{_nowText?.Text}' of {_nowItems.Count}" : "hidden")} top={HomeTopHeight}";
 }

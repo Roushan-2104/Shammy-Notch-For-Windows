@@ -104,6 +104,9 @@ internal partial class PaletteModule
 
     void AddSettings(List<PaletteItem> items, string text)
     {
+        // Shammy's own settings first: on an equal match they rank above the Windows pages.
+        try { AddShammySettings(items, text); }
+        catch (Exception ex) { _ctx.Warn("Shammy setting rows failed", ex); }
         foreach (var (entry, match) in SettingsCatalog.Find(text))
         {
             var key = "setting:" + entry.Title;
@@ -167,6 +170,103 @@ internal partial class PaletteModule
                     break;
             }
         }
+    }
+
+    // ---- Shammy's own settings ---------------------------------------------------------------------
+
+    readonly Dictionary<string, global::Shammy.Modules.Settings.SettingsSearchEntry> _shammySettings = new();
+
+    /// <summary>
+    /// "Shammy setting" rows: switches flip in place (Enter, a click on the switch, ← →), anything else opens Shammy
+    /// Settings on its tab. Added before the Windows pages, so an equal match puts Shammy's own first.
+    /// </summary>
+    void AddShammySettings(List<PaletteItem> items, string text)
+    {
+        var found = global::Shammy.Modules.Settings.SettingsCatalog.Searchable(_ctx.Settings, Infrastructure.TrayIcon.Toggles)
+            .Select(e => (Entry: e, Match: ShammySettingSearch.Score(text, e.Label, e.Hint, e.Section)))
+            .Where(r => r.Match > 0)
+            .OrderByDescending(r => r.Match)
+            .Take(3)
+            .ToList();
+        foreach (var (entry, match) in found)
+        {
+            var key = "shammy:" + entry.Key;
+            _shammySettings[key] = entry;
+            var subtitle = "Shammy setting · " + entry.Section;
+            items.Add(entry.IsSwitch
+                ? new PaletteItem(key, PaletteKind.Setting, ShammyTitle(entry), subtitle, match)
+                {
+                    Hint = "Shammy",
+                    Confident = match >= 99,
+                    Tag = ShammySwitchEntry(key, entry),
+                }
+                : new PaletteItem(key, PaletteKind.Setting, entry.Label, subtitle, match)
+                {
+                    Hint = "Shammy",
+                    Confident = match >= 99,
+                    Tag = new PaletteEntry
+                    {
+                        Glyph = "",
+                        Run = _ =>
+                        {
+                            _bar.Complete(null);
+                            global::Shammy.Modules.Settings.SettingsModule.OpenAt?.Invoke(entry.Section);
+                        },
+                    },
+                });
+        }
+    }
+
+    static string ShammyTitle(global::Shammy.Modules.Settings.SettingsSearchEntry entry)
+    {
+        bool on;
+        try { on = entry.Get!(); }
+        catch (Exception) { return entry.Label; }
+        return $"{entry.Label} · {(on ? "on" : "off")}";
+    }
+
+    PaletteEntry ShammySwitchEntry(string key, global::Shammy.Modules.Settings.SettingsSearchEntry entry)
+    {
+        var toggle = (MiniSwitch)Control(key, () =>
+        {
+            var sw = new MiniSwitch();
+            sw.Toggled += on => FlipShammy(key, on);
+            return sw;
+        });
+        try { toggle.State = entry.Get!(); }
+        catch (Exception) { toggle.State = null; }
+        return new PaletteEntry
+        {
+            Glyph = "",
+            Control = toggle,
+            Learn = false,
+            // Enter flips it in place; the palette stays open.
+            Run = _ =>
+            {
+                if (_shammySettings.TryGetValue(key, out var e)) FlipShammy(key, !e.Get!());
+            },
+            EnterHint = () => "Enter on/off",
+            Adjust = d => FlipShammy(key, d > 0),
+        };
+    }
+
+    void FlipShammy(string key, bool on)
+    {
+        if (!_shammySettings.TryGetValue(key, out var entry) || !entry.IsSwitch) return;
+        try
+        {
+            if (entry.Get!() != on) entry.Set!(on);
+        }
+        catch (Exception ex)
+        {
+            _ctx.Warn($"Switching {entry.Label} from the palette failed", ex);
+        }
+        if (_controls.GetValueOrDefault(key) is MiniSwitch sw)
+        {
+            try { sw.State = entry.Get!(); }
+            catch (Exception) { sw.State = null; }
+        }
+        Retitle(key, ShammyTitle(entry));
     }
 
     static string VolumeTitle(float level, bool muted) => muted ? "Volume \u00B7 muted" : $"Volume \u00B7 {Math.Round(level * 100)}%";
