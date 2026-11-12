@@ -11,9 +11,10 @@ namespace Shammy.Modules.Otp;
 /// <summary>
 /// One-time codes at a glance: when a message (WhatsApp, Phone Link SMS, a mail app) carries an OTP, the notch
 /// shows the code big with a Copy circle for two minutes, the pet in its ninja mask. Copying marks the code private
-/// so neither Shammy's clipboard history nor Windows' (Win+V) keeps it. While the screen is shared or recorded
-/// the digits are hidden. The code is never written to the log.
-/// Pipes: otp-test "App|text", otp-state, otp-copy.
+/// so neither Shammy's clipboard history nor Windows' (Win+V) keeps it, and a minute later the clipboard is
+/// emptied if it still holds the code. While the screen is shared or recorded, or always with "Always hide message
+/// text", the digits are hidden. The code is never written to the log.
+/// Pipes: otp-test "App|text", otp-state, otp-copy, otp-clear-now.
 /// </summary>
 internal sealed class OtpModule : IShammyModule
 {
@@ -41,14 +42,28 @@ internal sealed class OtpModule : IShammyModule
             return Offer(parts[0], parts.Length > 1 ? parts[1] : "", parts[0]) ? "shown" : "no code";
         });
         ctx.AddPipeCommand("otp-state", _ =>
-            $"shown={(_ctx.Get(ActivityId) is null ? "no" : "yes")} app={_app ?? "-"} digits={_code?.Length ?? 0} copied={_copied} masked={PrivacyState.Presenting}");
+            $"shown={(_ctx.Get(ActivityId) is null ? "no" : "yes")} app={_app ?? "-"} digits={_code?.Length ?? 0} copied={_copied} masked={Masked} " +
+            $"clearing={(_onClipboard is null ? "no" : "yes")}");
         ctx.AddPipeCommand("otp-copy", _ => Copy() ? "copied" : "error: nothing to copy");
+        // Test hook: the minute's wait for the clipboard to be cleared, now.
+        ctx.AddPipeCommand("otp-clear-now", _ =>
+        {
+            bool waiting = _onClipboard is not null;
+            ClearNow();
+            return waiting ? "cleared if it still held the code" : "nothing waiting";
+        });
     }
 
     public void Dispose()
     {
         _ctx.Services.Notifications.Arrived -= OnArrived;
         PrivacyState.Changed -= OnPrivacy;
+        // Leaving with a code still on the clipboard: take it off now.
+        if (_onClipboard is not null && _ctx.Ui.CheckAccess())
+        {
+            try { ClearNow(); }
+            catch (Exception ex) { _ctx.Warn("Clearing the copied code failed", ex); }
+        }
     }
 
     void OnArrived(Notifications.ShammyNotification n)
@@ -77,10 +92,22 @@ internal sealed class OtpModule : IShammyModule
 
     internal string Label => _copied ? "Copied" : string.IsNullOrWhiteSpace(_app) ? "Code" : _app!;
 
-    /// <summary>The digits to show: spaced for reading, or dots while the screen is shared.</summary>
-    internal string Shown_ => _code is null ? "" : PrivacyState.Presenting ? new string('•', Math.Min(6, _code.Length)) : OtpFinder.Spaced(_code);
+    /// <summary>
+    /// Whether the digits are hidden: while the screen is shared or recorded, and always with Settings' "Always
+    /// hide message text" (the code is message text). Copy still copies it.
+    /// </summary>
+    internal bool Masked => PrivacyState.Presenting || _ctx.Settings.AlwaysHideNotificationText;
 
-    /// <summary>Copies the code, marked private (no clipboard history, no cloud clipboard).</summary>
+    /// <summary>The digits to show: spaced for reading, or dots when <see cref="Masked"/>.</summary>
+    internal string Shown_ => _code is null ? "" : Masked ? new string('•', Math.Min(6, _code.Length)) : OtpFinder.Spaced(_code);
+
+    /// <summary>A copied code leaves the clipboard this long after, if nothing else was copied since.</summary>
+    static readonly TimeSpan ClearAfter = TimeSpan.FromSeconds(60);
+
+    System.Windows.Threading.DispatcherTimer? _clear;
+    string? _onClipboard;
+
+    /// <summary>Copies the code, marked private (no clipboard history, no cloud clipboard); it's cleared a minute later.</summary>
     internal bool Copy()
     {
         if (_code is null) return false;
@@ -94,6 +121,7 @@ internal sealed class OtpModule : IShammyModule
                 data.SetData("CanUploadToCloudClipboard", new MemoryStream(new byte[4]));
                 Clipboard.SetDataObject(data, true);
                 _copied = true;
+                ClearLater(_code);
                 if (_ctx.Get(ActivityId) is { } a) _ctx.Post(a);
                 return true;
             }
@@ -104,6 +132,39 @@ internal sealed class OtpModule : IShammyModule
             }
         }
         return false;
+    }
+
+    void ClearLater(string code)
+    {
+        _onClipboard = code;
+        _clear ??= new System.Windows.Threading.DispatcherTimer(ClearAfter, System.Windows.Threading.DispatcherPriority.Background, (_, _) => ClearNow(), _ctx.Ui);
+        _clear.Stop();
+        _clear.Start();
+    }
+
+    /// <summary>Empties the clipboard, but only if it still holds the code (something copied since is left alone).</summary>
+    void ClearNow()
+    {
+        _clear?.Stop();
+        var code = _onClipboard;
+        _onClipboard = null;
+        if (code is null) return;
+        for (int i = 0; i < 3; i++)
+        {
+            try
+            {
+                if (Clipboard.ContainsText() && Clipboard.GetText() == code)
+                {
+                    Clipboard.Clear();
+                    _ctx.Info("The copied code left the clipboard");
+                }
+                return;
+            }
+            catch (ExternalException)
+            {
+                Thread.Sleep(40);
+            }
+        }
     }
 
     sealed class OtpContent(OtpModule module) : ICompactContent, IPetActivity
