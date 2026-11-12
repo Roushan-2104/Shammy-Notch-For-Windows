@@ -20,7 +20,7 @@
     <SolidColorBrush x:Key="MusicAccent" Color="#FFFF8A3D" />
     <SolidColorBrush x:Key="CalendarAccent" Color="#FF4C9AFF" />
     <SolidColorBrush x:Key="TimerAccent" Color="#FF5AC8FA" />
-    <SolidColorBrush x:Key="BatteryAccent" Color="#FF34C759" />
+    <SolidColorBrush x:Key="BatteryAccent" Color="#FF30D158" />
     <SolidColorBrush x:Key="WeatherAccent" Color="#FFFFC233" />
     <SolidColorBrush x:Key="PurpleAccent" Color="#FFB48CFF" />
     <SolidColorBrush x:Key="AlarmAccent" Color="#FFFF453A" />

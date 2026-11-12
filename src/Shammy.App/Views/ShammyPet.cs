@@ -483,7 +483,7 @@ internal sealed class ShammyPet : Grid
             Text = text,
             FontSize = size,
             FontWeight = FontWeights.Bold,
-            Foreground = brush.Length > 0 ? Res(brush) : new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x8A)),
+            Foreground = brush.Length > 0 ? Res(brush) : Ui.Tokens.Blush,
             RenderTransform = new TranslateTransform(),
             Opacity = 0,
         };

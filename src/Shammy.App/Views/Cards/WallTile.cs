@@ -86,7 +86,7 @@ internal sealed class WallTile : Grid
     {
         titleText = CardKit.Title(title);
         lineText = CardKit.Text(line, 11.5, FontWeights.Medium);
-        lineText.Foreground = lineBrush ?? CardKit.Hex("#D4D4DA");
+        lineText.Foreground = lineBrush ?? Ui.Tokens.InkOnArt;
         return CardKit.Column(0, titleText, lineText);
     }
 }

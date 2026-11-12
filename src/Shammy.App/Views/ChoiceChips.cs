@@ -41,13 +41,15 @@ internal sealed class ChoiceChips : WrapPanel
             string text = first ? "WallOnAccent" : "WallText";
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var key = new TextBlock { Text = (i + 1).ToString(), FontSize = 11, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0.75 };
+            var key = WallParts.Text((i + 1).ToString(), 11, FontWeights.SemiBold, text);
+            key.Margin = new Thickness(2, 0, 6, 0);
+            key.Opacity = 0.75;
             key.SetResourceReference(TextBlock.ForegroundProperty, text);
             row.Children.Add(key);
             if (cat) row.Children.Add(Paw(first ? "WallOnAccent" : i == chips.Count - 1 ? "WallText2" : "PawPink"));
             else
             {
-                var glyph = new TextBlock { Text = chips[i].Glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 7, 0) };
+                var glyph = new TextBlock { Text = chips[i].Glyph, FontFamily = Ui.Tokens.FontRes("IconFont"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 7, 0) };
                 glyph.SetResourceReference(TextBlock.ForegroundProperty, text);
                 row.Children.Add(glyph);
             }
@@ -88,7 +90,7 @@ internal sealed class ChoiceChips : WrapPanel
         g.Children.Add(new EllipseGeometry(new Point(14.6, 6.6), 2.1, 2.7));
         g.Children.Add(new EllipseGeometry(new Point(18.4, 10.4), 2.1, 2.6));
         var path = new Path { Data = g, Width = 15, Height = 15, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center };
-        if (brush == "PawPink") path.Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0x9D, 0xB0));
+        if (brush == "PawPink") path.Fill = Ui.Tokens.Paw;
         else path.SetResourceReference(Shape.FillProperty, brush);
         return path;
     }

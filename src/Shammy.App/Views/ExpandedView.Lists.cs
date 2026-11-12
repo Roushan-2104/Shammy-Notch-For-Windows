@@ -296,7 +296,7 @@ public partial class ExpandedView
         tile.Lit.Children.Add(shade);
         _npTitle = CardKit.Title("", 16);
         _npArtist = CardKit.Text("", 11.5, FontWeights.Medium);
-        _npArtist.Foreground = CardKit.Hex("#D4D4DA");
+        _npArtist.Foreground = Ui.Tokens.InkOnArt;
         _npPlay = new ContentControl { Focusable = false, VerticalAlignment = VerticalAlignment.Center };
         var words = CardKit.Column(0, _npTitle, _npArtist);
         var line = new DockPanel { Margin = new Thickness(12, 0, 10, 12), VerticalAlignment = VerticalAlignment.Bottom };

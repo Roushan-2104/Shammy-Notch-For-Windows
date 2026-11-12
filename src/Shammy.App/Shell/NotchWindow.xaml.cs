@@ -646,7 +646,8 @@ public partial class NotchWindow : Window
         Recompute();
     }
 
-    static readonly Color Green = Color.FromRgb(0x30, 0xD1, 0x58), Red = Color.FromRgb(0xFF, 0x45, 0x3A);
+    static Color Green => Ui.Tokens.Ok.Color;
+    static Color Red => Ui.Tokens.Alarm.Color;
 
     /// <summary>Keep the edge lit in a module's colour (e.g. a finished timer); null releases it.</summary>
     internal void SetGlow(Color? color)
