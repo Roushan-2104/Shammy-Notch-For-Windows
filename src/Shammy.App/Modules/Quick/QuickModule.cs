@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
 using Shammy.Core.Activities;
+using Shammy.Core.Connect;
 using Shammy.Core.Quick;
 using Shammy.Infrastructure;
 using Shammy.Modules.MeetingSystem;
@@ -9,30 +10,54 @@ using Shammy.Views.Cards;
 
 namespace Shammy.Modules.Quick;
 
+/// <summary>What the Laptop card remembers: Shammy's night light, and a quiet spell still running.</summary>
+internal sealed class QuickStore
+{
+    public bool NightLight { get; set; }
+    public DateTime? QuietUntilUtc { get; set; }
+}
+
 /// <summary>
-/// Quick actions: a card of six tiles (keep awake, lock, sleep, night light, do not disturb, mute mic) reached from
-/// its chip, and the same actions typed or spoken ("keep awake for 2 hours", "lock my pc", "put the pc to sleep").
+/// The Laptop card: the laptop's controls in one place (Wi-Fi, Bluetooth, power mode, keep awake, mute mic,
+/// quiet, night light, storage, lock, sleep, restart / shut down), reached from its chip, and the same things
+/// typed or spoken ("keep awake for 2 hours", "lock my pc", "turn off wifi", "bluetooth chalu karo", "best
+/// battery", "night light on", "quiet for an hour"). Restart and shut down are card-only and ask first.
 /// Keep-awake always has an end time; while it runs the pet shows "Awake" with the time left and a Stop circle.
-/// Night light and Do not disturb have no supported switch in Windows, so their tiles open the Settings page.
+/// Quiet is Shammy's own do-not-disturb (it holds its pop-ups, an hour from the tile); night light is Shammy's own
+/// warm tint over every screen, remembered across restarts. Neither opens Windows Settings.
 /// Pipes: "quick-state", "quick-keepawake &lt;minutes|off&gt;", "quick-advance &lt;minutes&gt;", "quick-parse &lt;text&gt;",
-/// "quick-run lock|sleep|nightlight|dnd|mic [--dry]", "quick-dry on|off", "quick-open".
+/// "quick-run lock|sleep|nightlight|dnd|mic [--dry]", "quick-dry on|off", "quick-open", "quick-off", "quick-power".
 /// </summary>
 internal sealed class QuickModule : IShammyModule
 {
     public const string CardId = "quick", ActivityId = "quick.keepawake";
-    public const string NightLightPage = "ms-settings:nightlight", DoNotDisturbPage = "ms-settings:quiethours";
+    public const string PowerPage = "ms-settings:powersleep", StoragePage = "ms-settings:storagesense";
 
     // Just above music (20): a song steps aside for it, everything else comes first.
     const int Priority = 22;
-    const string CupGlyph = "", LockGlyph = "", MoonGlyph = "", BoltGlyph = "", MicGlyph = "";
+    const string CupGlyph = "", LockGlyph = "", MoonGlyph = "", BoltGlyph = "", MicGlyph = "",
+        SettingsGlyph = "", SunGlyph = "", QuietGlyph = "";
+
+    /// <summary>
+    /// Shammy's own quiet. QuietReason has no member for it yet, so it is a value of its own, far from the named
+    /// ones; the state pipe's description reads it as "test" until QuietRules names it.
+    /// </summary>
+    const QuietReason QuietByUser = (QuietReason)40;
+
+    /// <summary>The quiet tile's length.</summary>
+    public const int QuietMinutes = 60;
 
     // Long enough for the notch to close (and a command's confirmation to be read) before the screen goes.
     static readonly TimeSpan LockDelay = TimeSpan.FromMilliseconds(600), SleepDelay = TimeSpan.FromMilliseconds(1400);
 
     readonly KeepAwakeClock _clock = new();
+    // Quiet runs on the same kind of clock: never open-ended, a minute's wake-up at most.
+    readonly KeepAwakeClock _quiet = new();
     ModuleContext _ctx = null!;
-    DispatcherTimer? _tick, _pending;
+    QuickStore _store = new();
+    DispatcherTimer? _tick, _pending, _quietTick;
     KeepAwakeContent? _content;
+    NightLightOverlay? _night;
     MicMute? _mic;
     QuickView? _view;
     bool _held, _micTried, _dry;
@@ -40,7 +65,7 @@ internal sealed class QuickModule : IShammyModule
 
     public string Name => "quick";
 
-    /// <summary>Keep-awake started, stopped or lost a minute, or the microphone changed: redraw the tiles.</summary>
+    /// <summary>Keep-awake started, stopped or lost a minute, a switch changed, or quiet ticked: redraw the tiles.</summary>
     public event Action? Changed;
 
     public bool KeepAwakeOn => _clock.IsOn;
@@ -53,8 +78,25 @@ internal sealed class QuickModule : IShammyModule
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        _store = ctx.Load<QuickStore>();
         _tick = new DispatcherTimer(DispatcherPriority.Background, ctx.Ui);
         _tick.Tick += (_, _) => Tick();
+        _quietTick = new DispatcherTimer(DispatcherPriority.Background, ctx.Ui);
+        _quietTick.Tick += (_, _) => QuietTick();
+
+        // Night light and a quiet spell carry over a restart of Shammy (or of the PC, for night light).
+        _night = new NightLightOverlay(ctx.Ui);
+        if (_store.NightLight && !_night.Show())
+        {
+            _store.NightLight = false;
+            ctx.Save(_store);
+        }
+        if (_store.QuietUntilUtc is { } until && until > DateTime.UtcNow) BeginQuiet(until);
+        else if (_store.QuietUntilUtc is not null)
+        {
+            _store.QuietUntilUtc = null;
+            ctx.Save(_store);
+        }
 
         ctx.AddCard(new NotchCard
         {
@@ -68,7 +110,7 @@ internal sealed class QuickModule : IShammyModule
             Compact = QuickView.BuildCompact(() => ctx.OpenCard(CardId)),
             Detail = () => _view = new QuickView(this),
         });
-        // Fixed phrases only, and ahead of the launcher so "open quick actions" isn't an app search.
+        // Fixed phrases only, and ahead of the launcher so "open laptop controls" isn't an app search.
         ctx.AddCommandFirst(new QuickTextCommand(this));
 
         ctx.AddPipeCommand("quick-state", _ => State());
@@ -88,7 +130,7 @@ internal sealed class QuickModule : IShammyModule
             "restart" => PowerOff(restart: true),
             "shutdown" => PowerOff(restart: false),
             "" => PowerModeNow?.ToString() ?? "none",
-            var m when Enum.TryParse<Core.Quick.PowerModeKind>(m, true, out var kind) => SetPowerMode(kind),
+            var m when Enum.TryParse<PowerModeKind>(m, true, out var kind) => SetPowerMode(kind),
             _ => "error: quick-power [efficiency|balanced|performance|restart|shutdown]",
         });
     }
@@ -206,6 +248,118 @@ internal sealed class QuickModule : IShammyModule
         }
     }
 
+    // ---- Quiet (Shammy's own do-not-disturb) ---------------------------------------------------------
+
+    public bool QuietOn => _quiet.IsOn;
+    public int QuietMinutesLeft => _quiet.MinutesLeft(DateTime.UtcNow);
+
+    /// <summary>Starts (or restarts) quiet for that long; returns the minutes it will run.</summary>
+    internal int StartQuiet(int minutes)
+    {
+        int runs = KeepAwakeClock.Clamp(minutes);
+        BeginQuiet(DateTime.UtcNow.AddMinutes(runs));
+        _ctx.Info($"Quiet on for {runs} min");
+        return runs;
+    }
+
+    void BeginQuiet(DateTime untilUtc)
+    {
+        // Ends exactly then, even when carried over a restart.
+        int minutes = KeepAwakeClock.Clamp((int)Math.Ceiling((untilUtc - DateTime.UtcNow).TotalMinutes));
+        _quiet.Start(untilUtc.AddMinutes(-minutes), minutes);
+        QuietState.Set(QuietByUser, true);
+        _store.QuietUntilUtc = _quiet.EndsUtc;
+        _ctx.Save(_store);
+        ArmQuiet();
+        _last = "quiet on";
+        Changed?.Invoke();
+    }
+
+    /// <summary>Ends quiet; false if it wasn't on.</summary>
+    internal bool EndQuiet()
+    {
+        if (!_quiet.IsOn) return false;
+        _quiet.Stop();
+        Ended();
+        _ctx.Info("Quiet off");
+        return true;
+    }
+
+    void Ended()
+    {
+        _quietTick?.Stop();
+        QuietState.Set(QuietByUser, false);
+        _store.QuietUntilUtc = null;
+        _ctx.Save(_store);
+        _last = "quiet off";
+        Changed?.Invoke();
+    }
+
+    /// <summary>The tile: off starts an hour, on ends it.</summary>
+    internal void ToggleQuiet()
+    {
+        if (!EndQuiet()) StartQuiet(QuietMinutes);
+    }
+
+    void QuietTick()
+    {
+        if (_quiet.Expire(DateTime.UtcNow))
+        {
+            Ended();
+            _ctx.Info("Quiet ended");
+            return;
+        }
+        if (!_quiet.IsOn)
+        {
+            _quietTick?.Stop();
+            return;
+        }
+        ArmQuiet();
+        Changed?.Invoke();
+    }
+
+    void ArmQuiet()
+    {
+        if (_quietTick is null) return;
+        _quietTick.Stop();
+        _quietTick.Interval = _quiet.NextCheck(DateTime.UtcNow);
+        _quietTick.Start();
+    }
+
+    // ---- Night light (Shammy's own warm tint) -----------------------------------------------------------
+
+    public bool NightLightOn => _night?.IsOn == true;
+
+    /// <summary>Turns the tint on or off and remembers it; false if the tint couldn't be put on the screens.</summary>
+    internal bool SetNightLight(bool on)
+    {
+        if (_night is null) return false;
+        if (on != _night.IsOn)
+        {
+            if (on && !_night.Show())
+            {
+                _ctx.Warn("Night light: no screen could be tinted");
+                return false;
+            }
+            if (!on) _night.Hide();
+            _ctx.Info($"Night light {(on ? "on" : "off")}");
+        }
+        if (_store.NightLight != on)
+        {
+            _store.NightLight = on;
+            _ctx.Save(_store);
+        }
+        _last = "nightlight " + (on ? "on" : "off");
+        Changed?.Invoke();
+        return true;
+    }
+
+    internal void ToggleNightLight()
+    {
+        bool on = !NightLightOn;
+        if (!SetNightLight(on)) _ctx.ShowMessage(SunGlyph, "Couldn’t turn on night light", error: true);
+    }
+
     // ---- Wi-Fi, Bluetooth, power mode, restart and shut down ------------------------------------------
 
     const string WifiGlyph = "", BluetoothGlyph = "", PowerGlyph = "";
@@ -213,7 +367,10 @@ internal sealed class QuickModule : IShammyModule
     /// <summary>The radios' states as last read (null: unknown or no radio); the card reads them when it opens.</summary>
     public bool? WifiOn { get; private set; }
     public bool? BluetoothOn { get; private set; }
-    public Core.Quick.PowerModeKind? PowerModeNow { get; private set; }
+    public PowerModeKind? PowerModeNow { get; private set; }
+
+    /// <summary>False until the switches have been read once: the tiles say "Checking…" rather than "Not found".</summary>
+    public bool SwitchesRead { get; private set; }
 
     /// <summary>Reads the switches again (the card is opening): radios off the UI thread, then a redraw.</summary>
     internal async Task RefreshSwitchesAsync()
@@ -223,53 +380,151 @@ internal sealed class QuickModule : IShammyModule
         var bt = Palette.BluetoothRadio.GetAsync();
         WifiOn = await wifi;
         BluetoothOn = await bt;
+        SwitchesRead = true;
         Changed?.Invoke();
+    }
+
+    static string OnOff(bool on) => on ? "on" : "off";
+
+    /// <summary>Turns Wi-Fi on or off and says what happened; Windows refusing is said, never swallowed.</summary>
+    internal async Task<CommandResult> SetWifiAsync(bool on)
+    {
+        if (_dry)
+        {
+            _last = $"would switch wifi {OnOff(on)}";
+            return new CommandResult(WifiGlyph, $"Would turn Wi-Fi {OnOff(on)}", "Test mode: nothing happened");
+        }
+        var now = await LaptopSwitches.WifiAsync(null);
+        WifiOn = now;
+        if (now is null)
+        {
+            Changed?.Invoke();
+            return new CommandResult(WifiGlyph, "No Wi-Fi switch on this PC", IsError: true);
+        }
+        if (now != on) WifiOn = await LaptopSwitches.WifiAsync(on);
+        Changed?.Invoke();
+        if (WifiOn != on)
+        {
+            _ctx.Warn($"Windows refused Wi-Fi {OnOff(on)}");
+            _last = $"error: wifi {OnOff(on)} refused";
+            return new CommandResult(WifiGlyph, $"Couldn’t turn Wi-Fi {OnOff(on)}", IsError: true);
+        }
+        _last = "wifi " + OnOff(on);
+        return now == on
+            ? new CommandResult(WifiGlyph, $"Wi-Fi is already {OnOff(on)}")
+            : new CommandResult(WifiGlyph, $"Wi-Fi is {OnOff(on)}");
+    }
+
+    /// <summary>Turns Bluetooth on or off and says what happened.</summary>
+    internal async Task<CommandResult> SetBluetoothAsync(bool on)
+    {
+        if (_dry)
+        {
+            _last = $"would switch bluetooth {OnOff(on)}";
+            return new CommandResult(BluetoothGlyph, $"Would turn Bluetooth {OnOff(on)}", "Test mode: nothing happened");
+        }
+        var now = await Palette.BluetoothRadio.GetAsync();
+        BluetoothOn = now;
+        if (now is null)
+        {
+            Changed?.Invoke();
+            return new CommandResult(BluetoothGlyph, "No Bluetooth switch on this PC", IsError: true);
+        }
+        if (now != on)
+        {
+            if (await Palette.BluetoothRadio.SetAsync(on)) BluetoothOn = on;
+            else BluetoothOn = await Palette.BluetoothRadio.GetAsync() ?? now;
+        }
+        Changed?.Invoke();
+        if (BluetoothOn != on)
+        {
+            _ctx.Warn($"Windows refused Bluetooth {OnOff(on)}");
+            _last = $"error: bluetooth {OnOff(on)} refused";
+            return new CommandResult(BluetoothGlyph, $"Couldn’t turn Bluetooth {OnOff(on)}", IsError: true);
+        }
+        _last = "bluetooth " + OnOff(on);
+        return now == on
+            ? new CommandResult(BluetoothGlyph, $"Bluetooth is already {OnOff(on)}")
+            : new CommandResult(BluetoothGlyph, $"Bluetooth is {OnOff(on)}");
     }
 
     internal async void ToggleWifi()
     {
         try
         {
-            if (WifiOn is not { } on) { _ctx.ShowMessage(WifiGlyph, "No Wi-Fi switch on this PC", error: true); return; }
-            if (_dry) { _last = $"would switch wifi {(on ? "off" : "on")}"; return; }
-            WifiOn = await LaptopSwitches.WifiAsync(!on);
-            _last = $"wifi {(WifiOn == true ? "on" : "off")}";
-            Changed?.Invoke();
+            if (!SwitchesRead) await RefreshSwitchesAsync();
+            if (WifiOn is not { } on)
+            {
+                _ctx.ShowMessage(WifiGlyph, "No Wi-Fi switch on this PC", error: true);
+                return;
+            }
+            var said = await SetWifiAsync(!on);
+            if (said.IsError) _ctx.ShowMessage(WifiGlyph, said.Title, error: true);
         }
-        catch (Exception ex) { _ctx.Warn("Wi-Fi tile failed", ex); }
+        catch (Exception ex)
+        {
+            _ctx.Warn("Wi-Fi tile failed", ex);
+            _ctx.ShowMessage(WifiGlyph, "Couldn’t switch Wi-Fi", error: true);
+        }
     }
 
     internal async void ToggleBluetooth()
     {
         try
         {
-            if (BluetoothOn is not { } on) { _ctx.ShowMessage(BluetoothGlyph, "No Bluetooth switch on this PC", error: true); return; }
-            if (_dry) { _last = $"would switch bluetooth {(on ? "off" : "on")}"; return; }
-            if (await Palette.BluetoothRadio.SetAsync(!on)) BluetoothOn = !on;
-            _last = $"bluetooth {(BluetoothOn == true ? "on" : "off")}";
-            Changed?.Invoke();
+            if (!SwitchesRead) await RefreshSwitchesAsync();
+            if (BluetoothOn is not { } on)
+            {
+                _ctx.ShowMessage(BluetoothGlyph, "No Bluetooth switch on this PC", error: true);
+                return;
+            }
+            var said = await SetBluetoothAsync(!on);
+            if (said.IsError) _ctx.ShowMessage(BluetoothGlyph, said.Title, error: true);
         }
-        catch (Exception ex) { _ctx.Warn("Bluetooth tile failed", ex); }
+        catch (Exception ex)
+        {
+            _ctx.Warn("Bluetooth tile failed", ex);
+            _ctx.ShowMessage(BluetoothGlyph, "Couldn’t switch Bluetooth", error: true);
+        }
     }
 
-    /// <summary>Balanced → Best performance → Best battery → Balanced.</summary>
+    /// <summary>Balanced → Best performance → Best battery → Balanced; Settings where Windows has no slider.</summary>
     internal void CyclePowerMode()
     {
+        if (!SwitchesRead) PowerModeNow = LaptopSwitches.GetPowerMode();
         if (PowerModeNow is not { } now)
         {
-            OpenSettings("ms-settings:powersleep");
+            OpenSettings(PowerPage);
             return;
         }
-        SetPowerMode(Core.Quick.PowerMode.Next(now));
+        var said = PowerModeResult(PowerMode.Next(now));
+        if (said.IsError) _ctx.ShowMessage(BoltGlyph, said.Title, error: true);
     }
 
-    internal string SetPowerMode(Core.Quick.PowerModeKind kind)
+    /// <summary>Sets the power mode and says what happened.</summary>
+    internal CommandResult PowerModeResult(PowerModeKind kind)
     {
-        if (_dry) return _last = "would set power mode " + kind;
-        if (!LaptopSwitches.SetPowerMode(kind)) return "error: Windows refused the power mode";
+        if (_dry)
+        {
+            _last = "would set power mode " + kind;
+            return new CommandResult(BoltGlyph, $"Would switch to {PowerMode.Name(kind)}", "Test mode: nothing happened");
+        }
+        if (!LaptopSwitches.SetPowerMode(kind))
+        {
+            _last = "error: Windows refused the power mode";
+            return new CommandResult(BoltGlyph, "Couldn’t change the power mode", "Windows said no; Settings › System › Power has it", IsError: true);
+        }
         PowerModeNow = LaptopSwitches.GetPowerMode() ?? kind;
         Changed?.Invoke();
-        return _last = "power mode " + PowerModeNow;
+        _last = "power mode " + PowerModeNow;
+        return new CommandResult(BoltGlyph, $"Power mode · {PowerMode.Name(PowerModeNow.Value)}");
+    }
+
+    /// <summary>The test pipe's power mode.</summary>
+    internal string SetPowerMode(PowerModeKind kind)
+    {
+        var said = PowerModeResult(kind);
+        return said.IsError ? "error: Windows refused the power mode" : _last;
     }
 
     /// <summary>"54 GB free of 238 GB" for the system drive.</summary>
@@ -278,7 +533,7 @@ internal sealed class QuickModule : IShammyModule
         try
         {
             var drive = new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory) ?? "C:" + System.IO.Path.DirectorySeparatorChar);
-            return Core.Quick.StorageText.Free(drive.AvailableFreeSpace, drive.TotalSize);
+            return StorageText.Free(drive.AvailableFreeSpace, drive.TotalSize);
         }
         catch (Exception) { return "Open settings"; }
     }
@@ -286,7 +541,7 @@ internal sealed class QuickModule : IShammyModule
     /// <summary>The Storage tile: Shammy's health and cleanup card when it is there, else Windows' storage page.</summary>
     internal void OpenStorage()
     {
-        if (!_ctx.OpenCard("health")) OpenSettings("ms-settings:storagesense");
+        if (!_ctx.OpenCard("health")) OpenSettings(StoragePage);
     }
 
     /// <summary>Test hook: the Laptop card's restart / shut down tile, first click.</summary>
@@ -332,20 +587,35 @@ internal sealed class QuickModule : IShammyModule
         return _last = "lock";
     }
 
-    /// <summary>Puts the PC to sleep once the notch has closed. In a dry run it only says what it would do.</summary>
+    /// <summary>
+    /// Puts the PC to sleep once the notch has closed. A Modern Standby laptop (S0) sleeps by turning its screen
+    /// off, where SetSuspendState does nothing; others suspend. In a dry run it only says what it would do.
+    /// </summary>
     internal string Sleep(bool dry = false)
     {
+        bool standby = LaptopSwitches.ModernStandby();
         if (dry || _dry)
-            return WouldDo($"would sleep: SetSuspendState(hibernate: false){(_clock.IsOn ? ", after stopping keep-awake" : "")}",
-                MoonGlyph, "Would put the PC to sleep", dry);
+        {
+            string how = standby ? "screen off (Modern Standby)" : "SetSuspendState(hibernate: false)";
+            return WouldDo($"would sleep: {how}{(_clock.IsOn ? ", after stopping keep-awake" : "")}", MoonGlyph, "Would put the PC to sleep", dry);
+        }
         // Asking for sleep ends keep-awake: it must not still be holding the PC on when it wakes.
         StopKeepAwake();
         _ctx.Notch.Collapse();
         After(SleepDelay, () => Task.Run(() =>
         {
-            // Off the UI thread: the call only returns once the PC has woken up again.
+            // Off the UI thread: suspending only returns once the PC has woken up again.
             try
             {
+                if (standby)
+                {
+                    if (!LaptopSwitches.DisplayOff())
+                    {
+                        int error = Marshal.GetLastWin32Error();
+                        _ctx.Ui.BeginInvoke(() => Failed("Couldn’t put the PC to sleep", MoonGlyph, error));
+                    }
+                    return;
+                }
                 if (!QuickNative.SetSuspendState(false, false, false))
                 {
                     int error = Marshal.GetLastWin32Error();
@@ -358,7 +628,7 @@ internal sealed class QuickModule : IShammyModule
                 _ctx.Ui.BeginInvoke(() => _ctx.ShowMessage(MoonGlyph, "Couldn’t put the PC to sleep", error: true));
             }
         }));
-        return _last = "sleep";
+        return _last = standby ? "sleep (screen off)" : "sleep";
     }
 
     /// <summary>A dry run: remembers what would have happened, and says so in the notch when a tile or a command asked.</summary>
@@ -389,14 +659,29 @@ internal sealed class QuickModule : IShammyModule
         timer.Start();
     }
 
-    /// <summary>Opens one of the two fixed Windows Settings pages (night light, do not disturb).</summary>
+    /// <summary>
+    /// Opens one of the fixed Windows Settings pages the tiles fall back to (power, storage). Anything that goes
+    /// wrong says "Couldn’t open Settings" in the notch.
+    /// </summary>
     internal string OpenSettings(string page, bool dry = false)
     {
-        if (page is not (NightLightPage or DoNotDisturbPage)) return "error: unknown page";
-        if (dry) return _last = "would open: " + page;
-        if (!_ctx.Open(page))
+        if (page is not (PowerPage or StoragePage))
         {
-            _ctx.ShowMessage("", "Couldn’t open Settings", error: true);
+            _ctx.Warn("Settings page not allowed: " + page);
+            _ctx.ShowMessage(SettingsGlyph, "Couldn’t open Settings", error: true);
+            return _last = "error: unknown page";
+        }
+        if (dry || _dry) return _last = "would open: " + page;
+        bool opened;
+        try { opened = _ctx.Open(page); }
+        catch (Exception ex)
+        {
+            _ctx.Warn("Opening Settings failed", ex);
+            opened = false;
+        }
+        if (!opened)
+        {
+            _ctx.ShowMessage(SettingsGlyph, "Couldn’t open Settings", error: true);
             return _last = "error: couldn't open " + page;
         }
         _ctx.Notch.Collapse();
@@ -405,7 +690,7 @@ internal sealed class QuickModule : IShammyModule
 
     /// <summary>
     /// The same default microphone the "mute mic" command switches. Bound the first time the card or the pipe
-    /// asks, so a PC that never opens Quick actions never pays for it.
+    /// asks, so a PC that never opens the Laptop card never pays for it.
     /// </summary>
     MicMute? Mic()
     {
@@ -420,7 +705,7 @@ internal sealed class QuickModule : IShammyModule
         }
         catch (Exception ex)
         {
-            _ctx.Warn("Microphone unavailable for quick actions", ex);
+            _ctx.Warn("Microphone unavailable for the Laptop card", ex);
         }
         return _mic;
     }
@@ -446,7 +731,7 @@ internal sealed class QuickModule : IShammyModule
     static string Until(int minutes) =>
         "Until " + DateTime.Now.AddMinutes(minutes).ToString(CardKit.H24 ? "HH:mm" : "h:mm tt", CultureInfo.InvariantCulture);
 
-    CommandResult Run(QuickCommand? command)
+    async Task<CommandResult> RunAsync(QuickCommand? command)
     {
         if (command is null) return new CommandResult(BoltGlyph, "Say keep awake, lock or sleep my PC", IsError: true);
         switch (command.Kind)
@@ -470,18 +755,38 @@ internal sealed class QuickModule : IShammyModule
                 return Sleep().StartsWith("would", StringComparison.Ordinal)
                     ? new CommandResult(MoonGlyph, "Would put the PC to sleep", "Test mode: nothing happened")
                     : new CommandResult(MoonGlyph, "Going to sleep");
+            case QuickKind.Wifi:
+                return await SetWifiAsync(command.On ?? true);
+            case QuickKind.Bluetooth:
+                return await SetBluetoothAsync(command.On ?? true);
+            case QuickKind.PowerMode:
+                return PowerModeResult(command.Mode ?? PowerModeKind.Balanced);
+            case QuickKind.NightLight:
+            {
+                bool on = command.On ?? true;
+                if (!SetNightLight(on)) return new CommandResult(SunGlyph, "Couldn’t turn on night light", IsError: true);
+                return on ? new CommandResult(SunGlyph, "Night light is on", "A warm tint over every screen") : new CommandResult(SunGlyph, "Night light is off");
+            }
+            case QuickKind.Quiet:
+            {
+                if (command.On == false)
+                    return EndQuiet() ? new CommandResult(QuietGlyph, "Quiet is off", "Pop-ups are back") : new CommandResult(QuietGlyph, "Quiet wasn’t on");
+                int runs = StartQuiet(command.Minutes ?? QuietMinutes);
+                return new CommandResult(QuietGlyph, $"Quiet for {KeepAwakeText.Long(runs)}", $"{Until(runs)} · pop-ups wait");
+            }
             case QuickKind.Open:
                 // Opens once this confirmation has closed.
                 _ctx.OpenCard(CardId);
-                return new CommandResult(BoltGlyph, "Quick actions", "Keep awake, lock, sleep and more");
+                return new CommandResult(BoltGlyph, "Laptop", "Wi-Fi, power, lock and more");
             default:
-                return new CommandResult(BoltGlyph, "Quick actions");
+                return new CommandResult(BoltGlyph, "Laptop");
         }
     }
 
     CommandPreview? Preview(QuickCommand? command)
     {
         if (command is null) return null;
+        string Turn(string what) => $"Turn {what} {OnOff(command.On ?? true)}";
         switch (command.Kind)
         {
             case QuickKind.KeepAwake:
@@ -493,7 +798,15 @@ internal sealed class QuickModule : IShammyModule
                 return new CommandPreview(CupGlyph, "Stop keeping awake", _clock.IsOn ? $"{KeepAwakeText.Long(Math.Max(1, MinutesLeft))} left" : "It isn’t on");
             case QuickKind.Lock: return new CommandPreview(LockGlyph, "Lock this PC");
             case QuickKind.Sleep: return new CommandPreview(MoonGlyph, "Put the PC to sleep");
-            case QuickKind.Open: return new CommandPreview(BoltGlyph, "Open quick actions", "Keep awake, lock, sleep and more");
+            case QuickKind.Wifi: return new CommandPreview(WifiGlyph, Turn("Wi-Fi"));
+            case QuickKind.Bluetooth: return new CommandPreview(BluetoothGlyph, Turn("Bluetooth"));
+            case QuickKind.NightLight: return new CommandPreview(SunGlyph, Turn("night light"), "Shammy’s warm screen tint");
+            case QuickKind.PowerMode: return new CommandPreview(BoltGlyph, $"Power mode · {PowerMode.Name(command.Mode ?? PowerModeKind.Balanced)}");
+            case QuickKind.Quiet:
+                return command.On == false
+                    ? new CommandPreview(QuietGlyph, "End quiet", QuietOn ? $"{KeepAwakeText.Long(Math.Max(1, QuietMinutesLeft))} left" : "It isn’t on")
+                    : new CommandPreview(QuietGlyph, $"Quiet for {KeepAwakeText.Long(KeepAwakeClock.Clamp(command.Minutes ?? QuietMinutes))}", "Shammy holds its pop-ups");
+            case QuickKind.Open: return new CommandPreview(BoltGlyph, "Open Laptop", "Wi-Fi, power, lock and more");
             default: return null;
         }
     }
@@ -502,7 +815,7 @@ internal sealed class QuickModule : IShammyModule
     {
         public bool CanHandle(string text) => QuickPhrases.Parse(text) is not null;
 
-        public Task<CommandResult> RunAsync(string text) => Task.FromResult(module.Run(QuickPhrases.Parse(text)));
+        public Task<CommandResult> RunAsync(string text) => module.RunAsync(QuickPhrases.Parse(text));
 
         public CommandPreview? Preview(string text) => module.Preview(QuickPhrases.Parse(text));
     }
@@ -517,6 +830,12 @@ internal sealed class QuickModule : IShammyModule
         { Kind: QuickKind.StopKeepAwake } => "keepawake off",
         { Kind: QuickKind.Lock } => "lock",
         { Kind: QuickKind.Sleep } => "sleep",
+        { Kind: QuickKind.Wifi } => "wifi " + OnOff(c.On ?? true),
+        { Kind: QuickKind.Bluetooth } => "bluetooth " + OnOff(c.On ?? true),
+        { Kind: QuickKind.NightLight } => "nightlight " + OnOff(c.On ?? true),
+        { Kind: QuickKind.Quiet, On: false } => "quiet off",
+        { Kind: QuickKind.Quiet } => string.Create(CultureInfo.InvariantCulture, $"quiet minutes={c.Minutes ?? QuietMinutes}"),
+        { Kind: QuickKind.PowerMode } => "power " + c.Mode,
         _ => "open",
     };
 
@@ -529,7 +848,8 @@ internal sealed class QuickModule : IShammyModule
         return string.Create(CultureInfo.InvariantCulture,
             $"keepawake={(_clock.IsOn ? "on" : "off")} minutes={_clock.MinutesLeft(now)} started={_clock.StartedMinutes} ends={ends} " +
             $"held={_held} activity={(_ctx.Get(ActivityId) is null ? "hidden" : "shown")} pick={Pick} mic={mic} dry={(_dry ? "on" : "off")} " +
-            $"wifi={(WifiOn is { } w ? (w ? "on" : "off") : "none")} bluetooth={(BluetoothOn is { } b ? (b ? "on" : "off") : "none")} power={(PowerModeNow?.ToString() ?? "none")} " +
+            $"read={SwitchesRead} wifi={(WifiOn is { } w ? (w ? "on" : "off") : "none")} bluetooth={(BluetoothOn is { } b ? (b ? "on" : "off") : "none")} power={(PowerModeNow?.ToString() ?? "none")} " +
+            $"nightlight={(NightLightOn ? "on" : "off")} screens={_night?.Screens ?? 0} quiet={(QuietOn ? QuietMinutesLeft + "min" : "off")} quietState={QuietState.IsQuiet} " +
             $"last=\"{_last}\" card={card}");
     }
 
@@ -551,15 +871,17 @@ internal sealed class QuickModule : IShammyModule
     {
         if (!double.TryParse(arg.Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double minutes) || minutes <= 0)
             return "error: usage quick-advance <minutes>";
-        if (!_clock.IsOn) return "error: keep-awake is off";
+        if (!_clock.IsOn && !_quiet.IsOn) return "error: keep-awake and quiet are off";
         _clock.Advance(TimeSpan.FromMinutes(minutes));
+        _quiet.Advance(TimeSpan.FromMinutes(minutes));
         Tick();
+        QuietTick();
         return State();
     }
 
     /// <summary>
     /// "quick-run lock --dry", "quick-run sleep --dry": what it would do, without doing it. The pipe never really
-    /// locks or sleeps, so those two refuse without --dry. "nightlight", "dnd" and "mic" run for real without it.
+    /// locks or sleeps, so those two refuse without --dry. "nightlight", "dnd" and "mic" switch for real without it.
     /// </summary>
     string RunFromPipe(string arg)
     {
@@ -570,8 +892,13 @@ internal sealed class QuickModule : IShammyModule
         {
             case "lock": return dry ? Lock(dry: true) : "error: the pipe never really locks; add --dry";
             case "sleep": return dry ? Sleep(dry: true) : "error: the pipe never really sleeps; add --dry";
-            case "nightlight": return OpenSettings(NightLightPage, dry);
-            case "dnd": return OpenSettings(DoNotDisturbPage, dry);
+            case "nightlight":
+                if (dry) return $"would turn night light {OnOff(!NightLightOn)}";
+                return SetNightLight(!NightLightOn) ? "nightlight=" + OnOff(NightLightOn) : "error: no screen could be tinted";
+            case "dnd":
+                if (dry) return QuietOn ? "would end quiet" : $"would start quiet for {QuietMinutes} min";
+                ToggleQuiet();
+                return "quiet=" + (QuietOn ? QuietMinutesLeft + "min" : "off") + " quietState=" + QuietState.IsQuiet;
             case "mic":
                 if (dry) return MicMuted switch { true => "would unmute the mic", false => "would mute the mic", null => "no microphone" };
                 ToggleMic();
@@ -584,7 +911,10 @@ internal sealed class QuickModule : IShammyModule
     {
         _tick?.Stop();
         _pending?.Stop();
+        _quietTick?.Stop();
         _clock.Stop();
+        // The tint goes with the notch (it comes back on the next start if it was on).
+        _night?.Dispose();
         // Never leave the PC held awake by a notch that has gone.
         if (_ctx is not null)
         {

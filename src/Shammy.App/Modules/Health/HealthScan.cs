@@ -120,15 +120,97 @@ internal static class HealthScan
 
     const int MaxFiles = 200_000;
 
-    public static string DownloadsFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHGetKnownFolderPath(ref Guid id, uint flags, IntPtr token, out IntPtr path);
 
-    /// <summary>The bytes and files a cleanup would touch.</summary>
-    public static (long Bytes, int Files) Measure(CleanupKind kind) => kind switch
+    /// <summary>The Downloads folder, wherever the user moved it; the profile's own as a fallback.</summary>
+    public static string DownloadsFolder
     {
-        CleanupKind.TempFiles => Sum(Files(Path.GetTempPath(), DateTime.Now - Cleanup.TempOldAfter)),
-        CleanupKind.RecycleBin => RecycleBin(),
-        _ => Sum(Files(DownloadsFolder, DateTime.Now - Cleanup.OldAfter)),
-    };
+        get
+        {
+            var id = new Guid("374DE290-123F-4565-9164-39C4925E467B");
+            try
+            {
+                if (SHGetKnownFolderPath(ref id, 0, IntPtr.Zero, out var p) == 0)
+                {
+                    try { if (Marshal.PtrToStringUni(p) is { Length: > 0 } path) return path; }
+                    finally { Marshal.FreeCoTaskMem(p); }
+                }
+            }
+            catch (Exception) { }
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        }
+    }
+
+    /// <summary>Shammy's own temporary folder (files waiting to go to the phone and the like): never cleaned here.</summary>
+    static string OwnTemp => Path.Combine(Path.GetTempPath(), "Shammy");
+
+    /// <summary>The bytes and files (for downloads: whole items) a cleanup would touch.</summary>
+    public static (long Bytes, int Files) Measure(CleanupKind kind)
+    {
+        switch (kind)
+        {
+            case CleanupKind.TempFiles: return Sum(TempFiles());
+            case CleanupKind.RecycleBin: return RecycleBin();
+            default:
+                var old = OldDownloads();
+                return (old.Sum(o => o.Bytes), old.Count);
+        }
+    }
+
+    /// <summary>Temporary files from before this week, outside Shammy's own folder.</summary>
+    static IEnumerable<FileInfo> TempFiles()
+    {
+        var own = OwnTemp + Path.DirectorySeparatorChar;
+        return Files(Path.GetTempPath(), DateTime.Now - Cleanup.TempOldAfter)
+            .Where(f => !f.FullName.StartsWith(own, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// The top-level items in Downloads that arrived over three months ago (see <see cref="Cleanup.IsOld"/>), with
+    /// their size. A folder counts as one item and only when everything in it is old; a folder too big to look
+    /// through, a link, or anything hidden or system (desktop.ini) is left alone.
+    /// </summary>
+    public static List<(FileSystemInfo Item, long Bytes)> OldDownloads()
+    {
+        var found = new List<(FileSystemInfo, long)>();
+        var dir = DownloadsFolder;
+        if (!Directory.Exists(dir)) return found;
+        var cutoff = DateTime.Now - Cleanup.OldAfter;
+        const FileAttributes Skip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint;
+        IEnumerable<FileSystemInfo> top;
+        try { top = new DirectoryInfo(dir).EnumerateFileSystemInfos("*", new EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = Skip }).ToList(); }
+        catch (Exception ex)
+        {
+            Log.Warn("Listing Downloads failed", ex);
+            return found;
+        }
+        int budget = MaxFiles;
+        foreach (var item in top)
+        {
+            try
+            {
+                if (item is FileInfo file)
+                {
+                    if (Cleanup.IsOld(new[] { (file.CreationTime, file.LastWriteTime) }, cutoff)) found.Add((file, file.Length));
+                    continue;
+                }
+                if (item is not DirectoryInfo folder) continue;
+                var stamps = new List<(DateTime, DateTime)> { (folder.CreationTime, folder.LastWriteTime) };
+                long bytes = 0;
+                bool tooBig = false;
+                foreach (var inside in folder.EnumerateFileSystemInfos("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint }))
+                {
+                    if (--budget < 0) { tooBig = true; break; }
+                    stamps.Add((inside.CreationTime, inside.LastWriteTime));
+                    if (inside is FileInfo f) bytes += f.Length;
+                }
+                if (!tooBig && Cleanup.IsOld(stamps, cutoff)) found.Add((folder, bytes));
+            }
+            catch (Exception) { /* can't be read: leave it */ }
+        }
+        return found;
+    }
 
     static (long, int) Sum(IEnumerable<FileInfo> files)
     {
@@ -158,17 +240,20 @@ internal static class HealthScan
 
     // ---- Cleaning ------------------------------------------------------------------------------------
 
-    /// <summary>Cleans one kind; returns the bytes freed (or moved) and files touched. Files in use are skipped.</summary>
-    public static (long Bytes, int Files) Clean(CleanupKind kind)
+    /// <summary>
+    /// Cleans one kind; says what was freed (or moved), how many went and how many couldn't (in use, or Windows
+    /// said no). Files in use are skipped; Shammy's own temporary folder is never touched.
+    /// </summary>
+    public static CleanupOutcome Clean(CleanupKind kind)
     {
         switch (kind)
         {
             case CleanupKind.TempFiles:
             {
                 long bytes = 0;
-                int count = 0;
+                int count = 0, failed = 0;
                 var temp = Path.GetTempPath();
-                foreach (var f in Files(temp, DateTime.Now - Cleanup.TempOldAfter).ToList())
+                foreach (var f in TempFiles().ToList())
                 {
                     try
                     {
@@ -177,34 +262,51 @@ internal static class HealthScan
                         bytes += size;
                         count++;
                     }
-                    catch (Exception) { /* in use or not ours: skip */ }
+                    catch (Exception) { failed++; /* in use or not ours: skip */ }
                 }
-                // Folders left empty go too (deepest first).
+                // Folders left empty go too (deepest first), never Shammy's own.
+                var own = OwnTemp;
                 try
                 {
                     foreach (var d in new DirectoryInfo(temp).EnumerateDirectories("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+                                 .Where(d => !d.FullName.StartsWith(own, StringComparison.OrdinalIgnoreCase))
                                  .OrderByDescending(d => d.FullName.Length))
                     {
                         try { if (!d.EnumerateFileSystemInfos().Any()) d.Delete(); } catch (Exception) { }
                     }
                 }
                 catch (Exception) { }
-                return (bytes, count);
+                return new CleanupOutcome(bytes, count, failed);
             }
             case CleanupKind.RecycleBin:
             {
                 var before = RecycleBin();
+                if (before.Files == 0) return new CleanupOutcome(0, 0, 0);
                 const uint NoConfirmation = 0x1, NoProgress = 0x2, NoSound = 0x4;
                 int hr = SHEmptyRecycleBin(IntPtr.Zero, null, NoConfirmation | NoProgress | NoSound);
-                // S_OK, or "already empty".
-                return hr == 0 || before.Files == 0 ? before : (0, 0);
+                if (hr == 0) return new CleanupOutcome(before.Bytes, before.Files, 0);
+                Log.Warn($"Emptying the Recycle Bin failed (0x{hr:X8})");
+                return new CleanupOutcome(0, 0, 1);
             }
             default:
             {
-                var old = Files(DownloadsFolder, DateTime.Now - Cleanup.OldAfter).ToList();
-                if (old.Count == 0) return (0, 0);
-                long bytes = old.Sum(f => { try { return f.Length; } catch (Exception) { return 0L; } });
-                return ToRecycleBin(old.Select(f => f.FullName)) ? (bytes, old.Count) : (0, 0);
+                var old = OldDownloads();
+                if (old.Count == 0) return new CleanupOutcome(0, 0, 0);
+                if (!ToRecycleBin(old.Select(o => o.Item.FullName))) Log.Warn("Moving old downloads to the Recycle Bin stopped early");
+                // Whatever is no longer there went to the Recycle Bin; the rest couldn't (in use, or Windows said no).
+                long bytes = 0;
+                int moved = 0, failed = 0;
+                foreach (var (item, size) in old)
+                {
+                    item.Refresh();
+                    if (item.Exists) failed++;
+                    else
+                    {
+                        moved++;
+                        bytes += size;
+                    }
+                }
+                return new CleanupOutcome(bytes, moved, failed);
             }
         }
     }

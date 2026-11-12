@@ -13,12 +13,24 @@ public enum QuickKind
     Lock,
     /// <summary>"sleep my pc", "go to sleep".</summary>
     Sleep,
-    /// <summary>"quick actions": open the card.</summary>
+    /// <summary>"laptop controls", "quick actions": open the Laptop card.</summary>
     Open,
+    /// <summary>"turn off wifi", "wifi band karo" (see <see cref="SwitchPhrases"/>).</summary>
+    Wifi,
+    /// <summary>"bluetooth on", "bluetooth chalu karo".</summary>
+    Bluetooth,
+    /// <summary>"night light on": Shammy's own warm tint.</summary>
+    NightLight,
+    /// <summary>"do not disturb", "quiet for an hour": Shammy holds its pop-ups.</summary>
+    Quiet,
+    /// <summary>"performance mode", "best battery", "balanced mode".</summary>
+    PowerMode,
 }
 
-/// <param name="Minutes">For <see cref="QuickKind.KeepAwake"/>: how long was asked for, or null for the usual hour.</param>
-public sealed record QuickCommand(QuickKind Kind, int? Minutes = null);
+/// <param name="Minutes">For <see cref="QuickKind.KeepAwake"/> and <see cref="QuickKind.Quiet"/>: how long was asked for, or null for the usual hour.</param>
+/// <param name="On">For the switches: on (true) or off (false).</param>
+/// <param name="Mode">For <see cref="QuickKind.PowerMode"/>: the mode asked for.</param>
+public sealed record QuickCommand(QuickKind Kind, int? Minutes = null, bool? On = null, PowerModeKind? Mode = null);
 
 /// <summary>
 /// The typed or spoken phrases the quick actions answer. The whole text must be one of them: a question or any
@@ -37,6 +49,9 @@ public static class QuickPhrases
     static readonly HashSet<string> OpenCard = new(StringComparer.Ordinal)
     {
         "quick actions", "quick action", "open quick actions", "show quick actions", "my quick actions", "show my quick actions",
+        // The card is called Laptop; a bare "laptop" stays a search.
+        "laptop controls", "open laptop controls", "show laptop controls", "my laptop controls", "open laptop", "open the laptop card",
+        "laptop card", "open laptop card", "pc controls", "open pc controls",
     };
 
     // "lock screen" alone stays the Windows settings page the palette offers; "lock the screen" locks.
@@ -62,7 +77,7 @@ public static class QuickPhrases
         if (SleepRx.IsMatch(s)) return new QuickCommand(QuickKind.Sleep);
         if (StopRx.IsMatch(s)) return new QuickCommand(QuickKind.StopKeepAwake);
         var keep = KeepRx.Match(s);
-        if (!keep.Success) return null;
+        if (!keep.Success) return SwitchPhrases.Parse(text);
         if (!keep.Groups["for"].Success) return new QuickCommand(QuickKind.KeepAwake);
         // Whatever follows must be a duration and nothing else ("keep awake pills" is not).
         if (DurationParser.Parse(keep.Groups["for"].Value) is not { } d) return null;
