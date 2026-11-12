@@ -42,7 +42,7 @@ internal sealed class QuickModule : IShammyModule
     /// Shammy's own quiet. QuietReason has no member for it yet, so it is a value of its own, far from the named
     /// ones; the state pipe's description reads it as "test" until QuietRules names it.
     /// </summary>
-    const QuietReason QuietByUser = (QuietReason)40;
+    const QuietReason QuietByUser = QuietReason.DoNotDisturb;
 
     /// <summary>The quiet tile's length.</summary>
     public const int QuietMinutes = 60;

@@ -275,7 +275,7 @@ internal sealed class GuideModule : IShammyModule
         Open(request.Feature?.Name ?? request.Query, GuideFilter.All);
         return request.Feature is { } f
             ? new CommandResult(Glyph, f.Name, "Say or type: " + f.Phrase)
-            : new CommandResult(Glyph, "What Shammy can do", $"{FeatureGuide.All.Count} features, in one place");
+            : new CommandResult(Glyph, "Guide", $"{FeatureGuide.All.Count} features, in one place");
     }
 
     sealed class Command(GuideModule module, bool wholeGuideOnly) : ITextCommand, ICommandPreview
@@ -296,7 +296,7 @@ internal sealed class GuideModule : IShammyModule
         public CommandPreview? Preview(string text) => Parse(text) switch
         {
             { Feature: { } f } => new(Glyph, f.Name, "In Shammy’s guide · " + f.Line),
-            { } => new(Glyph, "What Shammy can do", $"The guide · {FeatureGuide.All.Count} features"),
+            { } => new(Glyph, "Guide", $"{FeatureGuide.All.Count} features, in one place"),
             _ => null,
         };
     }

@@ -435,7 +435,7 @@ internal static class MixerTile
         var tile = new WallTile { Field = Fields.System() };
         tile.Art.Children.Add(CardKit.At(CardKit.Icon(CardKit.Paths.Volume, CardKit.Ink, 30, 1.8), HorizontalAlignment.Left, VerticalAlignment.Top, 14, 14));
         tile.Rest.Children.Add(WallTile.BottomLeft(CardKit.Poster("Volume", 26)));
-        var words = WallTile.Words("Volume", "A slider for each app", out _, out _);
+        var words = WallTile.Words("Volume mixer", "A slider for each app", out _, out _);
         tile.Lit.Children.Add(CardKit.At(words, HorizontalAlignment.Stretch, VerticalAlignment.Bottom, WallTile.Pad, 0, WallTile.Pad, 10));
         tile.Lit.Children.Add(WallTile.OpenButton("Open volume", open));
         CardKit.Name(tile, "Volume, a slider for each app. Open volume");

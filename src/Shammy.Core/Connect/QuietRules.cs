@@ -4,7 +4,7 @@ using Shammy.Core.Productivity;
 namespace Shammy.Core.Connect;
 
 /// <summary>Why the notch is quiet; several can hold at once (a focus session during a call).</summary>
-public enum QuietReason { Call, Meeting, Focus, Test }
+public enum QuietReason { Call, Meeting, Focus, Test, DoNotDisturb }
 
 /// <summary>
 /// Quiet mode: during a call, a calendar meeting or a focus session other apps' notifications neither ping nor
@@ -60,6 +60,7 @@ public static class QuietRules
             QuietReason.Call => "call",
             QuietReason.Meeting => "meeting",
             QuietReason.Focus => "focus",
+            QuietReason.DoNotDisturb => "quiet",
             _ => "test",
         }).ToList();
         return list.Count == 0 ? "off" : string.Join("+", list);

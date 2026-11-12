@@ -429,7 +429,7 @@ internal sealed class AgentsModule : IShammyModule
         _ctx.AddCard(new NotchCard
         {
             Id = CardId,
-            Title = "Coding agents",
+            Title = "Claude Code",
             Width = 176,
             Order = 45,
             Chip = true,

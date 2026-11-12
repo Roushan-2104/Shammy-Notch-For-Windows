@@ -29,7 +29,7 @@ internal sealed class AgentsCard
         _tile.Field = Backdrop;
         _tile.Art.Children.Add(CardKit.At(_count, HorizontalAlignment.Left, VerticalAlignment.Top, WallTile.Pad, WallTile.Pad));
         _tile.Rest.Children.Add(WallTile.BottomLeft(_rest));
-        var words = WallTile.Words("Coding agents", "", out _title, out _line);
+        var words = WallTile.Words("Claude Code", "", out _title, out _line);
         _tile.Lit.Children.Add(CardKit.At(words, HorizontalAlignment.Stretch, VerticalAlignment.Bottom, WallTile.Pad, 0, WallTile.Pad, 10));
         _tile.Lit.Children.Add(WallTile.OpenButton("Open coding agents", open));
         Open = open;
@@ -68,7 +68,7 @@ internal sealed class AgentsCard
         var (working, waiting, done) = Counts(sessions);
         _count.Text = (working + waiting).ToString(System.Globalization.CultureInfo.InvariantCulture);
         _line.Text = AgentText.Summary(working, waiting, done);
-        CardKit.Name(_tile, $"Coding agents: {AgentText.Sessions(sessions.Count)}, {AgentText.Summary(working, waiting, done)}");
+        CardKit.Name(_tile, $"Claude Code: {AgentText.Sessions(sessions.Count)}, {AgentText.Summary(working, waiting, done)}");
         if (_detail is { IsLoaded: true } detail) detail.Show();
     }
 

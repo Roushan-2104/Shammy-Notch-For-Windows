@@ -48,7 +48,7 @@ internal sealed class MixerModule : IShammyModule
         ctx.AddCard(new NotchCard
         {
             Id = CardId,
-            Title = "Volume",
+            Title = "Volume mixer",
             Width = 176,
             Order = 88,
             Chip = true,
@@ -79,7 +79,7 @@ internal sealed class MixerModule : IShammyModule
         public Task<CommandResult> RunAsync(string text)
         {
             ctx.OpenCard(CardId);
-            return Task.FromResult(new CommandResult(Glyph, "Volume", "A slider for each app"));
+            return Task.FromResult(new CommandResult(Glyph, "Volume mixer", "A slider for each app"));
         }
 
         public CommandPreview? Preview(string text) => new(Glyph, "Open the volume mixer", "A slider for each app");
