@@ -49,6 +49,7 @@ internal sealed partial class ShammyHost
                 });
                 return "ok";
             case "hover-diag": return _notch.HoverDiag;
+            case "glass-wallpaper": return _notch.SetTestWallpaper(arg);
             case "hit":
             {
                 // Test: what the notch draws at a screen pixel ("hit 487 318"): the element chain under it.

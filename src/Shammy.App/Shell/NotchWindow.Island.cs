@@ -250,6 +250,16 @@ public partial class NotchWindow
     }
 
     /// <summary>Make (or keep) the glass for where the window is now; skipped while the plan has no glass.</summary>
+    /// <summary>Test only: the glass uses this picture instead of the wallpaper ("off" goes back).</summary>
+    internal string SetTestWallpaper(string arg)
+    {
+        var path = arg.Trim().Trim('"');
+        IslandGlass.TestWallpaper = path.Length == 0 || path == "off" ? null : path;
+        _glass.Invalidate();
+        UpdateGlass();
+        return IslandGlass.TestWallpaper is null ? "ok: the real wallpaper" : "ok: " + IslandGlass.TestWallpaper;
+    }
+
     void UpdateGlass()
     {
         if (_glass is null || !_windowPlaced || _hwnd == IntPtr.Zero) return;

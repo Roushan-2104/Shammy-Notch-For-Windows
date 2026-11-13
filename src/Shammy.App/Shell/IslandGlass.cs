@@ -45,6 +45,9 @@ internal sealed class IslandGlass
     /// <summary>The wallpaper may have changed: the next <see cref="Update"/> rebuilds even if nothing else did.</summary>
     public void Invalidate() => _key = null;
 
+    /// <summary>Test only: a picture to use in place of the desktop wallpaper (for screenshots that show nothing of the PC).</summary>
+    public static string? TestWallpaper { get; set; }
+
     /// <summary>
     /// Make (or keep) the glass for the window at <paramref name="left"/>,<paramref name="top"/> on
     /// <paramref name="monitor"/>, <paramref name="width"/>×<paramref name="height"/> device pixels. Cheap when nothing
@@ -58,7 +61,7 @@ internal sealed class IslandGlass
         WallpaperStyle style;
         try
         {
-            path = WallpaperFor(screen);
+            path = TestWallpaper ?? WallpaperFor(screen);
             using var desktop = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop");
             style = WallpaperFit.StyleFrom(desktop?.GetValue("WallpaperStyle") as string, desktop?.GetValue("TileWallpaper") as string);
         }
