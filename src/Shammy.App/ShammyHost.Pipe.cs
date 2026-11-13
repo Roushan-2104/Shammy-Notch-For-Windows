@@ -18,6 +18,15 @@ namespace Shammy;
 /// <summary>The test pipe's host commands (SHAMMY_TEST_PIPE=1 only): states, fakes and test hooks.</summary>
 internal sealed partial class ShammyHost
 {
+    [System.Runtime.InteropServices.DllImport("psapi.dll")]
+    static extern bool EmptyWorkingSet(IntPtr process);
+
+    /// <summary>Hands the pages Shammy isn't touching back to Windows (they come back on their own if needed).</summary>
+    static void TrimWorkingSet(IntPtr process)
+    {
+        try { EmptyWorkingSet(process); } catch (Exception) { }
+    }
+
     /// <summary>Commands for scripted testing over the local pipe (see <see cref="CommandServer"/>).</summary>
     string HandleCommand(string line)
     {
@@ -40,6 +49,24 @@ internal sealed partial class ShammyHost
                 });
                 return "ok";
             case "hover-diag": return _notch.HoverDiag;
+            case "mem-diag":
+            {
+                // Where the memory is: .NET's own heap vs everything else; "mem-diag gc" collects first.
+                if (arg.Trim() == "gc")
+                {
+                    System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+                    GC.Collect(2, GCCollectionMode.Forced, true, true);
+                    GC.WaitForPendingFinalizers();
+                }
+                var info = GC.GetGCMemoryInfo();
+                using var me = System.Diagnostics.Process.GetCurrentProcess();
+                if (arg.Trim() == "trim") TrimWorkingSet(me.Handle);
+                if (arg.Trim() == "mods")
+                    return string.Join(",", me.Modules.Cast<System.Diagnostics.ProcessModule>().Select(m => m.ModuleName).OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+                return $"ws={me.WorkingSet64 / 1048576}MB private={me.PrivateMemorySize64 / 1048576}MB managed={GC.GetTotalMemory(false) / 1048576}MB " +
+                       $"heap={info.HeapSizeBytes / 1048576}MB committed={info.TotalCommittedBytes / 1048576}MB gen0={GC.CollectionCount(0)} gen2={GC.CollectionCount(2)} " +
+                       $"modules={me.Modules.Count} threads={me.Threads.Count} handles={me.HandleCount}";
+            }
             case "test-bubble":
                 // A clickable long-running activity, which shows in the side bubble when something outranks it.
                 Post(new Activity("test-bubble", ActivityKind.Progress, 30, new ProgressPayload("", "Test", 0.4), In(30))
