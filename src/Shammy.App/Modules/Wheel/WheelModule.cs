@@ -249,6 +249,10 @@ internal sealed partial class WheelModule : IShammyModule
         var monitor = Native.MonitorFromPoint(new Native.POINT(x, y), Native.MONITOR_DEFAULTTONEAREST);
         double scale = Native.GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 && dpi > 0 ? dpi / 96.0 : 1;
         int down = (int)Math.Round(23 * scale);
+        // The island's own rectangle when it is on this screen: pour from the middle of the pill.
+        var island = Shammy.Shell.IslandBounds.Screen;
+        if (!island.IsEmpty && Shammy.Shell.IslandBounds.Monitor == monitor)
+            return ((int)Math.Round(island.Left + island.Width / 2), (int)Math.Round(island.Top + island.Height / 2));
         try
         {
             var notch = new System.Windows.Interop.WindowInteropHelper(_ctx.Notch).Handle;
