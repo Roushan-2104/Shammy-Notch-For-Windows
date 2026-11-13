@@ -418,7 +418,7 @@ internal sealed partial class WheelModule : IShammyModule
                 case "guide": RunText("what can you do"); break;
                 case "focus": RunText($"start focus for {(int)Core.Productivity.Pomodoro.FocusLength.TotalMinutes} minutes"); break;
                 // The moment's droplets.
-                case "stage": RunText("open the teleprompter"); break; // no stage view yet: the prompter is the closest
+                case "stage": RunText("stage"); break;
                 case "mute": RunText("toggle mic"); break;
                 case "share": RunText("send this to my phone"); break;
                 case "playpause": _ctx.Services.Media.TogglePlayPause(); break;

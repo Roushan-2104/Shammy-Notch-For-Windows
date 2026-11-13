@@ -31,7 +31,7 @@ public static class WheelSlots
         new("calendar", "Calendar", "calendar|what's on my calendar|next meeting"),
         new("weather", "Weather", "weather|will it rain"),
         new("mixer", "Volume mixer", "mixer|volume mixer"),
-        new("prompter", "Teleprompter", "teleprompter|prompter"),
+        new("prompter", "Stage", "stage|teleprompter|prompter"),
         new("settings", "Settings", "shammy settings"),
         new("guide", "Guide", "what can you do|help|features|guide"),
         new("focus", "Focus", "focus|start focus|focus mode|focus session"),

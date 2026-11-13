@@ -188,7 +188,7 @@ internal partial class SettingsView
         ["palette"] = ("Palette", "Search apps, files and settings as you type."),
         ["phonesend"] = ("Send to phone", "Files to your phone over Wi-Fi."),
         ["productivity"] = ("Timers, alarms and notes", "Timers, pomodoro, reminders, alarms, notes."),
-        ["prompter"] = ("Teleprompter", "Your script under the camera."),
+        ["prompter"] = ("Stage", "Your script under the camera, paced by your voice."),
         ["quick"] = ("Laptop", "Wi-Fi, Bluetooth, power mode, keep awake, lock and sleep."),
         ["record"] = ("Screen recording", "Record the screen from the notch."),
         ["screenshot"] = ("Screenshots", "Saves and offers what you capture."),
