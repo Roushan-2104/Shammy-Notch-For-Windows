@@ -80,6 +80,8 @@ internal sealed partial class WheelModule : IShammyModule
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        // The open island's tool row runs its buttons the same way the dial does (and counts them as use).
+        HostLinks.WheelRunner = RunSoon;
         _store = ctx.Load<WheelStore>();
         _slots = Arrange();
         WheelLink.Current = this;
@@ -181,6 +183,7 @@ internal sealed partial class WheelModule : IShammyModule
 
     public void Dispose()
     {
+        if (HostLinks.WheelRunner == (Action<string>)RunSoon) HostLinks.WheelRunner = null;
         _ctx.Settings.Changed -= OnSettingsChanged;
         HostLinks.CommandRan -= OnCommandRan;
         if (WheelLink.Current == this) WheelLink.Current = null;

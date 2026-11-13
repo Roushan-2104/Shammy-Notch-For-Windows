@@ -40,6 +40,7 @@ public static class PaletteSources
         new("music", "Music", "", new[] { "music", "now playing", "lyrics" }),
         new("notes", "Notes", "", new[] { "notes", "reminders" }),
         new("clipboard", "Clipboard", "", new[] { "clipboard", "clipboard history" }),
+        new("snippets", "Snippets", "", new[] { "snippets", "text snippets", "text expander" }),
         new("battery", "Battery", "", new[] { "battery", "system" }),
         // Cards opened by their id (see each module's AddCard).
         new("health", "Health", "", new[] { "health", "pc health", "cleanup", "clean up", "storage", "disk space", "free up space" }),
