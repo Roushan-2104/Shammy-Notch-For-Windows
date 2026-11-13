@@ -8,6 +8,9 @@ public readonly record struct GooPoint(double X, double Y);
 /// <see cref="H2"/>) to <see cref="P2"/> and close inside the first. Filled together with both circles it reads as
 /// one drop of liquid.
 /// </summary>
+/// <summary>The poured stream's widths (px): where it leaves the island, along the middle, and where it pools into the hub.</summary>
+public readonly record struct PourShape(double Top, double Middle, double Bottom);
+
 public sealed record GooBridge(GooPoint P1, GooPoint H1, GooPoint H3, GooPoint P3, GooPoint P4, GooPoint H4, GooPoint H2, GooPoint P2);
 
 /// <summary>
@@ -55,35 +58,40 @@ public static class Goo
         return new GooBridge(p1, h1, h3, p3, p4, h4, h2, p2);
     }
 
+    /// <summary>How far the flare out of the island's underside reaches down the stream (px, 1/e).</summary>
+    public const double TopFlareReach = 28;
+
+    /// <summary>How far the flare into the hub reaches back up the stream (px, 1/e).</summary>
+    public const double BottomFlareReach = 20;
+
     /// <summary>
     /// The outline of the poured stream from the island (<paramref name="ix"/>, <paramref name="iy"/>) toward the
     /// pointer (<paramref name="px"/>, <paramref name="py"/>), between the fractions <paramref name="from"/> and
-    /// <paramref name="to"/> of the way. It is <paramref name="thick"/> wide, flares to <paramref name="flare"/>
-    /// where it leaves the island, wobbles with <paramref name="time"/> (seconds) by up to <paramref name="wobble"/>
-    /// and carries a bulge flowing down it. Points go down one side and back up the other; empty when there is
-    /// nothing to draw.
+    /// <paramref name="to"/> of the way: <paramref name="shape"/>'s top width where it leaves the island (a drip
+    /// forming under the pill), tapering to its middle width, then flaring to its bottom width where it ends (in the
+    /// hub's centre, so the flare is the neck it pools through). It sways and wobbles with <paramref name="time"/>
+    /// (seconds) by up to <paramref name="wobble"/> and carries a bulge flowing down. Points go down one side and back
+    /// up the other; empty when there is nothing to draw.
     /// </summary>
     public static IReadOnlyList<GooPoint> Stream(double ix, double iy, double px, double py, double from, double to,
-        double thick, double flare, double time, double wobble = 1)
+        PourShape shape, double time, double wobble = 1)
     {
         from = Math.Clamp(from, 0, 1);
         to = Math.Clamp(to, 0, 1);
         double dx = px - ix, dy = py - iy, length = Math.Sqrt(dx * dx + dy * dy);
-        if (to - from <= 1e-4 || length < 1 || thick <= 0) return Array.Empty<GooPoint>();
+        if (to - from <= 1e-4 || length < 1 || shape.Middle <= 0) return Array.Empty<GooPoint>();
         double ux = dx / length, uy = dy / length, nx = -uy, ny = ux;
-        int samples = Math.Clamp((int)Math.Ceiling(length * (to - from) / 8), 2, 120);
+        // Fine steps: the flares turn within a few pixels.
+        int samples = Math.Clamp((int)Math.Ceiling(length * (to - from) / 5), 2, 240);
         var left = new GooPoint[samples + 1];
         var right = new GooPoint[samples + 1];
-        double flow = time * 1.6 % 1.0;
         for (int i = 0; i <= samples; i++)
         {
             double f = from + (to - from) * i / samples;
             // Sideways sway, none at either end so the stream stays attached to the island and the hub.
             double sway = wobble * 2.2 * Math.Sin(time * 5.1 + f * 11) * (4 * f * (1 - f));
             double cx = ix + dx * f + nx * sway, cy = iy + dy * f + ny * sway;
-            double w = thick / 2 * (1 + 0.22 * wobble * Math.Sin(time * 7.3 - f * 17));
-            w += Math.Max(0, flare - thick) / 2 * Math.Pow(1 - f, 6);
-            w += thick * 0.45 * wobble * Math.Exp(-(f - flow) * (f - flow) / 0.004);
+            double w = HalfWidth(f * length, (to - f) * length, f, shape, time, wobble);
             left[i] = new GooPoint(cx + nx * w, cy + ny * w);
             right[i] = new GooPoint(cx - nx * w, cy - ny * w);
         }
@@ -91,6 +99,24 @@ public static class Goo
         outline.AddRange(left);
         for (int i = right.Length - 1; i >= 0; i--) outline.Add(right[i]);
         return outline;
+    }
+
+    /// <summary>
+    /// Half the stream's width <paramref name="fromIsland"/> px below the island and <paramref name="fromEnd"/> px
+    /// above its end (<paramref name="f"/> is the fraction of the whole way). Exactly half the top width at the
+    /// island and half the bottom width at the end, whatever the wobble.
+    /// </summary>
+    public static double HalfWidth(double fromIsland, double fromEnd, double f, PourShape shape, double time, double wobble = 1)
+    {
+        double flow = time * 1.6 % 1.0;
+        // The middle narrows a little on the way down, breathes, and carries a bulge flowing down it.
+        double m = shape.Middle / 2 * (1.08 - 0.16 * Math.Clamp(f, 0, 1));
+        m *= 1 + 0.12 * wobble * Math.Sin(time * 7.3 - f * 17);
+        m += shape.Middle * 0.3 * wobble * Math.Exp(-(f - flow) * (f - flow) / 0.004);
+        double top = Math.Exp(-Math.Max(0, fromIsland) / TopFlareReach);
+        double bottom = Math.Exp(-Math.Max(0, fromEnd) / BottomFlareReach);
+        double w = m + (shape.Top / 2 - m) * top;
+        return w + (shape.Bottom / 2 - w) * bottom;
     }
 
     /// <summary>Gravity's ease for a pour or a drain: slow to start, then quicker (0..1 → 0..1).</summary>

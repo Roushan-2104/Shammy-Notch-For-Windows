@@ -27,6 +27,8 @@ namespace Shammy.Modules.Wheel;
 internal sealed class WheelWindow : Window
 {
     const double Orbit = 90, DropR = 21, HubR = 32, HeadR = 12, IslandR = 13, Picked = 1.25;
+    // The pour's widths: out of the pill's underside, and down the middle (it flares again into the hub).
+    const double StreamTop = 26, StreamMiddle = 13;
     // Room around the dial for the droplets, their swell, the ring and the labels; and above the island point.
     const double DialPad = 168, IslandPad = 40;
     const long WS_EX_TRANSPARENT = 0x20;
@@ -174,7 +176,7 @@ internal sealed class WheelWindow : Window
         }
         _faceHost.Opacity = 0;
         _hubR.Snap(0);
-        _thick.Snap(Lively ? 9 : 6);
+        _thick.Snap(StreamMiddle);
         _spin.Snap(0);
         _time = _phaseTime = 0;
         _sincePaint = 1;
@@ -239,7 +241,8 @@ internal sealed class WheelWindow : Window
             _drops[i].S.AnimateTo(0.25, Lively ? 0.2 : 0.1, 1);
         }
         _hubAtClose = Math.Max(_hubR.Value, HeadR);
-        _thick.AnimateTo(Lively ? 5 : 3, 0.18, 1);
+        // The stream thins as it drains back up.
+        _thick.AnimateTo(2.5, Lively ? 0.26 : 0.1, 1);
         _selected = -1;
     }
 
@@ -273,7 +276,6 @@ internal sealed class WheelWindow : Window
         _phaseTime = 0;
         _hubR.Snap(HeadR);
         _hubR.AnimateTo(HubR, Lively ? 0.3 : 0.12, Bouncy);
-        _thick.AnimateTo(3.2, Lively ? 0.4 : 0.12, 1);
         for (int i = 0; i < _count; i++)
         {
             double delay = Lively ? 0.04 + i * 0.035 : 0;
@@ -384,9 +386,28 @@ internal sealed class WheelWindow : Window
             _ => 1,
         };
         double wobble = Lively ? 1 : 0;
-        var stream = Goo.Stream(_island.X, _island.Y, _hub.X, _hub.Y, 0, reach, Math.Max(0.5, _thick.Value), 22, _time, wobble);
-        var circles = new List<(Point C, double R)>(_count + 3);
+        // A real pour: wide where it drips out of the pill, narrower down the middle, flaring again into the hub's
+        // centre; it thins as it drains back up.
+        double thin = Math.Clamp(_thick.Value / StreamMiddle, 0.15, 1);
+        var shape = new PourShape(
+            StreamTop * thin * (_phase == Phase.Pouring ? 0.6 + 0.4 * reach : 1),
+            Math.Max(1, _thick.Value),
+            Math.Max(hubR * 1.8, _thick.Value));
+        var stream = Goo.Stream(_island.X, _island.Y, _hub.X, _hub.Y, 0, reach, shape, _time, wobble);
+        var circles = new List<(Point C, double R)>(_count + 4);
         if (hubR > 0.5) circles.Add((hub, hubR));
+        // Where the stream pools into the hub: a blob on the stream just above the hub, joined to it by the same kind
+        // of neck as the droplets, so the pour merges into the hub instead of meeting its edge.
+        Geometry? pool = null;
+        double dx = _hub.X - _island.X, dy = _hub.Y - _island.Y, length = Math.Sqrt(dx * dx + dy * dy), poured = length * reach;
+        if (hubR > 3 && stream.Count > 2 && poured > hubR + 24)
+        {
+            double back = hubR + 12, f = (poured - back) / length;
+            double r = Goo.HalfWidth(poured - back, back, f, shape, _time, wobble);
+            var above = new Point(hub.X - dx / length * back, hub.Y - dy / length * back);
+            circles.Add((above, r));
+            pool = Neck(above.X, above.Y, r, hub.X, hub.Y, hubR, reach: 3);
+        }
         for (int i = 0; i < _count; i++)
             if (_drops[i].Radius > 0.5) circles.Add((new Point(_drops[i].X, _drops[i].Y), _drops[i].Radius));
 
@@ -402,6 +423,7 @@ internal sealed class WheelWindow : Window
             g.Freeze();
             shapes.Add(g);
         }
+        if (pool is not null) shapes.Add(pool);
         // Necks: hub to each droplet (they snap off as the droplets reach their orbit), and the flying droplet to the island.
         if (hubR > 0.5)
             for (int i = 0; i < _count; i++)
@@ -433,9 +455,9 @@ internal sealed class WheelWindow : Window
         }
     }
 
-    static Geometry? Neck(double x1, double y1, double r1, double x2, double y2, double r2)
+    static Geometry? Neck(double x1, double y1, double r1, double x2, double y2, double r2, double reach = 2.5)
     {
-        if (Goo.Bridge(x1, y1, r1, x2, y2, r2) is not { } b) return null;
+        if (Goo.Bridge(x1, y1, r1, x2, y2, r2, reach: reach) is not { } b) return null;
         var g = new StreamGeometry();
         using (var c = g.Open())
         {
