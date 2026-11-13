@@ -92,20 +92,6 @@ internal sealed class TrayIcon : IDisposable
         var autoLang = Switch("Detect voice language (Hindi etc., slower)", () => settings.VoiceLanguage == "auto",
             v => settings.VoiceLanguage = v ? "auto" : "en", nameof(AppSettings.VoiceLanguage));
 
-        // Opt-in Hinglish model. Graphics-card PCs only: on the CPU it would take several seconds per command.
-        const string HinglishText = "Hinglish voice (Hindi + English)";
-        var hinglish = Switch(HinglishText, () => settings.VoiceMode == AppSettings.HinglishVoice,
-            v => settings.VoiceMode = v ? AppSettings.HinglishVoice : AppSettings.EnglishVoice, nameof(AppSettings.VoiceMode));
-        menu.Opening += (_, _) =>
-        {
-            bool available = hinglishAvailable() || hinglish.Checked;
-            hinglish.Enabled = available;
-            hinglish.Text = available ? HinglishText : HinglishText + " - needs a graphics card";
-            hinglish.ToolTipText = available
-                ? "A voice model that understands Hindi mixed with English (one-time 574 MB download)"
-                : "This PC runs voice on the processor, where the Hinglish model would be too slow";
-        };
-
         var notifications = Switch("Show notifications in the notch", () => settings.ShowNotifications, v => settings.ShowNotifications = v, nameof(AppSettings.ShowNotifications));
         // Only Windows can hide its own pop-ups; this opens the page with Do Not Disturb and per-app banners.
         var windowsPopups = new ToolStripMenuItem("Turn off Windows pop-ups and sounds…")
@@ -143,7 +129,6 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(startup);
         menu.Items.Add(pin);
         menu.Items.Add(autoLang);
-        menu.Items.Add(hinglish);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(notifications);
         menu.Items.Add(windowsPopups);

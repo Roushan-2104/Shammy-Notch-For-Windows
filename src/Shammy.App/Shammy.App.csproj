@@ -40,7 +40,6 @@
     <PackageReference Include="Whisper.net" Version="1.9.0" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
     <!-- GPU speech-to-text (large-v3-turbo in ~1 s on a laptop RTX); falls back to the CPU runtime. -->
-    <PackageReference Include="Whisper.net.Runtime.Vulkan" Version="1.9.0" />
     <!-- QR codes: reading circled codes and showing phone-transfer links. -->
     <PackageReference Include="ZXing.Net" Version="0.16.10" />
   </ItemGroup>
