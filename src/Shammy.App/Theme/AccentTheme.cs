@@ -18,11 +18,19 @@ internal static class AccentTheme
 
     public static SolidColorBrush Hover { get; private set; } = new(PaletteTheme.ToColor(IslandPalettes.Accent(PaletteTheme.First).Hover));
 
+    static bool? _contrast;
+
     /// <summary>Applies the accent again (Windows' high contrast turned on or off, another palette, a new album).</summary>
     public static void Reapply()
     {
-        // High contrast first: the text and hairline tokens follow the system colours, and so does the accent.
-        Ui.Tokens.ApplyContrast();
+        // High contrast first: the text and hairline tokens follow the system colours, and so does the accent. Only when
+        // it changed (or the first time): re-setting those resources repaints everything that uses them, and the accent
+        // now changes with every song under the Album palette.
+        if (_contrast != SystemParameters.HighContrast)
+        {
+            _contrast = SystemParameters.HighContrast;
+            Ui.Tokens.ApplyContrast();
+        }
         var (a, h) = IslandPalettes.Accent(PaletteTheme.First);
         Color accent = PaletteTheme.ToColor(a), hover = PaletteTheme.ToColor(h);
         if (SystemParameters.HighContrast) accent = hover = SystemColors.HighlightColor;
