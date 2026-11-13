@@ -9,8 +9,9 @@ public enum PrompterCommandKind { Open, FromClipboard, FromFile, Close }
 public sealed record PrompterCommand(PrompterCommandKind Kind, string? Path = null);
 
 /// <summary>
-/// The teleprompter's rules: how fast a script scrolls, how a script is tidied, and which typed or spoken phrases
-/// open it. Speeds are in words per minute, the way people talk about reading aloud.
+/// The teleprompter's rules (Stage reads the script): how fast a script moves, how a script is tidied, and which
+/// typed or spoken phrases open it ("stage", "teleprompter", "stage from clipboard"…). Speeds are in words per
+/// minute, the way people talk about reading aloud.
 /// </summary>
 public static class PrompterText
 {
@@ -19,15 +20,16 @@ public static class PrompterText
 
     /// <summary>What shows before the user has given a script of their own.</summary>
     public const string Example =
-        "This is your teleprompter.\nIt sits right under your camera, so your eyes stay on the lens.\n\n" +
-        "Copy your script, then type “teleprompter from clipboard”.\nOr type “teleprompter” and a path to a text file.\n\n" +
-        "Click to pause. Scroll to go back or ahead.\nPick Slow, Normal or Fast below.";
+        "This is Stage. Your words sit right under the camera, so your eyes stay near the lens.\n" +
+        "It moves on while you speak and waits when you stop.\n\n" +
+        "Copy your script, then type “stage from clipboard”.\nOr type “stage” and the path to a text file.\n\n" +
+        "With the pointer here, Space pauses and the arrows step a line.\nPlus and minus change the size, and Esc closes Stage.";
 
     const RegexOptions Opts = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
-    static readonly Regex Open = new(@"^(?:(?:open|show|start)\s+)?(?:the\s+|my\s+)?(?:teleprompter|prompter)$", Opts);
-    static readonly Regex Close = new(@"^(?:close|stop|hide)\s+(?:the\s+)?(?:teleprompter|prompter)$|^(?:teleprompter|prompter)\s+(?:off|close)$", Opts);
-    static readonly Regex Clipboard = new(@"^(?:teleprompter|prompter)\s+(?:from\s+(?:the\s+|my\s+)?clipboard|paste)$", Opts);
-    static readonly Regex WithRest = new(@"^(?:teleprompter|prompter)\s+(?<rest>.+)$", Opts);
+    static readonly Regex Open = new(@"^(?:(?:open|show|start)\s+)?(?:the\s+|my\s+)?(?:teleprompter|prompter|stage)$|^stage\s+on$", Opts);
+    static readonly Regex Close = new(@"^(?:close|stop|hide|end|leave)\s+(?:the\s+)?(?:teleprompter|prompter|stage)$|^(?:teleprompter|prompter|stage)\s+(?:off|close)$", Opts);
+    static readonly Regex Clipboard = new(@"^(?:teleprompter|prompter|stage)\s+(?:from\s+(?:the\s+|my\s+)?clipboard|paste)$", Opts);
+    static readonly Regex WithRest = new(@"^(?:teleprompter|prompter|stage)\s+(?<rest>.+)$", Opts);
     static readonly Regex DrivePath = new(@"^[a-z]:[\\/]", Opts);
 
     public static int WordsPerMinute(PrompterPace pace) => pace switch
