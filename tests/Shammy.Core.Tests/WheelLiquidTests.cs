@@ -222,75 +222,14 @@ public class GooTests
         Assert.True(b.P3.Y < 70 && b.P4.Y < 70);
     }
 
-    static readonly PourShape Pour = new(26, 13, 58);
-
-    static double WidthAt(IReadOnlyList<GooPoint> points, double y)
-    {
-        var row = points.Where(p => Math.Abs(p.Y - y) < 0.01).ToList();
-        return row.Max(p => p.X) - row.Min(p => p.X);
-    }
-
     [Fact]
-    public void The_stream_runs_from_the_island_to_where_it_has_reached()
+    public void At_rest_only_the_chosen_droplet_stays_joined_to_the_hub()
     {
-        var points = Goo.Stream(100, 20, 100, 420, 0, 0.5, Pour, 0, wobble: 0);
-        Assert.NotEmpty(points);
-        Assert.All(points, p => Assert.True(double.IsFinite(p.X) && double.IsFinite(p.Y)));
-        Assert.Equal(20, points.Min(p => p.Y), 1);
-        Assert.Equal(220, points.Max(p => p.Y), 1); // half way down, where the pour has reached
-        Assert.Equal(26, WidthAt(points, 20), 2); // a drip forming under the pill
-        Assert.Equal(58, WidthAt(points, 220), 6); // pooling into the blob at its end
-    }
-
-    [Fact]
-    public void A_real_pour_is_wide_at_the_island_narrower_mid_way_and_flares_into_the_hub()
-    {
-        double length = 500;
-        double Width(double s) => 2 * Goo.HalfWidth(s, length - s, s / length, Pour, 0, wobble: 0);
-        Assert.Equal(26, Width(0), 2);
-        Assert.InRange(Width(length / 2), 12, 14);
-        Assert.Equal(58, Width(length), 6);
-        // Smooth: it narrows steadily out of the island and widens steadily into the hub, no kinks or bumps.
-        for (double s = 0; s < 120; s += 5) Assert.True(Width(s + 5) <= Width(s) + 1e-9);
-        for (double s = length - 120; s < length; s += 5) Assert.True(Width(s + 5) >= Width(s) - 1e-9);
-        // Where it meets a 32 px hub's edge it is still well over the middle's width: a neck, not a wire.
-        Assert.True(Width(length - 32) > 18);
-    }
-
-    [Fact]
-    public void Draining_thins_the_stream()
-    {
-        var thin = new PourShape(26 * 0.2, 2.5, 10);
-        Assert.True(2 * Goo.HalfWidth(250, 250, 0.5, thin, 0, wobble: 0) < 3);
-    }
-
-    [Fact]
-    public void A_drained_stream_draws_nothing()
-    {
-        Assert.Empty(Goo.Stream(0, 0, 0, 300, 0.4, 0.4, Pour, 0));
-        Assert.Empty(Goo.Stream(0, 0, 0, 0, 0, 1, Pour, 0));
-    }
-
-    [Fact]
-    public void The_stream_stays_attached_while_it_wobbles()
-    {
-        for (double t = 0; t < 2; t += 0.13)
-        {
-            var points = Goo.Stream(0, 0, 0, 300, 0, 1, new PourShape(26, 13, 50), t, wobble: 1);
-            int half = points.Count / 2;
-            // The ends sit on the line between the island and the hub, whatever the sway.
-            Assert.Equal(0, (points[0].X + points[^1].X) / 2, 6);
-            Assert.Equal(0, (points[half - 1].X + points[half].X) / 2, 6);
-        }
-    }
-
-    [Fact]
-    public void Gravity_eases_in_and_lands_exactly()
-    {
-        Assert.Equal(0, Goo.EaseIn(0));
-        Assert.Equal(1, Goo.EaseIn(1), 9);
-        Assert.True(Goo.EaseIn(0.5) < 0.5);
-        for (double t = 0; t < 1; t += 0.05) Assert.True(Goo.EaseIn(t + 0.05) >= Goo.EaseIn(t));
+        // The dial's sizes: a 32 px hub, droplets of 21 px on a 90 px orbit, the chosen one swollen 1.25×.
+        Assert.Null(Goo.Bridge(0, 0, 32, 0, -90, 21));
+        Assert.NotNull(Goo.Bridge(0, 0, 32, 0, -90, 21 * 1.25));
+        // Beading off (half way out) every droplet is still joined.
+        Assert.NotNull(Goo.Bridge(0, 0, 32, 45, 0, 21));
     }
 
     [Fact]
