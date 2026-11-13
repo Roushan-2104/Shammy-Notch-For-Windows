@@ -1,340 +1,275 @@
 <p align="center">
-  <img src="docs/images/banner.svg" alt="Shammy: a Dynamic Island for Windows" width="100%">
+  <img src="docs/images/hero.png" alt="Shammy: a floating island for Windows" width="100%">
 </p>
 
 <p align="center">
   <a href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Roushan-2104/Shammy-Notch-For-Windows?style=flat-square&color=7c5cff&label=download"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%C2%B7%2011-2b2d42?style=flat-square&logo=windows11">
   <img alt=".NET 8" src="https://img.shields.io/badge/.NET-8-512bd4?style=flat-square&logo=dotnet">
+  <img alt="About 90 MB idle" src="https://img.shields.io/badge/idle-~90%20MB-19c3b2?style=flat-square">
   <img alt="No paid AI" src="https://img.shields.io/badge/paid%20AI-none-ff8a65?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-64b5f6?style=flat-square"></a>
 </p>
 
 <p align="center">
   <b><a href="#install">Install</a></b> ·
-  <a href="#three-keys">Three keys</a> ·
-  <a href="#a-day-with-shammy">Tour</a> ·
+  <a href="#the-floating-island">Island</a> ·
+  <a href="#one-calm-screen">Open</a> ·
+  <a href="#the-dial">Dial</a> ·
+  <a href="#stage">Stage</a> ·
+  <a href="#everything-else">Everything else</a> ·
   <a href="#say-it-or-type-it">Commands</a> ·
-  <a href="#privacy-by-default">Privacy</a> ·
-  <a href="#build-it-yourself">Build</a>
+  <a href="#privacy">Privacy</a>
 </p>
 
 ---
 
-Shammy turns the top-centre of your screen into a living notch, like the iPhone's Dynamic Island, made for Windows.
+Shammy turns the top of your Windows screen into a **floating island**: a pill of dark glass that glows softly with whatever is happening, opens into one calm screen when you need it, and blooms into a dial under your pointer when you hold the middle mouse button. It plays your music, keeps your calls, timers and meetings in view, reads your one-time codes, runs your laptop, and becomes a teleprompter under your camera when you present.
 
-It answers questions with Google AI Mode, Web or Lens right inside the notch, lets you circle anything on screen to search it, and keeps your music, timers, calls, downloads and notifications in view. Shammy, a little cat (a pair of eyes with ears and whiskers), lives in the notch and changes to match whatever is going on, with a small action button beside the notch when there's something to press. Rest the pointer on it for a peek; click (or keep resting) and it opens into a rail of cards.
+It's light (about **90 MB** while idle), it never needs a paid AI, and it stays out of your way.
 
-It runs on your PC with **no paid AI**:
-- Google does the answering.
-- Speech-to-text runs offline with Whisper, tuned for Indian English and the names of apps you have installed, with an optional Hinglish voice.
-- Text recognition uses Windows' built-in OCR.
+<br>
 
-<!-- DEMO: replace this comment with the demo GIF, e.g. <p align="center"><img src="docs/images/demo.gif" width="760"></p> -->
-> 🎬 **Demo video coming soon.**
+<a name="the-floating-island"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/the-floating-island-dark.svg"><img src="docs/images/type/the-floating-island-light.svg" alt="The floating island" width="100%"></picture></p>
 
-## Three keys
+<p align="center">
+  <img src="docs/images/waves.gif" alt="The floating island with soft waves of light moving inside it" width="760">
+</p>
 
-| | Key | What happens |
-|:-:|---|---|
-| 🗣️ | **Hold** <kbd>Right Alt</kbd> | **Talk.** Ask a question or say a command, in English or Hinglish: *"play kesariya"*, *"screenshot le lo"*, *"battery kitni hai"*. Your words show as you speak, with what letting go will do. The screen stays live. |
-| ⌨️ | **Tap** <kbd>Right Alt</kbd> | **Type.** The command palette drops out of the notch: apps, files, settings, music and commands rank live as you type. |
-| ⭕ | <kbd>Copilot</kbd>, or hold <kbd>Right Ctrl</kbd> | **Circle.** The screen freezes. Circle, scribble or tap anything, speak if you like, then let go. |
-| 🐾 | **Hold** the middle mouse button | **Wheel.** Eight actions open around the pointer: lean toward one and let go, or press <kbd>1</kbd>–<kbd>8</kbd>. The beads learn what you use; pin your own in Settings › Wheel. A quick middle click still goes to your app. |
+The notch no longer hangs from the edge of your screen. It **floats** a few pixels below it, a pill of dark frosted glass.
 
-Everything else is a **hover** away.
+- **Light like water.** Soft waves drift inside the glass in the colours of what you're playing, and dissolve before they reach the edges. When nothing is happening they hold still and cost nothing.
+- **One liquid surface.** When there's something to press, a round button beads out of the island's end through a smooth, water-drop neck. It isn't stuck on; it flows out of the same glass.
+- **A rim that breathes.** A thin line of light along the bottom edge tells you the state without opening anything: **red** while your mic is live, **green** before a meeting, **blue** in focus, your **song's colour** with music.
+- **Fake glass, real calm.** The frosted look is a tiny pre-blurred copy of your wallpaper (about 26 KB), made once and remade only when your wallpaper changes. No live blur, no busy graphics card.
 
-Something of yours under the notch, like a browser tab? Click the **small tab under the notch** and it slides out of the way for five seconds, leaving a thin line, so you can click what was underneath. The tab can be turned off in Settings › Notch & pet.
+<p align="center">
+  <img src="docs/images/palettes.png" alt="The island in six palettes: Album, Monsoon, Neon dusk, Northern, Holo and Frost" width="100%">
+</p>
 
-> On layouts where Right Alt is AltGr (English India, German, French…), Right Alt on its own is the talk key, and AltGr + a key still types (₹, €, @). Right Ctrl only counts when held on its own, so Ctrl shortcuts are unaffected.
+<p align="center"><sub><b>Six palettes.</b> <b>Album</b> (the default) takes its colours from the cover of what's playing. Pick another in Settings › Notch.</sub></p>
 
-## A day with Shammy
+<br>
+
+<a name="one-calm-screen"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/one-calm-screen-dark.svg"><img src="docs/images/type/one-calm-screen-light.svg" alt="One calm screen" width="100%"></picture></p>
+
+<p align="center">
+  <img src="docs/images/open.gif" alt="The island opening into its Now screen" width="800">
+</p>
+
+Rest the pointer on the island, or click it, and it opens into **one screen**. No row of tabs, nothing to learn:
+
+- **One sentence** about right now: *Playing Monsoon Letters · Standup in 12 min*.
+- **One big moment**: your song with its controls, your call and how long it's been, your focus time left, or your next meeting with *Join*.
+- **Three numbers** set in light type: the weather, your battery, and whatever fits the moment.
+- **Six tools that change with what you're doing**, the same ones the dial shows.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/island-open-call.png" alt="In a call: Stage, Captions, Mute mic, Record, Notes, Share link"><p align="center"><sub><b>In a call:</b> Stage, Captions, Mute mic, Record, Notes, Share link</sub></p></td>
+<td width="50%"><img src="docs/images/island-open-writing.png" alt="Writing: Prompter, Focus, Timer, Clipboard, Snippets, Translate"><p align="center"><sub><b>Writing or coding:</b> Prompter, Focus, Timer, Clipboard, Snippets, Translate</sub></p></td>
+</tr>
+</table>
+
+Everything else is one search, one voice command, one dial turn, or the **?** away.
+
+<br>
+
+<a name="the-dial"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/the-dial-dark.svg"><img src="docs/images/type/the-dial-light.svg" alt="The dial" width="100%"></picture></p>
+
+<table>
+<tr>
+<td width="45%" align="center"><img src="docs/images/dial.gif" alt="The dial blooming at the pointer and turning" width="380"></td>
+<td width="55%" valign="middle">
+
+**Hold the middle mouse button.** The dial blooms right where your pointer is, like a drop landing on water. Six tools bead out around it.
+
+- **Scroll to turn it**, one click-stop at a time; the chosen tool swells and stays joined to the centre by a liquid neck.
+- **Or just move** toward the tool you want.
+- **Let go to choose.** Let go over the centre (or press <kbd>Esc</kbd>) to cancel.
+- **It knows the moment.** In a call it offers Stage and captions; with music, the player; in an editor, your writing tools; otherwise, your own favourites.
+- A quick middle click still reaches your apps, and the dial stays out of the way over fullscreen games and videos.
+
+</td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/images/dial-call.png" alt="The dial in a call" width="300"></p>
+
+<br>
+
+<a name="stage"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/stage-dark.svg"><img src="docs/images/type/stage-light.svg" alt="Stage" width="100%"></picture></p>
+
+<p align="center">
+  <img src="docs/images/stage.gif" alt="Stage: a calm teleprompter right under the camera" width="800">
+</p>
+
+The island sits right next to your webcam, so it becomes your **studio** when you present or record.
+
+- **Your script under the lens.** Three calm lines in warm off-white, set short so your eyes barely leave the camera, with one hairline for progress.
+- **Paced by your voice.** It moves on while you speak and waits when you pause. No speech recognition, no extra memory.
+- **A ring light your call never sees.** A warm glow around the screen's edge lights your face in a dark room, hidden from screen shares and recordings.
+- **Their words, quietly.** The other person's latest line appears small under your script, from Windows' own Live Captions.
+- **Mirror and Record** sit one click away and appear only on hover.
+
+Say **"stage"**, **"stage from clipboard"**, or pick Stage on the dial.
+
+<br>
+
+<a name="light-by-design"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/light-by-design-dark.svg"><img src="docs/images/type/light-by-design-light.svg" alt="Light by design" width="100%"></picture></p>
+
+Shammy 1.0 is built to be forgotten about:
+
+| | Before | Now |
+|---|---|---|
+| Memory while idle (Task Manager) | several hundred MB | **about 90 MB** |
+| Shammy's own memory | 839 MB | **about 120 MB** |
+| Browser processes while idle | 6 | **0** (results open a browser only when they show) |
+| Voice model in memory | always | **never**, unless you're offline and speak |
+| Graphics work at rest | live blur and shadows | **none**: everything rests still |
+| Installer | 133 MB | **104 MB** |
+
+<br>
+
+<a name="everything-else"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/everything-else-dark.svg"><img src="docs/images/type/everything-else-light.svg" alt="Everything else" width="100%"></picture></p>
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### ☕ It starts quiet
-At rest the notch shows **Shammy the pet**, a small cat looking out of the dark: two eyes with ears, whiskers and a pink nose. It reacts to what's going on (music, a ping, a meeting about to start, a low battery, late nights), flicks an ear now and then, follows your pointer with its pupils and purrs when the pointer rests on it. Beside it sits a **glance** that rotates every few seconds: the time and date, your next meeting, the weather, the song, a running timer, a low battery, your ticker. Say *"pet off"* to keep just the glance. Rest the pointer on the notch and it **peeks**: the song (or the time) and the one thing that matters most, like *Join* for a meeting. A thin colour edge flashes briefly when something happens:
-- the album colour for a new song;
-- your accent colour for a notification or timer;
-- green for charging;
-- red for low battery.
+### 💻 Your laptop, in one card
+Wi-Fi, Bluetooth, power mode, keep awake, mute mic, **Quiet** (Shammy holds its pop-ups for an hour), its own **night light** (a warm tint, remembered across restarts), storage, lock, sleep, and restart or shut down (they ask first). Say *"turn off wifi"*, *"performance mode"*, *"night light on"* or *"quiet for an hour"*.
 
 </td>
-<td width="50%"><img src="docs/images/idle.png" alt="Idle notch"><br><img src="docs/images/edge.png" alt="Colour edge flash"></td>
+<td width="50%"><img src="docs/images/laptop.png" alt="The Laptop card"></td>
 </tr>
 <tr>
-<td valign="top">
+<td width="50%"><img src="docs/images/settings.png" alt="Settings with search"></td>
+<td width="50%" valign="top">
 
-### 💬 Ask it anything
-Tap <kbd>Right Alt</kbd> to type, or hold it to speak. Questions open Google **AI Mode** right inside the notch:
-- switch to **Web** or **Lens** with one click;
-- add **Reddit**, **Past week**, **No junk** or **Docs** filters, or just say them;
-- save the whole scrolling page as one screenshot.
+### ⚙️ Settings you can search
+Eleven clear tabs (General, Notch, Wheel, Pet, Voice & search, Notifications, Routines, Clipboard, Connections, Units & language, Advanced) and a search box that finds any setting. The palette finds Shammy's settings too, and flips switches right in the list.
 
 </td>
-<td><img src="docs/images/results.png" alt="Google AI Mode answer in the notch"></td>
-</tr>
-<tr>
-<td valign="top" colspan="2">
-
-### 🧭 One palette for everything
-Tap <kbd>Right Alt</kbd> and start typing. Results rank live, keyboard first (<kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd>), and learn from what you pick:
-- **Commands first:** `timer 25m`, `2+2`, `remind me at 6pm`, `weather`, each with a preview of what will happen;
-- **Apps:** `spot` opens Spotify; one misheard word is forgiven ("visual studio board");
-- **Files** straight from the Windows Search index. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> shows the file in its folder. Hidden and developer folders stay out of the way;
-- **Settings, right there:** `brightness` gives a slider, `sound` gives volume, mute and your output devices, `bluetooth` gives an on/off switch, and words like `wifi` or `night light` open the right Settings page;
-- **Music:** `play …` or `… bajao` plays on YouTube Music; pause, next and previous control what's playing;
-- **Your own things:** notes, clipboard items, snippets and every view of the notch;
-- **Google** is always the last row.
-
-With nothing typed, it shows your recent picks and a *Try* row of ideas. Copied text and notes are never suggested on their own.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### ⚡ Instant answers
-Sums, unit and currency conversions and time zones never leave your PC: no search, no wait. Exchange rates are free and refreshed daily. Copy an answer with one click, or save it as a note.
-
-</td>
-<td><img src="docs/images/answer.png" alt="Calculator answer"><br><img src="docs/images/convert.png" alt="Unit conversion"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### ⭕ Circle to search
-Press <kbd>Copilot</kbd> and the screen freezes. Circle a photo, a word or a paragraph:
-- text goes to Google;
-- images go to **Lens**, and a "Sent to Google" badge tells you when one leaves your PC;
-- a circled **QR code** opens;
-- a circled **price** converts to your currency.
-
-</td>
-<td><img src="docs/images/circle.png" alt="Circle anything"><br><img src="docs/images/listening.png" alt="Listening"><br><img src="docs/images/typing.png" alt="Type to search"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🔔 Notifications, calmly
-Other apps' notifications open right in the notch with a soft ping instead of Windows' chime, so you can read the message without touching anything:
-- **hover** to keep one on screen;
-- **click** to open the app;
-- **right-click** to mute that app;
-- **swipe** it sideways to send it away.
-
-When more arrive they pile up underneath, and sending the top one away brings the next one up.
-
-While you share your whole screen or record it, Shammy shows who a notification is from, but not what it says, and a message already on screen hides its text the moment sharing starts. Sharing just a tab or a window hides nothing, because the notch isn't in the picture, and neither does an ordinary call. Muted apps stay out of the Alerts list too.
-
-</td>
-<td><img src="docs/images/notification.png" alt="A message in the notch"><br><img src="docs/images/notification-private.png" alt="The same message while sharing the screen, with its text hidden"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### ⏱️ Live activities
-Shammy stays in the middle of the notch and dresses for the occasion, with the details on either side:
-- **a call:** a headset, the time on the call, and a mic button;
-- **music:** the song's cover as a spinning record, the line being sung under it, and play/pause;
-- **a timer:** a little stopwatch, the time left, and pause;
-- **Claude Code:** how long it has been working, a nudge when it needs you, and "Done";
-- **sharing or recording your screen,** a **download,** **charging** or your **earbuds' battery**;
-- **an eye break:** every 20 minutes it closes its eyes with you for 20 seconds.
-
-When there's something to press, a small **action circle** sits beside the notch, so you don't have to open anything. Pomodoro and focus sessions, volume and brightness, Bluetooth and updates live here too.
-
-</td>
-<td><img src="docs/images/pet-call.png" alt="Shammy on a call"><br><img src="docs/images/pet-music.png" alt="Shammy with music playing"><br><img src="docs/images/pet-timer.png" alt="Shammy with a timer"><br><img src="docs/images/pet-rec.png" alt="Shammy while recording"><br><img src="docs/images/pet-download.png" alt="Shammy with a download"><br><img src="docs/images/pet-charging.png" alt="Shammy while charging"><br><img src="docs/images/pet-earbuds.png" alt="Shammy showing earbud battery"><br><img src="docs/images/pet-claude.png" alt="Shammy while Claude Code works"><br><img src="docs/images/pet-eyebreak.png" alt="Shammy taking an eye break"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🗂️ Open it for the cards
-Open the notch and you get a **rail of tiles** for what's going on now: music with its real album cover, weather, your calendar, timers, notes, battery. The notch fits itself to the tiles it has. The tile you're on grows and shows its controls, and the others dim back. Above them sit Shammy (home), a label for every part of Shammy and the search pill:
-- Clipboard, Shelf, Notes, Alerts, System, Mirror, Calendar, Snippets, Settings, Timers, Music, Weather, Alarms;
-- labels that don't fit are listed under **More**.
-
-Click a tile or a label and it opens in place into a bigger view: synced lyrics, the week's forecast, today's timeline, your clipboard, notes you can type straight into. **Back** or <kbd>Esc</kbd> returns to the tiles.
-
-</td>
-<td><img src="docs/images/expanded.png" alt="The open notch with the music tile in focus"><br><img src="docs/images/detail-music.png" alt="Music view"><br><img src="docs/images/detail-weather.png" alt="Weather view"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🎥 Record, caption, approve
-- **Record the screen:** say *"record my screen"* and pick the whole screen or one window. It saves an MP4 in Videos › Shammy, with PC sound on and the microphone off unless you change them, and the notch keeps itself out of the video.
-- **Live captions:** say *"live captions"* and whatever your PC is playing is written in a strip under the notch, made offline by the same voice model.
-- **Claude Code:** connect it once in Settings. Each session then shows in the notch, and when one needs your OK, **Allow** and **Deny** drop down so you can answer without switching windows.
-
-</td>
-<td><img src="docs/images/record-start.png" alt="The card that starts a screen recording"><br><img src="docs/images/captions.png" alt="Live captions under the notch"><br><img src="docs/images/claude-ask.png" alt="Claude Code asking to run a command, with Deny and Allow"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### ⏰ Real alarms
-Say *"wake me up at 6:30 every weekday"*, or add one yourself in the Alarms view. Pick the days, label it, and set how long a snooze lasts. An alarm rings until you stop or snooze it, swells up gently from quiet, and shows over fullscreen apps. You can turn off either of those last two.
-
-</td>
-<td><img src="docs/images/alarms.png" alt="Alarms view"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🎛️ Make it yours
-**Settings** opens right in the notch and saves as you go, in seven sections: General, Notch & pet, Voice, Notifications, Time & units, Clipboard & privacy, and Calendar. Choose a cat or just the eyes, the eye style and colour, the notch's size and accent colour, which screen it lives on, apps it should stay away in, lively or calm motion, how quickly the notch opens, your microphone, 12 or 24-hour time, and which features run at all.
-
-New here? A **welcome tour** takes about thirty seconds, and that's where you can give the pet its own name. Say or type *"tour"* to see it again.
-
-Not sure what Shammy can do? Click the **?** in the open notch, or say *"help"*. The **guide** lists every feature with what it does, the words that start it, a **Try it** button and its switch. Its finder takes everyday words (*"save what is on my screen"*), and it suggests things that fit the moment.
-
-</td>
-<td><img src="docs/images/settings.png" alt="Settings"><br><img src="docs/images/tour.png" alt="Welcome tour"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 📎 The shelf and drop actions
-Drag files onto the notch and pick where they land: **Shelf** parks them so you can drag them back out into any app later, **Send to phone**, **Compress** to a zip, or **Convert** PNG ⇄ JPG. Right-click a shelved file for **Send to phone**.
-
-</td>
-<td><img src="docs/images/shelf.png" alt="File shelf"></td>
-</tr>
-<tr>
-<td valign="top">
-
-### 📱 Send to your phone
-Like AirDrop, over your own Wi-Fi. Scan the QR code and the phone downloads the file in its browser, or uploads photos back into your PC's **Downloads** folder. No app, no cloud, no account.
-
-</td>
-<td><img src="docs/images/phone.png" alt="Phone transfer QR"></td>
 </tr>
 </table>
 
-### And quietly, in the background
-- 🎵 **Music:**
-  - say *"play …"* to play it in YouTube Music, or *"… on spotify"*. It picks the original over remixes, lofi, covers and festival edits, unless you ask for one (*"kesariya lofi"*);
-  - synced lyrics;
-  - scroll over the notch for volume, swipe sideways to skip.
-- 📋 **Clipboard:**
-  - history of what you copy, with pinning and search; clearing it can be undone for a few seconds;
-  - a screenshot catcher you can drag into any app, with Copy text, Search with Lens, Send to phone and Add to shelf;
-  - save any copied text as a note;
-  - Wi-Fi passwords from QR codes stay out of Windows' clipboard history.
-- ✍️ **Snippets:** type `;date`, `;time`, `;shrug` or your own triggers in any app and they expand.
-- 🚀 **Launcher:** *"open spotify"*, *"open github.com"*, *"open downloads"*.
-- 📅 **Calendar:** paste your Google Calendar's secret iCal address once (no sign-in): the week and your next meeting on a card, today's timeline, a glance, and a *Join* pill five minutes before a call. Say *"remind me 5 minutes before standup"* for a meeting on your calendar.
-- 🪞 **Mirror:** a quick look in your webcam before a call. The camera runs only while the mirror is open on screen.
-- 🌤️ **Ambient:** weather, and a cricket, stocks or crypto ticker in the resting glance.
-- 🖥️ **System:**
-  - a CPU, memory and battery card, with your Bluetooth headsets' battery;
-  - alerts when an app hogs the CPU or the battery drains fast, and when your earbuds run low.
-- 🎚️ **Volume mixer:** a slider for each app that is making sound.
-- ⚡ **Quick actions:** keep awake, lock, sleep, mute and more in one card.
-- 📜 **Teleprompter:** your script scrolls right under the camera, and stays out of screen shares and recordings.
-- 👀 **Nudges:** an eye break every 20 minutes, and water reminders if you turn them on.
-- 🏏 **Live cricket:** the score in the notch while India is playing.
-- 🗣️ **Online voice (optional):** with your own Gnani key, Shammy listens online in Hinglish (saving the key turns this on) and can say timers, alarms and reminders aloud. Off until you add a key.
-- 💬 **Say it your way:** everyday wordings and Hinglish reach the right action (*"grab my screen"*, *"gaana band karo"*, *"settings kholo"*). The time, date, battery, new messages and what's playing are answered on your PC. When Shammy isn't sure, it shows **Did you mean** choices (press <kbd>1</kbd>–<kbd>4</kbd>) instead of searching; plain questions still go to Google.
-- 🐾 **Cat theme (optional):** the cat listens in the notch while you talk, and paws lead the choices. Settings › Notch & pet.
-- 🤫 **Quiet mode:** the notch keeps itself quiet during a calendar meeting and a focus session.
-- 🙈 **Fullscreen:** Shammy hides itself for fullscreen games, videos and presentations, and never covers a top taskbar. Only a finished timer or a due alarm or reminder shows over them, without taking focus.
+| | |
+|---|---|
+| 🗣️ **Talk to it** | Hold <kbd>Right Alt</kbd> and say it your way, in English or Hinglish: *"screenshot le lo"*, *"gaana band karo"*, *"battery kitni hai"*. Two things at once work too: *"take a screenshot and send it to my phone"*. Not sure what you meant? It offers **Did you mean** choices instead of guessing. |
+| ⌨️ **Type anything** | Tap <kbd>Right Alt</kbd> for the palette: apps, files, settings, music and commands rank as you type. |
+| ⭕ **Circle to search** | Press <kbd>Copilot</kbd> (or hold <kbd>Right Ctrl</kbd>), circle anything on screen, and Google answers in the island. |
+| 🔢 **Codes at a glance** | A one-time code in a message shows big in the island with a **Copy** button. Copied privately (not in clipboard history), cleared after a minute, hidden while you share your screen, never logged. |
+| 🌅 **Morning brief** | The first unlock of a morning shows the weather, meetings, reminders and a low battery in one line, said aloud with your Gnani key. *"Good morning"* asks again. |
+| 🎯 **Focus in one click** | From the dial or the island. It pauses Windows' focus with you, and when it ends tells you what waited: *3 messages waited · WhatsApp, Gmail*. |
+| 🩺 **Health** | How full your drives are, a careful cleanup (temporary files older than a week, the Recycle Bin, old downloads moved to the Recycle Bin, each asks first), and a daily check of battery wear, startup apps and waiting updates. |
+| 🎵 **Music** | *"play …"* in YouTube Music or Spotify, synced lyrics, scroll over the island for volume, swipe to skip. |
+| 🔔 **Notifications** | Other apps' notifications, calmly, with message text hidden while you share your screen. |
+| ⏱️ **Timers, alarms, reminders** | Live countdowns, real alarms that ring through fullscreen, and reminders in plain words: *"remind me at 6pm to call mom"*. |
+| 📅 **Calendar** | Your Google Calendar from its secret address (no sign-in), your next meeting, and *Join* five minutes before. |
+| 📋 **Clipboard, shelf, snippets** | Clipboard history with search, a file shelf you drop onto, and text snippets that expand in any app. |
+| 📱 **Send to phone** | A QR code sends files and links to your phone over your own Wi-Fi. |
+| 🤖 **Claude Code** | Coding-agent sessions in the island, with Allow and Deny. |
+| 🎥 **Record and caption** | Record your screen to MP4, and live captions for anything your PC plays (Windows' Live Captions). |
+| 🐾 **Shammy the pet** | A pair of eyes, or a cat with ears and a purr, that reacts to what you're doing. |
 
-## Install
+<br>
+
+<a name="install"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/install-dark.svg"><img src="docs/images/type/install-light.svg" alt="Install" width="100%"></picture></p>
 
 1. Download **`Shammy-Setup.exe`** from the [latest release](https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest) and run it.
    - It installs for your account only, with no admin prompt.
    - .NET is included.
-2. On first run, Shammy asks once whether it should **start with Windows**. You can change this later in the tray menu. The welcome tour follows.
+2. On first run, Shammy asks once whether it should **start with Windows**. The welcome tour follows.
 
-- **Updates are automatic.** Shammy downloads new versions in the background, usually just a few MB, and the notch shows the new version with a restart button beside it. If you ignore it, the update installs when Shammy next quits. After an update, a small note tells you what's new.
+- **Updates are automatic.** Shammy downloads new versions in the background, usually just a few MB, and shows the new version in the island with a restart button. After an update, a small note tells you what's new.
 - **No installer?** `Shammy-Portable.zip` runs from any folder and updates itself the same way.
-- **First launch:** Shammy downloads a small offline voice model (~148 MB) so you can talk within a minute. Typing and circling work meanwhile. It then checks your PC once and quietly fetches a sharper model in the background: about 574 MB on a PC with a usable graphics card, or 488 MB otherwise. The notch says *Voice upgraded* when it switches.
-- **Hinglish voice (optional):** on a PC with a graphics card, tick *Hinglish voice (Hindi + English)* in the tray menu to switch to a model that understands Hindi mixed with English, like "kal subah 7 baje ka alarm laga do" (a one-time 574 MB download). It writes Hindi in Latin letters, and anything it isn't sure about is checked against the regular English model. It's off by default, and greyed out on PCs that run voice on the processor, where it would be too slow.
+- **Voice:** with your own Gnani key (Settings › Voice & search), voice commands are heard online, in English and Hinglish. Without a key or without internet, a small English model (about 148 MB, downloaded the first time it's needed) hears that one command on your PC and then frees itself.
 
 <details>
 <summary><b>Requirements and first-run notes</b></summary>
 
-- **Windows:** 10 (2004+) or 11.
-- **WebView2 Runtime** for search results. It comes with Windows 11 and current Edge; if it's missing, the notch links to Microsoft's installer.
+- **Windows:** 10 (2004+) or 11. **Live captions** need Windows 11 22H2 or newer.
+- **WebView2 Runtime** for search results. It comes with Windows 11 and current Edge; if it's missing, the island links to Microsoft's installer.
 - **SmartScreen:** the build isn't code-signed yet, so SmartScreen may ask you to confirm the first run.
-- **To hear only Shammy's ping,** turn off *Allow notifications to play sounds* in Settings › System › Notifications. The tray menu has a shortcut to that page.
+- **Upgrading from 0.9 or older:** Shammy moves its old, larger voice models to the Recycle Bin once (about 1.2 GB), so you can still restore them.
 - **Uninstall** from Settings › Apps. Your settings and data in `%LOCALAPPDATA%\Shammy` are kept.
 
 </details>
 
-## Say it or type it
+<a name="keys"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/keys-dark.svg"><img src="docs/images/type/keys-light.svg" alt="Four keys" width="100%"></picture></p>
+
+| | Key | What happens |
+|:-:|---|---|
+| 🗣️ | **Hold** <kbd>Right Alt</kbd> | **Talk.** Say a command or ask a question; let go and it runs. |
+| ⌨️ | **Tap** <kbd>Right Alt</kbd> | **Type.** The palette drops out of the island. |
+| ⭕ | <kbd>Copilot</kbd>, or hold <kbd>Right Ctrl</kbd> | **Circle.** The screen freezes; circle anything to search it. |
+| 🫧 | **Hold** the middle mouse button | **Dial.** It blooms at your pointer; scroll to turn, let go to choose. |
+
+Something of yours under the island? Click the **small tab under it** and it slides away for a few seconds. Click the open island once and <kbd>Tab</kbd>, the arrow keys, <kbd>Enter</kbd> and <kbd>Esc</kbd> work in it.
+
+> On layouts where Right Alt is AltGr (English India, German, French…), Right Alt on its own is the talk key, and AltGr + a key still types (₹, €, @). Right Ctrl only counts when held on its own, so Ctrl shortcuts are unaffected.
+
+<a name="say-it-or-type-it"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/say-it-or-type-it-dark.svg"><img src="docs/images/type/say-it-or-type-it-light.svg" alt="Say it or type it" width="100%"></picture></p>
 
 | Say or type | What happens |
 |---|---|
-| `play kaahe mose` · `kesariya bajao` · `play tum hi ho on spotify` · `pause` · `next` | Plays in YouTube Music (or Spotify) · media controls. Hindi song names are checked against your listening history and a built-in list |
-| `lyrics` | Synced lyrics, in the Music card |
-| `timer 25m tea` · `stopwatch` · `pomodoro` · `focus 45m` | A live countdown in the notch |
-| `remind me at 6pm to call mom` · `set an alarm for 7 am` · `kal subah 7 baje ka alarm laga do` · `parso subah 9 baje yaad dilana` · `note: buy milk` | A reminder card when it's due · the Notes card |
-| `wake me up at 6:30 every weekday` · `alarms` · `snooze` | A repeating alarm · the Alarms view · Snoozes one that's ringing |
-| `5 ft in cm` · `100 usd to inr` · `1.2 lakh in dollars` · `10 lakh + 5 lakh` · `5pm ist in pst` · `time in tokyo` | Instant answers (the palette shows the converted amount as you type) |
-| `translate good morning to hindi` | Google Translate, in the notch |
-| `calendar` · `my meetings` · `what's next` | Your next meeting · the Calendar card |
-| `mirror` · `how do I look` · `open camera` | The Mirror card |
-| `open spotify` · `open vs code` · `open google crome` · `open github.com` · `open downloads` | App, site or folder launcher (nicknames and one typo per word are fine) |
-| `snippet ;sig Best, Roushan` · `snippets` | Text expansion in any app |
-| `weather` · `weather in mumbai tomorrow` · `pune ka mausam` · `ticker cricket` · `ticker stocks RELIANCE.NS` · `pet on` | Weather card · ticker glance · Shammy's eyes on or off |
-| `record my screen` · `stop recording` | The recording card · stops and saves the MP4 |
-| `live captions` · `captions off` | Captions for whatever the PC is playing |
-| `volume mixer` · `quick actions` · `teleprompter` · `teleprompter from clipboard` | The mixer · the quick actions card · your script under the camera |
-| `help` · `features` · `what can you do` · `how do I record my screen` | The guide: everything Shammy does, with a finder that takes your own words |
-| `tour` | The welcome tour |
-| `volume 50` · `brightness to 70%` · `volume up` · `mute` | Sets the level directly |
-| `mute mic` · `cpu` · `clipboard` · `clear clipboard` · `send to phone` · `take a screenshot` | Mic toggle · System card · Clipboard card · Clears it (with Undo) · QR transfer · Screenshot |
-| *"…only from Reddit"*, *"…from the past week"*, *"…no junk"*, *"…from the docs"* | Search filters, spoken |
+| `play kaahe mose` · `kesariya bajao` · `play tum hi ho on spotify` · `pause` · `next` | Plays in YouTube Music (or Spotify) · media controls |
+| `stage` · `stage from clipboard` · `close stage` | Your script under the camera |
+| `turn off wifi` · `wifi band karo` · `bluetooth on` · `performance mode` · `best battery` · `night light on` · `quiet for an hour` | The Laptop card's switches, by voice |
+| `health` · `clean up my pc` · `disk space` | The Health card |
+| `good morning` · `morning brief` | Your morning brief |
+| `timer 25m tea` · `stopwatch` · `pomodoro` · `focus 45m` | A live countdown in the island |
+| `remind me at 6pm to call mom` · `set an alarm for 7 am` · `kal subah 7 baje ka alarm laga do` · `note: buy milk` | Reminders, alarms and notes |
+| `5 ft in cm` · `100 usd to inr` · `1.2 lakh in dollars` · `5pm ist in pst` · `time in tokyo` | Instant answers |
+| `translate good morning to hindi` | Google Translate, in the island |
+| `calendar` · `what's next` | Your next meeting · the Calendar card |
+| `open spotify` · `open github.com` · `open downloads` | App, site or folder launcher |
+| `record my screen` · `live captions` · `captions off` | Recording · captions for what your PC plays |
+| `take a screenshot and send it to my phone` | Two things, one after the other |
+| `help` · `what can you do` · `how do I record my screen` | The guide, with a finder that takes your own words |
+| `volume 50` · `brightness to 70%` · `mute mic` · `clipboard` · `laptop` | Levels, the mic, the Clipboard and Laptop cards |
 
-## Privacy by default
+<a name="privacy"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/privacy-dark.svg"><img src="docs/images/type/privacy-light.svg" alt="Privacy by default" width="100%"></picture></p>
 
-- **Voice and on-screen text:**
-  - your voice is transcribed offline, on your PC;
-  - text on screen is read with Windows' own OCR.
+- **Your voice:** with your Gnani key, a command's recording goes to Gnani while you hold the talk key; the key is encrypted on your PC. Without a key or offline, it's heard on your PC by the small offline model. Text on screen is read with Windows' own OCR.
 - **What leaves your PC:**
-  - searches go to Google only when you ask;
-  - "weather in <city>" sends only that city name to Open-Meteo's free geocoder and forecast (no account, no key);
-  - the calendar is read only from Google, at the secret address you pasted;
-  - the notch shows a "Sent to Google" badge whenever an image is uploaded to Lens;
-  - online voice is off unless you add your own Gnani key. With it on, the words Shammy speaks (and your recording, if you turn on Hinglish listening online) go to Gnani. The key is encrypted on your PC.
-- **Captions, recordings and the teleprompter:** captions are made on your PC from the sound it is playing; recordings go only to your Videos folder; the teleprompter is hidden from screen shares and recordings.
-- **Claude Code:** Shammy and Claude Code talk only on your own PC, through a local address with a random token. Connecting adds a few lines to Claude Code's settings file and keeps a backup; Disconnect takes them out again.
-- **The results browser:** it can only open web pages, so pages can't launch apps or files.
-- **Sharing your screen:** while you share your whole screen or record it, message text is hidden in pop-ups and in the Alerts list, and so are meeting titles, reminders, notes and clipboard text. A normal call, or sharing a single tab or window, doesn't hide anything. It all comes back when sharing ends. A setting can hide message text all the time.
-- **Camera:** the mirror's camera is on only while the mirror is open on screen, and stops when it closes or the PC locks.
-- **Your data:**
-  - clipboard history, notes, snippets, your calendar's address and the song titles voice remembers are encrypted with Windows DPAPI under your account. Song memory can be cleared or turned off from the tray;
-  - unpinned clipboard items are forgotten after 24 hours.
-- **Logs:** they never contain what you said, searched or copied, and are kept for 3 days.
-- **Phone transfers:**
-  - local network only, behind a random one-time link;
-  - received programs are renamed `.blocked`;
-  - every received file is marked as downloaded from the internet.
-- **Downloads and builds:**
-  - the voice model download is pinned and checked against its SHA-256;
-  - release builds contain no paths from the build machine.
+  - searches go to Google only when you ask; the island shows "Sent to Google" whenever an image goes to Lens;
+  - "weather in &lt;city&gt;" sends only that city name to Open-Meteo (no account, no key);
+  - the calendar is read only from Google, at the secret address you pasted.
+- **Captions, recordings and Stage:** captions come from Windows' Live Captions on your PC; recordings go only to your Videos folder; Stage and its ring light are hidden from screen shares and recordings.
+- **One-time codes:** copied privately (no clipboard history, no cloud clipboard), cleared after a minute, hidden while you share your screen, and never written to the log.
+- **Sharing your screen:** while you share your whole screen or record it, message text, meeting titles, reminders, notes and clipboard text are hidden. A setting can hide message text all the time.
+- **Camera:** the mirror's camera runs only while the mirror is open on screen.
+- **Your data:** clipboard history, notes, snippets and your calendar's address are encrypted with Windows DPAPI under your account; unpinned clipboard items are forgotten after 24 hours.
+- **Logs** never contain what you said, searched or copied, and are kept for 3 days.
+- **Phone transfers** stay on your local network, behind a random one-time link; received programs are renamed `.blocked`.
+- **Claude Code** talks to Shammy only on your own PC, through a local address with a random token.
 
 <details>
 <summary><b>Known limits</b></summary>
 
 - **Google robot check.** On shared or mobile connections Google sometimes shows "I'm not a robot" in the results card. Tick it once and the browser profile remembers it.
 - **Lens** uses the same upload endpoint as lens.google.com's own upload button. It isn't a public API, so it could change.
-- **Brightness keys:** Shammy shows its HUD, but Windows' own brightness pop-up can't be suppressed, because the firmware handles those keys.
-- **Notifications** are read when Windows' notification store changes. Clicking one opens the app, not the exact chat: Windows doesn't let other apps trigger a toast's own buttons.
-- **Exclusive-fullscreen games** (not borderless or windowed) can draw over a timer or alarm that breaks through fullscreen; you still hear its chime.
-- **Spotting a screen share:** Shammy recognises it from Windows' own signals and from the sharing bar Chrome, Edge, Zoom and Teams show. An app that shows neither isn't noticed, so nothing gets hidden.
+- **Brightness keys:** Windows' own brightness pop-up can't be suppressed, because the firmware handles those keys.
+- **Notifications:** clicking one opens the app, not the exact chat.
+- **Exclusive-fullscreen games** can draw over a timer or alarm that breaks through fullscreen; you still hear its chime.
 - **The Copilot key** replaces Windows' Copilot/Search action while Shammy runs.
-- **First launch** shows the notch about 3 s after start (WPF's one-time theme load).
 
 </details>
 
-## Build it yourself
+<a name="build"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/build-dark.svg"><img src="docs/images/type/build-light.svg" alt="Build it yourself" width="100%"></picture></p>
 
 ```bash
 dotnet test tests/Shammy.Core.Tests
@@ -354,12 +289,7 @@ You need Windows 10 (2004+) or 11, the .NET 8 SDK, and the WebView2 Runtime.
 powershell -File scripts/release.ps1 -Publish
 ```
 
-The script:
-- builds a self-contained release;
-- packages it with [Velopack](https://velopack.io), including a small delta from the previous release;
-- uploads Setup, the portable zip and the update packages to a GitHub release using your `gh` login.
-
-Without `-Publish` it only builds into `artifacts/releases`, so you can try it first.
+The script builds a self-contained release, packages it with [Velopack](https://velopack.io) (with a small delta from the previous release), and uploads Setup, the portable zip and the update packages to a GitHub release using your `gh` login. Without `-Publish` it only builds into `artifacts/releases`.
 
 </details>
 
@@ -367,19 +297,19 @@ Without `-Publish` it only builds into `artifacts/releases`, so you can try it f
 <summary><b>How it's put together</b></summary>
 
 ```
-src/Shammy.Core      pure logic, unit tested: springs, activity priority, parsers (time, money, units,
-                   reminders, snippets, music), calculator, selection analysis, phone-transfer server
+src/Shammy.Core      pure logic, unit tested: springs, activity priority, parsers, the island's look and
+                     palettes, the dial's maths and moments, Stage's pacing, health and cleanup rules
 src/Shammy.App       WPF app
-  Shell/           the notch window: state machine, spring animation, shape, colour edge
-  Views/           resting pet and glance, peek, the pet's live activities, the open notch's tiles, search bar, results
-  Search/          hotkeys, screen freeze, OCR, microphone, Whisper
-  Modules/         self-contained features (music, calendar, productivity, clipboard, mirror, launcher,
-                   snippets, ambient, meeting/system, phone send, drop actions, screenshots, selection tools)
-  Playback/        media sessions, audio visualizer
-  SystemInfo/      volume, brightness, battery, Bluetooth, downloads
-  Notifications/   other apps' notifications via the Windows listener
-  Interop/         Win32: keyboard hook, window styles, capture
-tests/             over 1,000 xUnit tests for Shammy.Core
+  Shell/             the floating island: state machine, springs, shape, fake glass, waves, rim light
+  Views/             the pet, the open island's Now screen, cards, search bar, results
+  Search/            hotkeys, screen freeze, OCR, microphone, online voice with an offline backup
+  Modules/           self-contained features (Stage, the dial, Laptop, Health, music, calendar, focus,
+                     codes, morning brief, clipboard, mirror, captions, launcher, snippets, …)
+  Playback/          media sessions, audio visualizer
+  SystemInfo/        volume, brightness, battery, Bluetooth, downloads
+  Notifications/     other apps' notifications via the Windows listener
+  Interop/           Win32: keyboard and mouse hooks, window styles, capture
+tests/               over 3,700 xUnit tests for Shammy.Core
 ```
 
 Each feature is a module in `src/Shammy.App/Modules/`; its README explains how to add your own.
