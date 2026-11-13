@@ -201,44 +201,32 @@ internal sealed partial class ShammyHost : IDisposable
             if (_settings.ShowNotifications) _ = StartNotificationsAsync();
         });
 
-        _whisper = Own(new WhisperService(_settings)
+        // Nothing voice-related loads here: commands are heard online, and the offline backup model is read in
+        // only when a command needs it (and freed a minute later).
+        _whisper = Own(new WhisperService
         {
             Language = _settings.VoiceLanguage,
             Vocabulary = () => _modules.Vocabulary.SelectMany(f => f()),
             SongHistory = () => _modules.SongVocabulary.SelectMany(f => f()),
         });
-        _whisper.Upgraded += model => _ui.BeginInvoke(() =>
-            Post(new Activity("voice-upgraded", ActivityKind.Message, PriorityMessage,
-                new MessagePayload("", "Voice upgraded · better accuracy"), In(3))));
         _modules.VocabularyChanged += () => _ = Task.Run(_whisper.ResetProcessors);
         _whisper.Progress += p => _ui.BeginInvoke(() => Post(new Activity("voice-model", ActivityKind.Progress, PriorityProgress,
-            new ProgressPayload("", "Voice", p))));
+            new ProgressPayload("", "Offline voice", p))));
         _whisper.Ready += () => _ui.BeginInvoke(() =>
         {
             if (_activities.Remove("voice-model"))
-                Post(new Activity("voice-ready", ActivityKind.Message, PriorityMessage, new MessagePayload("", "Voice search ready"), In(2.5)));
+                Post(new Activity("voice-ready", ActivityKind.Message, PriorityMessage, new MessagePayload("", "Offline voice ready"), In(2.5)));
         });
         _whisper.Failed += reason => _ui.BeginInvoke(() =>
         {
             _activities.Remove("voice-model");
             Post(new Activity("voice-failed", ActivityKind.Message, PriorityMessage, new MessagePayload("", reason, true), In(4)));
         });
-        _whisper.HinglishDownloading += () => _ui.BeginInvoke(() =>
-            Post(new Activity("voice-hinglish-get", ActivityKind.Message, PriorityMessage,
-                new MessagePayload("", "Getting Hinglish voice · 574 MB"), In(3))));
-        _whisper.HinglishProgress += p => _ui.BeginInvoke(() => Post(new Activity("voice-hinglish", ActivityKind.Progress, PriorityProgress,
-            new ProgressPayload("", "Hinglish voice", p))));
-        _whisper.HinglishReady += () => _ui.BeginInvoke(() =>
-        {
-            _activities.Remove("voice-hinglish");
-            Post(new Activity("voice-hinglish-ready", ActivityKind.Message, PriorityMessage, new MessagePayload("", "Hinglish voice ready"), In(2.5)));
-        });
-        _whisper.HinglishFailed += reason => _ui.BeginInvoke(() =>
-        {
-            _activities.Remove("voice-hinglish");
-            Post(new Activity("voice-hinglish-failed", ActivityKind.Message, PriorityMessage, new MessagePayload("", reason, true), In(4)));
-        });
-        _ = _whisper.InitAsync();
+        // Once after this update: the voice models no longer used go to the Recycle Bin (a minute in, off the UI thread).
+        _ = Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(_ => ModelFolderCleanup.RunOnce(), TaskScheduler.Default);
+        _modules.PipeCommands["models-cleanup"] = _ => ModelFolderCleanup.DryRun();
+        _modules.PipeCommands["voice-unload"] = _ => (_whisper.UnloadNow() ? "ok: freed " : "ok: wasn't loaded ") + MemoryState.Line();
+        _modules.PipeCommands["browser-free"] = _ => _notch.ResultView.FreeNowForTest() + " " + MemoryState.Line();
         if (!WebView2Check.IsInstalled())
         {
             // Rare (it ships with Windows 11 and Edge), but without it search can't show results.
@@ -249,11 +237,6 @@ internal sealed partial class ShammyHost : IDisposable
                 Click = WebView2Check.OpenDownload,
             });
         }
-        // A first run without internet can't fetch the voice model; try again once a network comes up.
-        System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, e) =>
-        {
-            if (e.IsAvailable && _whisper.Failure is not null) _ui.BeginInvoke(() => _ = _whisper.InitAsync());
-        };
 
         _keys = Own(new GlobalKeys(_ui));
         if (!_keys.IsInstalled)
@@ -266,7 +249,8 @@ internal sealed partial class ShammyHost : IDisposable
         // What the designed screens borrow from the host (the tour opens the palette, Settings asks about voice).
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
         Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);
-        Modules.HostLinks.HinglishAvailable = () => _whisper.HinglishAvailable;
+        // The local Hinglish model is gone: Hinglish is heard online (Gnani).
+        Modules.HostLinks.HinglishAvailable = () => false;
         Modules.HostLinks.ListenUntilSilence = _search.ListenUntilSilence;
         Modules.HostLinks.ChainPlan = text => _search.ResolveChain(text) is { } chain
             ? string.Join(" → ", chain.Select(s => SearchCoordinator.StepTitle(s.Command, s.Clean))) : null;
@@ -350,13 +334,8 @@ internal sealed partial class ShammyHost : IDisposable
                 _whisper.Language = _settings.VoiceLanguage;
                 _ = Task.Run(_whisper.ResetProcessors);
             },
-            () => _whisper.HinglishAvailable,
-            () =>
-            {
-                bool on = _settings.VoiceMode == AppSettings.HinglishVoice;
-                if (!on) _activities.Remove("voice-hinglish");
-                _ = _whisper.SetHinglishAsync(on);
-            },
+            () => false,
+            () => { },
             () =>
             {
                 if (_settings.ShowNotifications) _ = StartNotificationsAsync();
@@ -369,8 +348,7 @@ internal sealed partial class ShammyHost : IDisposable
             Log.Warn("Test command pipe is ON (SHAMMY_TEST_PIPE=1)");
         }
 
-        // Warm up the browser engine in the background so the first search opens instantly.
-        _ = WarmUpBrowserAsync();
+        // No browser warm-up: the results browser starts with the first search and is freed a minute after it.
 
         Log.Info($"Shammy ready in {clock.ElapsedMilliseconds} ms");
     }
@@ -429,11 +407,6 @@ internal sealed partial class ShammyHost : IDisposable
     {
         switch (name)
         {
-            case nameof(AppSettings.VoiceMode):
-                bool on = _settings.VoiceMode == AppSettings.HinglishVoice;
-                if (!on) _activities.Remove("voice-hinglish");
-                _ = _whisper.SetHinglishAsync(on);
-                break;
             case nameof(AppSettings.ShowNotifications):
                 // Off: the service stops polling and watching (no idle wake-ups); on: it catches up once.
                 _notifications.SetEnabled(_settings.ShowNotifications);
@@ -599,21 +572,6 @@ internal sealed partial class ShammyHost : IDisposable
         catch (Exception ex)
         {
             Log.Warn("Full-page screenshot failed", ex);
-        }
-    }
-
-    async Task WarmUpBrowserAsync()
-    {
-        await Task.Delay(2500);
-        if (_search.IsActive) return;
-        try
-        {
-            await _notch.WarmUpResultsAsync();
-            if (!_search.IsActive) _notch.ResultView.Release();
-        }
-        catch (Exception)
-        {
-            // Logged inside; the first search retries.
         }
     }
 
