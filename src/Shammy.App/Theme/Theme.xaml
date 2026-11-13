@@ -40,7 +40,7 @@
     <SolidColorBrush x:Key="WallHairline" Color="#FF26282E" />
     <SolidColorBrush x:Key="WallText" Color="#FFF5F5F7" />
     <SolidColorBrush x:Key="WallText2" Color="#FFA3A3AB" />
-    <SolidColorBrush x:Key="WallAccent" Color="#FFFF8A3D" />
+    <SolidColorBrush x:Key="WallAccent" Color="#FF758CFF" />
     <SolidColorBrush x:Key="OnAccentBrush" Color="#FF000000" />
 
     <Style x:Key="Icon" TargetType="TextBlock">

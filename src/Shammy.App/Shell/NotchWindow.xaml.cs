@@ -99,6 +99,14 @@ public partial class NotchWindow : Window
         InitializeComponent();
         Shape.CenterX = ShadowShape.CenterX = Edge.CenterX = Cx;
         Edge.Enabled = services.Settings.ShammyGlow;
+        // The palette (its first colour is the accent); a change from Settings or the pipe applies at once.
+        Theme.PaletteTheme.Choose(services.Settings.Palette);
+        services.Settings.Changed += name =>
+        {
+            if (name != nameof(AppSettings.Palette)) return;
+            if (Dispatcher.CheckAccess()) Theme.PaletteTheme.Choose(services.Settings.Palette);
+            else Dispatcher.BeginInvoke(() => Theme.PaletteTheme.Choose(services.Settings.Palette));
+        };
 
         _compactA = AddLayer(CompactA);
         _compactB = AddLayer(CompactB);
@@ -523,6 +531,9 @@ public partial class NotchWindow : Window
         if (_mode == NotchMode.Peek) _peekView.Refresh();
         // A song starting makes Shammy happy (seen when the eyes are on screen, e.g. a song resumed from the peek).
         var media = _services.Media;
+        // The Album palette follows the cover (worked out once per cover); the island's look follows the music.
+        Theme.PaletteTheme.SetMusic(media.Art, media.IsPlaying);
+        UpdateAmbience();
         if (media.IsPlaying && (!_wasPlaying || media.Title != _lastTrack)) _restView.Pet.Bounce();
         _wasPlaying = media.IsPlaying;
         _lastTrack = media.Title;

@@ -184,8 +184,14 @@ internal sealed class AppSettings
     /// <summary>Scales everything in the notch.</summary>
     public Shammy.Core.Settings.NotchSize NotchSize { get; set; } = Shammy.Core.Settings.NotchSize.Normal;
 
-    /// <summary>The primary control and focus colour.</summary>
+    /// <summary>The accent picked before palettes existed; only read once, to move the user to the closest palette.</summary>
     public Shammy.Core.Settings.AccentColor Accent { get; set; }
+
+    /// <summary>
+    /// The island's palette (see IslandPalettes): "album" (the default: the song's colours), "monsoon", "neon-dusk",
+    /// "northern", "holo" or "frost". Its first colour is the app's accent.
+    /// </summary>
+    public string? Palette { get; set; }
 
     /// <summary>"main", "pointer" (the screen the pointer is on), or a screen's device name.</summary>
     public string NotchDisplay { get; set; } = Shammy.Core.Settings.NotchDisplay.Main;
@@ -286,6 +292,7 @@ internal sealed class AppSettings
         if (!Enum.IsDefined(Motion)) Motion = Shammy.Core.Settings.MotionStyle.Lively;
         if (!Enum.IsDefined(NotchSize)) NotchSize = Shammy.Core.Settings.NotchSize.Normal;
         if (!Enum.IsDefined(Accent)) Accent = Shammy.Core.Settings.AccentColor.Orange;
+        Palette = IslandPalettes.Migrate(Palette, Accent);
         NotchDisplay = Shammy.Core.Settings.NotchDisplay.Normalize(NotchDisplay);
         HiddenApps = Shammy.Core.Settings.HideRules.Clean(HiddenApps);
     }
