@@ -278,6 +278,13 @@ internal sealed class GuideModule : IShammyModule
             : new CommandResult(Glyph, "Guide", $"{FeatureGuide.All.Count} features, in one place");
     }
 
+    bool AnotherCommandTakes(string text) => _ctx.Commands.Any(c =>
+    {
+        if (c is Command) return false;
+        try { return c.CanHandle(text); }
+        catch (Exception) { return false; }
+    });
+
     sealed class Command(GuideModule module, bool wholeGuideOnly) : ITextCommand, ICommandPreview
     {
         GuideRequest? Parse(string text)
@@ -288,7 +295,9 @@ internal sealed class GuideModule : IShammyModule
             return (request.Feature is null && request.Query.Length == 0) == wholeGuideOnly ? request : null;
         }
 
-        public bool CanHandle(string text) => Parse(text) is not null;
+        // The short-name fallback ("stage", "dial") steps aside for any real command for the same words, whatever order
+        // the modules started in: typing "stage" opens Stage, not Stage's entry in the guide.
+        public bool CanHandle(string text) => Parse(text) is not null && (wholeGuideOnly || !module.AnotherCommandTakes(text));
 
         public Task<CommandResult> RunAsync(string text) =>
             Task.FromResult(Parse(text) is { } request ? module.Run(request) : new CommandResult(Glyph, "Guide"));

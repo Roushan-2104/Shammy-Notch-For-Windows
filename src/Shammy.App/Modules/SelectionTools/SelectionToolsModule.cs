@@ -51,6 +51,14 @@ internal sealed class SelectionToolsModule : IShammyModule
             else ctx.ShowMessage(r.Glyph, r.Title, error: true);
         }));
         ctx.AddPipeCommand("circle-save", arg => CircleSend.Save(new SelectionInfo(arg, null, null, false)) ?? "error");
+        // "circle-stage <words>": the results card's Stage chip for a circle of these words, without the card.
+        ctx.AddPipeCommand("circle-stage", arg =>
+        {
+            var s = new SelectionInfo(arg, null, null, false);
+            if (!CircleSend.CanStage(s)) return "not offered (Stage off, or under 12 words)";
+            var r = CircleSend.ToStage(s);
+            return (r.IsError ? "error: " : "") + r.Title + (r.Detail is null ? "" : " | " + r.Detail);
+        });
 
         ctx.AddPipeCommand("selection-qr", QrFromFile);
         ctx.AddPipeCommand("selection-convert", ConvertForPipe);

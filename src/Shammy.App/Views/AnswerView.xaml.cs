@@ -50,8 +50,9 @@ public partial class AnswerView : UserControl
         Expression.Text = expression + " =";
         Expression.Visibility = Visibility.Visible;
         Result.Text = result;
-        // A sum's answer is the poster: ExtraBold and tight.
-        WallParts.Face(Result, FontWeights.ExtraBold);
+        // A sum's answer is a number: light, in the island's display face, like the numbers on its home.
+        Result.FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont");
+        Result.FontWeight = FontWeights.Light;
         Result.FontSize = FitSize(result, 40, 24);
         Result.LineHeight = Result.FontSize + 4;
         CopyButton.Content = "";
@@ -72,6 +73,7 @@ public partial class AnswerView : UserControl
         GlyphOrb.Visibility = Visibility.Visible;
         Result.Text = r.Title;
         WallParts.Face(Result, FontWeights.Bold);
+        Result.FontWeight = FontWeights.Bold;
         Result.FontSize = 19;
         Result.LineHeight = 24;
         Expression.Text = r.Detail ?? "";
@@ -126,7 +128,7 @@ public partial class AnswerView : UserControl
 
         MomentLabel.Text = m.Label;
         MomentTitle.Text = m.Title;
-        MomentTitle.FontSize = m.Title.Length > 26 ? 20 : 24;
+        MomentTitle.FontSize = m.Title.Length > 26 ? 20 : 23;
         MomentBody.Text = m.Body ?? "";
         MomentBody.Visibility = string.IsNullOrEmpty(m.Body) ? Visibility.Collapsed : Visibility.Visible;
 

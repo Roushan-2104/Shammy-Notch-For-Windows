@@ -51,7 +51,11 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink
         _keepHidden.Tick += (_, _) =>
         {
             // Something else took the notch (an alarm, another card): we are closed.
-            if (_card is null || _card.Parent is null) Closed();
+            if (_card is null || _card.Parent is null)
+            {
+                ctx.Info($"Stage closed: the notch moved on ({ctx.Notch.Mode})");
+                Closed();
+            }
             else ctx.Notch.ExcludeFromCapture(!_showInCaptures);
         };
         ctx.AddCommand(new Command(this));
@@ -225,6 +229,7 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink
         _ctx.ShowCard(card, card.CardWidth, card.CardHeight, interactive: false);
         _ctx.Notch.ExcludeFromCapture(!_showInCaptures);
         _keepHidden.Start();
+        _ctx.Info($"Stage opened (notch {_ctx.Notch.Mode})");
     }
 
     void Close()

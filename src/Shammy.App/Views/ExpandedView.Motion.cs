@@ -151,6 +151,8 @@ public partial class ExpandedView
         _inTransform.ScaleX = _inTransform.ScaleY = _inScale.Target;
         InvalidateVisual();
         if (_animTarget is UIElement target) target.InvalidateVisual();
+        // A view swapped in place (home → a card) can leave pieces of the old one behind; repaint the whole island.
+        (Window.GetWindow(this) as Shell.NotchWindow)?.RepaintAll();
     }
 
     bool MotionSettled => _inOpacity.IsSettled && _inScale.IsSettled;

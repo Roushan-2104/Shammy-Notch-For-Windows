@@ -177,6 +177,23 @@ public partial class NotchWindow
         _waves.WritePixels(new Int32Rect(0, 0, IslandWaves.Width, IslandWaves.Height), _wavePx, IslandWaves.Width * 4, 0);
     }
 
+    /// <summary>Test pipe: "waves off", "rim off", "content off" (and "on") hide one part of the island's drawing.</summary>
+    internal string SetPartForTest(string arg)
+    {
+        var p = arg.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length != 2) return "error: usage island-part waves|rim|content|shape on|off";
+        var v = p[1] == "on" ? Visibility.Visible : Visibility.Hidden;
+        switch (p[0])
+        {
+            case "waves": Shape.WavesOpacity = p[1] == "on" ? 0.7 : 0; Shape.InvalidateVisual(); break;
+            case "rim": Edge.Visibility = v; break;
+            case "content": ContentHost.Visibility = v; break;
+            case "shape": Shape.Visibility = v; break;
+            default: return "error: waves, rim, content or shape";
+        }
+        return "ok";
+    }
+
     void OnPaletteChanged()
     {
         // New colours: redraw the (possibly still) waves once, and the rim if it shows the album.

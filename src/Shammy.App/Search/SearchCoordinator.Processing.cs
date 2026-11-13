@@ -398,14 +398,17 @@ internal partial class SearchCoordinator
             done.Count < steps.Count ? $"Stopped at step {done.Count} of {steps.Count}" : last.Detail, IsError: last.IsError));
     }
 
+    /// <summary>"PrompterModule.Command": a nested command class named with its module, so two "Command"s never look alike.</summary>
+    static string Who(Modules.ITextCommand c) => c.GetType().DeclaringType is { } outer ? outer.Name + "." + c.GetType().Name : c.GetType().Name;
+
     internal string RouteForTest(string text)
     {
-        if (ResolveChain(text) is { } chain) return "CHAIN [" + string.Join(" | ", chain.Select(s => $"{s.Command.GetType().Name} <- '{s.Clean}'")) + "]";
+        if (ResolveChain(text) is { } chain) return "CHAIN [" + string.Join(" | ", chain.Select(s => $"{Who(s.Command)} <- '{s.Clean}'")) + "]";
         var (command, clean) = Resolve(text);
         if (command is not null)
         {
             var preview = (command as Modules.ICommandPreview)?.Preview(clean);
-            return $"CMD {command.GetType().Name} <- '{clean}'" + (preview is null ? "" : $" ({preview.Title})");
+            return $"CMD {Who(command)} <- '{clean}'" + (preview is null ? "" : $" ({preview.Title})");
         }
         if (Calculator.TryEvaluate(text, out _, out _)) return "CALC";
         return ChoicesFor(text) is { } choices ? $"CHOICES '{choices.Text}' [{string.Join(" | ", choices.List.Select(c => c.Title))}]" : "GOOGLE";

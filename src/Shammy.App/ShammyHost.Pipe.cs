@@ -242,6 +242,12 @@ internal sealed partial class ShammyHost
                        string.Join(",", Enumerable.Range(0, AudioVisualizer.Bands).Select(i => _visualizer.Level(i).ToString("0.00", CultureInfo.InvariantCulture)));
             case "shelf-add": return $"added {_shelf.Add(new[] { arg })}";
             case "collapse": _notch.Collapse(); return "ok";
+            // "views": every card's id; "view <id>": the open island on that card, as its tool or chip would.
+            case "views": return _notch.ExpandedView.CardIdsForTest();
+            case "repaint": _notch.RepaintAll(); return "ok";
+            // "island-part waves|rim|chrome on|off": hide one part of the island's drawing, to find which draws a glitch.
+            case "island-part": return _notch.SetPartForTest(arg);
+            case "view": return _notch.OpenView(arg.Trim(), hold: true) ? "ok" : "error: no such view";
             case "type": _search.OpenTyping(); return "ok";
             case "search": _ = _search.SearchTextAsync(arg); return "ok";
             case "browser-html":

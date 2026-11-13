@@ -87,7 +87,41 @@ public partial class NotchWindow
             if (Math.Abs(Height - want) > 0.5) Height = want;
         }
         PublishBounds(w, h, settled && _tuck.IsSettled);
+
+        // Once everything has come to rest after moving, repaint the whole island once (see RepaintAll).
+        bool still = settled && _layers.All(l => l.Opacity.IsSettled && l.Size.IsSettled && l.Swap.IsSettled);
+        if (!still) _movedSinceRepaint = true;
+        else if (_movedSinceRepaint)
+        {
+            _movedSinceRepaint = false;
+            RepaintAll();
+        }
     }
+
+    bool _movedSinceRepaint;
+
+    /// <summary>
+    /// Repaints every pixel of the island once. The layered window only refreshes what it thinks changed, and a piece of
+    /// a moving frame (a tool's ring as the home turns into a card, a corner mid-resize) could otherwise stay on screen
+    /// as a stray mark. A tiny opacity change on the root dirties all of it; the next render frame puts it back.
+    /// </summary>
+    internal void RepaintAll()
+    {
+        if (_repainting) return;
+        _repainting = true;
+        Root.Opacity = 0.999;
+        // Put it back only after a frame has been drawn at 0.999, or both changes land in one frame and nothing repaints.
+        var back = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(40) };
+        back.Tick += (_, _) =>
+        {
+            back.Stop();
+            Root.Opacity = 1;
+            _repainting = false;
+        };
+        back.Start();
+    }
+
+    bool _repainting;
 
     /// <summary>One or two cards show under a message while more wait beneath it.</summary>
     void UpdateStack()

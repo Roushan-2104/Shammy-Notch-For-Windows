@@ -117,21 +117,35 @@ internal static class CardKit
         return panel;
     }
 
-    /// <summary>A poster: the big tight ExtraBold title or number (−0.035 em, line-height about 1), even digits.</summary>
+    /// <summary>
+    /// A poster: the big number or word in a card's art ("17", "21°", "100%"), set like the island's own numbers on
+    /// its home ("3:01", "100%"): the display face, Light, a little tight, even digits. Numbers are light; words are bold.
+    /// </summary>
     public static TrackedText Poster(string text, double size) => new()
     {
         Text = text,
         Uppercase = false,
         FontSize = size,
-        FontFamily = Face(FontWeights.ExtraBold),
-        FontWeight = FontWeights.ExtraBold,
-        Tracking = -0.035,
+        FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont"),
+        FontWeight = FontWeights.Light,
+        Tracking = -0.02,
         LineFactor = 1.0,
         TabularDigits = true,
         Foreground = Ink,
     };
 
-    /// <summary>A big number that isn't a poster (ring centres, meters): ExtraBold, a little less tight.</summary>
+    /// <summary>A card's title ("Notes", "Shelf"): bold words, like the home's big moment title.</summary>
+    public static TextBlock PageTitle(string text, double size = 26)
+    {
+        var t = Text(text, size, FontWeights.Bold);
+        t.TextTrimming = TextTrimming.CharacterEllipsis;
+        return t;
+    }
+
+    /// <summary>The island's glass for a panel inside it (the home's big moment): a breath of white, a hairline edge.</summary>
+    public static readonly Brush Glass = Hex("#0AFFFFFF"), GlassEdge = Hex("#1CFFFFFF");
+
+    /// <summary>A big number that isn't a poster (ring centres, meters): the same light face, a little less tight.</summary>
     public static TrackedText Big(string text, double size)
     {
         var t = Poster(text, size);
@@ -377,11 +391,11 @@ internal static class CardKit
     /// <summary>A hairline between list rows.</summary>
     public static Border Rule() => new() { Height = 1, Background = Hairline, SnapsToDevicePixels = true };
 
-    /// <summary>A rounded #16161A panel with a hairline (a section inside a detail).</summary>
+    /// <summary>A section inside a detail: the island's glass with its hairline edge, rounded like the home's panels.</summary>
     public static Border Section(UIElement child, double padding = 14) => new()
     {
-        Background = Surface,
-        BorderBrush = Hairline,
+        Background = Glass,
+        BorderBrush = GlassEdge,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
         Padding = new Thickness(padding),

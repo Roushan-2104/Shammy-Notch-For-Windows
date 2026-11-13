@@ -6,13 +6,13 @@ namespace Shammy.Views.Cards;
 
 /// <summary>
 /// A card opened in place (Wall.dc.html's detail, 924×248): the tile's artwork field grown into a 300 px art
-/// panel on the left (the notch puts Back on it and morphs it out of the tile), then a tracked kicker, a big
-/// tight title, one metadata line and the card's controls. <see cref="Corner"/> holds a top-right primary
+/// panel on the left (the notch puts Back on it and morphs it out of the tile), then a tracked kicker, a bold
+/// title, one metadata line and the card's controls. <see cref="Corner"/> holds a top-right primary
 /// control (Join); <see cref="Aside"/> a full-height right column (lyrics, the 5-day list).
 /// </summary>
 internal class WallDetail : Grid
 {
-    public const double W = 924, H = 248, ArtWidth = 300, Radius = 18;
+    public const double W = 924, H = 248, ArtWidth = 300, Radius = 22;
 
     readonly Border _field = new();
     readonly Grid _info = new() { Margin = new Thickness(26, 18, 24, 18) };
@@ -23,7 +23,12 @@ internal class WallDetail : Grid
     {
         Width = W;
         Height = H;
-        Background = CardKit.Surface;
+        // The island's glass, like the home's big moment: the waves show through, a hairline edge holds it.
+        Background = CardKit.Glass;
+        var edge = new Border { BorderBrush = CardKit.GlassEdge, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(Radius), IsHitTestVisible = false };
+        SetColumnSpan(edge, 2);
+        Panel.SetZIndex(edge, 10);
+        Children.Add(edge);
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ArtWidth) });
         ColumnDefinitions.Add(new ColumnDefinition());
 
@@ -34,7 +39,12 @@ internal class WallDetail : Grid
 
         Kicker = CardKit.SectionLabel(kicker);
         Kicker.HorizontalAlignment = HorizontalAlignment.Left;
-        TitleText = CardKit.Poster(title, 40);
+        // Words are bold (the home's big moment title); numbers in the art are light (see CardKit.Poster).
+        TitleText = new TrackedText
+        {
+            Text = title, Uppercase = false, FontSize = 28, FontFamily = CardKit.Face(FontWeights.Bold), FontWeight = FontWeights.Bold,
+            Tracking = -0.015, LineFactor = 1.1, Foreground = CardKit.Ink,
+        };
         TitleText.HorizontalAlignment = HorizontalAlignment.Left;
         TitleText.Margin = new Thickness(0, 6, 0, 0);
         Line = CardKit.Text(line, 13, FontWeights.Medium, secondary: true);

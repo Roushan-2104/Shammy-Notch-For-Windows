@@ -122,10 +122,12 @@
     </Style>
 
     <!-- Tracked uppercase text chip: quiet grey; hover brightens; on = white with a 1px underline, never a filled pill. -->
+    <!-- A chip on the results card (modes, filters, actions): the island's capsule, quiet until picked. -->
     <Style x:Key="WallChip" TargetType="ToggleButton">
         <Setter Property="Foreground" Value="{DynamicResource WallText2}" />
-        <Setter Property="Height" Value="30" />
-        <Setter Property="Padding" Value="7,0" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="11,0" />
+        <Setter Property="Margin" Value="0,0,4,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="True" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource WallFocusRing}" />
@@ -134,21 +136,20 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Grid Background="Transparent">
-                        <views:TrackedText x:Name="Label" Margin="{TemplateBinding Padding}" FontSize="11" FontWeight="SemiBold"
-                                           FontFamily="{DynamicResource WallFontSemiBold}" Tracking="0.1"
+                    <Border x:Name="Bg" Background="Transparent" ui:Capsule.Round="True" Padding="{TemplateBinding Padding}">
+                        <views:TrackedText x:Name="Label" FontSize="12" FontWeight="SemiBold" Uppercase="False"
+                                           FontFamily="{DynamicResource WallFontSemiBold}" Tracking="0"
                                            Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
-                                           Foreground="{TemplateBinding Foreground}" />
-                        <Border x:Name="Underline" Height="1" VerticalAlignment="Bottom" Margin="7,0,7,6"
-                                Background="{DynamicResource WallText}" Visibility="Collapsed" />
-                    </Grid>
+                                           Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                    </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource WallText}" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource WallRaised}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource WallText}" />
-                            <Setter TargetName="Underline" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource WallTrack}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4" />

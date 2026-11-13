@@ -62,7 +62,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Top">
                         <TextBlock x:Name="MomentLabel" FontFamily="{DynamicResource WallFont}" FontSize="12.5" Foreground="{DynamicResource WallText2}"
                                    TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="MomentTitle" FontFamily="{DynamicResource WallFontExtraBold}" FontWeight="ExtraBold" FontSize="24"
+                        <TextBlock x:Name="MomentTitle" FontFamily="{DynamicResource WallFont}" FontWeight="Bold" FontSize="23"
                                    Foreground="{DynamicResource WallText}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"
                                    LineStackingStrategy="BlockLineHeight" LineHeight="29" />
                         <TextBlock x:Name="MomentBody" FontFamily="{DynamicResource WallFont}" FontSize="12.5" Foreground="{DynamicResource WallText2}"

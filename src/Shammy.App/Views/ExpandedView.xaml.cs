@@ -72,6 +72,8 @@ public partial class ExpandedView : UserControl
         // The guide's "?" and the search pill are plain borders: tab stops that Enter or Space opens.
         Ui.FocusKit.Focusable(GuideButton);
         Ui.FocusKit.Activates(GuideButton, () => OpenView("guide"));
+        Ui.FocusKit.Focusable(SettingsButton);
+        Ui.FocusKit.Activates(SettingsButton, () => OpenView("settings"));
         Ui.FocusKit.Focusable(SearchPill);
         Ui.FocusKit.Activates(SearchPill, () => SearchRequested?.Invoke());
         BuildHome();
@@ -376,6 +378,11 @@ public partial class ExpandedView : UserControl
 
     void OnGuideClicked(object sender, MouseButtonEventArgs e) => OpenView("guide");
 
+    void OnSettingsClicked(object sender, MouseButtonEventArgs e) => OpenView("settings");
+
+    /// <summary>Test pipe: every card's id, in order.</summary>
+    internal string CardIdsForTest() => string.Join(",", _cards.Select(c => c.Id));
+
     // ---- Registration -------------------------------------------------------------------------
 
     /// <summary>Add an older module's tab: a panel opened by its id or label under a Back + title row.</summary>
@@ -397,6 +404,7 @@ public partial class ExpandedView : UserControl
     internal void AddCard(NotchCard card)
     {
         if (card.Id == "guide") GuideButton.Visibility = Visibility.Visible;
+        if (card.Id == "settings") SettingsButton.Visibility = Visibility.Visible;
         foreach (var old in _cards.Where(c => c.Id == card.Id).ToList())
         {
             CardKit.Detach(old.Compact);

@@ -24,9 +24,26 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <!-- Settings, beside the guide: the same round button. Shown once Settings has registered. -->
+            <Border x:Name="SettingsButton" Grid.Column="4" Width="32" Height="32" CornerRadius="16" Margin="6,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                    MouseLeftButtonUp="OnSettingsClicked" ToolTip="Settings" AutomationProperties.Name="Settings">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource WallTile}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource WallText}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
+            </Border>
             <!-- The way into the guide: everything Shammy does, in one place. Shown once the guide has registered. -->
-            <Border x:Name="GuideButton" Grid.Column="3" Width="32" Height="32" CornerRadius="16" Margin="8,0,0,0" Cursor="Hand" Visibility="Collapsed"
+            <Border x:Name="GuideButton" Grid.Column="3" Width="32" Height="32" CornerRadius="16" Margin="6,0,0,0" Cursor="Hand" Visibility="Collapsed"
                     MouseLeftButtonUp="OnGuideClicked" ToolTip="What Shammy can do" AutomationProperties.Name="What Shammy can do">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -65,7 +82,7 @@
                 <TextBlock x:Name="NowSentenceText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="13.5"
                            FontFamily="{StaticResource WallFontSemiBold}" FontWeight="SemiBold" Foreground="{DynamicResource WallText}" />
             </Border>
-            <Border x:Name="SearchPill" Grid.Column="2" Width="212" Height="32" CornerRadius="10" Cursor="IBeam"
+            <Border x:Name="SearchPill" Grid.Column="2" Height="32" ui:Capsule.Round="True" Cursor="IBeam"
                     MouseLeftButtonUp="OnSearchClicked" AutomationProperties.Name="Search Shammy">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -77,7 +94,7 @@
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
-                <StackPanel Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Margin="13,0,15,0" VerticalAlignment="Center">
                     <Viewbox Width="15" Height="15" IsHitTestVisible="False">
                         <Canvas Width="24" Height="24">
                             <Path Data="M11 4a7 7 0 1 1 0 14a7 7 0 1 1 0-14z M20 20l-3.5-3.5" Stroke="{DynamicResource WallText2}" StrokeThickness="2.2"

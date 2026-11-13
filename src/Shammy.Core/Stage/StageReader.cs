@@ -57,7 +57,7 @@ public sealed class StageReader
     /// <summary>The first word of the current line, counted from the start of the script.</summary>
     public int WordIndex => Index < _before.Length ? _before[Index] : TotalWords;
 
-    /// <summary>How far through the script, by words (0â€“100), counting the part of the current line already said.</summary>
+    /// <summary>How far through the script, by words (0–100), counting the part of the current line already said.</summary>
     public double Percent
     {
         get
@@ -96,7 +96,7 @@ public sealed class StageReader
         return Index - was;
     }
 
-    /// <summary>To a point in the script (0â€“100 %, by words).</summary>
+    /// <summary>To a point in the script (0–100 %, by words).</summary>
     public void Seek(double percent)
     {
         int word = (int)Math.Round(TotalWords * Math.Clamp(percent, 0, 100) / 100);
