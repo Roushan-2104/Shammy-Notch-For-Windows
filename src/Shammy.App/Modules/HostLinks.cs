@@ -89,6 +89,89 @@ internal static class HostLinks
     /// <summary>Whether a recording made now would be sent online (the listening view then says so).</summary>
     public static Func<bool>? OnlineListening { get; set; }
 
+    /// <summary>
+    /// Runs a wheel action ("playpause", "stage", "timer", a bead id…) exactly as picking its droplet on the wheel
+    /// does, so the open island's tool row and the wheel never differ. Set by the wheel module; null while the wheel
+    /// is off or hasn't set it, and then <see cref="RunWheelAction"/> falls back to the action's own command.
+    /// </summary>
+    public static Action<string>? WheelRunner { get; set; }
+
+    /// <summary>
+    /// Every live activity, most important first (the call's mic, a running clock…). Set by the host; null in tests,
+    /// and then the island's home works the call out from quiet mode instead.
+    /// </summary>
+    public static Func<IReadOnlyList<Core.Activities.Activity>>? Activities { get; set; }
+
+    /// <summary>
+    /// Runs a wheel action: through the wheel's own runner when it has set one, otherwise as the wheel would —
+    /// cards open, media keys press, and everything else runs its command text. Returns false for an unknown id.
+    /// </summary>
+    public static bool RunWheelAction(string id, Func<string, bool> openCard, ShammyServices services)
+    {
+        if (Core.Wheel.WheelSlots.Find(id) is null) return false;
+        if (WheelRunner is { } runner)
+        {
+            runner(id);
+            return true;
+        }
+        var media = services.Media;
+        switch (id)
+        {
+            case "playpause": media.TogglePlayPause(); return true;
+            case "next": media.Next(); return true;
+            case "previous": media.Previous(); return true;
+            case "ask":
+                ListenUntilSilence?.Invoke();
+                return true;
+            case "translate": return TranslateCopied();
+            case "timer" or "notes" or "mirror" or "clipboard" or "calendar" or "weather" or "mixer" or "settings" or "snippets" or "guide":
+                return openCard(id);
+            case "musiccard": return openCard("music");
+        }
+        var text = id switch
+        {
+            "screenshot" => "screenshot",
+            "record" => "record my screen",
+            "music" => media.IsPlaying ? "pause" : "play music",
+            "phone" or "share" => "send this to my phone",
+            "awake" => "keep my pc awake",
+            "captions" => "turn on captions",
+            "prompter" => "open the teleprompter",
+            "focus" => $"start focus for {(int)Core.Productivity.Pomodoro.FocusLength.TotalMinutes} minutes",
+            "stage" => "stage",
+            "mute" => "toggle mic",
+            "lyrics" => "show lyrics",
+            // Anything newer: its first command phrase.
+            _ => Core.Wheel.WheelSlots.Find(id)!.Words.Split('|', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? id,
+        };
+        RunText?.Invoke(text);
+        return true;
+    }
+
+    /// <summary>The wheel's Translate: the copied text into the home language (English when it isn't English).</summary>
+    static bool TranslateCopied()
+    {
+        string text = "";
+        try
+        {
+            if (System.Windows.Clipboard.ContainsText()) text = System.Windows.Clipboard.GetText().Trim();
+        }
+        catch (Exception)
+        {
+            // Another app holds the clipboard open; treat it as empty.
+        }
+        if (text.Length == 0)
+        {
+            RunText?.Invoke("translate");
+            return true;
+        }
+        if (text.Length > 500) text = text[..500];
+        text = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var language = Core.Conversions.Translation.LanguageName(Core.Conversions.Translation.DefaultTarget(text));
+        RunText?.Invoke($"translate {text} to {language}");
+        return true;
+    }
+
     /// <summary>Every module's glance provider, by id ("weather", "calendar"…).</summary>
     public static IReadOnlyDictionary<string, Func<GlanceItem?>>? Glances { get; set; }
 
