@@ -82,7 +82,7 @@ internal static class SettingsCatalog
         ("LyricLineEnabled", Notch, "Lyric line", 1, "The line being sung shows under the record."),
         ("HiddenApps", Notch, "Hide while using", 1, "The notch stays away while these apps are in front."),
         // Wheel
-        ("WheelEnabled", Wheel, "Wheel", 1, "Hold the middle mouse button: eight actions around the pointer."),
+        ("WheelEnabled", Wheel, "Wheel", 1, "Hold the middle mouse button: the island pours down with six tools."),
         // Pet
         ("PetEnabled", Pet, "Pet", 1, "The pet lives in the notch and reacts to what you do."),
         ("PetKind", Pet, "Pet style", 1, "Eyes, or a cat with ears, whiskers and a nose."),
