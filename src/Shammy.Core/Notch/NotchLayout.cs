@@ -31,59 +31,6 @@ public static class HomeRowLayout
     }
 }
 
-/// <summary>A view reachable from the open notch's top row (a built-in view or an older module's tab).</summary>
-public sealed record LegacyView(string Label, string ViewId);
-
-/// <summary>A registered v2 card, as far as the chips care.</summary>
-public sealed record ChipCard(string Id, string Title, bool Chip);
-
-/// <summary>One chip in the open notch's top row: its label and the view it opens.</summary>
-public sealed record ChipSpec(string Label, string ViewId);
-
-/// <summary>
-/// The open notch's chips: one per card that asks for a chip, plus one per built-in view and older module
-/// tab. A card titled like an older tab replaces that tab's chip (the module moved to a card), so a module
-/// switching over never shows two chips for the same thing.
-/// </summary>
-public static class NotchChips
-{
-    /// <summary>The chip order: Clipboard, then the Guide, Laptop, Health and Claude Code (ahead of Shelf, Mirror and Snippets, so
-    /// they stay out of "More"), then the Focus Wall order (Wall.dc.html: … Calendar, Snippets, Settings), then the cards that
-    /// gained a chip so every card has a way in (Timers… Weather); anything else follows in the order it was registered. What
-    /// doesn't fit goes under "More". "Coding agents" is Claude Code's older card title.</summary>
-    static readonly string[] Preferred =
-    {
-        "Clipboard", "Guide", "Laptop", "Health", "Claude Code", "Coding agents", "Shelf", "Notes", "Alerts", "System", "Mirror", "Calendar", "Snippets",
-        "Settings", "Timers", "Music", "Weather", "Alarms",
-    };
-
-    public static IReadOnlyList<ChipSpec> Build(IEnumerable<LegacyView> legacy, IEnumerable<ChipCard> cards)
-    {
-        var cardList = cards.ToList();
-        var chips = new List<ChipSpec>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void Add(string label, string id)
-        {
-            if (seen.Add(id)) chips.Add(new ChipSpec(label, id));
-        }
-
-        foreach (var v in legacy)
-        {
-            var card = cardList.FirstOrDefault(c => string.Equals(c.Title, v.Label, StringComparison.OrdinalIgnoreCase));
-            if (card is not null) Add(card.Title, card.Id);
-            else Add(v.Label, v.ViewId);
-        }
-        foreach (var c in cardList.Where(c => c.Chip)) Add(c.Title, c.Id);
-
-        int Rank(ChipSpec c)
-        {
-            int i = Array.FindIndex(Preferred, p => string.Equals(p, c.Label, StringComparison.OrdinalIgnoreCase));
-            return i < 0 ? Preferred.Length : i;
-        }
-        return chips.OrderBy(Rank).ToList();
-    }
-}
-
 /// <summary>
 /// How many chips the top row shows. A chip cut in half looks broken, so chips show whole or not at all, in
 /// order; when they don't all fit, a "More" chip takes the end of the row and lists the rest, so every card

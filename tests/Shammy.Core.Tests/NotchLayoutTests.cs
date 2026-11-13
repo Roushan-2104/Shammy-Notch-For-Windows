@@ -75,49 +75,6 @@ public class NotchLayoutTests
         Assert.Empty(HomeRowLayout.Fit(Array.Empty<RowCard>()));
     }
 
-    [Fact]
-    public void Chips_follow_the_design_order_then_registration()
-    {
-        var chips = NotchChips.Build(
-            new[]
-            {
-                new LegacyView("Shelf", "shelf"), new LegacyView("Alerts", "alerts"),
-                new LegacyView("Weather", "tab:weather"), new LegacyView("Clipboard", "tab:clipboard"),
-                new LegacyView("Snippets", "tab:snippets"), new LegacyView("Notes", "tab:notes"),
-            },
-            new[] { new ChipCard("mirror", "Mirror", true), new ChipCard("music", "Music", false) });
-        Assert.Equal(new[] { "Clipboard", "Shelf", "Notes", "Alerts", "Mirror", "Snippets", "Weather" }, chips.Select(c => c.Label));
-    }
-
-    [Fact]
-    public void Guide_Laptop_Health_and_Claude_Code_come_before_Shelf_Mirror_and_Snippets()
-    {
-        var chips = NotchChips.Build(
-            new[] { new LegacyView("Shelf", "shelf"), new LegacyView("Snippets", "tab:snippets") },
-            new[]
-            {
-                new ChipCard("mirror", "Mirror", true), new ChipCard("agents", "Claude Code", true), new ChipCard("health", "Health", true),
-                new ChipCard("quick", "Laptop", true), new ChipCard("guide", "Guide", true),
-            });
-        Assert.Equal(new[] { "Guide", "Laptop", "Health", "Claude Code", "Shelf", "Mirror", "Snippets" }, chips.Select(c => c.Label));
-    }
-
-    [Fact]
-    public void A_card_with_a_tabs_title_replaces_its_chip()
-    {
-        var chips = NotchChips.Build(
-            new[] { new LegacyView("Clipboard", "tab:clipboard"), new LegacyView("Weather", "tab:weather") },
-            new[] { new ChipCard("clipboard", "Clipboard", true), new ChipCard("weather", "weather", false) });
-        Assert.Equal(new[] { new ChipSpec("Clipboard", "clipboard"), new ChipSpec("weather", "weather") }, chips);
-    }
-
-    [Fact]
-    public void Cards_without_a_chip_flag_get_no_chip()
-    {
-        var chips = NotchChips.Build(Array.Empty<LegacyView>(), new[] { new ChipCard("timer", "Timer", false) });
-        Assert.Empty(chips);
-    }
-
     [Theory]
     [InlineData(@"C:\a\Report_final.docx", false, "Word")]
     [InlineData(@"C:\a\Screenshot 10.21.PNG", false, "PNG image")]

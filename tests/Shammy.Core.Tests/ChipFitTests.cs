@@ -31,19 +31,4 @@ public class ChipFitTests
         Assert.Equal((0, false), ChipFit.Fit(Array.Empty<double>(), 400, 8, 60));
     }
 
-    [Fact]
-    public void Cards_that_gained_a_chip_follow_the_design_order()
-    {
-        var chips = NotchChips.Build(
-            new[] { new LegacyView("Shelf", "shelf"), new LegacyView("Alerts", "alerts"), new LegacyView("Snippets", "tab:snippets") },
-            new[]
-            {
-                new ChipCard("weather", "Weather", true), new ChipCard("calendar", "Calendar", true),
-                new ChipCard("clipboard", "Clipboard", true), new ChipCard("mirror", "Mirror", true),
-                new ChipCard("music", "Music", true), new ChipCard("notes", "Notes", true),
-                new ChipCard("timer", "Timers", true), new ChipCard("battery", "System", true),
-            });
-        Assert.Equal(new[] { "Clipboard", "Shelf", "Notes", "Alerts", "System", "Mirror", "Calendar", "Snippets", "Timers", "Music", "Weather" },
-            chips.Select(c => c.Label));
-    }
 }
