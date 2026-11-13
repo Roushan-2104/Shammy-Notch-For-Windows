@@ -22,12 +22,12 @@ internal partial class SettingsView
 {
     // ---- Wheel -----------------------------------------------------------------------------------
 
-    static readonly string[] BeadPlaces = { "Top", "Top right", "Right", "Bottom right", "Bottom", "Bottom left", "Left", "Top left" };
+    static readonly string[] BeadPlaces = { "Top", "Top right", "Bottom right", "Bottom", "Bottom left", "Top left" };
 
-    /// <summary>The wheel's switch, then its eight beads: what each holds, and a pin to keep it there.</summary>
+    /// <summary>The wheel's switch and its two choices, then its six beads: what each holds, and a pin to keep it there.</summary>
     void WheelPage()
     {
-        SwitchRow("Wheel", "Hold the middle mouse button still for a moment: eight actions open around the pointer. Lean toward one and let go, or press 1–8. A quick middle click still goes to your apps.",
+        SwitchRow("Wheel", "Hold the middle mouse button still for a moment: the island pours down to the pointer with six droplets. Lean toward one or turn the mouse wheel, then let go, or press 1–6. A quick middle click still goes to your apps.",
             nameof(AppSettings.WheelEnabled), "Wheel on", "Wheel off");
         var link = Wheel.WheelLink.Current;
         if (link is null)
@@ -35,6 +35,18 @@ internal partial class SettingsView
             Row("Beads", "The wheel feature is turned off (Settings › Advanced).", null);
             return;
         }
+        Row("Change the wheel with what you’re doing", "In a call: call tools. With music: music controls. In an editor: writing tools. Otherwise your beads below.",
+            new ToggleSwitch(link.FollowMoment, on =>
+            {
+                link.FollowMoment = on;
+                _status.Text = on ? "The wheel follows what you’re doing" : "The wheel always shows your beads";
+            }, "Change the wheel with what you’re doing"));
+        Row("Click as it turns", "A soft click for each notch of the mouse wheel. Uses the notch sounds’ volume.",
+            new ToggleSwitch(link.ClickSound, on =>
+            {
+                link.ClickSound = on;
+                _status.Text = on ? "The wheel clicks as it turns" : "The wheel turns silently";
+            }, "Click as the wheel turns"));
         Section("Beads", "Pinned beads stay where they are. The others follow what you use most.");
         var actions = Shammy.Core.Wheel.WheelSlots.All;
         var names = actions.Select(a => a.Name).ToList();
