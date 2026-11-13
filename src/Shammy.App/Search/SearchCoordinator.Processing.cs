@@ -59,7 +59,9 @@ internal partial class SearchCoordinator
             }
             else if (_whisper.IsReady)
             {
-                _notch.SearchBarView.ShowThinking("Transcribing…");
+                // Online listening isn't available (no key, no internet) or gave nothing: the offline backup,
+                // read into memory for this request and freed again a minute later.
+                _notch.SearchBarView.ShowThinking(_whisper.IsLoaded ? "Transcribing…" : "Transcribing on this PC…");
                 // Esc or a new search cancels this, so an abandoned transcription doesn't hold the model.
                 _transcribe = new CancellationTokenSource();
                 try { spoken = await _whisper.TranscribeAsync(speechSamples, _transcribe.Token); }
@@ -67,20 +69,23 @@ internal partial class SearchCoordinator
                 catch (Exception ex) { Log.Error("Transcription failed", ex); }
                 if (session != _session) return;
                 // Never log what was said; the log isn't a transcript archive.
-                Log.Info($"Heard: {spoken.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} words");
+                Log.Info($"Heard on this PC: {spoken.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} words");
+                if (spoken.Length == 0 && _whisper.Failure is { } failure && stroke is null)
+                {
+                    await ShowMessageThenCancel(session, "", "Voice isn’t available", failure + " · tap Right Alt to type");
+                    return;
+                }
             }
             else if (stroke is null)
             {
-                // The model failed earlier (e.g. no internet on first run): asking for voice retries it.
-                if (_whisper.Failure is not null && !_whisper.IsDownloading)
-                {
-                    _ = _whisper.InitAsync();
-                    await ShowMessageThenCancel(session, "", "Getting the voice model", "Downloading now · tap Right Alt to type meanwhile");
-                    return;
-                }
+                // The offline backup isn't on this PC yet: fetch it for next time (if there is internet at all).
+                bool network = Modules.OnlineVoice.GnaniClient.NetworkUp();
+                if (network && !_whisper.IsDownloading) _ = _whisper.DownloadAsync();
+                bool getting = _whisper.IsDownloading || network;
                 await ShowMessageThenCancel(session, "",
-                    _whisper.IsDownloading ? "Voice model is still downloading" : "Voice isn't available",
-                    _whisper.IsDownloading ? $"{_whisper.DownloadProgress:P0} done · tap Right Alt to type instead" : _whisper.Failure ?? "Tap Right Alt to type instead");
+                    getting ? "Getting the offline voice" : "Voice needs the internet",
+                    getting ? "148 MB, once · or add a Gnani key in Settings › Voice · tap Right Alt to type"
+                            : "Or add a Gnani key in Settings › Voice · tap Right Alt to type");
                 return;
             }
         }

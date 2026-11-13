@@ -32,14 +32,6 @@ internal sealed partial class SearchCoordinator
     readonly MicRecorder _mic = new();
     readonly DispatcherTimer _holdTimer;
 
-    // Speak and see: while the talk key is held, the recording so far is read about once a second and the words,
-    // with what letting go will do, show in the notch. One reading at a time; letting go cancels a reading in flight.
-    readonly DispatcherTimer _liveTimer;
-    static readonly TimeSpan LiveEvery = TimeSpan.FromMilliseconds(900);
-    CancellationTokenSource? _live;
-    bool _liveBusy;
-    int _liveReads;
-
     Phase _phase;
     int _session;
     bool _micOk;
@@ -68,7 +60,6 @@ internal sealed partial class SearchCoordinator
         _settings = settings;
         _modules = modules;
         _holdTimer = new DispatcherTimer(HoldThreshold, DispatcherPriority.Input, (_, _) => OnHoldElapsed(), notch.Dispatcher) { IsEnabled = false };
-        _liveTimer = new DispatcherTimer(LiveEvery, DispatcherPriority.Background, (_, _) => _ = ReadLiveAsync(), notch.Dispatcher) { IsEnabled = false };
 
         keys.Pressed += OnKeyDown;
         keys.Released += OnKeyUp;
@@ -137,7 +128,6 @@ internal sealed partial class SearchCoordinator
         _session++;
         _holdTimer.Stop();
         _silence?.Stop();
-        StopLive();
         if (_mic.IsRecording) _mic.Stop();
         DismissOverlay();
         // Teardown must always finish: a throw here used to leave Escape swallowed system-wide.

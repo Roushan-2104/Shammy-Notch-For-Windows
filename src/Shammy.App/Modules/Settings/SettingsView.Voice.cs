@@ -36,18 +36,8 @@ internal partial class SettingsView
         // What listens when you talk, said plainly first: online (Gnani) or this PC, and in which language.
         Row("Listening now", VoiceRoute.Describe(_s, OnlineVoiceLink.Current?.HasKey == true), null);
 
-        bool available = HostLinks.HinglishAvailable?.Invoke() ?? false;
-        bool hinglish = _s.VoiceMode == AppSettings.HinglishVoice;
-        if (available || hinglish)
-            Row("Language on this PC", "English is quickest. Hinglish also understands “kal subah 7 baje alarm laga do” and plain English; it downloads 574 MB once.",
-                new Segmented(new[] { "English", "Hinglish" }, hinglish ? 1 : 0, i =>
-                {
-                    Set(nameof(AppSettings.VoiceMode), i == 1 ? AppSettings.HinglishVoice : AppSettings.EnglishVoice,
-                        i == 1 ? "On this PC: Hinglish · bolo, main sun raha hoon" : "On this PC: English");
-                    BuildPanel(keepScroll: true);
-                }));
-        else
-            Row("Language on this PC", "English. Hinglish on this PC needs a graphics card; with a Gnani key, Hinglish works online instead.", null);
+        // Hinglish is heard online only (Gnani); the backup on this PC is English.
+        Row("Language on this PC", "English, as a backup for when Gnani can’t be reached. Hinglish works online with a Gnani key.", null);
         Row("Push to talk", "Hold to talk, tap to type.", ScreenKit.KeyCap("Right Alt"));
         Row("Circle to search", "Or hold Right Ctrl, then draw around anything.",
             ScreenKit.KeyCap("Copilot", icon: ScreenKit.Icon(ScreenKit.Paths.Copilot, ScreenKit.Fg, 12, 2)), words: "lens copilot");

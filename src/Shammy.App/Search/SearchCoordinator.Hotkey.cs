@@ -75,7 +75,6 @@ internal partial class SearchCoordinator
         _session++;
         _key = key;
         _phase = Phase.Pending;
-        _whisper.WarmUpSongPass();
         _keys.InterceptEscape = true;
         _micOk = _mic.Start(out _micError);
         if (key == HotKey.Look) OnHoldElapsed();
@@ -97,12 +96,8 @@ internal partial class SearchCoordinator
             // Just talking: no freeze, nothing to circle.
             if (_micOk)
             {
-                var talkHint = _whisper.IsReady || online ? "Speak, then let go"
-                    : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · let go to type"
-                    : "Voice unavailable · let go to type";
-                _notch.SearchBarView.ShowListening(() => _mic.Level, listening, talkHint, cat: _settings.CatTheme);
-                // Live words come from the local model; with online listening the final words still come from Gnani.
-                if (_whisper.IsReady) StartLive();
+                // No words while the key is held: they come once, after letting go (online, or the offline backup).
+                _notch.SearchBarView.ShowListening(() => _mic.Level, listening, "Speak, then let go", cat: _settings.CatTheme);
             }
             else
             {
@@ -112,10 +107,7 @@ internal partial class SearchCoordinator
         }
         if (_micOk)
         {
-            var hint = _whisper.IsReady || online ? "Speak, circle anything, then let go"
-                : _whisper.IsDownloading ? $"Voice model downloading ({_whisper.DownloadProgress:P0}) · circle instead"
-                : "Voice unavailable · circle anything instead";
-            _notch.SearchBarView.ShowListening(() => _mic.Level, listening, hint, cat: _settings.CatTheme);
+            _notch.SearchBarView.ShowListening(() => _mic.Level, listening, "Speak, circle anything, then let go", cat: _settings.CatTheme);
         }
         else
         {
@@ -140,55 +132,6 @@ internal partial class SearchCoordinator
         _ = FinishHoldAsync();
     }
 
-    /// <summary>
-    /// People let go of the key on the last syllable, so keep listening a moment longer before stopping:
-    /// cutting the mic at the key-up was clipping last words ("…call mom" → "…call").
-    /// </summary>
-    void StartLive()
-    {
-        _liveReads = 0;
-        _liveTimer.Stop();
-        _liveTimer.Start();
-    }
-
-    void StopLive()
-    {
-        _liveTimer.Stop();
-        _live?.Cancel();
-        _live = null;
-    }
-
-    /// <summary>One reading of the recording so far; shows the words and the plan if the key is still held.</summary>
-    async Task ReadLiveAsync()
-    {
-        if (_phase != Phase.Holding || _key != HotKey.Talk)
-        {
-            _liveTimer.Stop();
-            return;
-        }
-        if (_liveBusy) return;
-        var samples = _mic.Snapshot();
-        if (samples.Length < MicRecorder.SampleRate * 6 / 10 || !MicRecorder.HasSpeech(samples)) return;
-        int session = _session;
-        _liveBusy = true;
-        var cts = _live = new CancellationTokenSource();
-        string words = "";
-        // One plain pass that never queues: if the model is busy this reading is skipped, and the command's own
-        // transcription after letting go never waits behind it.
-        try { words = await _whisper.TranscribeCaptionAsync(Shammy.Core.Search.AudioTrim.TrimSilence(samples, MicRecorder.SampleRate), cts.Token) ?? ""; }
-        catch (OperationCanceledException) { return; }
-        catch (Exception ex) { Log.Warn("A live reading failed", ex); return; }
-        finally
-        {
-            _liveBusy = false;
-            if (ReferenceEquals(_live, cts)) _live = null;
-            cts.Dispose();
-        }
-        if (session != _session || _phase != Phase.Holding || string.IsNullOrWhiteSpace(words)) return;
-        _liveReads++;
-        _notch.SearchBarView.ShowLive(words, PlanFor(words));
-    }
-
     /// <summary>What letting go would do with <paramref name="words"/>, in a few words.</summary>
     internal string PlanFor(string words)
     {
@@ -206,9 +149,11 @@ internal partial class SearchCoordinator
         return "Let go to search Google";
     }
 
-    /// <summary>"voice-live": how many live readings the last hold showed, and the phase.</summary>
-    internal string LiveState => $"phase={_phase} live_reads={_liveReads} live_busy={_liveBusy}" +
-        (_phase == Phase.Choices && _choices is { } list ? $" choices=[{string.Join(" | ", list.Select(c => c.Title))} | Search Google]" : "");
+    /// <summary>"voice-state": the phase, the offline backup's state, choices on screen, and what Shammy holds in memory.</summary>
+    internal string LiveState => $"phase={_phase} online_last={(_listenOnline ? "yes" : "no")} " +
+        $"offline_model={(_whisper.IsLoaded ? "loaded" : _whisper.IsDownloading ? $"downloading_{_whisper.DownloadProgress:P0}" : _whisper.IsReady ? "on_disk" : "absent")}" +
+        (_phase == Phase.Choices && _choices is { } list ? $" choices=[{string.Join(" | ", list.Select(c => c.Title))} | Search Google]" : "") +
+        " " + MemoryState.Line();
 
     /// <summary>Test hook: picks a "Did you mean" chip as a click or a number key would (0-based; the last is Google).</summary>
     internal string PickForTest(int index)
@@ -222,7 +167,8 @@ internal partial class SearchCoordinator
     {
         int session = _session;
         _phase = Phase.Processing;
-        StopLive();
+        // People let go of the key on the last syllable, so keep listening a moment longer before stopping:
+        // cutting the mic at the key-up was clipping last words ("…call mom" → "…call").
         if (_micOk) await Task.Delay(ReleaseTail);
         if (session != _session) return;
 

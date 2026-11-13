@@ -11,6 +11,7 @@ internal sealed class MicRecorder
 
     readonly object _gate = new();
     List<float> _samples = new();
+    float[] _chunk = Array.Empty<float>();
     WaveInEvent? _wave;
     float _level;
 
@@ -68,7 +69,9 @@ internal sealed class MicRecorder
     {
         int n = e.BytesRecorded / 2;
         double sum = 0;
-        var chunk = new float[n];
+        // One reused buffer for the 40 ms blocks (the recording thread is the only one that touches it).
+        if (_chunk.Length < n) _chunk = new float[n];
+        var chunk = _chunk;
         for (int i = 0; i < n; i++)
         {
             float s = BitConverter.ToInt16(e.Buffer, i * 2) / 32768f;
@@ -79,16 +82,10 @@ internal sealed class MicRecorder
         lock (_gate)
         {
             int room = MaxSamples - _samples.Count;
-            if (room > 0) _samples.AddRange(room >= n ? chunk : chunk[..room]);
+            if (room > 0) _samples.AddRange(new ArraySegment<float>(chunk, 0, Math.Min(room, n)));
         }
         float rms = n > 0 ? (float)Math.Sqrt(sum / n) : 0;
         Volatile.Write(ref _level, Math.Min(1, rms * 6));
-    }
-
-    /// <summary>What has been recorded so far, while recording goes on (the live words read it).</summary>
-    public float[] Snapshot()
-    {
-        lock (_gate) return _samples.ToArray();
     }
 
     public float[] Stop()
@@ -109,7 +106,13 @@ internal sealed class MicRecorder
             }
         }
         Volatile.Write(ref _level, 0);
-        lock (_gate) return _samples.ToArray();
+        lock (_gate)
+        {
+            // The recording leaves with the caller; the buffer (up to 30 s, ~2 MB) isn't kept between holds.
+            var recorded = _samples.ToArray();
+            _samples = new List<float>();
+            return recorded;
+        }
     }
 
     /// <summary>
