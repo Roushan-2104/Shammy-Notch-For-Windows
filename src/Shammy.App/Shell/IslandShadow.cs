@@ -49,15 +49,18 @@ internal sealed class IslandShadow : FrameworkElement
         var outer = new Rect(_island.X - Pad, _island.Y - Pad + Fall, _island.Width + 2 * Pad, _island.Height + 2 * Pad);
         // A small island: shrink the corners to fit rather than overlapping them.
         double c = Math.Min(Corner, Math.Min(outer.Width / 2, outer.Height / 2));
-        double mw = outer.Width - 2 * c, mh = outer.Height - 2 * c;
-        double[] xs = { outer.X, outer.X + c, outer.Right - c }, ws = { c, mw, c };
-        double[] ys = { outer.Y, outer.Y + c, outer.Bottom - c }, hs = { c, mh, c };
+        // The pieces meet exactly on whole device pixels: overlapping them doubled the shadow's alpha into dark
+        // lines, and a gap would show a light one.
+        var dpi = VisualTreeHelper.GetDpi(this);
+        double Snap(double v, double scale) => Math.Round(v * scale) / scale;
+        double[] xb = { Snap(outer.X, dpi.DpiScaleX), Snap(outer.X + c, dpi.DpiScaleX), Snap(outer.Right - c, dpi.DpiScaleX), Snap(outer.Right, dpi.DpiScaleX) };
+        double[] yb = { Snap(outer.Y, dpi.DpiScaleY), Snap(outer.Y + c, dpi.DpiScaleY), Snap(outer.Bottom - c, dpi.DpiScaleY), Snap(outer.Bottom, dpi.DpiScaleY) };
         for (int row = 0; row < 3; row++)
             for (int col = 0; col < 3; col++)
             {
-                if (ws[col] <= 0 || hs[row] <= 0) continue;
-                // Overlap the seams by a hair so no light line shows between pieces.
-                dc.DrawImage(p[row * 3 + col], new Rect(xs[col] - 0.25, ys[row] - 0.25, ws[col] + 0.5, hs[row] + 0.5));
+                double w = xb[col + 1] - xb[col], h = yb[row + 1] - yb[row];
+                if (w <= 0 || h <= 0) continue;
+                dc.DrawImage(p[row * 3 + col], new Rect(xb[col], yb[row], w, h));
             }
     }
 
