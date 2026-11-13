@@ -44,9 +44,45 @@ internal sealed class RecordModule : IShammyModule
 
     public string Name => "record";
 
+    // ---- For Stage ---------------------------------------------------------------------------------
+
+    /// <summary>The running module, for Stage's Record control (null before start-up).</summary>
+    internal static RecordModule? Current { get; private set; }
+
+    /// <summary>
+    /// Set by Stage while it is open: the notch stays out of captures when a recording ends, and the saved (or failed)
+    /// card waits until Stage closes instead of taking its place (see <see cref="ShowHeldCard"/>).
+    /// </summary>
+    internal static Func<bool>? HoldCards { get; set; }
+
+    Action? _heldCard;
+
+    internal bool IsRecording => _phase is Phase.Starting or Phase.Recording;
+    internal bool IsSaving => _phase == Phase.Saving;
+    internal TimeSpan Elapsed => _recorder.Elapsed;
+
+    /// <summary>Starts recording the notch's whole screen with PC sound and the microphone, as the start card would.</summary>
+    internal Task<string?> StartScreenWithMic()
+    {
+        CloseResultCard();
+        return BeginAsync("screen", sound: true, mic: true, monitor: _ctx.Notch.Monitor);
+    }
+
+    /// <summary>Stops the running recording (the file is finished and its card follows). False when nothing is recording.</summary>
+    internal bool StopRecording() => Stop();
+
+    /// <summary>Shows the card a recording left while Stage was open, if any.</summary>
+    internal void ShowHeldCard()
+    {
+        var held = _heldCard;
+        _heldCard = null;
+        held?.Invoke();
+    }
+
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        Current = this;
         _recorder = new ScreenRecorder(ctx.Warn);
         ctx.AddGlance("record", () => _phase == Phase.Recording
             ? new GlanceItem("Recording · " + RecordText.Elapsed(_recorder.Elapsed), NotchPalette.Alarm, 90) : null);
@@ -239,7 +275,8 @@ internal sealed class RecordModule : IShammyModule
     {
         _phase = Phase.Idle;
         _guard.Stop();
-        _ctx.Notch.ExcludeFromCapture(false);
+        // Stage hides the notch from captures for its own reasons; it stays hidden while Stage is open.
+        _ctx.Notch.ExcludeFromCapture(HoldCards?.Invoke() == true);
         PrivacyState.SetRecording(false);
         _ctx.Remove(ActivityId);
         _content = null;
@@ -298,6 +335,14 @@ internal sealed class RecordModule : IShammyModule
     /// <summary>A card that never takes focus (you may be typing) and folds away by itself; resting the pointer on it keeps it.</summary>
     void ShowResultCard(System.Windows.FrameworkElement card, double width, double height, TimeSpan stays)
     {
+        if (HoldCards?.Invoke() == true)
+        {
+            // Stage is open: a short word now, the card once Stage closes.
+            _heldCard = () => ShowResultCard(card, width, height, stays);
+            _ctx.ShowMessage(RecordGlyph, card is RecordSavedCard ? "Recording saved to Videos › Shammy" : "The recording didn’t work", error: card is not RecordSavedCard);
+            return;
+        }
+        _heldCard = null;
         CloseResultCard();
         _resultCard = card;
         card.MouseEnter += (_, _) => _close.Stop();

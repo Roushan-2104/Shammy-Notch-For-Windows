@@ -32,9 +32,16 @@ internal sealed class MirrorModule : IShammyModule
     internal MirrorStore Store => _store;
     internal bool Locked => _locked;
 
+    /// <summary>The running module, for Stage's small mirror (it uses the same camera and the same Flip and brightness).</summary>
+    internal static MirrorModule? Current { get; private set; }
+
+    /// <summary>The PC was locked or unlocked (Stage releases its camera while locked).</summary>
+    internal event Action<bool>? LockChanged;
+
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        Current = this;
         _store = ctx.Load<MirrorStore>();
         _store.Level = Math.Clamp(_store.Level / 10 * 10, 0, 100);
 
@@ -86,6 +93,7 @@ internal sealed class MirrorModule : IShammyModule
         {
             _locked = locked;
             _view?.Evaluate();
+            LockChanged?.Invoke(locked);
         });
     }
 
