@@ -66,16 +66,31 @@ public class WheelGestureTests
 
     [Theory]
     [InlineData(0, -50, 0)]
-    [InlineData(50, -50, 1)]
-    [InlineData(50, 0, 2)]
-    [InlineData(40, 40, 3)]
-    [InlineData(0, 60, 4)]
-    [InlineData(-40, 40, 5)]
-    [InlineData(-60, 0, 6)]
-    [InlineData(-40, -40, 7)]
+    [InlineData(50, -30, 1)]
+    [InlineData(50, 30, 2)]
+    [InlineData(0, 60, 3)]
+    [InlineData(-50, 30, 4)]
+    [InlineData(-50, -30, 5)]
     [InlineData(5, -10, -1)]
     [InlineData(-8, -60, 0)]
-    public void Points_pick_beads_clockwise_from_the_top(double dx, double dy, int bead) => Assert.Equal(bead, WheelGeometry.Pick(dx, dy));
+    public void Points_pick_droplets_clockwise_from_the_top(double dx, double dy, int bead) => Assert.Equal(bead, WheelGeometry.Pick(dx, dy));
+
+    [Fact]
+    public void Droplet_directions_go_clockwise_from_the_top()
+    {
+        var (x0, y0) = WheelGeometry.Direction(0);
+        Assert.Equal(0, x0, 6);
+        Assert.Equal(-1, y0, 6);
+        var (x3, y3) = WheelGeometry.Direction(3);
+        Assert.Equal(0, x3, 6);
+        Assert.Equal(1, y3, 6);
+        Assert.True(WheelGeometry.Direction(1).X > 0); // the second droplet is to the right
+        for (int i = 0; i < WheelGeometry.Beads; i++)
+        {
+            var (x, y) = WheelGeometry.Direction(i);
+            Assert.Equal(i, WheelGeometry.Pick(x * 90, y * 90)); // a droplet's own direction picks it
+        }
+    }
 }
 
 public class WheelSlotsTests
@@ -85,16 +100,39 @@ public class WheelSlotsTests
         uses.GroupBy(u => u.Id).ToDictionary(g => g.Key, g => (IReadOnlyList<DateTime>)g.SelectMany(u => Enumerable.Repeat(Now.AddDays(-u.DaysAgo), u.Count)).ToList());
 
     [Fact]
-    public void Starts_with_the_eight_drawn() =>
+    public void Starts_with_the_six_drawn()
+    {
+        Assert.Equal(WheelGeometry.Beads, WheelSlots.Defaults.Count);
         Assert.Equal(WheelSlots.Defaults, WheelSlots.Arrange(null, Uses(), Now).Select(s => s.ActionId));
+    }
 
     [Fact]
     public void Something_used_a_lot_takes_the_weakest_unpinned_bead()
     {
         var slots = WheelSlots.Arrange(null, Uses(("captions", 6, 0), ("screenshot", 3, 0), ("record", 2, 0), ("timer", 2, 0), ("music", 4, 0), ("notes", 1, 0), ("ask", 2, 0), ("phone", 1, 0)), Now);
         Assert.Contains(slots, s => s.ActionId == "captions");
-        Assert.DoesNotContain(slots, s => s.ActionId == "awake"); // never used: it made room
+        Assert.DoesNotContain(slots, s => s.ActionId == "notes"); // used least: it made room
         Assert.Equal("screenshot", slots[0].ActionId); // the rest stay where they were
+    }
+
+    [Fact]
+    public void An_eight_bead_save_keeps_its_first_six()
+    {
+        var saved = new[] { "calendar", "record", "timer", "music", "notes", "ask", "phone", "awake" }
+            .Select((id, i) => new WheelSlot(id, Pinned: i == 0)).ToList();
+        var slots = WheelSlots.Arrange(saved, Uses(), Now);
+        Assert.Equal(saved.Take(6).Select(s => s.ActionId), slots.Select(s => s.ActionId));
+        Assert.True(slots[0].Pinned);
+    }
+
+    [Fact]
+    public void Moment_only_actions_are_found_but_never_beads()
+    {
+        Assert.NotNull(WheelSlots.Find("stage"));
+        Assert.Null(WheelSlots.ById("stage"));
+        Assert.Equal("Timer", WheelSlots.Find("timer")?.Name);
+        var saved = new[] { new WheelSlot("stage", true) };
+        Assert.DoesNotContain(WheelSlots.Arrange(saved, Uses(), Now), s => s.ActionId == "stage");
     }
 
     [Fact]
@@ -126,8 +164,8 @@ public class WheelSlotsTests
     {
         var saved = new[] { new WheelSlot("screenshot", true), new WheelSlot("screenshot", false), new WheelSlot("nonsense", false) };
         var slots = WheelSlots.Arrange(saved, Uses(), Now);
-        Assert.Equal(8, slots.Count);
-        Assert.Equal(8, slots.Select(s => s.ActionId).Distinct().Count());
+        Assert.Equal(WheelGeometry.Beads, slots.Count);
+        Assert.Equal(WheelGeometry.Beads, slots.Select(s => s.ActionId).Distinct().Count());
         Assert.True(slots[0].Pinned);
     }
 
