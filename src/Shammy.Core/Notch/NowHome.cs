@@ -103,13 +103,27 @@ public static class NowHome
         return s.HasWeather ? HeroKind.Weather : HeroKind.Clock;
     }
 
-    /// <summary>The number that fits the moment, or null when nothing is going on.</summary>
+    /// <summary>
+    /// The number that fits the moment, or null when nothing is going on. Never the one the big moment already
+    /// shows (a call's timer, a countdown, a meeting's start): then the next thing going on, if any.
+    /// </summary>
     public static NowStat? MomentStat(NowSignals s)
     {
-        if (s.InCall || s.MeetingNow) return NowStat.CallMinutes;
-        if (s.CountdownRunning) return NowStat.FocusLeft;
-        if (s.MeetingSoon) return NowStat.MeetingIn;
-        if (s.CountdownLeft is not null) return NowStat.FocusLeft;
+        var hero = Hero(s);
+        var shown = hero switch
+        {
+            HeroKind.Call => NowStat.CallMinutes,
+            HeroKind.Focus => NowStat.FocusLeft,
+            HeroKind.Meeting => NowStat.MeetingIn,
+            _ => (NowStat?)null,
+        };
+        var candidates = new List<NowStat>();
+        if (s.InCall || s.MeetingNow) candidates.Add(NowStat.CallMinutes);
+        if (s.CountdownRunning) candidates.Add(NowStat.FocusLeft);
+        if (s.MeetingSoon) candidates.Add(NowStat.MeetingIn);
+        if (s.CountdownLeft is not null && !candidates.Contains(NowStat.FocusLeft)) candidates.Add(NowStat.FocusLeft);
+        foreach (var c in candidates)
+            if (c != shown) return c;
         return null;
     }
 
@@ -134,6 +148,18 @@ public static class NowText
 
     /// <summary>The fallback when nothing needs you.</summary>
     public const string Quiet = "Nothing needs you";
+
+    /// <summary>
+    /// What the big moment is, as a sentence part, for when nothing else is going on: "On a call in Google Meet",
+    /// "Focus running", "Standup is next". Null for music (already "Playing …"), the weather and the clock.
+    /// </summary>
+    public static string? HeroLine(HeroKind hero, string? callApp, string? meeting, string? countdown) => hero switch
+    {
+        HeroKind.Call => string.IsNullOrWhiteSpace(callApp) ? "On a call" : $"On a call in {callApp.Trim()}",
+        HeroKind.Focus => string.IsNullOrWhiteSpace(countdown) ? "A timer is running" : $"{countdown.Trim()} running",
+        HeroKind.Meeting => string.IsNullOrWhiteSpace(meeting) ? "A meeting is next" : $"{meeting.Trim()} is next",
+        _ => null,
+    };
 
     /// <summary>"Right now · Playing Kesariya · Standup in 12 min": up to <paramref name="max"/> parts, each once.</summary>
     public static string Sentence(IEnumerable<string?> parts, int max = 3)

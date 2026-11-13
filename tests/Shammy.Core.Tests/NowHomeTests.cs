@@ -79,10 +79,10 @@ public class NowHomeTests
     // ---- The three numbers ------------------------------------------------------------------------
 
     [Fact]
-    public void In_a_call_the_third_number_is_the_call()
+    public void In_a_call_the_third_number_is_the_next_thing_not_the_call_again()
     {
         var s = new NowSignals(InCall: true, CountdownLeft: 10 * Min, MeetingStartsIn: 5 * Min, MeetingEndsIn: 35 * Min, HasWeather: true, HasBattery: true);
-        Assert.Equal(new[] { NowStat.Weather, NowStat.Battery, NowStat.CallMinutes }, NowHome.Stats(s));
+        Assert.Equal(new[] { NowStat.Weather, NowStat.Battery, NowStat.FocusLeft }, NowHome.Stats(s));
     }
 
     [Fact]
@@ -100,10 +100,10 @@ public class NowHomeTests
     }
 
     [Fact]
-    public void A_paused_timer_still_counts_once_no_meeting_is_coming()
+    public void A_paused_timer_is_the_moment_so_its_minutes_are_not_repeated()
     {
-        Assert.Equal(NowStat.FocusLeft, NowHome.MomentStat(new NowSignals(CountdownLeft: 4 * Min, CountdownPaused: true)));
-        Assert.Equal(NowStat.MeetingIn, NowHome.MomentStat(new NowSignals(CountdownLeft: 4 * Min, CountdownPaused: true,
+        Assert.Null(NowHome.MomentStat(new NowSignals(CountdownLeft: 4 * Min, CountdownPaused: true)));
+        Assert.Equal(NowStat.FocusLeft, NowHome.MomentStat(new NowSignals(CountdownLeft: 4 * Min, CountdownPaused: true,
             MeetingStartsIn: 20 * Min, MeetingEndsIn: 50 * Min)));
     }
 
@@ -118,7 +118,7 @@ public class NowHomeTests
     {
         Assert.Equal(new[] { NowStat.Time, NowStat.Date }, NowHome.Stats(new NowSignals()));
         Assert.Equal(new[] { NowStat.Weather, NowStat.Date, NowStat.Time }, NowHome.Stats(new NowSignals(HasWeather: true)));
-        Assert.Equal(new[] { NowStat.Time, NowStat.Date, NowStat.FocusLeft }, NowHome.Stats(new NowSignals(CountdownLeft: Min)));
+        Assert.Equal(new[] { NowStat.Time, NowStat.Date }, NowHome.Stats(new NowSignals(CountdownLeft: Min)));
     }
 
     // ---- Words and numbers ------------------------------------------------------------------------
@@ -175,5 +175,22 @@ public class NowHomeTests
         Assert.Equal("About 3 h left", NowText.BatteryLine(false, false, 70, TimeSpan.FromHours(3)));
         Assert.Equal("On battery", NowText.BatteryLine(false, false, 70, null));
         Assert.Equal("On battery", NowText.BatteryLine(false, false, 70, TimeSpan.MaxValue));
+    }
+}
+
+public class NowHomeNoRepeatTests
+{
+    [Fact]
+    public void A_call_moment_does_not_repeat_the_call_minutes_as_the_third_number()
+    {
+        var s = new Shammy.Core.Notch.NowSignals { InCall = true };
+        Assert.NotEqual(Shammy.Core.Notch.NowStat.CallMinutes, Shammy.Core.Notch.NowHome.MomentStat(s));
+    }
+
+    [Fact]
+    public void Hero_line_names_the_call_app()
+    {
+        Assert.Equal("On a call in Google Meet", Shammy.Core.Notch.NowText.HeroLine(Shammy.Core.Notch.HeroKind.Call, "Google Meet", null, null));
+        Assert.Null(Shammy.Core.Notch.NowText.HeroLine(Shammy.Core.Notch.HeroKind.Music, null, null, null));
     }
 }

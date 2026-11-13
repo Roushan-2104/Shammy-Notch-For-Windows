@@ -230,6 +230,9 @@ public partial class ExpandedView
         var parts = new List<string>();
         if (_s.Media is { HasSession: true, IsPlaying: true } m) parts.Add("Playing " + m.Title);
         parts.AddRange(_nowItems.Select(e => e.Item.Text));
+        // Never "Nothing needs you" while the moment shows a call, a countdown or a meeting: say that instead.
+        if (parts.Count == 0 && NowText.HeroLine(_heroKind, _now.CallApp, _now.Meeting is null ? null : MeetingTitle(_now.Meeting), _now.Clock is null ? null : ClockName(_now.Clock)) is { } line)
+            parts.Add(line);
         var text = NowText.Sentence(parts);
         if (text == _sentence) return;
         _sentence = text;

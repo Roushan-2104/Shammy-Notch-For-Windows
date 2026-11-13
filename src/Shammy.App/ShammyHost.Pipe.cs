@@ -49,6 +49,58 @@ internal sealed partial class ShammyHost
                 });
                 return "ok";
             case "hover-diag": return _notch.HoverDiag;
+            case "hit":
+            {
+                // Test: what the notch draws at a screen pixel ("hit 487 318"): the element chain under it.
+                var xy = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (xy.Length < 2 || !int.TryParse(xy[0], out var sx) || !int.TryParse(xy[1], out var sy)) return "error: usage hit <x> <y>";
+                var local = _notch.PointFromScreen(new System.Windows.Point(sx, sy));
+                var found = new List<string>();
+                void Walk(System.Windows.DependencyObject d)
+                {
+                    int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(d);
+                    for (int i = 0; i < n; i++)
+                    {
+                        var c = System.Windows.Media.VisualTreeHelper.GetChild(d, i);
+                        if (c is System.Windows.UIElement { IsVisible: false }) continue;
+                        if (arg.Contains("paint") && c is System.Windows.Media.Visual v)
+                        {
+                            var cb = System.Windows.Media.VisualTreeHelper.GetContentBounds(v);
+                            if (!cb.IsEmpty)
+                                try
+                                {
+                                    var wb = v.TransformToAncestor(_notch).TransformBounds(cb);
+                                    var probe = wb; probe.Inflate(1.5, 1.5);
+                                    if (probe.Contains(local) && wb.Width < 200)
+                                        found.Add($"paints:{v.GetType().Name}{(v is System.Windows.FrameworkElement pf && pf.Name.Length > 0 ? "#" + pf.Name : "")}{(v is System.Windows.Controls.TextBlock ptb ? $" '{ptb.Text}'" : "")} {wb.Width:0.#}x{wb.Height:0.#} at {wb.X:0.#},{wb.Y:0.#} parent={(System.Windows.Media.VisualTreeHelper.GetParent(v) as System.Windows.FrameworkElement)?.GetType().Name}");
+                                }
+                                catch (InvalidOperationException) { }
+                        }
+                        if (c is System.Windows.FrameworkElement fe && fe.ActualWidth > 0 && (arg.Contains("all") || (fe.ActualWidth <= 24 && fe.ActualHeight <= 24)))
+                        {
+                            try
+                            {
+                                var box = fe.TransformToAncestor(_notch).TransformBounds(new System.Windows.Rect(0, 0, fe.ActualWidth, fe.ActualHeight));
+                                if (!arg.Contains("all")) box.Inflate(3, 3);
+                                if (box.Contains(local))
+                                {
+                                    var parent = System.Windows.Media.VisualTreeHelper.GetParent(fe) as System.Windows.FrameworkElement;
+                                    found.Add($"{fe.GetType().Name}{(fe.Name.Length > 0 ? "#" + fe.Name : "")} {fe.ActualWidth:0.#}x{fe.ActualHeight:0.#} op={fe.Opacity:0.##}" +
+                                              (fe is System.Windows.Controls.TextBlock tb ? $" '{tb.Text}'" : "") + $" in {parent?.GetType().Name}");
+                                }
+                            }
+                            catch (InvalidOperationException) { }
+                        }
+                        Walk(c);
+                    }
+                }
+                Walk(_notch);
+                var focus = System.Windows.Input.Keyboard.FocusedElement as System.Windows.FrameworkElement;
+                string where = "";
+                try { if (focus is not null && focus.IsVisible) where = focus.TransformToAncestor(_notch).TransformBounds(new System.Windows.Rect(0, 0, focus.ActualWidth, focus.ActualHeight)).ToString(); } catch (InvalidOperationException) { }
+                found.Add($"focus={focus?.GetType().Name ?? "none"}{(focus is { Name.Length: > 0 } ? "#" + focus.Name : "")} {focus?.ActualWidth:0.#}x{focus?.ActualHeight:0.#} at {where} local={local}");
+                return string.Join(" | ", found);
+            }
             case "mem-diag":
             {
                 // Where the memory is: .NET's own heap vs everything else; "mem-diag gc" collects first.
