@@ -137,9 +137,35 @@ public static class SelectionAnalyzer
 
     static Box UnionOf(IEnumerable<OcrWord> words) => words.Select(w => w.Bounds).Aggregate((a, b) => a.Union(b));
 
-    static string JoinLines(IEnumerable<OcrWord> words) =>
-        string.Join(' ', words
-            .GroupBy(w => w.Line)
-            .OrderBy(g => g.Key)
-            .Select(g => string.Join(' ', g.OrderBy(w => w.Bounds.X).Select(w => w.Text))));
+    /// <summary>
+    /// The words in reading order: OCR's lines in its order, each left to right. OCR sometimes splits one row of text into
+    /// two "lines" (a "+91" a little apart from the number after it); lines that sit on the same row, close together, are
+    /// read as one, so the words never come out of order ("98765 43210 +91").
+    /// </summary>
+    public static string JoinLines(IEnumerable<OcrWord> words)
+    {
+        var rows = words.GroupBy(w => w.Line).Select(g => (Order: g.Key, Words: g.ToList())).ToList();
+        for (bool merged = true; merged;)
+        {
+            merged = false;
+            for (int i = 0; i < rows.Count && !merged; i++)
+            for (int j = i + 1; j < rows.Count && !merged; j++)
+            {
+                if (!SameRow(UnionOf(rows[i].Words), UnionOf(rows[j].Words))) continue;
+                rows[i] = (Math.Min(rows[i].Order, rows[j].Order), rows[i].Words.Concat(rows[j].Words).ToList());
+                rows.RemoveAt(j);
+                merged = true;
+            }
+        }
+        return string.Join(' ', rows.OrderBy(r => r.Order).Select(r => string.Join(' ', r.Words.OrderBy(w => w.Bounds.X).Select(w => w.Text))));
+    }
+
+    /// <summary>Mostly the same height band, and no wider apart than a few line heights (a second column stays separate).</summary>
+    static bool SameRow(Box a, Box b)
+    {
+        double overlap = Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Y, b.Y);
+        if (overlap < 0.6 * Math.Min(a.H, b.H)) return false;
+        double gap = Math.Max(b.X - a.Right, a.X - b.Right);
+        return gap <= 3 * Math.Max(a.H, b.H);
+    }
 }

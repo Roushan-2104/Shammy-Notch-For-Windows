@@ -95,7 +95,7 @@ public partial class NotchWindow
         NotchMode.Drop => (DropZone.Width, DropZone.Height, 28),
         NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking => (420, 54, 27),
         NotchMode.Typing => (560, 58 + _paletteHeight, _paletteHeight > 0 ? 30 : 29),
-        NotchMode.Answer => (440, 120, 32),
+        NotchMode.Answer => (AnswerView.Width, AnswerView.Height, 32),
         NotchMode.Result => (560, 680, 34),
         _ => Pill(186, 32),
     };

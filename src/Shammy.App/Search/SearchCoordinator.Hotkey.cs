@@ -241,6 +241,42 @@ internal partial class SearchCoordinator
         ScreenshotSaver.Save(image, region is null ? "screenshot" : "snip");
     }
 
+    /// <summary>Test hook ("circle-freeze"): the screen freezes for circling, as a look key let go with nothing said (no microphone).</summary>
+    internal string FreezeForTest()
+    {
+        Reset(keepNotch: true);
+        _session++;
+        _key = HotKey.Look;
+        BeginFreeze();
+        if (_overlay is null) return "error: capture failed";
+        _phase = Phase.Circling;
+        _keys.InterceptEscape = true;
+        _notch.SetSearchMode(NotchMode.Circling);
+        _notch.SearchBarView.ShowCircling();
+        _overlay.SetHint("Circle anything to search · Esc to cancel");
+        return "frozen";
+    }
+
+    /// <summary>Test hook ("circle-draw 0.4,0.3 0.5,0.25 …|seconds"): draws that stroke (fractions of the screen) over the time and lets go.</summary>
+    internal string DrawForTest(string arg)
+    {
+        if (_overlay is null || _phase != Phase.Circling) return "error: not frozen";
+        var parts = arg.Split('|');
+        double seconds = parts.Length > 1 && double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 0.6;
+        var points = new List<System.Windows.Point>();
+        foreach (var pair in parts[0].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var xy = pair.Split(',');
+            if (xy.Length != 2 || !double.TryParse(xy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)
+                || !double.TryParse(xy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
+                return "error: points are x,y fractions";
+            points.Add(new System.Windows.Point(x, y));
+        }
+        if (points.Count < 2) return "error: at least two points";
+        _overlay.DrawForTest(points, seconds);
+        return System.FormattableString.Invariant($"drawing {points.Count} points over {seconds:0.0#} s");
+    }
+
     void OnSelectionMade(IReadOnlyList<Pt> stroke)
     {
         // While the key is held the selection waits for release (so speech can join it).

@@ -31,7 +31,7 @@ internal sealed class PrompterData
 /// the microphone), "stage-ring on|off|toggle|&lt;0-100&gt;", "stage-captions-line" (what the quiet line shows),
 /// "stage-key space|left|right|plus|minus|esc|l|c|m|v" (as if pressed with the pointer on Stage).
 /// </summary>
-internal sealed class PrompterModule : IShammyModule
+internal sealed class PrompterModule : IShammyModule, Connect.IStageLink
 {
     const string Glyph = "\uE8A5";
 
@@ -56,6 +56,7 @@ internal sealed class PrompterModule : IShammyModule
         };
         ctx.AddCommand(new Command(this));
         ctx.AddTrayItem("Stage", () => Open());
+        Connect.Links.Stage = this;
 
         ctx.AddPipeCommand("prompter-state", _ => State());
         ctx.AddPipeCommand("stage-state", _ => State());
@@ -136,8 +137,18 @@ internal sealed class PrompterModule : IShammyModule
         ctx.AddPipeCommand("stage-captions-line", _ => _card is null ? "closed" : $"captions={Captions.CaptionsFeed.IsOn} {_card.QuietLine}");
     }
 
+    CommandResult Connect.IStageLink.Present(string text)
+    {
+        var said = Load(text);
+        if (said == "Nothing to read there") return new CommandResult(Glyph, said, IsError: true);
+        // After the moment that asked has gone: Stage takes the island.
+        _ctx.Ui.BeginInvoke(Open, DispatcherPriority.Background);
+        return new CommandResult(Glyph, "On Stage", said);
+    }
+
     public void Dispose()
     {
+        if (Connect.Links.Stage == this) Connect.Links.Stage = null;
         _keepHidden.Stop();
         _card?.Shutdown();
         if (_card is not null) _ctx.Notch.ExcludeFromCapture(false);

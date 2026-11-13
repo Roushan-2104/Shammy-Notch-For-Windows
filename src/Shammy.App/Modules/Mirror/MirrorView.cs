@@ -43,12 +43,12 @@ internal sealed class MirrorView : WallDetail
         Art.Children.Add(new Border { Background = _brush });
         _liveChip = new Border
         {
-            CornerRadius = new CornerRadius(999),
             Background = CardKit.Hex("#A60B0B0D"),
             Padding = new Thickness(9, 5, 9, 5),
             Visibility = Visibility.Collapsed,
             Child = CardKit.Row(6, CardKit.Dot(6, CardKit.Alarm), CardKit.Label("Live · not recording", null, 10)),
         };
+        Ui.Capsule.SetRound(_liveChip, true);
         Art.Children.Add(CardKit.At(_liveChip, HorizontalAlignment.Left, VerticalAlignment.Bottom, 14, 0, 0, 14));
         _messageText = CardKit.Text("", 13, FontWeights.SemiBold);
         _messageText.TextWrapping = TextWrapping.Wrap;

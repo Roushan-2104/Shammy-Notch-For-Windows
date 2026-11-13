@@ -111,6 +111,8 @@ internal sealed partial class SearchCoordinator
             _ = NavigateAsync(_ctx);
         };
         notch.AnswerView.SearchWebRequested += query => _ = ShowResultAsync(new Context(query, query, _settings.DefaultSearchMode, SearchFilter.None, null, null));
+        notch.AnswerView.MomentExpandRequested += ExpandMoment;
+        notch.AnswerView.MomentDone += Cancel;
     }
 
     public bool IsActive => _phase != Phase.Idle;
@@ -142,6 +144,9 @@ internal sealed partial class SearchCoordinator
         }
         _transcribe?.Cancel();
         _transcribe = null;
+        _factLookup?.Cancel();
+        _factLookup = null;
+        _momentFull = null;
         _shot = null;
         _ocr = null;
         _ctx = null;

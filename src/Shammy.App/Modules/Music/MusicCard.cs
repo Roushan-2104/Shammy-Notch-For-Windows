@@ -40,7 +40,7 @@ internal sealed class MusicCard
         _lyrics = lyrics;
 
         // Always: the state, in a dark pill over the cover's colours.
-        var pill = new Border { Background = CardKit.Hex("#990B0B0D"), CornerRadius = new CornerRadius(999), Padding = new Thickness(8, 4, 8, 4), Child = _state };
+        var pill = Ui.Capsule.Make(new Border { Background = CardKit.Hex("#990B0B0D"), Padding = new Thickness(8, 4, 8, 4), Child = _state });
         _tile.Art.Children.Add(CardKit.At(pill, HorizontalAlignment.Left, VerticalAlignment.Top, WallTile.Pad, WallTile.Pad));
 
         // Dimmed: the title as a poster.

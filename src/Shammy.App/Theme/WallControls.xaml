@@ -19,7 +19,7 @@
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-3" CornerRadius="999" BorderThickness="1.5" BorderBrush="{DynamicResource WallAccent}" SnapsToDevicePixels="True" />
+                    <Border Margin="-3" ui:Capsule.Round="True" BorderThickness="1.5" BorderBrush="{DynamicResource WallAccent}" SnapsToDevicePixels="True" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -40,7 +40,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg" Background="Transparent" CornerRadius="999">
+                    <Border x:Name="Bg" Background="Transparent" ui:Capsule.Round="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -79,7 +79,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bg" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="1" CornerRadius="999" Padding="{TemplateBinding Padding}">
+                            BorderThickness="1" ui:Capsule.Round="True" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -105,7 +105,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="999" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}" ui:Capsule.Round="True" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>

@@ -62,8 +62,10 @@ public static class FeatureGuide
             "wheel radial menu circle middle mouse button pie quick actions shortcuts fingertips", "", "", GuideSwitch.Setting, "WheelEnabled", "1.0"),
         F("palette", 0, "Command palette", "Apps, files, settings and commands rank as you type.", "tap Right Alt", "",
             "type search find anything launcher box"),
-        F("circle", 0, "Circle to search", "Circle anything on screen to search it.", "Copilot key, or hold Right Ctrl", "",
-            "what is this picture image screen google lens identify"),
+        F("circle", 0, "Circle to search", "Circle a number, date, link or colour: understood on your PC, or searched.",
+            "Copilot key, or hold Right Ctrl", "",
+            "what is this picture image screen google lens identify phone call whatsapp email link date reminder calendar address maps " +
+            "sum colour color hex swatch fact wikipedia send notes shelf"),
         F("answers", 0, "Instant answers", "Units, currency, maths and time zones.", "5 ft in cm · 100 usd to inr", "",
             "calculate calculator convert rupees dollars maths units time zone", sw: GuideSwitch.Module, switchName: "selection",
             also: "Also turns off reading QR codes and converting prices you select."),

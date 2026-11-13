@@ -38,6 +38,20 @@ internal sealed class SelectionToolsModule : IShammyModule
         ctx.AddResultChip(new ResultChip("Copy text", s => !string.IsNullOrWhiteSpace(s?.Text), (s, _) => CopySelection(s)));
         ctx.AddResultChip(new ResultChip("Translate", s => TranslatableText(s) is not null, (s, view) => _ = TranslateInCardAsync(s, view)));
 
+        // Circle → send it anywhere, from the full results too (the island's moment has the same four as icons).
+        CircleSend.Use(ctx);
+        ctx.AddResultChip(new ResultChip("Note", s => s is not null && CircleSend.CanNote(s), (s, view) => Said(view, "Note", CircleSend.ToNotes(s!))));
+        ctx.AddResultChip(new ResultChip("Shelf", s => s is not null && CircleSend.CanShelf(s), (s, view) => Said(view, "Shelf", CircleSend.ToShelf(s!))));
+        ctx.AddResultChip(new ResultChip("Phone", s => s is not null && CircleSend.CanPhone(s), (s, view) => _ = PhoneAsync(s!, view)));
+        ctx.AddResultChip(new ResultChip("Stage", s => s is not null && CircleSend.CanStage(s), (s, _) =>
+        {
+            var r = CircleSend.ToStage(s!);
+            // Stage takes the island: the results card closes to make room.
+            if (!r.IsError) ctx.Notch.ResultView.RequestClose();
+            else ctx.ShowMessage(r.Glyph, r.Title, error: true);
+        }));
+        ctx.AddPipeCommand("circle-save", arg => CircleSend.Save(new SelectionInfo(arg, null, null, false)) ?? "error");
+
         ctx.AddPipeCommand("selection-qr", QrFromFile);
         ctx.AddPipeCommand("selection-convert", ConvertForPipe);
         ctx.AddPipeCommand("selection-state", _ => State());
@@ -53,6 +67,23 @@ internal sealed class SelectionToolsModule : IShammyModule
             await Task.Delay(TimeSpan.FromSeconds(10));
             await _rates.GetAsync();
         });
+    }
+
+    static void Said(ResultView view, string chip, CommandResult r) => view.SayOnChip(chip, r.IsError ? r.Title : ShortWord(r));
+
+    static string ShortWord(CommandResult r) => r.Title switch
+    {
+        "On the Shelf" => "On the Shelf",
+        _ when r.Title.StartsWith("Scan", StringComparison.Ordinal) => "Scan the code",
+        _ => "Saved",
+    };
+
+    async Task PhoneAsync(SelectionInfo s, ResultView view)
+    {
+        var r = await CircleSend.ToPhoneAsync(s);
+        if (r.IsError) view.SayOnChip("Phone", r.Title);
+        // The QR card waits until the results card closes.
+        else view.RequestClose();
     }
 
     void CopySelection(SelectionInfo? selection)
@@ -134,9 +165,7 @@ internal sealed class SelectionToolsModule : IShammyModule
         $"handlers=amount,qr commands=convert chips=Copy text,Translate qrWarm={_qrWarm} lastQr={_qr.Last} " +
         $"lastAmount={_amount.Last} rates={_rates.Describe()}";
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() => CircleSend.Use(null);
 }
 
 internal static class Glyphs

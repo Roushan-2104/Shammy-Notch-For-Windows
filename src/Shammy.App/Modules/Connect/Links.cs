@@ -48,6 +48,13 @@ internal interface IPhoneLink
     Task SendAsync(IReadOnlyList<string> paths);
 }
 
+/// <summary>What Stage offers others: open with a given text as the script (circle to search's "put it on Stage").</summary>
+internal interface IStageLink
+{
+    /// <summary>Takes the text as the script and opens Stage; returns what to tell the user.</summary>
+    CommandResult Present(string text);
+}
+
 internal static class LinkExtensions
 {
     /// <summary>A command's confirmation as a short notch message (for context-menu actions that aren't commands).</summary>
@@ -68,6 +75,8 @@ internal static class Links
     public static IPhoneLink? Phone { get; set; }
 
     public static ICalendarLink? Calendar { get; set; }
+
+    public static IStageLink? Stage { get; set; }
 
     /// <summary>Opens a card's detail (or "shelf", "alerts") in the open notch, after any command confirmation (ctx.OpenCard).</summary>
     public static bool OpenCard(ModuleContext ctx, string id) => ctx.OpenCard(id);

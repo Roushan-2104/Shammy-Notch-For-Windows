@@ -101,6 +101,8 @@ internal partial class SearchCoordinator
             selection = SelectionAnalyzer.Analyze(words, stroke);
             selection = selection with { Region = selection.Region.Clamp(_shot.Width, _shot.Height) };
             Log.Info($"Selection: {stroke.Count} pts, {words.Count} OCR words on screen -> {selection.Kind}, {selection.Text.Length} chars");
+            // Only with the test pipe on (never in normal use): what was read, for the live checks.
+            if (TestPipe) LastReadForTest = selection.Text;
             if (selection.Region.W < 4 || selection.Region.H < 4) selection = null;
             else _overlay?.ShowSelection(selection.Region);
         }
@@ -121,6 +123,14 @@ internal partial class SearchCoordinator
                 ShowCommandResult(taken);
                 return;
             }
+        }
+
+        // Understood on this PC (a number to call, a date, a sum, a colour…) or a short fact: the answer flows into the
+        // island as a moment instead of a full results card. Only for a silent circle: a spoken question is a search.
+        if (selection is not null && info is not null && query.Length == 0)
+        {
+            if (await TryMomentAsync(session, selection, info, ContextFor(selection, query, filters, info))) return;
+            if (session != _session) return;
         }
 
         // Spoken commands ("play …", "timer 10 minutes") run instead of a web search.
@@ -146,16 +156,22 @@ internal partial class SearchCoordinator
             return;
         }
 
+        await ShowResultAsync(ContextFor(selection, query, filters, info));
+    }
+
+    /// <summary>The full results for a circle (Lens for a picture, the default mode for words) or for words alone.</summary>
+    Context ContextFor(Selection? selection, string query, SearchFilter filters, Modules.SelectionInfo? info)
+    {
         Context ctx;
-        if (selection is { Kind: SelectionKind.Image })
+        if (selection is { Kind: SelectionKind.Image } && _shot is not null)
         {
-            var png = _shot!.EncodePng(selection.Region);
+            var png = info?.Png ?? _shot.EncodePng(selection.Region);
             ctx = new Context(query, query.Length > 0 ? query : "Selected area", SearchMode.Lens, filters, png, _shot.Crop(selection.Region));
         }
         else if (selection is not null)
         {
             var combined = QueryBuilder.Combine(query, selection.Text);
-            ctx = new Context(combined, combined, _settings.DefaultSearchMode, filters, null, _shot!.Crop(selection.Region));
+            ctx = new Context(combined, combined, _settings.DefaultSearchMode, filters, null, _shot?.Crop(selection.Region));
         }
         else
         {
@@ -165,8 +181,105 @@ internal partial class SearchCoordinator
         // An image selection can also be searched as text if OCR found words in it.
         if (ctx.Mode == SearchMode.Lens && selection is not null && selection.Text.Length > 0)
             ctx = ctx with { Query = QueryBuilder.Combine(query, selection.Text) };
+        return ctx with { Selection = info };
+    }
 
-        await ShowResultAsync(ctx with { Selection = info });
+    // ---- Circle to search's moment --------------------------------------------------------------------------
+
+    Context? _momentFull;
+    CancellationTokenSource? _factLookup;
+
+    /// <summary>
+    /// Shows what was circled as a moment in the island when Shammy understands it on this PC, or finds a short fact for
+    /// a circled name or term. True when it did (the moment is up or on its way); false means search as usual.
+    /// </summary>
+    async Task<bool> TryMomentAsync(int session, Selection selection, Modules.SelectionInfo info, Context full)
+    {
+        CircleMeaning? meaning = null;
+        try { meaning = Understand(selection, info); }
+        catch (Exception ex) { Log.Warn("Reading the circle failed", ex); }
+
+        Views.IslandMoment? moment = null;
+        if (meaning is not null)
+        {
+            Log.Info($"Circle understood on this PC: {meaning.Kind}");
+            moment = CircleMoments.For(meaning, info, Cancel);
+        }
+        else if (selection.Kind == SelectionKind.Text && QuickFacts.Worth(selection.Text))
+        {
+            _notch.SearchBarView.ShowThinking("Looking it up…");
+            _factLookup?.Cancel();
+            _factLookup = new CancellationTokenSource();
+            var fact = await QuickFacts.TryAsync(selection.Text, _factLookup.Token);
+            if (session != _session) return true;
+            if (fact is not null)
+            {
+                Log.Info("Circle answered with a short fact");
+                moment = CircleMoments.For(fact, info, Cancel);
+            }
+        }
+        if (moment is null) return false;
+        ShowMoment(session, moment, full);
+        return true;
+    }
+
+    /// <summary>Words: what they are. A picture: one colour filling it is that colour; otherwise any words in it.</summary>
+    static CircleMeaning? Understand(Selection selection, Modules.SelectionInfo info)
+    {
+        if (selection.Kind == SelectionKind.Text) return CircleSense.Read(selection.Text, DateTime.Now);
+        if (Modules.SelectionTools.QrReader.ReadPixels(info) is { } px && CircleSense.Swatch(px.Bgra, px.Width, px.Height) is { } swatch)
+            return swatch;
+        return selection.Text.Length > 0 ? CircleSense.Read(selection.Text, DateTime.Now) : null;
+    }
+
+    void ShowMoment(int session, Views.IslandMoment moment, Context full)
+    {
+        _phase = Phase.Showing;
+        _momentFull = full;
+        _keys.InterceptEscape = true;
+        void Land()
+        {
+            if (session != _session) return;
+            _notch.AnswerView.ShowMoment(moment);
+            _notch.SetSearchMode(NotchMode.Answer);
+            _notch.SetInteractive(true);
+        }
+        // The answer leaves the selection as a drop of light and lands in the island (at once with Calm motion).
+        var overlay = _overlay;
+        _overlay = null;
+        if (overlay is null) Land();
+        else overlay.FlowToIsland(Land);
+    }
+
+    /// <summary>The moment's top was clicked: the full results for the same circle.</summary>
+    void ExpandMoment()
+    {
+        if (_phase != Phase.Showing || _momentFull is not { } full) return;
+        _momentFull = null;
+        _ = ShowResultAsync(full);
+    }
+
+    internal void ExpandMomentForTest() => ExpandMoment();
+
+    static readonly bool TestPipe = Environment.GetEnvironmentVariable("SHAMMY_TEST_PIPE") == "1";
+
+    /// <summary>The last circle's words, kept only while the test pipe is on.</summary>
+    internal static string LastReadForTest { get; private set; } = "";
+
+    /// <summary>Test hook: a silent circle around <paramref name="text"/> (no screen, no picture), up to the moment or the search.</summary>
+    internal async Task<string> CircleTextForTest(string text)
+    {
+        Reset(keepNotch: true);
+        _session++;
+        int session = _session;
+        _phase = Phase.Processing;
+        _notch.SetSearchMode(NotchMode.Thinking);
+        var selection = new Selection(SelectionKind.Text, text, new Box(0, 0, 10, 10));
+        var info = new Modules.SelectionInfo(text, null, null, false);
+        var full = new Context(text, text, _settings.DefaultSearchMode, SearchFilter.None, null, null) { Selection = info };
+        if (await TryMomentAsync(session, selection, info, full)) return "moment";
+        if (session == _session) await ShowResultAsync(full);
+        return "search";
     }
 
     /// <summary>Runs the first module command that recognises the text. Returns false if none did.</summary>

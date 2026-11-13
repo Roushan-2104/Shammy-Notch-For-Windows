@@ -14,6 +14,7 @@
 <p align="center">
   <b><a href="#install">Install</a></b> ·
   <a href="#the-floating-island">Island</a> ·
+  <a href="#circle-to-search">Circle</a> ·
   <a href="#one-calm-screen">Open</a> ·
   <a href="#the-dial">Dial</a> ·
   <a href="#stage">Stage</a> ·
@@ -49,6 +50,32 @@ The notch no longer hangs from the edge of your screen. It **floats** a few pixe
 </p>
 
 <p align="center"><sub><b>Six palettes.</b> <b>Album</b> (the default) takes its colours from the cover of what's playing. Pick another in Settings › Notch.</sub></p>
+
+<br>
+
+<a name="circle-to-search"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/circle-to-search-dark.svg"><img src="docs/images/type/circle-to-search-light.svg" alt="Circle to search" width="100%"></picture></p>
+
+<p align="center">
+  <img src="docs/images/circle.gif" alt="A date is circled in liquid light; the answer flies into the island as a drop and becomes a reminder" width="800">
+</p>
+
+Press <kbd>Copilot</kbd> (or hold <kbd>Right Ctrl</kbd>) and the screen holds still. Circle anything. Your circle is drawn in **liquid light** in the island's own colours, and the answer leaves the circle as a drop and **flies into the island**.
+
+Most of the time Shammy **understands what you circled on your PC, instantly, without asking Google**:
+
+| You circle | The island offers |
+|---|---|
+| 📞 a phone number | **Call**, **WhatsApp**, Copy |
+| ✉️ an email address | **Write**, Copy |
+| 🔗 a link, even without `https://` | **Open**, Copy |
+| 📅 a date or a time, with its title | **Remind me**, **Calendar**, Copy |
+| 📍 an address | **Maps**, Copy |
+| 🧮 a sum like `18% of 2400` | the answer, Copy |
+| 🎨 a colour, or a swatch of one | its **hex** and **RGB** |
+| 📖 a name or a term | a short fact from Wikipedia |
+
+Every answer is a small **moment in the island**, not a big window. Click it for the full Google results. From there, **send it anywhere** in one tap: save it to **Notes**, put it on the **Shelf**, send it to your **phone**, or read it on **Stage**. Anything else (a picture, a paragraph, a question you say while circling) goes to Google AI Mode, Web or Lens, right in the island.
 
 <br>
 
@@ -164,7 +191,7 @@ Eleven clear tabs (General, Notch, Wheel, Pet, Voice & search, Notifications, Ro
 |---|---|
 | 🗣️ **Talk to it** | Hold <kbd>Right Alt</kbd> and say it your way, in English or Hinglish: *"screenshot le lo"*, *"gaana band karo"*, *"battery kitni hai"*. Two things at once work too: *"take a screenshot and send it to my phone"*. Not sure what you meant? It offers **Did you mean** choices instead of guessing. |
 | ⌨️ **Type anything** | Tap <kbd>Right Alt</kbd> for the palette: apps, files, settings, music and commands rank as you type. |
-| ⭕ **Circle to search** | Press <kbd>Copilot</kbd> (or hold <kbd>Right Ctrl</kbd>), circle anything on screen, and Google answers in the island. |
+| ⭕ **Circle to search** | Circle anything on screen: numbers, dates, links, sums and colours are understood on your PC; the rest Google answers in the island. [More](#circle-to-search) |
 | 🔢 **Codes at a glance** | A one-time code in a message shows big in the island with a **Copy** button. Copied privately (not in clipboard history), cleared after a minute, hidden while you share your screen, never logged. |
 | 🌅 **Morning brief** | The first unlock of a morning shows the weather, meetings, reminders and a low battery in one line, said aloud with your Gnani key. *"Good morning"* asks again. |
 | 🎯 **Focus in one click** | From the dial or the island. It pauses Windows' focus with you, and when it ends tells you what waited: *3 messages waited · WhatsApp, Gmail*. |
@@ -245,6 +272,7 @@ Something of yours under the island? Click the **small tab under it** and it sli
 - **Your voice:** with your Gnani key, a command's recording goes to Gnani while you hold the talk key; the key is encrypted on your PC. Without a key or offline, it's heard on your PC by the small offline model. Text on screen is read with Windows' own OCR.
 - **What leaves your PC:**
   - searches go to Google only when you ask; the island shows "Sent to Google" whenever an image goes to Lens;
+  - a circled phone number, email, link, date, address, sum or colour is read on your PC and goes nowhere; a circled name or term (one to four words) is looked up on Wikipedia for its short fact, and only those words are sent;
   - "weather in &lt;city&gt;" sends only that city name to Open-Meteo (no account, no key);
   - the calendar is read only from Google, at the secret address you pasted.
 - **Captions, recordings and Stage:** captions come from Windows' Live Captions on your PC; recordings go only to your Videos folder; Stage and its ring light are hidden from screen shares and recordings.

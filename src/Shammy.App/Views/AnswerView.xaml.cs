@@ -1,7 +1,24 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace Shammy.Views;
+
+/// <summary>One of a moment's actions: a pill ("Call", "Copy"). <see cref="Run"/> returns a short word back to show
+/// ("Copied"), or null; with <see cref="Closes"/> and no word back, the moment closes (another app took over).</summary>
+internal sealed record MomentAction(string Label, Func<string?> Run, bool Closes = false);
+
+/// <summary>A quiet "send it" icon on a moment (Notes, Shelf, phone, Stage); returns the word back to show.</summary>
+internal sealed record MomentSend(string Glyph, string Tip, Func<Task<string?>> Run);
+
+/// <summary>Circle to search's answer in the island: what it is, the big line, an optional line of detail, and what to do next.</summary>
+internal sealed record IslandMoment(string Glyph, string Label, string Title, string? Body, IReadOnlyList<MomentAction> Actions,
+    IReadOnlyList<MomentSend> Sends)
+{
+    /// <summary>A circled colour: the orb shows the colour itself.</summary>
+    public Color? Swatch { get; init; }
+}
 
 /// <summary>
 /// Instant local answers (arithmetic) that don't need a web search, and confirmations for commands. Focus Wall: the
@@ -16,8 +33,19 @@ public partial class AnswerView : UserControl
 
     internal event Action<string>? SearchWebRequested;
 
+    /// <summary>The plain answer card (a sum, a command's confirmation): 440 × 120.</summary>
+    void UsePlain()
+    {
+        Moment.Visibility = Visibility.Collapsed;
+        Plain.Visibility = Visibility.Visible;
+        Width = 440;
+        Height = 120;
+        _moment = null;
+    }
+
     internal void Show(string query, string expression, string result)
     {
+        UsePlain();
         _query = query;
         Expression.Text = expression + " =";
         Expression.Visibility = Visibility.Visible;
@@ -37,6 +65,7 @@ public partial class AnswerView : UserControl
     /// <summary>Confirmation for a module command ("Timer set", "Playing …").</summary>
     internal void ShowCommand(Modules.CommandResult r)
     {
+        UsePlain();
         Glyph.Text = r.Glyph;
         // Colour only for meaning: red when it failed, white otherwise.
         Glyph.Foreground = (System.Windows.Media.Brush)Application.Current.Resources[r.IsError ? "WallRed" : "WallText"];
@@ -67,8 +96,139 @@ public partial class AnswerView : UserControl
         return width <= ResultRoom ? size : Math.Max(min, Math.Floor(size * ResultRoom / width));
     }
 
-    /// <summary>For the test pipe: the shown answer and whether it offers Copy.</summary>
-    internal string Describe() => $"title={Result.Text} copy={(Actions.Visibility == Visibility.Visible && CopyButton.IsVisible ? _copyText ?? Result.Text : "-")}";
+    /// <summary>For the test pipe: the shown answer and whether it offers Copy (or the moment, its actions and send targets).</summary>
+    internal string Describe() => _moment is { } m
+        ? $"moment glyph={(m.Swatch is null ? "icon" : "swatch")} label={MomentLabel.Text} title={MomentTitle.Text} body={(m.Body ?? "-")} " +
+          $"actions=[{string.Join("|", m.Actions.Select(a => a.Label))}] send=[{string.Join("|", m.Sends.Select(s => s.Tip))}] size={Width}x{Height}"
+        : $"title={Result.Text} copy={(Actions.Visibility == Visibility.Visible && CopyButton.IsVisible ? _copyText ?? Result.Text : "-")}";
+
+    // ---- Circle to search's moment --------------------------------------------------------------------------
+
+    IslandMoment? _moment;
+
+    /// <summary>The moment's top was clicked: show the full results.</summary>
+    internal event Action? MomentExpandRequested;
+
+    /// <summary>An action handed off to another app (a call, a link, the calendar): the moment can go.</summary>
+    internal event Action? MomentDone;
+
+    /// <summary>
+    /// What was circled, understood (a phone number, a date, a sum, a colour, a short fact), with its actions and the
+    /// quiet "send it" icons. 560 wide; taller when there's a line of body text.
+    /// </summary>
+    internal void ShowMoment(IslandMoment m)
+    {
+        _moment = m;
+        Plain.Visibility = Visibility.Collapsed;
+        Moment.Visibility = Visibility.Visible;
+        Width = 560;
+        Height = string.IsNullOrEmpty(m.Body) ? 136 : 172;
+
+        MomentLabel.Text = m.Label;
+        MomentTitle.Text = m.Title;
+        MomentTitle.FontSize = m.Title.Length > 26 ? 20 : 24;
+        MomentBody.Text = m.Body ?? "";
+        MomentBody.Visibility = string.IsNullOrEmpty(m.Body) ? Visibility.Collapsed : Visibility.Visible;
+
+        if (m.Swatch is { } swatch)
+        {
+            // A circled colour is shown as itself.
+            MomentOrb.Background = new SolidColorBrush(swatch);
+            MomentGlyph.Text = "";
+        }
+        else
+        {
+            // The island's light in the orb: the palette's first colour, softly, under a white glyph.
+            var c = Theme.PaletteTheme.ToColor(Theme.PaletteTheme.First);
+            MomentOrb.Background = new LinearGradientBrush(Color.FromArgb(0x55, c.R, c.G, c.B), Color.FromArgb(0x1C, c.R, c.G, c.B), 45);
+            MomentGlyph.Text = m.Glyph;
+            MomentGlyph.Foreground = (Brush)Application.Current.Resources["WallText"];
+        }
+
+        MomentActions.Children.Clear();
+        for (int i = 0; i < m.Actions.Count; i++)
+        {
+            var action = m.Actions[i];
+            var button = new Button
+            {
+                Content = action.Label,
+                Style = (Style)FindResource(i == 0 ? "WallPrimaryButton" : "WallQuietButton"),
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+            AutomationProperties.SetName(button, action.Label);
+            button.Click += (_, _) => RunAction(action);
+            MomentActions.Children.Add(button);
+        }
+
+        SendRow.Children.Clear();
+        foreach (var send in m.Sends)
+        {
+            var button = new Button
+            {
+                Content = send.Glyph,
+                Style = (Style)FindResource("WallQuietButton"),
+                FontFamily = (FontFamily)FindResource("IconFont"),
+                FontWeight = FontWeights.Normal,
+                FontSize = 13,
+                Width = 32,
+                Padding = new Thickness(0),
+                Margin = new Thickness(6, 0, 0, 0),
+                ToolTip = send.Tip,
+            };
+            AutomationProperties.SetName(button, send.Tip);
+            button.Click += async (_, _) =>
+            {
+                button.IsEnabled = false;
+                string? said;
+                try { said = await send.Run(); }
+                catch (Exception ex)
+                {
+                    Infrastructure.Log.Warn($"Sending a circle ({send.Tip}) failed", ex);
+                    said = "That didn't work";
+                }
+                if (!ReferenceEquals(_moment, m)) return;
+                button.IsEnabled = true;
+                if (said is not null) Say(said);
+            };
+            SendRow.Children.Add(button);
+        }
+    }
+
+    void RunAction(MomentAction action)
+    {
+        string? said;
+        try { said = action.Run(); }
+        catch (Exception ex)
+        {
+            Infrastructure.Log.Warn($"A circle action ({action.Label}) failed", ex);
+            said = "That didn't work";
+        }
+        if (action.Closes && said is null) MomentDone?.Invoke();
+        else if (said is not null) Say(said);
+    }
+
+    /// <summary>A short word back ("Copied", "Saved to Notes") in the label line, with a check.</summary>
+    void Say(string text) => MomentLabel.Text = "✓  " + text;
+
+    void OnMomentExpand(object sender, System.Windows.Input.MouseButtonEventArgs e) => MomentExpandRequested?.Invoke();
+
+    /// <summary>Test pipe: runs the moment's action or send target by its label, as a click would.</summary>
+    internal async Task<string> RunMomentForTest(string label)
+    {
+        if (_moment is not { } m) return "no moment";
+        if (m.Actions.FirstOrDefault(a => string.Equals(a.Label, label, StringComparison.OrdinalIgnoreCase)) is { } action)
+        {
+            RunAction(action);
+            return MomentLabel.Text;
+        }
+        if (m.Sends.FirstOrDefault(s => string.Equals(s.Tip, label, StringComparison.OrdinalIgnoreCase)) is { } send)
+        {
+            var said = await send.Run();
+            if (said is not null) Say(said);
+            return MomentLabel.Text;
+        }
+        return "no such action";
+    }
 
     void OnCopy(object sender, RoutedEventArgs e)
     {

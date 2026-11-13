@@ -285,6 +285,20 @@ internal sealed partial class ShammyHost
             case "voice-hear": _search.HearForTest(arg); return "ok";
             case "voice-live": _search.ShowLiveForTest(arg); return "ok";
             case "choice-pick": return int.TryParse(arg.Trim(), out var pick) ? _search.PickForTest(pick) : "error: choice-pick <0-based index>";
+            // "circle-text <words>": a silent circle around these words (no screen), up to the moment or the search;
+            // then "answer-state". "circle-act <label>": a moment's action or send icon by its label or tooltip, as a click.
+            // "circle-expand": the moment's top, as a click (the full results).
+            case "circle-text": _ = _search.CircleTextForTest(arg); return "ok";
+            case "circle-act":
+            {
+                var run = _notch.AnswerView.RunMomentForTest(arg.Trim());
+                return run.IsCompleted ? run.Result : "started";
+            }
+            case "circle-expand": _search.ExpandMomentForTest(); return "ok";
+            // "circle-freeze" then "circle-draw x,y x,y …|seconds" (fractions of the screen): the real freeze and circle, no mouse.
+            case "circle-freeze": return _search.FreezeForTest();
+            case "circle-draw": return _search.DrawForTest(arg);
+            case "circle-read": return "[" + Search.SearchCoordinator.LastReadForTest + "]";
             case "cancel": _search.Cancel(); return "ok";
             // "hold" / "release" = the look key (freeze); "hold talk" / "release talk" = Right Alt.
             case "hold": _search.OnKeyDown(arg.Trim() == "talk" ? HotKey.Talk : HotKey.Look); return "ok";

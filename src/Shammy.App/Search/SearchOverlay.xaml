@@ -1,6 +1,7 @@
 <Window x:Class="Shammy.Search.SearchOverlay"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:Shammy.Ui"
         Title="Shammy Search" WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
         ShowActivated="False" Background="Black" Cursor="Cross" Left="-32000" Top="-32000" Width="400" Height="300"
         FontFamily="{StaticResource ShammyFont}">
@@ -22,15 +23,31 @@
         <Border x:Name="GlowEdge" BorderThickness="3" Opacity="0" IsHitTestVisible="False" />
 
         <Canvas x:Name="Ink" IsHitTestVisible="False">
-            <Path x:Name="StrokeGlow" StrokeThickness="16" Opacity="0.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
+            <!-- Liquid light: a wide soft bloom in the island's colours, a narrower glow, and a near-white core. -->
+            <Path x:Name="StrokeGlow" StrokeThickness="30" Opacity="0.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
                 <Path.Effect>
-                    <BlurEffect Radius="14" RenderingBias="Performance" />
+                    <BlurEffect Radius="22" RenderingBias="Performance" />
                 </Path.Effect>
             </Path>
-            <Path x:Name="StrokeCore" StrokeThickness="4.5" Stroke="White" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
-            <Border x:Name="Highlight" BorderThickness="2.5" CornerRadius="14" Visibility="Collapsed" />
+            <Path x:Name="StrokeMid" StrokeThickness="10" Opacity="0.95" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
+                <Path.Effect>
+                    <BlurEffect Radius="5" RenderingBias="Performance" />
+                </Path.Effect>
+            </Path>
+            <Path x:Name="StrokeCore" StrokeThickness="3.4" Stroke="White" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+            <!-- The selection lit like the island's glass: a soft halo, a thin bright rim, a faint wash of colour inside. -->
+            <Border x:Name="HighlightHalo" BorderThickness="10" CornerRadius="20" Visibility="Collapsed" Opacity="0.55">
+                <Border.Effect>
+                    <BlurEffect Radius="16" RenderingBias="Performance" />
+                </Border.Effect>
+            </Border>
+            <Border x:Name="Highlight" BorderThickness="2" CornerRadius="14" Visibility="Collapsed" />
             <Rectangle x:Name="SnipRect" StrokeThickness="2" StrokeDashArray="4 3" Stroke="White" RadiusX="6" RadiusY="6"
                        Fill="#22FFFFFF" Visibility="Collapsed" />
+            <!-- The answer leaving for the island: a drop of the palette's light with two smaller beads behind it. -->
+            <Ellipse x:Name="BeadTail2" Width="8" Height="8" Visibility="Collapsed" />
+            <Ellipse x:Name="BeadTail1" Width="12" Height="12" Visibility="Collapsed" />
+            <Ellipse x:Name="Bead" Width="22" Height="22" Visibility="Collapsed" />
         </Canvas>
 
         <!-- Capture tools: save what's frozen instead of searching it. -->
@@ -44,12 +61,12 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bg" Background="#E6141416" BorderBrush="#26FFFFFF" BorderThickness="1" CornerRadius="18" Padding="14,8">
+                                <Border x:Name="Bg" Background="#EB050507" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1" ui:Capsule.Round="True" Padding="14,8">
                                     <ContentPresenter />
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bg" Property="Background" Value="#F0303034" />
+                                        <Setter TargetName="Bg" Property="Background" Value="{DynamicResource WallRaised}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -71,8 +88,8 @@
             </Button>
         </StackPanel>
 
-        <Border x:Name="Hint" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,56" CornerRadius="20"
-                Background="#E6141416" BorderBrush="#26FFFFFF" BorderThickness="1" Padding="16,9" Opacity="0" IsHitTestVisible="False">
+        <Border x:Name="Hint" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,56" ui:Capsule.Round="True"
+                Background="#EB050507" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1" Padding="16,9" Opacity="0" IsHitTestVisible="False">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="HintShift" Y="24" />
             </Border.RenderTransform>

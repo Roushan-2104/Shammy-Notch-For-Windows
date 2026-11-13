@@ -462,6 +462,25 @@ public partial class ResultView : UserControl
         }
     }
 
+    /// <summary>A short word back on an extra chip ("✓ Saved"), for two seconds, then its label again.</summary>
+    internal void SayOnChip(string label, string text)
+    {
+        foreach (var chip in ExtraChips.Children.OfType<ToggleButton>())
+        {
+            if (!Equals(chip.Content, label) && !Equals(chip.Tag, label)) continue;
+            chip.Tag = label;
+            chip.Content = "✓ " + text;
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                chip.Content = label;
+            };
+            timer.Start();
+            return;
+        }
+    }
+
     void OnFrameSizeChanged(object sender, SizeChangedEventArgs e) =>
         WebFrame.Clip = new RectangleGeometry(new Rect(e.NewSize), 18, 18);
 
@@ -541,6 +560,9 @@ public partial class ResultView : UserControl
     }
 
     void OnClose(object sender, RoutedEventArgs e) => CloseRequested?.Invoke();
+
+    /// <summary>Closes the card as its close button would (a chip that hands over to Stage or the phone's QR card).</summary>
+    internal void RequestClose() => CloseRequested?.Invoke();
 
     void OnDismissNotice(object sender, RoutedEventArgs e) => Notice.Visibility = Visibility.Collapsed;
 

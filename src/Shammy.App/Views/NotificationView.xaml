@@ -1,6 +1,7 @@
 <UserControl x:Class="Shammy.Views.NotificationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Shammy.Ui"
              xmlns:views="clr-namespace:Shammy.Views"
              Width="460" Height="104" Background="Transparent" Cursor="Hand">
     <UserControl.ContextMenu>
@@ -38,7 +39,7 @@
             <Grid>
                 <views:TrackedText x:Name="AppText" HorizontalAlignment="Left" Margin="0,0,96,0" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Border x:Name="MoreBadge" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1" CornerRadius="999"
+                    <Border x:Name="MoreBadge" BorderBrush="{DynamicResource WallHairline}" BorderThickness="1" ui:Capsule.Round="True"
                             Padding="7,1" Margin="0,0,8,0" Visibility="Collapsed" VerticalAlignment="Center">
                         <TextBlock x:Name="MoreText" FontFamily="{DynamicResource WallFontSemiBold}" FontWeight="SemiBold" FontSize="10.5"
                                    Foreground="{DynamicResource WallText2}" Typography.NumeralAlignment="Tabular" />
