@@ -101,6 +101,61 @@ internal sealed partial class ShammyHost
                 found.Add($"focus={focus?.GetType().Name ?? "none"}{(focus is { Name.Length: > 0 } ? "#" + focus.Name : "")} {focus?.ActualWidth:0.#}x{focus?.ActualHeight:0.#} at {where} local={local}");
                 return string.Join(" | ", found);
             }
+            case "paint-probe":
+            {
+                // Test: renders the island with one layer hidden at a time and reads one screen pixel, to find which
+                // layer paints it ("paint-probe 747 318").
+                var xy = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (xy.Length < 2 || !int.TryParse(xy[0], out var sx) || !int.TryParse(xy[1], out var sy)) return "error: usage paint-probe <x> <y>";
+                if (_notch.Content is not System.Windows.FrameworkElement root) return "error: no content";
+                var local = _notch.PointFromScreen(new System.Windows.Point(sx, sy));
+                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(root);
+                string Pixel()
+                {
+                    int w = (int)Math.Ceiling(root.ActualWidth * dpi.DpiScaleX), h = (int)Math.Ceiling(root.ActualHeight * dpi.DpiScaleY);
+                    var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, dpi.PixelsPerInchX, dpi.PixelsPerInchY, System.Windows.Media.PixelFormats.Pbgra32);
+                    rtb.Render(root);
+                    int px = (int)(local.X * dpi.DpiScaleX), py = (int)(local.Y * dpi.DpiScaleY);
+                    var best = "";
+                    int bestSum = -1;
+                    // The brightest pixel in a 5×5 patch round the point (the mark is 2×1).
+                    for (int dy = -2; dy <= 2; dy++)
+                        for (int dx = -2; dx <= 2; dx++)
+                        {
+                            int x = px + dx, y = py + dy;
+                            if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                            var p = new byte[4];
+                            rtb.CopyPixels(new System.Windows.Int32Rect(x, y, 1, 1), p, 4, 0);
+                            int sum = p[0] + p[1] + p[2];
+                            if (sum > bestSum) { bestSum = sum; best = $"#{p[3]:X2}{p[2]:X2}{p[1]:X2}{p[0]:X2}@{dx},{dy}"; }
+                        }
+                    return best;
+                }
+                var report = new List<string> { "all=" + Pixel() };
+                var layers = new List<(string Name, System.Windows.UIElement El)>();
+                void Add(string name, object? o) { if (o is System.Windows.UIElement e) layers.Add((name, e)); }
+                foreach (var n in new[] { "ShadowShape", "Shape", "Edge", "HitArea", "ContentHost", "Expanded" }) Add(n, _notch.FindName(n));
+                if (_notch.FindName("Expanded") is System.Windows.FrameworkElement ex)
+                {
+                    foreach (var n in new[] { "Body", "HomePanel", "ToolRow" }) Add(n, ex.FindName(n));
+                    if (ex.FindName("ToolRow") is System.Windows.Controls.Panel row)
+                        for (int i = 0; i < row.Children.Count; i++)
+                        {
+                            Add($"slot{i}", row.Children[i]);
+                            if (row.Children[i] is System.Windows.Controls.Panel slot)
+                                for (int j = 0; j < slot.Children.Count; j++) Add($"slot{i}.{j}:{slot.Children[j].GetType().Name}", slot.Children[j]);
+                        }
+                }
+                foreach (var (name, el) in layers)
+                {
+                    double was = el.Opacity;
+                    el.Opacity = 0;
+                    el.UpdateLayout();
+                    report.Add($"-{name}=" + Pixel());
+                    el.Opacity = was;
+                }
+                return string.Join(" ", report);
+            }
             case "mem-diag":
             {
                 // Where the memory is: .NET's own heap vs everything else; "mem-diag gc" collects first.
