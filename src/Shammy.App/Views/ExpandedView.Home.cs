@@ -654,8 +654,9 @@ public partial class ExpandedView
 
         public NumberRow()
         {
-            Root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(104) });
-            Root.ColumnDefinitions.Add(new ColumnDefinition());
+            // The number at the left, its two lines at the right edge: the row fills the column (no empty band).
+            Root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var number = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.Light, Foreground = CardKit.Ink };
             number.FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont");
             _value.FontSize = 34;
@@ -667,9 +668,12 @@ public partial class ExpandedView
             Root.Children.Add(number);
             _line1 = CardKit.Text("", 11.5, FontWeights.SemiBold, secondary: true);
             _line2 = CardKit.Text("", 11.5, FontWeights.Medium, secondary: true);
-            _line1.HorizontalAlignment = _line2.HorizontalAlignment = HorizontalAlignment.Left;
+            _line1.HorizontalAlignment = _line2.HorizontalAlignment = HorizontalAlignment.Right;
+            _line1.TextAlignment = _line2.TextAlignment = TextAlignment.Right;
             var lines = CardKit.Column(1, _line1, _line2);
             lines.VerticalAlignment = VerticalAlignment.Center;
+            lines.HorizontalAlignment = HorizontalAlignment.Right;
+            lines.Margin = new Thickness(12, 0, 0, 0);
             Grid.SetColumn(lines, 1);
             Root.Children.Add(lines);
         }

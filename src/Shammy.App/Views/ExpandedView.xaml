@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Shammy.Views"
              xmlns:ui="clr-namespace:Shammy.Ui"
-             Width="820" Height="270" Focusable="True" FocusVisualStyle="{x:Null}">
+             Width="760" Height="270" Focusable="True" FocusVisualStyle="{x:Null}">
     <!-- The open island (layout "Now + moment row"): the pet's eyes, the right-now sentence, search and "?" on top;
          below, one big now moment with three numbers beside it and a row of six moment-aware tools, or one card
          opened in place with its title and Back. -->

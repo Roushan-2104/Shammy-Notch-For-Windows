@@ -19,10 +19,10 @@ namespace Shammy.Views;
 public partial class ExpandedView : UserControl
 {
     /// <summary>
-    /// The home is 820 × 270 (the eyes row, a 120 px moment, 66 px of tools); an opened 924 × 248 view makes the
+    /// The home is 760 × 270 (the eyes row, a 120 px moment, 66 px of tools); an opened 924 × 248 view makes the
     /// island 1012 × 326.
     /// </summary>
-    public const double HomeWidth = 820, OpenWidth = Core.Notch.WallRail.MaxOpenWidth, HomeHeight = 12 + 36 + 10 + 120 + 12 + 66 + 14,
+    public const double HomeWidth = 760, OpenWidth = Core.Notch.WallRail.MaxOpenWidth, HomeHeight = 12 + 36 + 10 + 120 + 12 + 66 + 14,
         DetailHeight = 12 + 36 + 12 + WallDetail.H + 18;
 
     /// <summary>The Back + title row above a detail that isn't a Wall detail.</summary>

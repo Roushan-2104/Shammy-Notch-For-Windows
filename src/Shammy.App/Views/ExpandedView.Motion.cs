@@ -144,6 +144,13 @@ public partial class ExpandedView
         if (!MotionSettled) return;
         Animator.Frame -= OnMotionFrame;
         _motionHooked = false;
+        // Rest exactly on the targets (a settled spring can stop a hair short of 1, leaving text at a fractional
+        // scale) and repaint once: the layered window only refreshes what changed, so a pixel left over from a
+        // moving frame of the spring-in could otherwise stay on screen.
+        if (_animTarget is not null) _animTarget.Opacity = Math.Clamp(_inOpacity.Target, 0, 1);
+        _inTransform.ScaleX = _inTransform.ScaleY = _inScale.Target;
+        InvalidateVisual();
+        if (_animTarget is UIElement target) target.InvalidateVisual();
     }
 
     bool MotionSettled => _inOpacity.IsSettled && _inScale.IsSettled;
