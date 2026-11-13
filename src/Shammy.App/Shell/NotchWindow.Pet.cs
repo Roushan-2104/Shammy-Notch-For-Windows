@@ -22,8 +22,11 @@ public partial class NotchWindow
 
     PetLive? PetFor(Activity? a, DateTime? now = null) => a is null ? null : PetActivitySource.From(a, _services, now ?? DateTime.UtcNow);
 
-    /// <summary>Music playing: the notch glows in the album's colour.</summary>
-    bool PetGlow => _petOwner?.State is { Costume: PetCostume.Music, Playing: true };
+    /// <summary>
+    /// The glow pooled under the pill while music played is gone: the island's rim light shows the album's colour
+    /// instead (quieter, and it costs nothing extra). Kept as a switch so the chrome's own glow can come back.
+    /// </summary>
+    static bool PetGlow => false;
 
     /// <summary>
     /// Puts the pet in <paramref name="current"/>'s costume (or the one the user swapped to) and picks the dot; false

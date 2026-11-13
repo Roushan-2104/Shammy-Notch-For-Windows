@@ -152,10 +152,10 @@ public partial class ExpandedView
         if (_nowItems.ElementAtOrDefault(_nowIndex) is not { } entry) return;
         var item = entry.Item;
         Color accent;
-        try { accent = CardKit.Color(item.AccentHex.Length > 0 ? item.AccentHex : "#FFFF8A3D"); }
-        catch (FormatException) { accent = Color.FromRgb(0xFF, 0x8A, 0x3D); }
+        try { accent = item.AccentHex.Length > 0 ? CardKit.Color(item.AccentHex) : Ui.Tokens.Accent.Color; }
+        catch (FormatException) { accent = Ui.Tokens.Accent.Color; }
+        // A plain dot: a glow effect here was re-rasterised on every repaint of the (layered) notch window.
         _nowDot!.Fill = new SolidColorBrush(accent);
-        _nowDot.Effect = new DropShadowEffect { Color = accent, BlurRadius = 10, ShadowDepth = 0, Opacity = 0.9 };
         _nowLine!.Background = new LinearGradientBrush(Color.FromArgb(40, accent.R, accent.G, accent.B), Color.FromArgb(0, accent.R, accent.G, accent.B), 0);
         _nowLine.BorderBrush = new SolidColorBrush(Color.FromArgb(72, accent.R, accent.G, accent.B));
         _nowText!.Text = item.Text;

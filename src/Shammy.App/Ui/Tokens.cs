@@ -93,7 +93,7 @@ internal static class Tokens
         QuietHover = Brush("#42F5F5F7"),
         Blush = Brush(BlushHex);
 
-    /// <summary>The accent the user picked (orange by default); it changes live.</summary>
+    /// <summary>The accent: the active palette’s first colour (see Theme.PaletteTheme); it changes live.</summary>
     public static SolidColorBrush Accent => Theme.AccentTheme.Brush;
 
     public static SolidColorBrush AccentHover => Theme.AccentTheme.Hover;

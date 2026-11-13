@@ -78,7 +78,7 @@ internal static class SettingsCatalog
         ("NowLineEnabled", Notch, "Right now line", 1, "One line at the top of the open notch with what matters this minute."),
         ("NotchSize", Notch, "Notch size", 1, "Makes everything in the notch larger or smaller."),
         ("Motion", Notch, "Motion", 1, "Calm stops the bounce, the spinning record and the pet’s extras."),
-        ("Accent", Notch, "Accent colour", 1, "Buttons and highlights."),
+        ("Palette", Notch, "Palette", 1, "The island’s waves, buttons and highlights. Album takes the colours of the song playing."),
         ("LyricLineEnabled", Notch, "Lyric line", 1, "The line being sung shows under the record."),
         ("HiddenApps", Notch, "Hide while using", 1, "The notch stays away while these apps are in front."),
         // Wheel

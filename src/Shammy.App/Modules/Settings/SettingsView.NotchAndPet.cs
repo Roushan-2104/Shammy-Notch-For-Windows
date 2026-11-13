@@ -156,7 +156,7 @@ internal partial class SettingsView
         if (_s.PetKind != PetKind.Cat) Dim(purrRow, false);
     }
 
-    /// <summary>Size, motion, accent colour and the lyric line.</summary>
+    /// <summary>Size, motion, the palette and the lyric line.</summary>
     void LookAndPlace()
     {
         Section("Look", "");
@@ -170,34 +170,74 @@ internal partial class SettingsView
             new Segmented(new[] { "Lively", "Calm" }, Array.IndexOf(motions, _s.Motion), i =>
                 Set(nameof(AppSettings.Motion), motions[i], $"Motion · {motions[i]}")), words: "animation calm lively bounce");
 
-        TextBlock accentHint = null!;
+        PalettePicker();
+
+        SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off", words: "lyrics song music");
+    }
+
+    /// <summary>
+    /// The island's palette: one small swatch per palette (its three colours side by side). Its first colour is the
+    /// accent too, so this replaces the old accent swatches.
+    /// </summary>
+    void PalettePicker()
+    {
+        TextBlock hint = null!;
+        string current = IslandPalettes.Normalize(_s.Palette);
+        static string Hint(IslandPalette p) => p.Id == IslandPalettes.Album
+            ? "Album · the colours of the song playing (Monsoon’s when nothing plays)"
+            : $"{p.Name} · the island’s waves, buttons and highlights";
         var swatches = new StackPanel { Orientation = Orientation.Horizontal };
-        foreach (var colour in Enum.GetValues<AccentColor>())
+        foreach (var palette in IslandPalettes.All)
         {
-            var dot = new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(10), Background = ScreenKit.B(NotchLook.Colours(colour).Accent) };
+            var stripes = new System.Windows.Controls.Primitives.UniformGrid { Rows = 1, Columns = 3 };
+            foreach (var c in palette.Colours) stripes.Children.Add(new Border { Background = Ui.Tokens.Frozen(Theme.PaletteTheme.ToColor(c)) });
+            var chip = new Border
+            {
+                Width = 26,
+                Height = 16,
+                Child = stripes,
+                Clip = new RectangleGeometry(new Rect(0, 0, 26, 16), 8, 8),
+            };
+            UIElement face = chip;
+            if (palette.Id == IslandPalettes.Album)
+            {
+                // Album shows its stand-in colours under a small note, so it reads as "from the music".
+                var note = ScreenKit.Text("♪", 11, Weight.Bold);
+                note.HorizontalAlignment = HorizontalAlignment.Center;
+                note.VerticalAlignment = VerticalAlignment.Center;
+                note.Foreground = Brushes.White;
+                face = new Grid { Children = { chip, note } };
+            }
             var ring = new Border
             {
-                Width = 30,
-                Height = 30,
-                CornerRadius = new CornerRadius(15),
+                Width = 34,
+                Height = 24,
+                CornerRadius = new CornerRadius(12),
                 BorderThickness = new Thickness(2),
-                BorderBrush = colour == _s.Accent ? ScreenKit.Fg : Brushes.Transparent,
-                Child = dot,
+                BorderBrush = palette.Id == current ? ScreenKit.Fg : Brushes.Transparent,
+                Child = face,
             };
-            var swatch = new Pressable(Brushes.Transparent, Brushes.Transparent) { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Child = ring, ToolTip = $"Accent colour {colour}", Margin = new Thickness(swatches.Children.Count > 0 ? 4 : 0, 0, 0, 0) };
-            System.Windows.Automation.AutomationProperties.SetName(swatch, $"Accent colour {colour}");
+            var swatch = new Pressable(Brushes.Transparent, Brushes.Transparent)
+            {
+                Width = 34,
+                Height = 24,
+                CornerRadius = new CornerRadius(12),
+                Child = ring,
+                ToolTip = Hint(palette),
+                Margin = new Thickness(swatches.Children.Count > 0 ? 4 : 0, 0, 0, 0),
+            };
+            System.Windows.Automation.AutomationProperties.SetName(swatch, $"Palette {palette.Name}");
             swatch.Click += () =>
             {
                 foreach (Pressable p in swatches.Children) ((Border)p.Child).BorderBrush = Brushes.Transparent;
                 ring.BorderBrush = ScreenKit.Fg;
-                accentHint.Text = $"{colour} · buttons and highlights";
-                Set(nameof(AppSettings.Accent), colour, $"Accent · {colour}");
+                hint.Text = Hint(palette);
+                Set(nameof(AppSettings.Palette), palette.Id, $"Palette · {palette.Name}");
+                Theme.PaletteTheme.Choose(palette.Id);
             };
             swatches.Children.Add(swatch);
         }
-        Row("Accent colour", $"{_s.Accent} · buttons and highlights", swatches, out accentHint, words: "color theme");
-
-        SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off", words: "lyrics song music");
+        Row("Palette", Hint(IslandPalettes.Find(current)), swatches, out hint, words: "color colour theme accent palette album waves");
     }
 
     /// <summary>The apps the notch stays away from, with one to add from what is running now.</summary>

@@ -43,8 +43,10 @@ public partial class App : Application
             args.SetObserved();
         };
 
-        // WPF caps storyboard animations at 60 fps by default; let high refresh displays run at full rate.
-        Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = 240 });
+        // Storyboard animations run at 60 fps. The notch's springs don't use storyboards (they step on WPF's own render
+        // loop, at the display's rate), so they stay smooth; capping everything else spares the layered windows, which
+        // are read back from the GPU on every repaint.
+        Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = 60 });
 
         Log.Info($"Shammy {typeof(App).Assembly.GetName().Version} starting on {Environment.OSVersion}");
         if (Paths.MigratedFrom is { } from) Log.Info($"Moved the data folder over from {Path.GetFileName(from)} (the app's old name)");

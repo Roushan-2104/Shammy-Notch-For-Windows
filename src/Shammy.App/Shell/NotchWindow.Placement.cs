@@ -32,6 +32,8 @@ public partial class NotchWindow
     {
         _activityView.Pet.Reset();
         RefreshPet();
+        // Calm holds the waves and the rim light still; Lively lets them move again.
+        UpdateAmbience();
     }
 
     /// <summary>Scales everything in the notch (Settings → Notch size) and re-centres it.</summary>
@@ -42,7 +44,7 @@ public partial class NotchWindow
         _scale = scale;
         Root.LayoutTransform = new ScaleTransform(scale, scale);
         Width = WindowWidth * scale;
-        Height = Math.Max(Height, (_spec.H + ShadowPad) * scale);
+        Height = Math.Max(Height, (_spec.H + _gap + ShadowPad) * scale);
         Reposition();
         ApplyVisuals(force: true);
     }
@@ -104,7 +106,11 @@ public partial class NotchWindow
         var r = _services.Settings.PinToScreenEdge ? info.rcMonitor : info.rcWork;
         int width = (int)Math.Round(WindowWidth * _scale * dpi / 96.0);
         int x = r.Left + (r.Right - r.Left - width) / 2;
-        return Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, x, r.Top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        // The window still starts at the very top (so the pointer at the top edge reaches the island); the island
+        // floats the gap below that inside it.
+        if (!Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, x, r.Top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE)) return false;
+        Placed(x, r.Top, dpi);
+        return true;
     }
 
     public void BringToFront()

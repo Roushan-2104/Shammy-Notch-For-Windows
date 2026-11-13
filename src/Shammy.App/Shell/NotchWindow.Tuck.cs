@@ -57,6 +57,9 @@ public partial class NotchWindow
         if (MotionPrefs.Lively) _tuck.AnimateTo(1, 0.32, 1);
         else _tuck.Snap(1);
         Animator.Kick();
+        // Out of sight: the waves and the rim stop moving.
+        _boundsDirty = true;
+        UpdateAmbience();
         _untuck ??= new DispatcherTimer(Shammy.Core.Notch.TuckAway.Away, DispatcherPriority.Background, (_, _) => ComeBack(), Dispatcher);
         _untuck.Stop();
         _untuck.Start();
@@ -85,6 +88,8 @@ public partial class NotchWindow
         if (MotionPrefs.Lively) _tuck.AnimateTo(0, 0.42, 0.85);
         else _tuck.Snap(0);
         Animator.Kick();
+        _boundsDirty = true;
+        UpdateAmbience();
     }
 
     internal bool PointerOverNotch()
@@ -94,7 +99,8 @@ public partial class NotchWindow
         var p = PointFromScreen(new Point(screen.X, screen.Y));
         p = new Point(p.X / _scale, p.Y / _scale);
         double w = _w.Value, h = _h.Value;
-        return p.X >= Cx - w / 2 - 12 && p.X <= Cx + w / 2 + 12 && p.Y >= 0 && p.Y <= h + 8;
+        // From the top of the screen (the gap above the island counts) to just under it.
+        return p.X >= Cx - w / 2 - 12 && p.X <= Cx + w / 2 + 12 && p.Y >= 0 && p.Y <= _gap + h + 8;
     }
 
     /// <summary>For tests: "tuck" tucks it away now, "tuck back" brings it back; both say where things stand.</summary>

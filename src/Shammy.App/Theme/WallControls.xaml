@@ -7,7 +7,7 @@
          dictionary is merged beside it. Accent only on the one primary control; everything else is quiet. -->
     <SolidColorBrush x:Key="WallRaised" Color="#FF1E1E23" />
     <SolidColorBrush x:Key="WallRaisedHover" Color="#FF26262C" />
-    <SolidColorBrush x:Key="WallAccentHover" Color="#FFFFA466" />
+    <SolidColorBrush x:Key="WallAccentHover" Color="#FF91A3FF" />
     <SolidColorBrush x:Key="WallOnAccent" Color="#FF0B0B0D" />
     <SolidColorBrush x:Key="WallTrack" Color="#FF2A2A31" />
     <!-- Meaning only: an error, a failed step, recording. -->
