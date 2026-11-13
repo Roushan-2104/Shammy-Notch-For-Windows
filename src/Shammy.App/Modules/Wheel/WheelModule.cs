@@ -26,9 +26,9 @@ internal static class WheelLink
 }
 
 /// <summary>
-/// The cat wheel, a liquid dial. Hold the middle mouse button still for a quarter of a second and the island pours
-/// down to the pointer, where six droplets bead off around it; lean toward one, or turn the mouse wheel a notch at a
-/// time, and let go to run it (it flies up to the island), or press 1–6; let go over the centre or press Esc to
+/// The cat wheel, a liquid dial. Hold the middle mouse button still for a quarter of a second and the dial blooms at
+/// the pointer (the island gives a tiny pulse), six droplets beading off around it; lean toward one, or turn the mouse
+/// wheel a notch at a time, and let go to run it (it confirms where it is), or press 1–6; let go over the centre or press Esc to
 /// cancel. The droplets follow the moment: call tools in a call, music controls with music, writing tools in an
 /// editor, and otherwise your own beads. A quick middle click, or a press that moves at once (a drag, browser
 /// auto-scroll), still goes to the app. Nothing is held back while the wheel is switched off or a fullscreen app (a
@@ -61,6 +61,7 @@ internal sealed partial class WheelModule : IShammyModule
     WheelStore _store = new();
     MouseHook? _hook;
     WheelWindow? _window;
+    IslandPulse? _pulse;
     DispatcherTimer _holdTimer = null!, _guard = null!;
     IDisposable? _follow;
     IReadOnlyList<WheelSlot> _slots = Array.Empty<WheelSlot>();
@@ -189,6 +190,7 @@ internal sealed partial class WheelModule : IShammyModule
         _hook = null;
         _follow?.Dispose();
         _window?.Close();
+        _pulse?.Close();
     }
 
     // ---- On and off -------------------------------------------------------------------------------
@@ -231,42 +233,28 @@ internal sealed partial class WheelModule : IShammyModule
         _shown = _moment == WheelMoment.Usual ? _slots.Take(WheelGeometry.Beads).Select(s => s.ActionId).ToList() : WheelMoments.Droplets(_moment);
         _dial.Reset(_shown.Count);
         var droplets = _shown.Select(id => (GlyphNow(id), WheelSlots.Find(id)?.Name ?? id)).ToList();
-        var (ix, iy) = IslandPoint(x, y);
-        _window.OpenAt(x, y, ix, iy, droplets, _ctx.Settings.CatTheme, WheelMoments.Name(_moment));
+        _window.OpenAt(x, y, droplets, _ctx.Settings.CatTheme, WheelMoments.Name(_moment));
+        PulseIsland();
         HostLinks.WheelKeys?.Invoke(true, OnKey);
         if (_hook is not null) _hook.WatchWheel = true;
         _follow?.Dispose();
         _follow = follow ? Motion.Animator.Subscribe(_ => Follow(x, y)) : null;
     }
 
-    /// <summary>
-    /// Where the island is, in screen pixels, for the pour to start from: the notch's pill when the pointer is on
-    /// the notch's screen, otherwise the top centre of the pointer's own screen (the island comes to you there).
-    /// The one place to switch to Shell's own island position once it offers one.
-    /// </summary>
-    (int X, int Y) IslandPoint(int x, int y)
+    /// <summary>The island answers the bloom with a tiny pulse, wherever it is (nothing while it is tucked away).</summary>
+    void PulseIsland()
     {
-        var monitor = Native.MonitorFromPoint(new Native.POINT(x, y), Native.MONITOR_DEFAULTTONEAREST);
-        double scale = Native.GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 && dpi > 0 ? dpi / 96.0 : 1;
-        int down = (int)Math.Round(23 * scale);
-        // The island's own rectangle when it is on this screen: the pour drips from the pill's underside, so it
-        // never covers what the island is showing.
-        var island = Shammy.Shell.IslandBounds.Screen;
-        if (!island.IsEmpty && Shammy.Shell.IslandBounds.Monitor == monitor)
-            return ((int)Math.Round(island.Left + island.Width / 2), (int)Math.Round(island.Bottom + 4 * scale));
         try
         {
-            var notch = new System.Windows.Interop.WindowInteropHelper(_ctx.Notch).Handle;
-            if (notch != IntPtr.Zero && _ctx.Notch.IsVisible && Native.MonitorFromWindow(notch, Native.MONITOR_DEFAULTTONEAREST) == monitor &&
-                Native.GetWindowRect(notch, out var r) && r.Width > 0)
-                return (r.Left + r.Width / 2, r.Top + down);
+            var island = Shammy.Shell.IslandBounds.Screen;
+            if (island.IsEmpty) return;
+            _pulse ??= new IslandPulse();
+            _pulse.Play(island, Shammy.Shell.IslandBounds.Monitor);
         }
         catch (Exception ex)
         {
-            _ctx.Warn("Finding the island for the wheel failed", ex);
+            _ctx.Warn("The island's pulse failed", ex);
         }
-        var screen = Native.MonitorBounds(monitor);
-        return (screen.Left + screen.Width / 2, screen.Top + down);
     }
 
     /// <summary>The moment now: forced by the test pipe, the plain beads when the setting is off, or what is going on.</summary>
@@ -373,11 +361,11 @@ internal sealed partial class WheelModule : IShammyModule
         _window?.Close(ran);
     }
 
-    /// <summary>Runs once the droplet has flown up to the island, so a screenshot or a card never meets the wheel on the way out.</summary>
+    /// <summary>Runs as the confirm fades and the dial collapses, so a screenshot or a card never meets the wheel on the way out.</summary>
     void RunSoon(string id)
     {
         if (WheelSlots.ById(id) is not null) RecordUse(id);
-        var t = new DispatcherTimer(TimeSpan.FromMilliseconds(MotionPrefs.Lively ? 290 : 110), DispatcherPriority.Normal, (s, _) =>
+        var t = new DispatcherTimer(TimeSpan.FromMilliseconds(MotionPrefs.Lively ? 230 : 100), DispatcherPriority.Normal, (s, _) =>
         {
             ((DispatcherTimer)s!).Stop();
             Run(id);
