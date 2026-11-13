@@ -4,7 +4,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Shammy.Core.Notch;
 using Shammy.Infrastructure;
 using Shammy.Modules;
 using Shammy.Views.Cards;
@@ -12,19 +11,19 @@ using Shammy.Views.Cards;
 namespace Shammy.Views;
 
 /// <summary>
-/// The open notch as a Focus Wall (Wall.dc.html): a top row of the pet's eyes (home), tracked chips and a search
-/// field, and under it either the rail of artwork tiles (see ExpandedView.Rail.cs) or one view opened in place —
-/// a card's detail morphing out of its tile, the Shelf, Alerts, or an older module's tab. The notch grows to fit
-/// (see <see cref="HeightChanged"/>).
+/// The open island (layout "Now + moment row"): a top bar of the pet's eyes (home), the right-now sentence, the
+/// search pill and the guide's "?"; under it the home — one big now moment, three numbers and six moment-aware
+/// tools (see ExpandedView.Home.cs and ExpandedView.Tools.cs) — or one view opened in place: a card's detail, the
+/// Shelf, Alerts, or an older module's tab, with its title and Back. The island grows to fit (see <see cref="HeightChanged"/>).
 /// </summary>
 public partial class ExpandedView : UserControl
 {
-    /// <summary>The open notch: 1012 wide; the rail makes it 278 tall, a 248-tall view 326.</summary>
-    public const double OpenWidth = WallRail.MaxOpenWidth, HomeHeight = 12 + 36 + 6 + RailHeight + 14, EmptyHeight = 12 + 36 + 64 + 14,
+    /// <summary>
+    /// The home is 820 × 270 (the eyes row, a 120 px moment, 66 px of tools); an opened 924 × 248 view makes the
+    /// island 1012 × 326.
+    /// </summary>
+    public const double HomeWidth = 820, OpenWidth = Core.Notch.WallRail.MaxOpenWidth, HomeHeight = 12 + 36 + 10 + 120 + 12 + 66 + 14,
         DetailHeight = 12 + 36 + 12 + WallDetail.H + 18;
-
-    /// <summary>Room for a focused tile (140 x 1.15 = 161) and its glow.</summary>
-    const double RailHeight = 176;
 
     /// <summary>The Back + title row above a detail that isn't a Wall detail.</summary>
     const double HeaderBand = 44;
@@ -35,11 +34,6 @@ public partial class ExpandedView : UserControl
 
     readonly List<NotchCard> _cards = new();
     readonly List<(string Id, string Label, FrameworkElement Panel)> _tabs = new();
-    readonly Dictionary<string, RadioButton> _chipButtons = new(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<UIElement, ChipSpec> _chipIds = new();
-    RadioButton? _moreChip;
-    IReadOnlyList<ChipSpec> _chips = Array.Empty<ChipSpec>();
-    TrackedText? _shelfCount;
     string? _openId;
     int _alertsNewAtOpen;
 
@@ -52,23 +46,18 @@ public partial class ExpandedView : UserControl
         {
             if (!IsVisible)
             {
-                // Closed: the next open starts on the rail, focused on whatever is most live then.
+                // Closed: the next open starts on the home again, worked out afresh.
                 if (_openId is not null) GoHome(animate: false);
                 _focusedId = null;
                 StopMotion();
-                _nowTimer?.Stop();
+                StopHome();
                 return;
             }
-            RefreshHomeTop();
-            // Opening (by hover or by a command): no chip is lit until the pointer actually moves over it.
-            ClearTabHover();
-            DisarmHover();
             Refresh();
-            // Each open starts on the most live tile (relevance and liveness changed while it was closed).
             if (_openId is null)
             {
                 _focusedId = null;
-                RebuildRail(animate: false);
+                ChoosePeek();
             }
         };
         PreviewKeyDown += OnKey;
@@ -80,11 +69,12 @@ public partial class ExpandedView : UserControl
             if (TextInputAt(e.OriginalSource as DependencyObject) is { } input) TextInputWanted?.Invoke(input);
             else KeyboardWanted?.Invoke();
         };
-        // The guide's "?" is a plain border: a tab stop that Enter or Space opens.
+        // The guide's "?" and the search pill are plain borders: tab stops that Enter or Space opens.
         Ui.FocusKit.Focusable(GuideButton);
         Ui.FocusKit.Activates(GuideButton, () => OpenView("guide"));
-        RebuildChips();
-        RebuildRail(animate: false);
+        Ui.FocusKit.Focusable(SearchPill);
+        Ui.FocusKit.Activates(SearchPill, () => SearchRequested?.Invoke());
+        BuildHome();
     }
 
     /// <summary>Raised while the pointer has to leave the notch for something it started (a file dragged off the shelf,
@@ -100,7 +90,7 @@ public partial class ExpandedView : UserControl
     /// <summary>The search field was clicked: open the typing palette.</summary>
     internal event Action? SearchRequested;
 
-    /// <summary>The view's height changed (rail ⇄ an opened view); the notch reshapes to match.</summary>
+    /// <summary>The view's height changed (home ⇄ an opened view); the notch reshapes to match.</summary>
     internal event Action? HeightChanged;
 
     /// <summary>The user clicked into a text box, or opened a view with one: the notch should take keyboard focus.</summary>
@@ -109,13 +99,13 @@ public partial class ExpandedView : UserControl
     /// <summary>The open notch was clicked (not into a text box): it should take the keyboard (see NotchWindow's keyboard mode).</summary>
     internal event Action? KeyboardWanted;
 
-    /// <summary>Esc on the home rail: close the notch and hand the keyboard back.</summary>
+    /// <summary>Esc on the home: close the notch and hand the keyboard back.</summary>
     internal event Action? CloseRequested;
 
     /// <summary>A view opened or went home: whatever had keyboard focus may be gone.</summary>
     internal event Action? ViewChanged;
 
-    /// <summary>The focused tile changed (the hover peek shows it).</summary>
+    /// <summary>The card the hover peek shows changed.</summary>
     internal event Action? FocusChanged;
 
     /// <summary>Extra actions on a shelf file's right-click menu (registered by modules).</summary>
@@ -130,22 +120,19 @@ public partial class ExpandedView : UserControl
             e.Handled = true;
             return;
         }
-        // Arrows and Enter drive the rail, unless someone is typing or a control in the view has the keyboard
-        // (Tab reached a button or a slider: Enter presses it, the arrows move it).
+        // On the home the arrows walk the tools and Enter opens the moment, unless someone is typing; a focused
+        // control (Tab reached a button) handles its own Enter and Space.
         if (_openId is not null || Keyboard.FocusedElement is TextBoxBase or PasswordBox) return;
-        if (Keyboard.FocusedElement is Visual focused && focused != this && IsAncestorOf(focused)) return;
+        int tool = ToolIndexOf(Keyboard.FocusedElement as DependencyObject);
+        bool inside = Keyboard.FocusedElement is Visual focused && focused != this && IsAncestorOf(focused);
         switch (e.Key)
         {
-            case Key.Left:
-                MoveFocus(-1);
+            case Key.Left or Key.Right when tool >= 0 || !inside:
+                FocusTool(tool < 0 ? (e.Key == Key.Right ? 0 : -1) : tool + (e.Key == Key.Right ? 1 : -1));
                 e.Handled = true;
                 break;
-            case Key.Right:
-                MoveFocus(1);
-                e.Handled = true;
-                break;
-            case Key.Enter or Key.Space when FocusedCard is { } card && card != _nowPlaying:
-                OpenByClick(card.Id);
+            case Key.Enter or Key.Space when !inside:
+                OpenHero();
                 e.Handled = true;
                 break;
         }
@@ -184,16 +171,17 @@ public partial class ExpandedView : UserControl
     }
 
     /// <summary>
-    /// Opened by a click on its chip or tile: the user is at the notch, so a view with a text box gets the
+    /// Opened by a click (the moment, a tool): the user is at the notch, so a view with a text box gets the
     /// keyboard straight away (a hover or a command never does; clicking into the box does).
     /// </summary>
-    void OpenByClick(string id)
+    bool OpenByClick(string id)
     {
-        if (!OpenView(id)) return;
+        if (!OpenView(id)) return false;
         Dispatcher.BeginInvoke(() =>
         {
             if (_openId is not null && IsVisible && FirstTextInput(DetailFrame) is { } input) TextInputWanted?.Invoke(input);
         }, DispatcherPriority.Loaded);
+        return true;
     }
 
     internal void Attach(ShammyServices services)
@@ -203,18 +191,23 @@ public partial class ExpandedView : UserControl
         services.Notifications.History.CollectionChanged += (_, _) => Refresh();
         // A call starting or ending hides or reveals the alerts' text in place, even with the view open.
         PrivacyState.Changed += _ => Dispatcher.BeginInvoke(RebuildAlertRows);
-        services.Media.Changed += () => Dispatcher.BeginInvoke(RefreshNowPlaying);
+        services.Media.Changed += () => Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible && _openId is null) RefreshHome();
+        });
         services.Settings.Changed += name =>
         {
-            if (name is not (nameof(Infrastructure.AppSettings.NowLineEnabled) or nameof(Infrastructure.AppSettings.CatTheme) or "")) return;
+            if (name is not (nameof(AppSettings.NowLineEnabled) or nameof(AppSettings.CatTheme) or "")) return;
             Dispatcher.BeginInvoke(() =>
             {
-                RefreshHomeTop();
-                RebuildRail(animate: false);
+                if (IsVisible && _openId is null) RefreshHome();
             });
         };
+        Theme.PaletteTheme.Changed += () => Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible && _openId is null) RefreshHome(rebuildHero: true);
+        });
         RefreshShelf();
-        RefreshNowPlaying();
     }
 
     // ---- Opening views ------------------------------------------------------------------------
@@ -238,14 +231,14 @@ public partial class ExpandedView : UserControl
         }
     }
 
-    /// <summary>Whether <paramref name="query"/> (a view id or a chip label) names something that can open.</summary>
+    /// <summary>Whether <paramref name="query"/> (a view id or a title) names something that can open.</summary>
     internal bool CanOpen(string query) => Resolve(query) is not null || IsHome(query);
 
     static bool IsHome(string query) => string.Equals(query.Trim(), "home", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Open a view in place by id ("music", "shelf", "alerts", "tab:weather") or chip label ("Weather",
-    /// "Alerts"); "home" goes back to the rail. Returns false for an unknown name.
+    /// Open a view in place by id ("music", "shelf", "alerts", "tab:weather") or title ("Weather", "Alerts");
+    /// "home" goes back to the home. Returns false for an unknown name.
     /// </summary>
     internal bool OpenView(string query)
     {
@@ -256,13 +249,9 @@ public partial class ExpandedView : UserControl
         }
         if (Resolve(query) is not { } view) return false;
 
-        // Where the tile is now, for the morph (only when the rail is what's showing).
-        Rect? from = _openId is null && IsVisible && view.Card is { } c ? TileRectInDetail(c) : null;
-
         // Leaving the Alerts view: what it listed has been seen.
         if (_openId == AlertsId && view.Id != AlertsId) _s?.Notifications.MarkAllSeen();
         _openId = view.Id;
-        ClearTabHover();
         DetailContent.Content = null;
         LegacyHost.Visibility = Visibility.Collapsed;
         foreach (UIElement child in LegacyHost.Children) child.Visibility = Visibility.Collapsed;
@@ -281,8 +270,6 @@ public partial class ExpandedView : UserControl
                     Log.Warn($"Building the {view.Card!.Id} card's detail failed", ex);
                 }
                 ownsHeader = view.Card!.OwnsHeader;
-                // The detail opened from the rail keeps its tile focused for when Back returns.
-                if (RailIndex(view.Card.Id) >= 0) _focusedId = view.Card.Id;
                 break;
             case ViewKind.Tab:
                 view.Panel!.Visibility = Visibility.Visible;
@@ -309,21 +296,17 @@ public partial class ExpandedView : UserControl
         DetailContent.Margin = new Thickness(0, header ? HeaderBand : 0, 0, 0);
         DetailContent.Width = WallDetail.W;
         DetailFrame.Height = contentHeight + (header ? HeaderBand : 0);
-        // A clip left from the previous view (opened chip to chip) would cut this one at the old height.
+        // A clip left from the previous view (opened one after another) would cut this one at the old height.
         DetailFrame.Clip = wall ? RoundedFrameClip() : null;
         if (wall) AddBack((WallDetail)content!);
 
-        Rail.Visibility = EmptyText.Visibility = Visibility.Collapsed;
-        RefreshHomeTop();
+        StopHome();
+        HomePanel.Visibility = Visibility.Collapsed;
         DetailFrame.Visibility = Visibility.Visible;
-        SyncChips();
-        Refresh();
+        RefreshSentence();
+        if (_openId == AlertsId) RefreshAlertsHeader();
         SetBodySize(OpenWidth, DetailHeight - WallDetail.H + DetailFrame.Height);
-        if (IsVisible)
-        {
-            if (wall && from is { } rect) Morph((WallDetail)content!, rect);
-            else AnimateIn(DetailFrame);
-        }
+        if (IsVisible) AnimateIn(DetailFrame);
         ViewChanged?.Invoke();
         return true;
     }
@@ -342,23 +325,14 @@ public partial class ExpandedView : UserControl
     {
         bool wasOpen = _openId is not null;
         if (_openId == AlertsId) _s?.Notifications.MarkAllSeen();
-        string? returning = _openId;
         _openId = null;
         // Let go of the detail so it (and anything it subscribed to) can be collected.
         DetailContent.Content = null;
         DetailFrame.Visibility = Visibility.Collapsed;
         DetailFrame.Clip = null;
-        Rail.Visibility = Visibility.Visible;
-        RefreshHomeTop();
-        SyncChips();
-        DisarmHover();
-        RebuildRail(animate: false);
-        // Back on the rail with the tile that was open focused; it settles into place.
-        if (returning is not null && RailIndex(returning) is int i and >= 0)
-        {
-            SetFocus(i, animate: false);
-            if (animate && wasOpen) Settle(i);
-        }
+        HomePanel.Visibility = Visibility.Visible;
+        RefreshHome();
+        if (animate && wasOpen && IsVisible) AnimateIn(HomePanel);
         if (wasOpen) ViewChanged?.Invoke();
     }
 
@@ -378,9 +352,7 @@ public partial class ExpandedView : UserControl
         if (Is(AlertsId) || Is("notifications")) return new View(AlertsId, "Alerts", ViewKind.Alerts);
         foreach (var (id, label, panel) in _tabs)
             if (Is(id)) return new View(id, label, ViewKind.Tab, Panel: panel);
-        // By label: the chip's label first (a card may have taken a tab's chip), then any card's title.
-        foreach (var chip in _chips)
-            if (Is(chip.Label)) return Resolve(chip.ViewId);
+        // By title: a card first (a card may have taken an older tab's place), then a tab's label.
         foreach (var c in _cards)
             if (Is(c.Title)) return CardView(c);
         foreach (var (id, label, panel) in _tabs)
@@ -404,133 +376,22 @@ public partial class ExpandedView : UserControl
 
     void OnGuideClicked(object sender, MouseButtonEventArgs e) => OpenView("guide");
 
-    // ---- Chips --------------------------------------------------------------------------------
-
-    void ClearTabHover()
-    {
-        foreach (var chip in _chipButtons.Values) TabHover.Clear(chip);
-        if (_moreChip is not null) TabHover.Clear(_moreChip);
-    }
-
-    /// <summary>Chips for the built-in views, older tabs and cards that asked for one (see <see cref="NotchChips"/>).</summary>
-    void RebuildChips()
-    {
-        var legacy = new List<LegacyView> { new("Shelf", ShelfId), new("Alerts", AlertsId) };
-        legacy.AddRange(_tabs.Select(t => new LegacyView(t.Label, t.Id)));
-        var chips = NotchChips.Build(legacy, _cards.Select(c => new ChipCard(c.Id, c.Title, c.Chip)));
-        if (chips.SequenceEqual(_chips)) return;
-        _chips = chips;
-
-        ChipStrip.Children.Clear();
-        _chipButtons.Clear();
-        _chipIds.Clear();
-        _shelfCount = null;
-        foreach (var spec in chips)
-        {
-            var chip = new RadioButton
-            {
-                Style = (Style)FindResource("NotchChip"),
-                GroupName = "WallChips",
-                Content = ChipContent(spec),
-            };
-            System.Windows.Automation.AutomationProperties.SetName(chip, spec.Label);
-            string id = spec.ViewId;
-            chip.Click += (_, _) => OpenByClick(id);
-            TabHover.Track(chip);
-            ChipStrip.Children.Add(chip);
-            _chipButtons[id] = chip;
-            _chipIds[chip] = spec;
-        }
-        ChipStrip.Children.Add(MoreChip);
-        ChipStrip.More = MoreChip;
-        SyncChips();
-        RefreshShelf();
-    }
-
-    /// <summary>The chip's tracked label; the Shelf's adds how many files it holds, in the quiet grey.</summary>
-    object ChipContent(ChipSpec spec)
-    {
-        var label = ChipLabel(spec.Label);
-        if (spec.ViewId != ShelfId) return label;
-        _shelfCount = ChipLabel("");
-        _shelfCount.Foreground = CardKit.Ink2;
-        _shelfCount.Margin = new Thickness(5, 0, 0, 0);
-        _shelfCount.Visibility = Visibility.Collapsed;
-        return CardKit.Row(0, label, _shelfCount);
-    }
-
-    static TrackedText ChipLabel(string text)
-    {
-        var t = CardKit.Label(text, null, 11);
-        t.FontWeight = FontWeights.SemiBold;
-        t.FontFamily = CardKit.Face(FontWeights.SemiBold);
-        t.Tracking = 0.1;
-        // Follow the chip's foreground (grey, white when hovered or open).
-        t.SetBinding(TrackedText.ForegroundProperty, new System.Windows.Data.Binding(nameof(Foreground))
-        {
-            RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(RadioButton), 1),
-        });
-        return t;
-    }
-
-    /// <summary>The overflow chip: lists the chips that don't fit in the row (ChipPanel decides which).</summary>
-    RadioButton MoreChip => _moreChip ??= CreateMoreChip();
-
-    RadioButton CreateMoreChip()
-    {
-        var more = new RadioButton { Style = (Style)FindResource("NotchChip"), GroupName = "WallMore", Content = ChipLabel("More"), ToolTip = "More views" };
-        System.Windows.Automation.AutomationProperties.SetName(more, "More views");
-        more.Click += (_, _) => ShowMoreMenu(more);
-        TabHover.Track(more);
-        return more;
-    }
-
-    void ShowMoreMenu(RadioButton more)
-    {
-        SyncChips();
-        var menu = new ContextMenu { PlacementTarget = more, Placement = PlacementMode.Bottom };
-        foreach (var chip in ChipStrip.Hidden)
-        {
-            if (!_chipIds.TryGetValue(chip, out var spec)) continue;
-            var item = new MenuItem { Header = spec.Label, IsChecked = string.Equals(spec.ViewId, _openId, StringComparison.OrdinalIgnoreCase) };
-            string id = spec.ViewId;
-            item.Click += (_, _) => OpenByClick(id);
-            menu.Items.Add(item);
-        }
-        if (menu.Items.Count == 0) return;
-        // Keep the notch open while the menu is up (the pointer leaves the notch to reach it).
-        ShelfDragging?.Invoke(true);
-        menu.Closed += (_, _) => ShelfDragging?.Invoke(false);
-        menu.IsOpen = true;
-    }
-
-    /// <summary>The chips that didn't fit the row, for the test pipe.</summary>
-    internal IEnumerable<string> HiddenChips => ChipStrip.Hidden.Select(c => _chipIds.TryGetValue(c, out var s) ? s.Label : "?");
-
-    /// <summary>Light the chip of the open view (none on the rail or for a card without a chip).</summary>
-    void SyncChips()
-    {
-        foreach (var (id, chip) in _chipButtons)
-            chip.IsChecked = _openId is not null && string.Equals(id, _openId, StringComparison.OrdinalIgnoreCase);
-        // "More" lights when the open view's own chip is one of those tucked under it.
-        MoreChip.IsChecked = _openId is not null && ChipStrip.Hidden.Any(c => _chipIds.TryGetValue(c, out var s)
-            && string.Equals(s.ViewId, _openId, StringComparison.OrdinalIgnoreCase));
-    }
-
     // ---- Registration -------------------------------------------------------------------------
 
-    /// <summary>Add an older module's tab: a chip that opens its panel under a Back + title row.</summary>
+    /// <summary>Add an older module's tab: a panel opened by its id or label under a Back + title row.</summary>
     internal void AddTab(string glyph, string tooltip, FrameworkElement panel)
     {
         string id = TabPrefix + tooltip.ToLowerInvariant();
         panel.Visibility = Visibility.Collapsed;
         LegacyHost.Children.Add(panel);
         _tabs.Add((id, tooltip, panel));
-        RebuildChips();
     }
 
-    /// <summary>The cards registered so far, in rail order.</summary>
+    /// <summary>The cards registered so far, by Order.</summary>
     internal IReadOnlyList<NotchCard> Cards => _cards.OrderBy(c => c.Order).ToList();
+
+    /// <summary>The registered card with this id (the last one registered wins), or null.</summary>
+    NotchCard? CardById(string id) => _cards.LastOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Registers a card (a card with the same id replaces the earlier one).</summary>
     internal void AddCard(NotchCard card)
@@ -538,14 +399,14 @@ public partial class ExpandedView : UserControl
         if (card.Id == "guide") GuideButton.Visibility = Visibility.Visible;
         foreach (var old in _cards.Where(c => c.Id == card.Id).ToList())
         {
-            ForgetSlot(old);
+            CardKit.Detach(old.Compact);
             _cards.Remove(old);
         }
         _cards.Add(card);
         CardsChanged();
     }
 
-    /// <summary>A card's relevance may have changed: re-lay the rail (and the chips).</summary>
+    /// <summary>A card's relevance may have changed: the peek's choice and the home follow.</summary>
     internal void CardsChanged()
     {
         if (!Dispatcher.CheckAccess())
@@ -553,13 +414,14 @@ public partial class ExpandedView : UserControl
             Dispatcher.BeginInvoke(CardsChanged);
             return;
         }
-        RebuildChips();
-        if (_openId is null) RebuildRail(animate: IsVisible);
+        if (_openId is not null) return;
+        ChoosePeek();
+        if (IsVisible) RefreshHome();
     }
 
-    /// <summary>One line for the test pipe: chips, the rail's tiles, the focused one and the open view.</summary>
+    /// <summary>One line for the test pipe: the home's moment and tools, the peek's card and the open view.</summary>
     internal string DescribeV2() =>
-        $"chips=[{string.Join(",", _chips.Select(c => c.Label))}] more=[{string.Join(",", HiddenChips)}] home=[{string.Join(",", ComputeRail())}] " +
+        $"home=[{string.Join(",", ComputeRail())}] hero={_heroKind} tools=[{string.Join(",", _toolIds)}] " +
         $"focus={FocusedCard?.Id ?? "-"} detail={_openId ?? "-"} cards=[{string.Join(",", Cards.Select(c => c.Id))}] height={Height}";
 
     // ---- Refresh --------------------------------------------------------------------------------
@@ -567,8 +429,8 @@ public partial class ExpandedView : UserControl
     internal void Refresh()
     {
         if (_s is null || !IsInitialized) return;
-        if (_openId is null) RebuildRail(animate: IsVisible);
+        if (_openId is null) RefreshHome();
+        else RefreshSentence();
         if (_openId == AlertsId) RefreshAlertsHeader();
-        RefreshNowPlaying();
     }
 }

@@ -3,46 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Shammy.Views"
              xmlns:ui="clr-namespace:Shammy.Ui"
-             Width="720" Height="250" Focusable="True" FocusVisualStyle="{x:Null}">
-    <!-- The open notch as a Focus Wall (Wall.dc.html): pet-eyes home, tracked chips and search on top; below, one
-         rail of artwork tiles with the focused one grown, or one card opened in place out of its tile. -->
+             Width="820" Height="270" Focusable="True" FocusVisualStyle="{x:Null}">
+    <!-- The open island (layout "Now + moment row"): the pet's eyes, the right-now sentence, search and "?" on top;
+         below, one big now moment with three numbers beside it and a row of six moment-aware tools, or one card
+         opened in place with its title and Back. -->
     <UserControl.Resources>
         <SolidColorBrush x:Key="WallSurfaceHover" Color="#FF1E1E24" />
-
-        <!-- A chip: tracked uppercase text, quiet; the open view's chip is white with a 1 px underline, not a pill. -->
-        <Style x:Key="NotchChip" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{DynamicResource WallText2}" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="True" />
-            <Setter Property="FocusVisualStyle" Value="{StaticResource WallFocusRing}" />
-            <Setter Property="ui:FocusKit.KeepsTextFocus" Value="True" />
-            <Setter Property="ui:Press.Feedback" Value="True" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Grid Background="Transparent">
-                            <ContentPresenter Margin="7,0" VerticalAlignment="Center" />
-                            <Border x:Name="Underline" Height="1" Margin="7,0,7,3" VerticalAlignment="Bottom" SnapsToDevicePixels="True"
-                                    Background="{DynamicResource WallText}" Visibility="Hidden" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsMouseOver" Value="True" />
-                                    <Condition Property="views:TabHover.Armed" Value="True" />
-                                </MultiTrigger.Conditions>
-                                <Setter Property="Foreground" Value="{DynamicResource WallText}" />
-                            </MultiTrigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource WallText}" />
-                                <Setter TargetName="Underline" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <Grid x:Name="Body" Margin="20,12,20,14">
@@ -51,7 +17,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Top row: the pet's eyes (home), chips, search -->
+        <!-- Top row: the pet's eyes (home), the right-now sentence, search, the guide -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -94,7 +60,11 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
-            <views:ChipPanel x:Name="ChipStrip" Grid.Column="1" Gap="2" Margin="0,0,12,0" />
+            <!-- "Right now · Playing Kesariya · Standup in 12 min": filled in code (Home.cs) -->
+            <Border x:Name="NowSentence" Grid.Column="1" Height="32" Margin="0,0,12,0" Background="Transparent" VerticalAlignment="Center">
+                <TextBlock x:Name="NowSentenceText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="13.5"
+                           FontFamily="{StaticResource WallFontSemiBold}" FontWeight="SemiBold" Foreground="{DynamicResource WallText}" />
+            </Border>
             <Border x:Name="SearchPill" Grid.Column="2" Width="212" Height="32" CornerRadius="10" Cursor="IBeam"
                     MouseLeftButtonUp="OnSearchClicked" AutomationProperties.Name="Search Shammy">
                 <Border.Style>
@@ -120,13 +90,25 @@
             </Border>
         </Grid>
 
-        <!-- The rail: tiles are placed in code (Rail.cs); the strip moves to keep the focused tile in view -->
-        <Canvas x:Name="Rail" Grid.Row="1" Height="176" Margin="0,6,0,0" VerticalAlignment="Top" AutomationProperties.Name="Widgets">
-            <Canvas x:Name="RailStrip" />
-        </Canvas>
-        <TextBlock x:Name="EmptyText" Grid.Row="1" Text="Nothing going on · press Right Alt to search" FontFamily="{StaticResource WallFontMedium}"
-                   FontSize="13" FontWeight="Medium" Foreground="{DynamicResource WallText2}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Visibility="Collapsed" />
+        <!-- Home: the big now moment and three numbers, then the six tools (filled in code: Home.cs, Tools.cs) -->
+        <Grid x:Name="HomePanel" Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Top">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="120" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="66" />
+            </Grid.RowDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="HeroHost" CornerRadius="22" BorderThickness="1" Background="#0AFFFFFF" BorderBrush="#1CFFFFFF" ClipToBounds="True"
+                        AutomationProperties.LiveSetting="Polite" />
+                <StackPanel x:Name="NumbersPanel" Grid.Column="2" VerticalAlignment="Center" AutomationProperties.Name="At a glance" />
+            </Grid>
+            <StackPanel x:Name="ToolRow" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" AutomationProperties.Name="Tools" />
+        </Grid>
 
         <!-- One card opened in place -->
         <Grid x:Name="DetailFrame" Grid.Row="1" Width="924" Height="248" Margin="0,12,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"

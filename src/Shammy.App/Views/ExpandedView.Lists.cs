@@ -45,12 +45,6 @@ public partial class ExpandedView
     void RefreshShelf()
     {
         if (_s is null) return;
-        int n = _s.Shelf.Items.Count;
-        if (_shelfCount is not null)
-        {
-            _shelfCount.Text = n.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            _shelfCount.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed;
-        }
         if (_shelfDetail is not null) FillShelf();
     }
 
@@ -269,49 +263,22 @@ public partial class ExpandedView
 
     // ---- Now playing (no music module) ----------------------------------------------------------
 
-    WallTile? _npTile;
-    TrackedText? _npState, _npPoster;
-    TextBlock? _npTitle, _npArtist;
-    ContentControl? _npPlay;
-
-    /// <summary>A plain music tile for while the Music module is off: what's playing, and play/pause.</summary>
-    NotchCard BuildNowPlaying()
+    /// <summary>A peek-only music card for while the Music module is off: what's playing, and play/pause.</summary>
+    NotchCard BuildNowPlaying() => new()
     {
-        var tile = new WallTile();
-        _npTile = tile;
-        _npState = CardKit.Label("Now playing", null, 10);
-        var pill = new Border { Background = CardKit.Hex("#990B0B0D"), CornerRadius = new CornerRadius(999), Padding = new Thickness(8, 4, 8, 4), Child = _npState };
-        tile.Art.Children.Add(CardKit.At(pill, HorizontalAlignment.Left, VerticalAlignment.Top, 12, 12));
-        _npPoster = CardKit.Poster("", 24);
-        tile.Rest.Children.Add(WallTile.BottomLeft(_npPoster));
-        var shade = new Border { Height = 96, VerticalAlignment = VerticalAlignment.Bottom, Background = MusicShade() };
-        tile.Lit.Children.Add(shade);
-        _npTitle = CardKit.Title("", 16);
-        _npArtist = CardKit.Text("", 11.5, FontWeights.Medium);
-        _npArtist.Foreground = Ui.Tokens.InkOnArt;
-        _npPlay = new ContentControl { Focusable = false, VerticalAlignment = VerticalAlignment.Center };
-        var words = CardKit.Column(0, _npTitle, _npArtist);
-        var line = new DockPanel { Margin = new Thickness(12, 0, 10, 12), VerticalAlignment = VerticalAlignment.Bottom };
-        DockPanel.SetDock(_npPlay, Dock.Right);
-        line.Children.Add(_npPlay);
-        line.Children.Add(words);
-        tile.Lit.Children.Add(line);
-        return new NotchCard
-        {
-            Id = "nowplaying",
-            Title = "Now playing",
-            Width = 340,
-            Order = 20,
-            Compact = tile,
-            Detail = () => new Grid(),
-            IsRelevant = () => _s?.Media.HasSession == true,
-            Live = () => _s?.Media.IsPlaying == true ? 50 : 0,
-            Peek = () => _s?.Media is { HasSession: true } m
-                ? new WallPeek(m.IsPlaying ? "Now playing" : "Paused", m.Title, m.Artist, Fields.Music(ArtPalette.Field(m.Art)),
-                    new WallAction(m.IsPlaying ? "Pause" : "Play", m.TogglePlayPause, Stays: true, Playing: m.IsPlaying))
-                : null,
-        };
-    }
+        Id = "nowplaying",
+        Title = "Now playing",
+        Width = 340,
+        Order = 20,
+        Compact = new Border(),
+        Detail = () => new Grid(),
+        IsRelevant = () => _s?.Media.HasSession == true,
+        Live = () => _s?.Media.IsPlaying == true ? 50 : 0,
+        Peek = () => _s?.Media is { HasSession: true } m
+            ? new WallPeek(m.IsPlaying ? "Now playing" : "Paused", m.Title, m.Artist, Fields.Music(ArtPalette.Field(m.Art)),
+                new WallAction(m.IsPlaying ? "Pause" : "Play", m.TogglePlayPause, Stays: true, Playing: m.IsPlaying))
+            : null,
+    };
 
     /// <summary>The dark fade under a music tile's words, so they read on any cover.</summary>
     internal static Brush MusicShade()
@@ -322,18 +289,5 @@ public partial class ExpandedView
         b.GradientStops.Add(new GradientStop(Color.FromArgb(235, 11, 11, 13), 1));
         b.Freeze();
         return b;
-    }
-
-    void RefreshNowPlaying()
-    {
-        if (_s is null || _npTile is null) return;
-        var m = _s.Media;
-        if (!m.HasSession) return;
-        _npTile.Field = Fields.Music(ArtPalette.Field(m.Art));
-        _npState!.Text = m.IsPlaying ? "Now playing" : "Paused";
-        _npPoster!.Text = m.Title;
-        _npTitle!.Text = m.Title;
-        _npArtist!.Text = m.Artist;
-        _npPlay!.Content = CardKit.Primary(m.IsPlaying ? $"Pause {m.Title}" : $"Play {m.Title}", CardKit.PlayPause(m.IsPlaying, 11), () => _s?.Media.TogglePlayPause());
     }
 }

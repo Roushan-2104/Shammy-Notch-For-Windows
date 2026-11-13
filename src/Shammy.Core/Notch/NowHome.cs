@@ -156,7 +156,7 @@ public static class NowText
     }
 
     /// <summary>"24° Partly cloudy" → ("24", "Partly cloudy"); "−3° Oslo" → ("−3", "Oslo"); null without a degree sign.</summary>
-    public static (string Number, string Rest)? SplitTemperature(string? text)
+    public static (string Number, string Words)? SplitTemperature(string? text)
     {
         var t = (text ?? "").Trim();
         int degree = t.IndexOf('°');
