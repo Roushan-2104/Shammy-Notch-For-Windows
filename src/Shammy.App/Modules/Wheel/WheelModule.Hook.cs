@@ -10,7 +10,7 @@ internal partial class WheelModule
 {
     // ---- The hook (its own thread: decide at once, post the rest) ---------------------------------
 
-    bool Filter(MouseHook.Kind kind, int x, int y, uint time)
+    bool Filter(MouseHook.Kind kind, int x, int y, int wheel)
     {
         // The setting can switch the wheel off (and null the hook) on the UI thread while this runs on the hook's
         // own: read it once, and with no hook let the click through untouched.
@@ -41,9 +41,17 @@ internal partial class WheelModule
                 ThreadPool.QueueUserWorkItem(_ => MouseHook.SendMiddle(down: true, up: false));
                 return false;
             }
+            case MouseHook.Kind.Wheel:
+            {
+                // Only while the button is still held with the dial open: then the wheel turns the dial, not the page.
+                if (_gesture.Current != WheelGesture.Phase.Open) return false;
+                _ctx.Ui.BeginInvoke(() => Turn(wheel));
+                return true;
+            }
             case MouseHook.Kind.MiddleUp:
             {
                 hook.WatchMoves = false;
+                hook.WatchWheel = false;
                 var step = _gesture.Up(ms);
                 switch (step)
                 {

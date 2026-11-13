@@ -2,8 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Effects;
-using System.Windows.Shapes;
 using Shammy.Core.Wheel;
 using Shammy.Infrastructure;
 using Shammy.Interop;
@@ -13,39 +11,57 @@ using Shammy.Views.Screens;
 namespace Shammy.Modules.Wheel;
 
 /// <summary>
-/// The cat wheel: a small window of its own around the pointer. Eight round beads burst out of the centre one after
-/// another on springs; the bead you lean toward swells and drifts out, its neighbours lean in, the rest step back,
-/// and a glowing line ties it to the centre, where the cat (or Shammy's plain eyes) looks at it. Letting go folds
-/// everything back. It never takes a click or the keyboard, and it is hidden from screen captures and recordings.
-/// In Calm motion (or with Windows' animations off) the same moves happen without overshoot.
+/// The liquid dial: the island comes to you. When the hold registers, a black stream pours from the notch down to
+/// the pointer and pools into a hub (the cat, or Shammy's eyes, inside); six droplets bead off the hub on springs
+/// and orbit it. The chosen droplet swells with an accent ring; turning the mouse wheel moves the choice with a
+/// small click-stop. Letting go sends the chosen droplet flying back up to the island while the others fall back
+/// into the hub and the stream drains up after it; a cancel drains everything with nothing flying.
+/// <para>
+/// The goo is plain geometry built each frame (circles, metaball necks and the stream's outline from
+/// <see cref="Goo"/>), filled solid black over a faint rim, so there is no blur effect to pay for. Frames run only
+/// from opening until the last drop has drained, at most ~60 a second. The window covers just the path from the
+/// island to the dial, never takes a click or the keyboard, and is hidden from screen captures and recordings.
+/// In Calm motion (or with Windows' animations off) the same happens quicker, with no overshoot or wobble.
+/// </para>
 /// </summary>
 internal sealed class WheelWindow : Window
 {
-    // Room for the farthest bead's name pill on every side.
-    public const double Size = 600, C = Size / 2;
-    const double Rest = 108, Out = 128, BeadSize = 56, HubSize = 92;
-    const int DotCount = 32;
+    const double Orbit = 90, DropR = 21, HubR = 32, HeadR = 12, IslandR = 13, Picked = 1.25;
+    // Room around the dial for the droplets, their swell, the ring and the labels; and above the island point.
+    const double DialPad = 168, IslandPad = 40;
     const long WS_EX_TRANSPARENT = 0x20;
 
-    readonly Canvas _canvas = new() { Width = Size, Height = Size };
-    readonly Ellipse _halo;
-    readonly Line _tether;
-    readonly LinearGradientBrush _tetherBrush;
-    readonly Grid _hub;
+    enum Phase { Hidden, Pouring, Open, Closing }
+
+    sealed class Droplet
+    {
+        public required TextBlock Glyph;
+        public required Border Label;
+        public required TextBlock Name;
+        public readonly SpringValue R = new(0, 0.05), S = new(0, 0.002);
+        public double X, Y, Radius;
+    }
+
+    readonly Canvas _canvas = new();
+    readonly LiquidLayer _liquid = new();
+    readonly Grid _faceHost;
     readonly PetFace _face;
-    readonly Border _name;
-    readonly TextBlock _nameText;
-    readonly (Grid El, TextBlock Glyph, Ellipse Ring, Ellipse Pin, SpringValue R, SpringValue S, SpringValue O)[] _beads;
-    readonly (Ellipse El, double A, SpringValue G)[] _dots;
-    readonly SpringValue _hubS = new(0, 0.002), _hubO = new(0, 0.002), _haloS = new(0, 0.002), _nameS = new(0, 0.002);
+    readonly Droplet[] _drops;
+    readonly SpringValue _hubR = new(0, 0.05), _thick = new(0, 0.02), _spin = new(0, 0.05);
+    readonly SolidColorBrush _ink = new(Colors.Black);
+    readonly Pen _rim = new(new SolidColorBrush(Color.FromArgb(56, 255, 255, 255)), 2);
+    readonly SolidColorBrush _ringBrush = new(Colors.White);
+    readonly Pen _ring;
+    Phase _phase = Phase.Hidden;
     IDisposable? _frames;
     IntPtr _hwnd;
-    int _selected = -1, _flying = -1;
-    bool _open;
-
-    /// <summary>The bead under the pointer's direction, or -1 (the centre: letting go there cancels).</summary>
-    public int Selected => _selected;
-    public bool IsOpen => _open;
+    double _time, _phaseTime, _sincePaint, _scale = 1;
+    Point _island, _hub;
+    Native.RECT _rect;
+    int _count, _selected = -1, _flying = -1;
+    Point _flyFrom;
+    double _flyR, _hubAtClose;
+    string _momentName = "usual";
 
     public WheelWindow()
     {
@@ -59,85 +75,52 @@ internal sealed class WheelWindow : Window
         Topmost = true;
         Focusable = false;
         IsHitTestVisible = false;
-        Width = Size;
-        Height = Size;
+        Width = 2 * DialPad;
+        Height = 2 * DialPad;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        UseLayoutRounding = true;
+        _rim.Freeze();
+        _ink.Freeze();
+        _ring = new Pen(_ringBrush, 1.6);
 
-        _halo = new Ellipse
+        _canvas.Children.Add(_liquid);
+
+        _face = new PetFace(0.85, FaceMood.Watch) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 3) };
+        _faceHost = new Grid { Width = 2 * HubR, Height = 2 * HubR, Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(0, 0) };
+        _faceHost.Children.Add(_face);
+        _canvas.Children.Add(_faceHost);
+
+        _drops = new Droplet[WheelGeometry.Beads];
+        for (int i = 0; i < _drops.Length; i++)
         {
-            Width = 360,
-            Height = 360,
-            Fill = new RadialGradientBrush(new GradientStopCollection
+            var glyph = new TextBlock
             {
-                new(Color.FromArgb(158, 0, 0, 0), 0), new(Color.FromArgb(108, 0, 0, 0), 0.42), new(Color.FromArgb(0, 0, 0, 0), 1),
-            }),
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = new ScaleTransform(0, 0),
-        };
-        Canvas.SetLeft(_halo, C - 180);
-        Canvas.SetTop(_halo, C - 180);
-        _canvas.Children.Add(_halo);
-
-        _dots = new (Ellipse, double, SpringValue)[DotCount];
-        for (int i = 0; i < DotCount; i++)
-        {
-            var d = new Ellipse { Width = 5, Height = 5, Fill = Brushes.White, Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1) };
-            _canvas.Children.Add(d);
-            _dots[i] = (d, i * 360.0 / DotCount, new SpringValue(0, 0.002));
+                FontFamily = Ui.Tokens.FontRes("IconFont"),
+                FontSize = 17,
+                Foreground = Brushes.White,
+                Width = 2 * DropR,
+                Height = 2 * DropR,
+                TextAlignment = TextAlignment.Center,
+                Padding = new Thickness(0, DropR - 10, 0, 0),
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(1, 1),
+                Opacity = 0,
+            };
+            var name = new TextBlock { FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White };
+            name.SetResourceReference(TextBlock.FontFamilyProperty, "WallFont");
+            var label = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(222, 0, 0, 0)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(7, 2, 7, 3),
+                Child = name,
+                Opacity = 0,
+            };
+            _canvas.Children.Add(label);
+            _canvas.Children.Add(glyph);
+            _drops[i] = new Droplet { Glyph = glyph, Label = label, Name = name };
         }
 
-        _tetherBrush = new LinearGradientBrush { MappingMode = BrushMappingMode.Absolute };
-        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
-        _tetherBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
-        TintTether();
-        _tether = new Line { Stroke = _tetherBrush, StrokeThickness = 3, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Opacity = 0 };
-        _canvas.Children.Add(_tether);
-
-        _beads = new (Grid, TextBlock, Ellipse, Ellipse, SpringValue, SpringValue, SpringValue)[WheelGeometry.Beads];
-        for (int i = 0; i < _beads.Length; i++)
-        {
-            var g = new Grid { Width = BeadSize, Height = BeadSize, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(0, 0), Opacity = 0 };
-            var body = new Ellipse { Fill = Brushes.Black, Stroke = new SolidColorBrush(Color.FromArgb(31, 255, 255, 255)), StrokeThickness = 1 };
-            body.Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 8, Direction = 270, Opacity = 0.45, Color = Colors.Black };
-            var ring = new Ellipse { StrokeThickness = 1.5, Opacity = 0 };
-            ring.SetResourceReference(Shape.StrokeProperty, "WallAccent");
-            var glyph = new TextBlock { FontFamily = Ui.Tokens.FontRes("IconFont"), FontSize = 20, Foreground = Ui.Tokens.Text, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            var key = Views.WallParts.Text((i + 1).ToString(), 9, FontWeights.SemiBold, "WallText2");
-            key.HorizontalAlignment = HorizontalAlignment.Center;
-            key.VerticalAlignment = VerticalAlignment.Bottom;
-            key.Margin = new Thickness(0, 0, 0, 4);
-            var pin = new Ellipse { Width = 6, Height = 6, Fill = Ui.Tokens.Paw, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 8, 0), Visibility = Visibility.Collapsed };
-            g.Children.Add(body);
-            g.Children.Add(ring);
-            g.Children.Add(glyph);
-            g.Children.Add(key);
-            g.Children.Add(pin);
-            _canvas.Children.Add(g);
-            _beads[i] = (g, glyph, ring, pin, new SpringValue(0, 0.05), new SpringValue(0, 0.002), new SpringValue(0, 0.002));
-        }
-
-        _hub = new Grid { Width = HubSize, Height = HubSize, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(0, 0), Opacity = 0 };
-        _hub.Children.Add(new Ellipse
-        {
-            Fill = Brushes.Black,
-            Stroke = new SolidColorBrush(Color.FromArgb(26, 255, 255, 255)),
-            StrokeThickness = 1,
-            Effect = new DropShadowEffect { BlurRadius = 26, ShadowDepth = 12, Direction = 270, Opacity = 0.5, Color = Colors.Black },
-        });
-        _face = new PetFace(1.25, FaceMood.Watch) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 4) };
-        _hub.Children.Add(_face);
-        Canvas.SetLeft(_hub, C - HubSize / 2);
-        Canvas.SetTop(_hub, C - HubSize / 2);
-        _canvas.Children.Add(_hub);
-
-        _nameText = new TextBlock { FontSize = 13, FontWeight = FontWeights.Bold };
-        _nameText.SetResourceReference(TextBlock.FontFamilyProperty, "WallFont");
-        _nameText.SetResourceReference(TextBlock.ForegroundProperty, "WallOnAccent");
-        _name = new Border { CornerRadius = new CornerRadius(11), Padding = new Thickness(11, 3, 11, 4), Child = _nameText, Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(0, 0) };
-        _name.SetResourceReference(Border.BackgroundProperty, "WallAccent");
-        _canvas.Children.Add(_name);
-
+        _liquid.Draw = DrawLiquid;
         Content = _canvas;
         SourceInitialized += (_, _) =>
         {
@@ -149,204 +132,360 @@ internal sealed class WheelWindow : Window
         new WindowInteropHelper(this).EnsureHandle();
     }
 
-    static double Response => MotionPrefs.Lively ? 0.32 : 0.22;
-    static double Bouncy => MotionPrefs.Lively ? 0.58 : 1.0;
+    static bool Lively => MotionPrefs.Lively;
+    static double Bouncy => Lively ? 0.55 : 1.0;
+    static double PourTime => Lively ? 0.26 : 0.1;
+    static double CloseTime => Lively ? 0.36 : 0.13;
+    static double FlyTime => Lively ? 0.26 : 0.1;
 
-    /// <summary>The tether is the user's accent, fading in from the hub (re-read each time the wheel opens).</summary>
-    void TintTether()
-    {
-        var a = Ui.Tokens.Accent.Color;
-        _tetherBrush.GradientStops[0].Color = Color.FromArgb(0, a.R, a.G, a.B);
-        _tetherBrush.GradientStops[1].Color = Color.FromArgb(230, a.R, a.G, a.B);
-    }
+    /// <summary>Open (pouring or settled): the choice still counts.</summary>
+    public bool IsOpen => _phase is Phase.Pouring or Phase.Open;
 
-    /// <summary>Opens around the screen point (physical pixels) with these actions on the beads.</summary>
-    public void OpenAt(int x, int y, IReadOnlyList<(string Glyph, string Name, bool Pinned)> beads, bool cat)
+    /// <summary>The droplet shown as chosen, or -1.</summary>
+    public int Selected => _selected;
+
+    /// <summary>The window's scale (physical pixels per 1/96 inch), for turning pointer offsets into the drawing's units.</summary>
+    public double Scale => _scale;
+
+    /// <summary>
+    /// Pours the island at (<paramref name="ix"/>, <paramref name="iy"/>) down to the dial at (<paramref name="x"/>,
+    /// <paramref name="y"/>), screen pixels both, with these droplets (top first, then clockwise).
+    /// </summary>
+    public void OpenAt(int x, int y, int ix, int iy, IReadOnlyList<(string Glyph, string Name)> droplets, bool cat, string moment)
     {
-        _open = true;
-        TintTether();
+        _momentName = moment;
+        _count = Math.Min(droplets.Count, _drops.Length);
         _selected = -1;
         _flying = -1;
+        _ringBrush.Color = Ui.Tokens.Accent.Color;
         _face.CatOverride = cat ? null : false;
         _face.Mood = FaceMood.Watch;
         _face.Restyle();
         _face.Look(0, 0);
-        for (int i = 0; i < _beads.Length; i++)
+        for (int i = 0; i < _drops.Length; i++)
         {
-            var b = _beads[i];
-            b.Glyph.Text = i < beads.Count ? beads[i].Glyph : "";
-            b.Pin.Visibility = i < beads.Count && beads[i].Pinned ? Visibility.Visible : Visibility.Collapsed;
-            b.El.Tag = i < beads.Count ? beads[i].Name : "";
-            b.R.Snap(0);
-            b.S.Snap(0.3);
-            b.O.Snap(0);
-            // A burst: each bead a moment after the one before.
-            double delay = MotionPrefs.Lively ? i * 0.028 : 0;
-            b.R.AnimateTo(Rest, Response, Bouncy, delay);
-            b.S.AnimateTo(1, Response, Bouncy, delay);
-            b.O.AnimateTo(1, 0.18, 1, delay);
+            var d = _drops[i];
+            d.Glyph.Text = i < _count ? droplets[i].Glyph : "";
+            d.Name.Text = i < _count ? droplets[i].Name : "";
+            d.R.Snap(0);
+            d.S.Snap(0);
+            d.Radius = 0;
+            d.Glyph.Opacity = d.Label.Opacity = 0;
         }
-        foreach (var d in _dots) d.G.Snap(0);
-        _hubS.Snap(0.2);
-        _hubS.AnimateTo(1, 0.28, MotionPrefs.Lively ? 0.5 : 1);
-        _hubO.Snap(0);
-        _hubO.AnimateTo(1, 0.15, 1);
-        _haloS.Snap(0.3);
-        _haloS.AnimateTo(1, 0.3, 1);
-        _nameS.Snap(0);
+        _faceHost.Opacity = 0;
+        _hubR.Snap(0);
+        _thick.Snap(Lively ? 9 : 6);
+        _spin.Snap(0);
+        _time = _phaseTime = 0;
+        _sincePaint = 1;
+        _phase = Phase.Pouring;
         if (!IsVisible) Show();
-        Place(x, y);
-        _frames ??= Animator.Subscribe(_ => Paint());
+        Place(x, y, ix, iy);
+        _frames ??= Animator.Subscribe(OnFrame);
     }
 
-    /// <summary>Which bead the pointer leans toward (offset from the centre in this window's pixels at 100%).</summary>
-    public void Point(double dx, double dy)
+    /// <summary>Shows <paramref name="droplet"/> as chosen (-1: none). <paramref name="turned"/> is ±1 when the mouse wheel moved it, for the click-stop.</summary>
+    public void Select(int droplet, int turned = 0)
     {
-        if (!_open) return;
-        Choose(WheelGeometry.Pick(dx, dy));
-    }
-
-    public void Choose(int bead)
-    {
-        if (!_open || bead == _selected) return;
-        _selected = bead;
-        for (int i = 0; i < _beads.Length; i++)
+        if (!IsOpen) return;
+        if (droplet >= _count) droplet = -1;
+        if (turned != 0 && Lively)
         {
-            var b = _beads[i];
-            double near = bead < 0 ? 0 : Math.Cos((i - bead) * Math.PI / 4);
-            bool picked = i == bead;
-            b.R.AnimateTo(picked ? Out : bead < 0 ? Rest : Rest - 4 + Math.Max(0, near) * 8, Response, Bouncy);
-            b.S.AnimateTo(picked ? 1.22 : bead < 0 ? 1 : near > 0.6 ? 0.98 : 0.8, Response, Bouncy);
-            b.O.AnimateTo(picked || bead < 0 ? 1 : near > 0.6 ? 0.9 : 0.55, 0.2, 1);
-            b.Ring.Opacity = picked ? 1 : 0;
-            b.Glyph.SetResourceReference(TextBlock.ForegroundProperty, picked ? "WallAccent" : "WallText");
+            // The click-stop: the ring jumps a few degrees the way it turned and springs back past its rest.
+            _spin.Snap(turned * 7);
+            _spin.AnimateTo(0, 0.24, 0.42);
         }
-        if (bead >= 0)
+        if (droplet == _selected) return;
+        int was = _selected;
+        _selected = droplet;
+        if (_phase == Phase.Open)
         {
-            var (ux, uy) = WheelGeometry.Direction(bead);
+            if (was >= 0) _drops[was].S.AnimateTo(1, 0.24, Bouncy);
+            if (droplet >= 0)
+            {
+                _drops[droplet].S.Snap(Math.Max(_drops[droplet].S.Value, turned != 0 && Lively ? 1.08 : 1));
+                _drops[droplet].S.AnimateTo(Picked, 0.26, Lively ? 0.42 : 1);
+            }
+        }
+        if (droplet >= 0)
+        {
+            var (ux, uy) = WheelGeometry.Direction(droplet, _count);
             _face.Look(ux * 3, uy * 2);
-            _nameText.Text = _beads[bead].El.Tag as string ?? "";
-            _nameS.Snap(0.4);
-            _nameS.AnimateTo(1, 0.24, Bouncy);
         }
-        else
-        {
-            _face.Look(0, 0);
-            _nameS.AnimateTo(0, 0.18, 1);
-        }
+        else _face.Look(0, 0);
     }
 
-    /// <summary>Folds the wheel away. With <paramref name="ran"/>, the chosen bead swells and fades as if it went off to work.</summary>
+    /// <summary>Drains the dial back up to the island. With <paramref name="ran"/>, the chosen droplet flies up first.</summary>
     public void Close(bool ran)
     {
-        if (!_open) return;
-        _open = false;
+        if (!IsOpen) return;
+        if (_phase == Phase.Pouring) Arrive(); // let go mid-pour: drain from wherever it is
+        _phase = Phase.Closing;
+        _phaseTime = 0;
         _flying = ran ? _selected : -1;
-        if (ran) _face.Mood = FaceMood.Happy;
-        for (int i = 0; i < _beads.Length; i++)
+        if (_flying >= 0)
         {
-            var b = _beads[i];
-            if (i == _flying)
-            {
-                b.S.AnimateTo(1.6, 0.25, 1);
-                b.O.AnimateTo(0, 0.22, 1);
-                continue;
-            }
-            b.R.AnimateTo(0, 0.2, 1);
-            b.S.AnimateTo(0.2, 0.2, 1);
-            b.O.AnimateTo(0, 0.14, 1);
+            // From where it is now (worked out afresh: no frame may have been drawn yet if a key was that quick).
+            var d = _drops[_flying];
+            var (ux, uy) = Rotated(_flying);
+            _flyFrom = new Point(_hub.X + ux * d.R.Value, _hub.Y + uy * d.R.Value);
+            _flyR = Math.Max(DropR * d.S.Value, DropR * 0.6);
+            _face.Mood = FaceMood.Happy;
         }
-        foreach (var d in _dots) d.G.AnimateTo(0, 0.15, 1);
-        _hubS.AnimateTo(ran ? 1.08 : 0.2, 0.2, 1, ran ? 0.12 : 0);
-        _hubO.AnimateTo(0, 0.16, 1, ran ? 0.16 : 0);
-        _haloS.AnimateTo(0, 0.2, 1);
-        _nameS.AnimateTo(0, 0.14, 1);
+        for (int i = 0; i < _drops.Length; i++)
+        {
+            if (i == _flying) continue;
+            _drops[i].R.AnimateTo(0, Lively ? 0.2 : 0.1, 1);
+            _drops[i].S.AnimateTo(0.25, Lively ? 0.2 : 0.1, 1);
+        }
+        _hubAtClose = Math.Max(_hubR.Value, HeadR);
+        _thick.AnimateTo(Lively ? 5 : 3, 0.18, 1);
         _selected = -1;
     }
 
-    void Paint()
-    {
-        double halo = Math.Max(0, _haloS.Value);
-        ((ScaleTransform)_halo.RenderTransform).ScaleX = ((ScaleTransform)_halo.RenderTransform).ScaleY = halo;
-        _halo.Opacity = Math.Min(1, halo);
-        ((ScaleTransform)_hub.RenderTransform).ScaleX = ((ScaleTransform)_hub.RenderTransform).ScaleY = Math.Max(0, _hubS.Value);
-        _hub.Opacity = Math.Clamp(_hubO.Value, 0, 1);
-        bool anything = _open || _hubO.Value > 0.01;
-        for (int i = 0; i < _beads.Length; i++)
-        {
-            var b = _beads[i];
-            var (ux, uy) = WheelGeometry.Direction(i);
-            Canvas.SetLeft(b.El, C + ux * b.R.Value - BeadSize / 2);
-            Canvas.SetTop(b.El, C + uy * b.R.Value - BeadSize / 2);
-            var t = (ScaleTransform)b.El.RenderTransform;
-            t.ScaleX = t.ScaleY = Math.Max(0, b.S.Value);
-            b.El.Opacity = Math.Clamp(b.O.Value, 0, 1);
-            Panel.SetZIndex(b.El, i == _selected || i == _flying ? 2 : 1);
-            anything |= b.O.Value > 0.01;
-        }
-        foreach (var d in _dots)
-        {
-            double g = 0;
-            if (_open && _selected >= 0)
-            {
-                double diff = Math.Abs(((d.A - (-90 + _selected * 45 + 360)) % 360 + 540) % 360 - 180);
-                g = Math.Max(0, 1 - diff / 40);
-            }
-            else if (_open) g = 0.12;
-            if (Math.Abs(d.G.Target - g) > 0.01) d.G.AnimateTo(g, 0.2, 0.9);
-            double a = d.A * Math.PI / 180, r = 168 + d.G.Value * 10;
-            Canvas.SetLeft(d.El, C + Math.Cos(a) * r - 2.5);
-            Canvas.SetTop(d.El, C + Math.Sin(a) * r - 2.5);
-            d.El.Opacity = Math.Clamp(d.G.Value * 0.95 + (_open ? 0.08 * _hubO.Value : 0), 0, 1);
-            ((ScaleTransform)d.El.RenderTransform).ScaleX = ((ScaleTransform)d.El.RenderTransform).ScaleY = 0.6 + d.G.Value * 1.2;
-        }
-        if (_open && _selected >= 0)
-        {
-            var b = _beads[_selected];
-            var (ux, uy) = WheelGeometry.Direction(_selected);
-            double x0 = C + ux * (HubSize / 2), y0 = C + uy * (HubSize / 2);
-            double reach = b.R.Value - BeadSize / 2 * b.S.Value;
-            double x1 = C + ux * reach, y1 = C + uy * reach;
-            _tether.X1 = x0; _tether.Y1 = y0; _tether.X2 = x1; _tether.Y2 = y1;
-            _tetherBrush.StartPoint = new Point(x0, y0);
-            _tetherBrush.EndPoint = new Point(x1, y1);
-            _tether.Opacity = Math.Clamp(b.S.Value - 0.2, 0, 1);
-            // The pill sits just clear of the bead, outward: far enough that its own half-size never overlaps.
-            _name.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
-            double pw = _name.DesiredSize.Width, ph = _name.DesiredSize.Height;
-            double lr = b.R.Value + BeadSize / 2 * b.S.Value + 8 + Math.Abs(ux) * pw / 2 + Math.Abs(uy) * ph / 2;
-            Canvas.SetLeft(_name, C + ux * lr - pw / 2);
-            Canvas.SetTop(_name, C + uy * lr - ph / 2);
-        }
-        else _tether.Opacity = 0;
-        var nt = (ScaleTransform)_name.RenderTransform;
-        nt.ScaleX = nt.ScaleY = Math.Max(0, _nameS.Value);
-        _name.Opacity = Math.Clamp(_nameS.Value, 0, 1);
+    // ---- Frames -------------------------------------------------------------------------------------
 
-        // Folded away and still: stop asking for frames and hide.
-        if (!anything && !_open)
+    void OnFrame(double dt)
+    {
+        _time += dt;
+        _phaseTime += dt;
+        _sincePaint += dt;
+        if (_phase == Phase.Pouring && _phaseTime >= PourTime) Arrive();
+        if (_phase == Phase.Closing && _phaseTime >= CloseTime)
         {
+            _phase = Phase.Hidden;
             _frames?.Dispose();
             _frames = null;
             Hide();
+            return;
+        }
+        // At most ~60 paints a second, whatever the display's rate.
+        if (_sincePaint < 1 / 61.0) return;
+        _sincePaint = 0;
+        Layout();
+        _liquid.InvalidateVisual();
+    }
+
+    /// <summary>The pour reached the pointer: the head pools into the hub and the droplets bead off it.</summary>
+    void Arrive()
+    {
+        _phase = Phase.Open;
+        _phaseTime = 0;
+        _hubR.Snap(HeadR);
+        _hubR.AnimateTo(HubR, Lively ? 0.3 : 0.12, Bouncy);
+        _thick.AnimateTo(3.2, Lively ? 0.4 : 0.12, 1);
+        for (int i = 0; i < _count; i++)
+        {
+            double delay = Lively ? 0.04 + i * 0.035 : 0;
+            _drops[i].R.AnimateTo(Orbit, Lively ? 0.34 : 0.12, Bouncy, delay);
+            _drops[i].S.AnimateTo(i == _selected ? Picked : 1, Lively ? 0.3 : 0.12, Bouncy, delay);
         }
     }
 
-    /// <summary>Centres the window on a screen point, in that screen's own pixels.</summary>
-    void Place(int x, int y)
+    /// <summary>Where everything is this frame (canvas units), and the overlays (face, glyphs, labels) moved to match.</summary>
+    void Layout()
+    {
+        double hubR = HubCentre(out var hub);
+        _faceHost.Opacity = Math.Clamp((hubR - HeadR) / (HubR - HeadR), 0, 1) * (_phase == Phase.Closing ? Math.Max(0, 1 - _phaseTime / (CloseTime * 0.5)) : 1);
+        var ft = (ScaleTransform)_faceHost.RenderTransform;
+        ft.ScaleX = ft.ScaleY = Math.Max(0, hubR / HubR);
+        Canvas.SetLeft(_faceHost, hub.X - HubR);
+        Canvas.SetTop(_faceHost, hub.Y - HubR);
+
+        for (int i = 0; i < _drops.Length; i++)
+        {
+            var d = _drops[i];
+            if (i >= _count)
+            {
+                d.Radius = 0;
+                d.Glyph.Opacity = d.Label.Opacity = 0;
+                continue;
+            }
+            if (i == _flying)
+            {
+                double t = Math.Clamp(_phaseTime / FlyTime, 0, 1), e = Goo.EaseIn(t);
+                d.X = _flyFrom.X + (_island.X - _flyFrom.X) * e;
+                d.Y = _flyFrom.Y + (_island.Y - _flyFrom.Y) * e;
+                d.Radius = t >= 1 ? 0 : _flyR * (1 - 0.45 * t);
+            }
+            else
+            {
+                var (ux, uy) = Rotated(i);
+                d.X = hub.X + ux * d.R.Value;
+                d.Y = hub.Y + uy * d.R.Value;
+                d.Radius = Math.Max(0, DropR * d.S.Value);
+            }
+            double grown = Math.Clamp(d.Radius / DropR, 0, 1.4);
+            double shown = _phase == Phase.Closing ? Math.Clamp(1 - _phaseTime / (CloseTime * 0.4), 0, 1) : Math.Clamp(d.R.Value / Orbit, 0, 1);
+            var gt = (ScaleTransform)d.Glyph.RenderTransform;
+            gt.ScaleX = gt.ScaleY = grown;
+            Canvas.SetLeft(d.Glyph, d.X - DropR);
+            Canvas.SetTop(d.Glyph, d.Y - DropR);
+            d.Glyph.Opacity = i == _flying ? Math.Clamp(1 - _phaseTime / (FlyTime * 0.7), 0, 1) : Math.Min(grown, shown);
+
+            d.Label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(d.Label, d.X - d.Label.DesiredSize.Width / 2);
+            Canvas.SetTop(d.Label, d.Y + d.Radius + 5);
+            d.Label.Opacity = i == _flying ? 0 : shown * (i == _selected ? 1 : 0.7) * Math.Clamp(grown, 0, 1);
+            Panel.SetZIndex(d.Label, i == _selected ? 3 : 2);
+            Panel.SetZIndex(d.Glyph, 4);
+        }
+    }
+
+    /// <summary>The hub's centre and radius now: under the pointer while open, sliding back up the stream while it drains.</summary>
+    double HubCentre(out Point hub)
+    {
+        switch (_phase)
+        {
+            case Phase.Pouring:
+            {
+                double e = Goo.EaseIn(_phaseTime / PourTime);
+                hub = Lerp(_island, _hub, e);
+                return HeadR;
+            }
+            case Phase.Closing:
+            {
+                double e = 1 - DrainAt();
+                hub = Lerp(_island, _hub, e);
+                return 5 + (_hubAtClose - 5) * e;
+            }
+            default:
+                hub = _hub;
+                return Math.Max(0, _hubR.Value);
+        }
+    }
+
+    /// <summary>How far the drain has gone (0 just let go, 1 all back in the island); it waits a moment for the droplets to fall in.</summary>
+    double DrainAt()
+    {
+        double wait = Lively ? 0.08 : 0.02;
+        return Goo.EaseIn((_phaseTime - wait) / (CloseTime - wait));
+    }
+
+    (double X, double Y) Rotated(int i)
+    {
+        var (ux, uy) = WheelGeometry.Direction(i, _count);
+        double a = _spin.Value * Math.PI / 180, c = Math.Cos(a), s = Math.Sin(a);
+        return (ux * c - uy * s, ux * s + uy * c);
+    }
+
+    static Point Lerp(Point a, Point b, double t) => new(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
+
+    // ---- The goo ------------------------------------------------------------------------------------
+
+    void DrawLiquid(DrawingContext dc)
+    {
+        if (_phase == Phase.Hidden) return;
+        double hubR = HubCentre(out var hub);
+        double reach = _phase switch
+        {
+            Phase.Pouring => Goo.EaseIn(_phaseTime / PourTime),
+            Phase.Closing => 1 - DrainAt(),
+            _ => 1,
+        };
+        double wobble = Lively ? 1 : 0;
+        var stream = Goo.Stream(_island.X, _island.Y, _hub.X, _hub.Y, 0, reach, Math.Max(0.5, _thick.Value), 22, _time, wobble);
+        var circles = new List<(Point C, double R)>(_count + 3);
+        if (hubR > 0.5) circles.Add((hub, hubR));
+        for (int i = 0; i < _count; i++)
+            if (_drops[i].Radius > 0.5) circles.Add((new Point(_drops[i].X, _drops[i].Y), _drops[i].Radius));
+
+        var shapes = new List<Geometry>();
+        if (stream.Count > 2)
+        {
+            var g = new StreamGeometry();
+            using (var c = g.Open())
+            {
+                c.BeginFigure(P(stream[0]), true, true);
+                c.PolyLineTo(stream.Skip(1).Select(P).ToList(), true, true);
+            }
+            g.Freeze();
+            shapes.Add(g);
+        }
+        // Necks: hub to each droplet (they snap off as the droplets reach their orbit), and the flying droplet to the island.
+        if (hubR > 0.5)
+            for (int i = 0; i < _count; i++)
+            {
+                var d = _drops[i];
+                if (d.Radius <= 0.5 || i == _flying) continue;
+                if (Neck(hub.X, hub.Y, hubR, d.X, d.Y, d.Radius) is { } neck) shapes.Add(neck);
+            }
+        if (_flying >= 0 && _drops[_flying].Radius > 0.5 && Neck(_island.X, _island.Y, IslandR, _drops[_flying].X, _drops[_flying].Y, _drops[_flying].Radius) is { } up)
+            shapes.Add(up);
+
+        // A faint rim first, then the ink on top: only the outer edge of the rim stays, so the whole pour reads as one shape.
+        foreach (var s in shapes) dc.DrawGeometry(null, _rim, s);
+        foreach (var (c, r) in circles) dc.DrawEllipse(null, _rim, c, r, r);
+        dc.DrawEllipse(_ink, null, _island, IslandR, IslandR);
+        foreach (var s in shapes) dc.DrawGeometry(_ink, null, s);
+        foreach (var (c, r) in circles) dc.DrawEllipse(_ink, null, c, r, r);
+
+        if (_selected >= 0 && _selected < _count && _phase == Phase.Open)
+        {
+            var d = _drops[_selected];
+            double glow = Math.Clamp((d.S.Value - 1) / (Picked - 1), 0, 1);
+            if (glow > 0.02)
+            {
+                dc.PushOpacity(glow);
+                dc.DrawEllipse(null, _ring, new Point(d.X, d.Y), d.Radius + 3.5, d.Radius + 3.5);
+                dc.Pop();
+            }
+        }
+    }
+
+    static Geometry? Neck(double x1, double y1, double r1, double x2, double y2, double r2)
+    {
+        if (Goo.Bridge(x1, y1, r1, x2, y2, r2) is not { } b) return null;
+        var g = new StreamGeometry();
+        using (var c = g.Open())
+        {
+            c.BeginFigure(P(b.P1), true, true);
+            c.BezierTo(P(b.H1), P(b.H3), P(b.P3), true, true);
+            c.LineTo(P(b.P4), true, true);
+            c.BezierTo(P(b.H4), P(b.H2), P(b.P2), true, true);
+        }
+        g.Freeze();
+        return g;
+    }
+
+    static Point P(GooPoint p) => new(p.X, p.Y);
+
+    // ---- Placement ----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Covers the path from the island to the dial (screen pixels) with room around the dial, kept on the pointer's
+    /// screen, and works out where both are in the drawing's units.
+    /// </summary>
+    void Place(int x, int y, int ix, int iy)
     {
         if (_hwnd == IntPtr.Zero) return;
-        for (int pass = 0; pass < 2; pass++)
+        var monitor = Native.MonitorFromPoint(new Native.POINT(x, y), Native.MONITOR_DEFAULTTONEAREST);
+        var screen = Native.MonitorBounds(monitor);
+        double s = Native.GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 && dpi > 0 ? dpi / 96.0 : 1;
+        int pad = (int)Math.Ceiling(DialPad * s), ipad = (int)Math.Ceiling(IslandPad * s);
+        var want = new Native.RECT
         {
-            if (!Native.GetWindowRect(_hwnd, out var now)) return;
-            int left = x - now.Width / 2, top = y - now.Height / 2;
-            if (now.Left == left && now.Top == top) return;
-            Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, left, top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+            Left = Math.Max(screen.Left, Math.Min(x - pad, ix - ipad)),
+            Top = Math.Max(screen.Top, Math.Min(y - pad, iy - ipad)),
+            Right = Math.Min(screen.Right, Math.Max(x + pad, ix + ipad)),
+            Bottom = Math.Min(screen.Bottom, Math.Max(y + pad, iy + ipad)),
+        };
+        // Moving onto a screen with another scale makes WPF resize the window to suit it: set the rect again after.
+        for (int pass = 0; pass < 3; pass++)
+        {
+            if (Native.GetWindowRect(_hwnd, out var now) && now.Left == want.Left && now.Top == want.Top && now.Width == want.Width && now.Height == want.Height) break;
+            Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, want.Left, want.Top, want.Width, want.Height, Native.SWP_NOACTIVATE);
         }
+        Native.GetWindowRect(_hwnd, out _rect);
+        _scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        if (_scale <= 0) _scale = s;
+        _canvas.Width = Width = _rect.Width / _scale;
+        _canvas.Height = Height = _rect.Height / _scale;
+        _liquid.Width = _canvas.Width;
+        _liquid.Height = _canvas.Height;
+        _hub = new Point((x - _rect.Left) / _scale, (y - _rect.Top) / _scale);
+        _island = new Point((ix - _rect.Left) / _scale, (iy - _rect.Top) / _scale);
     }
-
-    /// <summary>The window's scale (physical pixels per 1/96 inch), for turning pointer offsets into the drawing's units.</summary>
-    public double Scale => _hwnd == IntPtr.Zero ? 1 : VisualTreeHelper.GetDpi(this).DpiScaleX;
 
     /// <summary>Test pictures only: lets screen captures see the wheel (it is hidden from them otherwise).</summary>
     public void AllowCapture(bool allow)
@@ -355,6 +494,19 @@ internal sealed class WheelWindow : Window
     }
 
     /// <summary>For the state pipe.</summary>
-    public string Describe() => $"open={_open} visible={IsVisible} selected={_selected} " +
-        $"beads=[{string.Join(" | ", _beads.Select(b => (b.El.Tag as string ?? "") + (b.Pin.Visibility == Visibility.Visible ? "*" : "")))}] cat={_face.CatOverride is null}";
+    public string Describe() =>
+        $"open={IsOpen} phase={_phase.ToString().ToLowerInvariant()} visible={IsVisible} moment={_momentName} selected={_selected} " +
+        $"droplets=[{string.Join(" | ", _drops.Take(_count).Select(d => d.Name.Text))}] " +
+        $"rect={_rect.Width}x{_rect.Height}@{_rect.Left},{_rect.Top} scale={_scale:0.##} " +
+        $"dial={_hub.X:0},{_hub.Y:0} island={_island.X:0},{_island.Y:0} cat={_face.CatOverride is null}";
+
+    /// <summary>Draws whatever the window hands it; redrawn each frame by <see cref="UIElement.InvalidateVisual"/>.</summary>
+    sealed class LiquidLayer : FrameworkElement
+    {
+        public Action<DrawingContext>? Draw;
+
+        public LiquidLayer() => IsHitTestVisible = false;
+
+        protected override void OnRender(DrawingContext dc) => Draw?.Invoke(dc);
+    }
 }
