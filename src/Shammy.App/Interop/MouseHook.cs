@@ -4,23 +4,23 @@ using Shammy.Infrastructure;
 namespace Shammy.Interop;
 
 /// <summary>
-/// A low-level mouse hook on its own thread (like <see cref="KeyboardHook"/>): the filter sees the middle button
-/// and pointer moves and decides at once whether to swallow them. It never waits; Windows drops a hook that does.
+/// A low-level mouse hook on its own thread (like <see cref="KeyboardHook"/>): the filter sees the middle button,
+/// pointer moves and (while the wheel is open) the mouse wheel, and decides at once whether to swallow them. It never waits; Windows drops a hook that does.
 /// Events Shammy itself sends back (a held-back click returned to the app) carry <see cref="Mark"/> and pass
 /// untouched, as do events injected by a sandboxed process.
 /// </summary>
 internal sealed class MouseHook : IDisposable
 {
     public const int WH_MOUSE_LL = 14;
-    public const int WM_MOUSEMOVE = 0x0200, WM_MBUTTONDOWN = 0x0207, WM_MBUTTONUP = 0x0208;
+    public const int WM_MOUSEMOVE = 0x0200, WM_MBUTTONDOWN = 0x0207, WM_MBUTTONUP = 0x0208, WM_MOUSEWHEEL = 0x020A;
 
     /// <summary>The dwExtraInfo on events Shammy sends itself.</summary>
     public static readonly IntPtr Mark = new(0x5348414D); // "SHAM"
 
-    public enum Kind { Move, MiddleDown, MiddleUp }
+    public enum Kind { Move, MiddleDown, MiddleUp, Wheel }
 
-    /// <summary>Return true to swallow the event.</summary>
-    public delegate bool MouseFilter(Kind kind, int x, int y, uint time);
+    /// <summary>Return true to swallow the event. <paramref name="wheel"/> is a <see cref="Kind.Wheel"/>'s delta (positive = away from you), 0 otherwise.</summary>
+    public delegate bool MouseFilter(Kind kind, int x, int y, int wheel);
 
     [StructLayout(LayoutKind.Sequential)]
     struct MSLLHOOKSTRUCT
@@ -44,6 +44,9 @@ internal sealed class MouseHook : IDisposable
 
     /// <summary>Whether pointer moves reach the filter (only while something waits on them; moves are many).</summary>
     public volatile bool WatchMoves;
+
+    /// <summary>Whether the vertical mouse wheel reaches the filter (only while the wheel is open, to turn it).</summary>
+    public volatile bool WatchWheel;
 
     public MouseHook(MouseFilter filter)
     {
@@ -78,6 +81,7 @@ internal sealed class MouseHook : IDisposable
                 WM_MBUTTONDOWN => Kind.MiddleDown,
                 WM_MBUTTONUP => Kind.MiddleUp,
                 WM_MOUSEMOVE when WatchMoves => Kind.Move,
+                WM_MOUSEWHEEL when WatchWheel => Kind.Wheel,
                 _ => null,
             };
             if (kind is { } k)
@@ -89,7 +93,8 @@ internal sealed class MouseHook : IDisposable
                 {
                     try
                     {
-                        if (_filter(k, m.pt.X, m.pt.Y, m.time)) return new IntPtr(1);
+                        int wheel = k == Kind.Wheel ? (short)(m.mouseData >> 16) : 0;
+                        if (_filter(k, m.pt.X, m.pt.Y, wheel)) return new IntPtr(1);
                     }
                     catch (Exception ex)
                     {

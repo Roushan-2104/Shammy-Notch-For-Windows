@@ -103,24 +103,25 @@ public sealed class WheelGesture
     }
 }
 
-/// <summary>Which of eight beads a pointer offset points at: 0 is straight up, then clockwise; -1 near the centre.</summary>
+/// <summary>Which of the droplets a pointer offset points at: 0 is straight up, then clockwise; -1 near the centre.</summary>
 public static class WheelGeometry
 {
-    public const int Beads = 8;
+    /// <summary>How many droplets the wheel shows (and beads it keeps).</summary>
+    public const int Beads = 6;
     public const double DeadZone = 30;
 
-    public static int Pick(double dx, double dy, double deadZone = DeadZone)
+    public static int Pick(double dx, double dy, double deadZone = DeadZone, int count = Beads)
     {
-        if (Math.Sqrt(dx * dx + dy * dy) < deadZone) return -1;
+        if (count <= 0 || Math.Sqrt(dx * dx + dy * dy) < deadZone) return -1;
         double degrees = Math.Atan2(dy, dx) * 180 / Math.PI + 90;
-        int i = (int)Math.Round(degrees / 45);
-        return ((i % Beads) + Beads) % Beads;
+        int i = (int)Math.Round(degrees / (360.0 / count));
+        return ((i % count) + count) % count;
     }
 
-    /// <summary>The bead's direction in degrees on screen (0 = up, clockwise), and as a unit vector.</summary>
-    public static (double X, double Y) Direction(int bead)
+    /// <summary>The droplet's direction on screen (0 = up, clockwise) as a unit vector.</summary>
+    public static (double X, double Y) Direction(int bead, int count = Beads)
     {
-        double a = (-90 + bead * 45) * Math.PI / 180;
+        double a = (-90 + bead * 360.0 / Math.Max(1, count)) * Math.PI / 180;
         return (Math.Cos(a), Math.Sin(a));
     }
 }

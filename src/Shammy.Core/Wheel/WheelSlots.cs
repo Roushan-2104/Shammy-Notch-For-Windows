@@ -7,7 +7,8 @@ public sealed record WheelAction(string Id, string Name, string Words);
 public sealed record WheelSlot(string ActionId, bool Pinned);
 
 /// <summary>
-/// The eight beads. They start as the eight in <see cref="Defaults"/>; unpinned beads then follow what is used most
+/// The six beads: the droplets the wheel shows when it isn't following the moment. They start as the six in
+/// <see cref="Defaults"/>; unpinned beads then follow what is used most
 /// (wheel picks and commands, fading with a two-week half-life), while pinned beads never move. An action already
 /// on the wheel keeps its bead, so beads don't shuffle; a newcomer takes the weakest unpinned bead only once it is
 /// clearly used more.
@@ -36,7 +37,25 @@ public static class WheelSlots
         new("focus", "Focus", "focus|start focus|focus mode|focus session"),
     };
 
-    public static readonly IReadOnlyList<string> Defaults = new[] { "screenshot", "record", "timer", "music", "notes", "ask", "phone", "awake" };
+    /// <summary>
+    /// Actions only the moment's droplets offer (see <see cref="WheelMoments"/>): they can't be pinned and don't
+    /// learn. Stage opens the teleprompter, Share link sends to the phone, Music card opens the music card.
+    /// </summary>
+    public static readonly IReadOnlyList<WheelAction> MomentOnly = new WheelAction[]
+    {
+        new("stage", "Stage", ""),
+        new("mute", "Mute mic", ""),
+        new("share", "Share link", ""),
+        new("playpause", "Play/pause", ""),
+        new("next", "Next", ""),
+        new("previous", "Previous", ""),
+        new("lyrics", "Lyrics", ""),
+        new("musiccard", "Music card", ""),
+        new("snippets", "Snippets", ""),
+        new("translate", "Translate", ""),
+    };
+
+    public static readonly IReadOnlyList<string> Defaults = new[] { "screenshot", "record", "timer", "music", "notes", "ask" };
 
     public static readonly TimeSpan HalfLife = TimeSpan.FromDays(14);
 
@@ -46,7 +65,11 @@ public static class WheelSlots
     /// <summary>...and at least this many recent uses more, so one try never reshuffles the wheel.</summary>
     public const double MinUses = 2;
 
+    /// <summary>A bead action (pinnable, learns from use), or null.</summary>
     public static WheelAction? ById(string? id) => All.FirstOrDefault(a => a.Id == id);
+
+    /// <summary>Any action a droplet can hold: a bead action or a moment-only one.</summary>
+    public static WheelAction? Find(string? id) => ById(id) ?? MomentOnly.FirstOrDefault(a => a.Id == id);
 
     /// <summary>The action a typed or spoken command belongs to ("timer 10 minutes" → timer), or null.</summary>
     public static string? ActionFor(string? text)
@@ -69,7 +92,7 @@ public static class WheelSlots
     public static double Weight(DateTime used, DateTime now) => Math.Pow(0.5, Math.Max(0, (now - used).TotalDays) / HalfLife.TotalDays);
 
     /// <summary>
-    /// The eight beads now. <paramref name="saved"/> is what the beads held last time (any length; unknown ids
+    /// The beads now. <paramref name="saved"/> is what the beads held last time (any length; unknown ids
     /// are ignored), <paramref name="uses"/> each action's uses.
     /// </summary>
     public static IReadOnlyList<WheelSlot> Arrange(IReadOnlyList<WheelSlot>? saved, IReadOnlyDictionary<string, IReadOnlyList<DateTime>> uses, DateTime now)
