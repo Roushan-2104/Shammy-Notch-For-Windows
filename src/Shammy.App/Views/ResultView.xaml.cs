@@ -44,16 +44,101 @@ public partial class ResultView : UserControl
 
     public Uri? CurrentUrl => Core?.Source is { Length: > 0 } s ? new Uri(s) : null;
 
+    // ---- The browser's lifetime ------------------------------------------------------------------
+    // No browser exists while Shammy is idle: the control (and with it the WebView2 browser processes, ~150 MB)
+    // is made when a result is about to show and freed a minute after the card closes. The next search makes a
+    // new one (a second or so; the profile on disk keeps cookies such as Google's robot-check exemption).
+
+    /// <summary>How long a closed card keeps its browser, so a quick second search doesn't start a new one.</summary>
+    static readonly TimeSpan FreeAfter = TimeSpan.FromSeconds(60);
+
+    WebView2CompositionControl? _web;
+    System.Windows.Threading.DispatcherTimer? _freeTimer;
+    static volatile string _browserState = "none";
+
+    /// <summary>"none", "loaded" or "closing" (freed, its processes still exiting): for the memory line.</summary>
+    internal static string BrowserState => _browserState;
+
+    /// <summary>The browser control, made on first use and put behind the loading bar and the error panel.</summary>
+    WebView2CompositionControl Web
+    {
+        get
+        {
+            if (_web is not null) return _web;
+            _web = new WebView2CompositionControl { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x10, 0x10, 0x12) };
+            WebFrame.Children.Insert(0, _web);
+            return _web;
+        }
+    }
+
+    /// <summary>Frees the browser a minute from now unless a search uses it first.</summary>
+    void FreeLater()
+    {
+        _inUse = false;
+        if (_web is null) return;
+        _freeTimer ??= new System.Windows.Threading.DispatcherTimer(FreeAfter, System.Windows.Threading.DispatcherPriority.Background,
+            (_, _) => FreeBrowser(), Dispatcher) { IsEnabled = false };
+        _freeTimer.Stop();
+        _freeTimer.Start();
+    }
+
+    void KeepBrowser()
+    {
+        _inUse = true;
+        _freeTimer?.Stop();
+    }
+
+    /// <summary>A search is showing (or about to): the browser stays.</summary>
+    bool _inUse;
+
+    /// <summary>Closes the browser control; its WebView2 processes exit once it is gone.</summary>
+    void FreeBrowser()
+    {
+        _freeTimer?.Stop();
+        var web = _web;
+        if (web is null) return;
+        // Showing again (a new search raced the timer): keep it.
+        if (_inUse) return;
+        _web = null;
+        _init = null;
+        _generation++;
+        WebFrame.Children.Remove(web);
+        try { web.Dispose(); }
+        catch (Exception ex) { Log.Warn("Freeing the results browser failed", ex); }
+        if (_browserState == "loaded") _browserState = "closing";
+        Log.Info("Results browser freed after a quiet minute");
+    }
+
+    /// <summary>Test hook ("browser-free"): frees the browser now, as a quiet minute would.</summary>
+    internal string FreeNowForTest()
+    {
+        bool had = _web is not null;
+        FreeBrowser();
+        return had ? "freed" : "no browser";
+    }
+
     /// <summary>Starts the browser engine. Safe to call repeatedly; the first call does the work.</summary>
-    internal Task EnsureReadyAsync() => _init ??= InitAsync();
+    internal Task EnsureReadyAsync()
+    {
+        KeepBrowser();
+        return _init ??= InitAsync();
+    }
 
     async Task InitAsync()
     {
+        var web = Web;
         try
         {
             var env = await CoreWebView2Environment.CreateAsync(null, Paths.WebView);
-            await Web.EnsureCoreWebView2Async(env);
-            var core = Web.CoreWebView2;
+            await web.EnsureCoreWebView2Async(env);
+            _browserState = "loaded";
+            env.BrowserProcessExited += (_, _) =>
+            {
+                // A newer browser may already be running; only the one that was freed reports "none".
+                if (_browserState == "closing") _browserState = "none";
+                Log.Info("Results browser processes exited");
+            };
+            var core = web.CoreWebView2;
             core.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.AreDevToolsEnabled = Debugger.IsAttached;
@@ -145,12 +230,14 @@ public partial class ResultView : UserControl
     /// </summary>
     void ReplaceCrashedBrowser()
     {
-        var old = Web;
-        int index = WebFrame.Children.IndexOf(old);
-        WebFrame.Children.Remove(old);
-        try { old.Dispose(); } catch (Exception ex) { Log.Warn("Disposing the crashed results view failed", ex); }
-        Web = new WebView2CompositionControl { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x10, 0x10, 0x12) };
-        WebFrame.Children.Insert(Math.Max(0, index), Web);
+        var old = _web;
+        _web = null;
+        if (old is not null)
+        {
+            WebFrame.Children.Remove(old);
+            try { old.Dispose(); } catch (Exception ex) { Log.Warn("Disposing the crashed results view failed", ex); }
+        }
+        _browserState = "none";
         _init = null;
         _generation++;
         if (IsVisible) ShowError("The results view stopped. Search again to restart it.");
@@ -201,11 +288,16 @@ public partial class ResultView : UserControl
     /// renderer so a hidden results page costs no CPU and less memory until the next search.
     /// </summary>
     /// <summary>Drops a search that is still waiting for the engine to start (the card was cancelled).</summary>
-    internal void CancelPending() => _generation++;
+    internal void CancelPending()
+    {
+        _generation++;
+        FreeLater();
+    }
 
     internal void Release()
     {
         _generation++;
+        FreeLater();
         var core = Core;
         if (core is null) return;
         _releasing = true;
@@ -258,7 +350,7 @@ public partial class ResultView : UserControl
     {
         get
         {
-            try { return Web.CoreWebView2; }
+            try { return _web?.CoreWebView2; }
             catch (InvalidOperationException) { return null; }
         }
     }
