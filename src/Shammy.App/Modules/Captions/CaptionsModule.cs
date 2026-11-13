@@ -3,23 +3,43 @@ using System.Windows.Threading;
 using Shammy.Core.Activities;
 using Shammy.Core.Captions;
 using Shammy.Core.Settings;
-using Shammy.Search;
 using Shammy.Shell;
 using Shammy.Views;
-using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Shammy.Modules.Captions;
 
 /// <summary>
-/// Live captions for whatever the PC is playing (a lecture, a video, a call), written by the offline voice model
-/// Shammy already has, so nothing leaves the PC. While on, the last few seconds of system sound are transcribed
-/// every couple of seconds and merged into a two-line strip under the notch (<see cref="CaptionsStrip"/>).
-/// The model is shared with voice commands, and commands come first: captions never wait in line for it, stop
-/// asking the moment the talk key goes down, and give up a pass that is already running.
-/// Everything here (the capture, the worker, the timer, the window) exists only while captions are on.
-/// Pipes: "captions-state", "captions-on", "captions-off", "captions-feed &lt;text&gt;" (as if the model had heard
-/// it), "captions-file &lt;path&gt;" (a sound file in place of the speakers), "captions-loading on|off" (as if the
-/// voice model were not loaded yet).
+/// The latest live caption, for any module that wants it (the Stage feature shows the other person's words under
+/// the camera). Updated on the UI thread while captions are on; empty and quiet while they are off.
+/// </summary>
+internal static class CaptionsFeed
+{
+    /// <summary>Captions are running.</summary>
+    public static bool IsOn { get; internal set; }
+
+    /// <summary>The last line or two of what is being said (Live Captions' own last lines), or "".</summary>
+    public static string Latest { get; private set; } = "";
+
+    /// <summary>Raised on the UI thread with <see cref="Latest"/> whenever it changes ("" when captions turn off).</summary>
+    public static event Action<string>? Changed;
+
+    internal static void Set(string text)
+    {
+        if (string.Equals(text, Latest, StringComparison.Ordinal)) return;
+        Latest = text;
+        Changed?.Invoke(text);
+    }
+}
+
+/// <summary>
+/// Live captions for whatever the PC is playing (a lecture, a video, a call), from Windows Live Captions
+/// (Windows 11 22H2+), which captions on the PC itself. Shammy starts it if needed, keeps its window minimised and
+/// out of the way while captions are on (putting it back after), reads its words through UI Automation about
+/// twice a second (<see cref="LiveCaptionsReader"/>) and shows them in a two-line strip under the notch
+/// (<see cref="CaptionsStrip"/>). Older Windows says plainly that captions need Windows 11 22H2 or later.
+/// Everything here (the reader, the timer, the window) exists only while captions are on.
+/// Pipes: "captions-state", "captions-on", "captions-off", "captions-feed &lt;text&gt;" (as if Live Captions had
+/// shown it).
 /// </summary>
 internal sealed class CaptionsModule : IShammyModule
 {
@@ -27,19 +47,19 @@ internal sealed class CaptionsModule : IShammyModule
 
     // Just above music (20) and keep-awake (22): a song steps aside for it, everything else comes first.
     const int Priority = 23;
-    const string Glyph = "\uE7F0";
-    const string GettingReady = "Getting the voice model ready…", Unavailable = "The voice model couldn’t be loaded",
-        Listening = "Listening for speech…";
+    const string Glyph = "";
+    const string Starting = "Starting Windows Live Captions…", Listening = "Listening for speech…",
+        Setup = "Finish setting up Windows Live Captions in its window";
+    const string NeedsWindows11 = "Live captions need Windows 11 (22H2 or newer)";
 
     /// <summary>How long the strip stays after the last new words.</summary>
     static readonly TimeSpan Linger = TimeSpan.FromSeconds(6);
 
-    /// <summary>How often the worker looks for a chunk, and how often a running pass checks for the talk key.</summary>
-    static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(150), Watch = TimeSpan.FromMilliseconds(60);
+    /// <summary>Words of Live Captions' transcript handed to the merger each time it changes.</summary>
+    const int TailWords = 40;
 
     ModuleContext _ctx = null!;
     Session? _session;
-    bool _pretendLoading;
     string _lastRun = "never on";
 
     public string Name => "captions";
@@ -49,19 +69,15 @@ internal sealed class CaptionsModule : IShammyModule
     /// <summary>Everything one stretch of captions owns; made when they turn on and gone when they turn off.</summary>
     sealed class Session
     {
-        public required WhisperService Voice { get; init; }
         public required CaptionsStrip Strip { get; init; }
         public required CaptionLines Lines { get; init; }
-        public CaptionAudio Audio { get; } = new();
         public CaptionMerger Merger { get; } = new();
-        public CancellationTokenSource Off { get; } = new();
-        public CaptionsCapture Capture = null!;
+        public LiveCaptionsReader? Reader;
         public DispatcherTimer Timer = null!;
 
         /// <summary>Watches for the notch changing shape; see <see cref="TurnOn"/>.</summary>
         public EventHandler? NotchMoved;
         public NotchMode ModeSeen;
-        public Task Worker = Task.CompletedTask;
 
         /// <summary>A plain line shown instead of a caption, until words arrive.</summary>
         public string? Message;
@@ -69,33 +85,29 @@ internal sealed class CaptionsModule : IShammyModule
         /// <summary>When the strip last had something new to show.</summary>
         public DateTime ShownAt;
 
-        public volatile bool Paused, ModelReady;
-        public int Chunks, Fed, Failures;
-        public double Seconds;
+        /// <summary>The newest text from Live Captions not yet shown (written off the UI thread).</summary>
+        public string? Pending;
+        public int Updates, Fed;
         public string LastText = "";
     }
 
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        // Shammy stopped last time with Live Captions minimised: put its window back.
+        _ = Task.Run(LiveCaptionsReader.RecoverStranded);
         // Fixed phrases only, and first so "stop captions" is never taken for a music or timer command.
         ctx.AddCommandFirst(new CaptionsCommand(this));
         ctx.AddTrayToggle("Live captions", () => IsOn, on => OnUi(() =>
         {
             if (!on) TurnOff();
-            else if (TurnOn() is { } why) ctx.ShowMessage(Glyph, why, error: true);
+            else if (TurnOn() is { } why) Explain(why);
         }));
 
         ctx.AddPipeCommand("captions-state", _ => State());
         ctx.AddPipeCommand("captions-on", _ => TurnOn() is { } why ? "error: " + why : "ok " + State());
         ctx.AddPipeCommand("captions-off", _ => TurnOff() ? "ok " + State() : "ok: captions weren't on");
         ctx.AddPipeCommand("captions-feed", Feed);
-        ctx.AddPipeCommand("captions-file", PlayFile);
-        ctx.AddPipeCommand("captions-loading", arg =>
-        {
-            _pretendLoading = arg.Trim().ToLowerInvariant() is not ("off" or "false" or "0");
-            return "ok loading=" + (_pretendLoading ? "pretend" : "real");
-        });
     }
 
     void OnUi(Action action)
@@ -104,13 +116,27 @@ internal sealed class CaptionsModule : IShammyModule
         else _ctx.Ui.BeginInvoke(action);
     }
 
+    /// <summary>Why captions couldn't start, in the notch; the Windows version one opens Windows' captions settings on click.</summary>
+    void Explain(string why)
+    {
+        if (why != NeedsWindows11)
+        {
+            _ctx.ShowMessage(Glyph, why, error: true);
+            return;
+        }
+        _ctx.Post(new Activity($"{Name}.message", ActivityKind.Message, 50, new MessagePayload(Glyph, why + " · click for settings", true),
+            DateTime.UtcNow.AddSeconds(6)) { Click = LiveCaptionsReader.OpenSettings });
+    }
+
     // ---- On and off ---------------------------------------------------------------------------------
 
     /// <summary>Turns captions on; null when they are on now, otherwise why they could not start.</summary>
-    internal string? TurnOn()
+    internal string? TurnOn() => TurnOn(withReader: true);
+
+    string? TurnOn(bool withReader)
     {
         if (_session is not null) return null;
-        if (HostLinks.Voice is not { } voice) return "Captions need the voice model";
+        if (withReader && !LiveCaptionsReader.IsSupported()) return NeedsWindows11;
 
         CaptionsStrip strip;
         try
@@ -124,30 +150,22 @@ internal sealed class CaptionsModule : IShammyModule
         }
         var s = new Session
         {
-            Voice = voice,
             Strip = strip,
             Lines = new CaptionLines(CaptionsStrip.LineWidth, strip.Measure),
         };
-        s.Capture = new CaptionsCapture(s.Audio, (message, ex) => _ctx.Warn(message, ex));
-        if (!s.Capture.Start())
-        {
-            s.Capture.Dispose();
-            Close(strip);
-            return "Couldn’t hear what this PC is playing";
-        }
-        s.Capture.FileEnded += () => _ctx.Ui.BeginInvoke(() =>
-        {
-            if (ReferenceEquals(_session, s)) s.Capture.Restart();
-        });
-
         _session = s;
-        s.ModelReady = Ready(s);
-        // A model that failed to load earlier (no internet on first run) gets another try now it is wanted.
-        if (!voice.IsReady && voice.Failure is not null && !voice.IsDownloading) _ = voice.InitAsync();
-        Say(s, s.ModelReady ? Listening : GettingReady);
+        CaptionsFeed.IsOn = true;
+        if (withReader)
+        {
+            s.Reader = new LiveCaptionsReader(text => OnText(s, text), (message, ex) => _ctx.Warn(message, ex));
+            s.Reader.Start();
+        }
+        Say(s, withReader ? Starting : Listening);
         _ctx.Post(new Activity(ActivityId, ActivityKind.Custom, Priority, new CaptionsContent(() => TurnOff())));
-        // Once a second: is there room under the notch, and has the strip had nothing new for a while?
+        // Once a second: is there room under the notch, has the strip had nothing new for a while, and is Live
+        // Captions waiting for its setup?
         s.Timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(s), _ctx.Ui);
+        s.Timer.Start();
         // The notch has no "mode changed" event, but it always lays out when it changes shape. Looking at the mode
         // then (one comparison) gets the strip out of the way the moment a card drops, not up to a second later.
         s.ModeSeen = _ctx.Notch.Mode;
@@ -162,38 +180,41 @@ internal sealed class CaptionsModule : IShammyModule
             });
         };
         _ctx.Notch.LayoutUpdated += s.NotchMoved;
-        s.Worker = Task.Run(() => WorkAsync(s));
         UpdateStrip(s);
-        _ctx.Info($"Captions on ({voice.ActiveModel})");
+        _ctx.Info(withReader ? "Captions on (Windows Live Captions)" : "Captions on (fed only)");
         return null;
     }
 
     /// <summary>Stops everything captions run; false if they weren't on.</summary>
-    internal bool TurnOff()
+    internal bool TurnOff() => TurnOff(waitForWindow: false);
+
+    /// <param name="waitForWindow">Put Live Captions' window back before returning (Shammy is closing).</param>
+    bool TurnOff(bool waitForWindow)
     {
         if (_session is not { } s) return false;
         _session = null;
         s.Timer.Stop();
         _ctx.Notch.LayoutUpdated -= s.NotchMoved;
-        s.Off.Cancel();
-        s.Capture.Dispose();
+        var reader = s.Reader;
+        s.Reader = null;
         Close(s.Strip);
         _ctx.Remove(ActivityId);
-        _lastRun = string.Create(CultureInfo.InvariantCulture, $"chunks={s.Chunks} avg={Average(s):0.00} last=\"{s.LastText}\"");
-        // When the last pass has let go of the model, free what captions set up on it.
-        var voice = s.Voice;
-        _ = s.Worker.ContinueWith(_ =>
+        CaptionsFeed.IsOn = false;
+        CaptionsFeed.Set("");
+        _lastRun = string.Create(CultureInfo.InvariantCulture,
+            $"updates={s.Updates} fed={s.Fed} reads={reader?.Reads ?? 0} live_captions_started_by_shammy={reader?.StartedIt ?? false}");
+        // Putting Live Captions' window back waits for the last read to finish: off the UI thread, unless Shammy
+        // is closing (then it must happen before the process ends).
+        if (reader is not null)
         {
-            try
+            void Stop()
             {
-                voice.ReleaseCaptions();
+                try { reader.Dispose(); }
+                catch (Exception ex) { _ctx.Warn("Stopping Live Captions failed", ex); }
             }
-            catch (Exception ex)
-            {
-                _ctx.Warn("Freeing the caption model state failed", ex);
-            }
-            s.Off.Dispose();
-        }, TaskScheduler.Default);
+            if (waitForWindow) Stop();
+            else _ = Task.Run(Stop);
+        }
         _ctx.Info($"Captions off ({_lastRun})");
         return true;
     }
@@ -210,117 +231,29 @@ internal sealed class CaptionsModule : IShammyModule
         }
     }
 
-    // ---- Transcribing (off the UI thread) -------------------------------------------------------------
+    // ---- New words ------------------------------------------------------------------------------------
 
-    /// <summary>
-    /// The talk key is down, or Shammy is still working out what was said: the model belongs to the command.
-    /// Read from the worker thread; the notch's mode is a plain field, and a stale read only costs one poll.
-    /// </summary>
-    bool VoiceBusy() => _ctx.Notch.Mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking;
-
-    bool Ready(Session s) => !_pretendLoading && s.Voice.IsReady;
-
-    async Task WorkAsync(Session s)
+    /// <summary>Live Captions' text changed (background thread): keep only the newest, and show it once per UI turn.</summary>
+    void OnText(Session s, string raw)
     {
-        var off = s.Off.Token;
-        bool warmed = false;
-        long restUntil = 0;
-        try
+        bool scheduled = Interlocked.Exchange(ref s.Pending, raw) is not null;
+        if (scheduled) return;
+        _ctx.Ui.BeginInvoke(DispatcherPriority.Background, () =>
         {
-            while (!off.IsCancellationRequested)
-            {
-                await Task.Delay(Poll, off).ConfigureAwait(false);
-                if (s.Capture.LookIn())
-                {
-                    _ = _ctx.Ui.BeginInvoke(() =>
-                    {
-                        if (ReferenceEquals(_session, s)) s.Capture.Restart();
-                    });
-                }
-                bool busy = VoiceBusy();
-                s.Paused = busy;
-                if (busy) continue;
-                bool ready = Ready(s);
-                s.ModelReady = ready;
-                if (!ready) continue;
-                if (!warmed)
-                {
-                    // The first pass sets the model up for caption-sized windows, which is slow on a graphics
-                    // card: spend it on two seconds of quiet rather than on the first words.
-                    warmed = await DecodeAsync(s, new float[CaptionAudio.SampleRate * 2], off).ConfigureAwait(false) is not null;
-                    continue;
-                }
-                if (Stopwatch.GetTimestamp() < restUntil || !s.Audio.TryTake(out var chunk)) continue;
-
-                var clock = Stopwatch.StartNew();
-                var text = await DecodeAsync(s, chunk.Samples, off).ConfigureAwait(false);
-                if (text is null)
-                {
-                    // The model was busy, or the pass was given up for a command: the same sound is tried again.
-                    s.Audio.Undo();
-                    continue;
-                }
-                double seconds = clock.Elapsed.TotalSeconds;
-                // A PC that needs longer than a second for a chunk rests as long again before the next one, so
-                // captions fall a little further behind instead of keeping it flat out.
-                restUntil = seconds > 1 ? Stopwatch.GetTimestamp() + (long)(seconds * Stopwatch.Frequency) : 0;
-                _ = _ctx.Ui.BeginInvoke(() => Heard(s, text, chunk.Overlaps, seconds));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _ctx.Warn("Captions stopped: transcribing kept failing", ex);
-            _ = _ctx.Ui.BeginInvoke(() =>
-            {
-                if (!ReferenceEquals(_session, s)) return;
-                TurnOff();
-                _ctx.ShowMessage(Glyph, "Captions stopped · the voice model had a problem", error: true, seconds: 4);
-            });
-        }
+            var text = Interlocked.Exchange(ref s.Pending, null);
+            if (text is null || !ReferenceEquals(_session, s)) return;
+            s.Updates++;
+            CaptionsFeed.Set(LiveCaptionsText.LastLines(text));
+            Heard(s, LiveCaptionsText.Tail(text, TailWords));
+        });
     }
 
-    /// <summary>One pass over a chunk; null when it was not transcribed (model busy, or given up for a command).</summary>
-    async Task<string?> DecodeAsync(Session s, float[] samples, CancellationToken off)
+    /// <summary>Merge the newest words into the caption and show it.</summary>
+    void Heard(Session s, string text)
     {
-        using var mine = CancellationTokenSource.CreateLinkedTokenSource(off);
-        try
-        {
-            var pass = s.Voice.TranscribeCaptionAsync(samples, mine.Token);
-            // The talk key went down mid-pass: give the model up now, a command must not wait behind a caption.
-            while (await Task.WhenAny(pass, Task.Delay(Watch)).ConfigureAwait(false) != pass)
-            {
-                if (!VoiceBusy() || mine.IsCancellationRequested) continue;
-                s.Paused = true;
-                mine.Cancel();
-            }
-            var text = await pass.ConfigureAwait(false);
-            s.Failures = 0;
-            return text;
-        }
-        catch (Exception ex)
-        {
-            off.ThrowIfCancellationRequested();
-            if (ex is OperationCanceledException || mine.IsCancellationRequested) return null;
-            if (++s.Failures == 1) _ctx.Warn("A caption chunk failed", ex);
-            if (s.Failures >= 5) throw;
-            await Task.Delay(1000, off).ConfigureAwait(false);
-            return null;
-        }
-    }
-
-    // ---- Showing (UI thread) -------------------------------------------------------------------------
-
-    /// <summary>The model heard this in the newest window: merge it into the caption and show it.</summary>
-    void Heard(Session s, string text, bool overlaps, double seconds)
-    {
-        if (!ReferenceEquals(_session, s)) return;
-        s.Chunks++;
-        s.Seconds += seconds;
+        if (!ReferenceEquals(_session, s) || text.Length == 0) return;
         s.LastText = text;
-        var merge = s.Merger.Merge(text, overlaps);
+        var merge = s.Merger.Merge(text, overlaps: true);
         if (merge.Changed)
         {
             s.Message = null;
@@ -340,15 +273,15 @@ internal sealed class CaptionsModule : IShammyModule
     void Tick(Session s)
     {
         if (!ReferenceEquals(_session, s)) return;
-        bool ready = Ready(s);
-        if (ready)
+        if (s.Reader is { Problem: { } problem })
         {
-            if (s.Message is GettingReady or Unavailable) Say(s, Listening);
+            // Live Captions couldn't be started or read: say so once, then step back.
+            if (s.Message != problem) Say(s, problem);
         }
-        else if (s.Merger.Words.Count == 0)
+        else if (s.Reader is { } reader && s.Merger.Words.Count == 0)
         {
-            // Still loading or downloading keeps the strip up; a model that failed says so once and steps back.
-            var waiting = s.Voice.Failure is not null && !s.Voice.IsDownloading && !_pretendLoading ? Unavailable : GettingReady;
+            // Nothing heard yet: say what Live Captions is doing (starting, waiting for its setup, or ready).
+            var waiting = reader.WindowState == "shown for setup" ? Setup : reader.Reading ? Listening : Starting;
             if (s.Message != waiting) Say(s, waiting);
         }
         UpdateStrip(s);
@@ -356,7 +289,7 @@ internal sealed class CaptionsModule : IShammyModule
 
     /// <summary>
     /// The strip shows only while the notch is at rest or showing its compact pill (anything taller would sit on
-    /// top of it), and only while it has had something new in the last few seconds or is waiting for the model.
+    /// top of it), and only while it has had something new in the last few seconds or is still starting.
     /// </summary>
     void UpdateStrip(Session s)
     {
@@ -364,10 +297,10 @@ internal sealed class CaptionsModule : IShammyModule
         {
             var mode = _ctx.Notch.Mode;
             bool room = mode is NotchMode.Hidden or NotchMode.Idle or NotchMode.Compact;
-            bool something = s.Message == GettingReady || DateTime.UtcNow - s.ShownAt < Linger;
+            bool something = s.Message is Starting or Setup || DateTime.UtcNow - s.ShownAt < Linger;
             if (room && something)
             {
-                s.Strip.LanguageName = CaptionText.LanguageName(s.Voice.HinglishActive, s.Voice.Language);
+                s.Strip.LanguageName = "Windows Live Captions";
                 s.Strip.Place(_ctx.Notch.Monitor, _ctx.Settings.PinToScreenEdge, Below(mode));
                 if (s.Strip.IsVisible) return;
                 s.Strip.Show();
@@ -397,15 +330,6 @@ internal sealed class CaptionsModule : IShammyModule
 
     // ---- Typed and spoken commands --------------------------------------------------------------------
 
-    /// <summary>What captions cost while on: the graphics card where the voice model runs on one, else the processor.</summary>
-    static string Cost()
-    {
-        var model = HostLinks.Voice?.ActiveModel ?? "";
-        return model.Contains("(CPU)", StringComparison.Ordinal) && !model.Contains("GPU", StringComparison.Ordinal)
-            ? "Made on this PC · uses the processor while on"
-            : "Made on this PC · uses the graphics card while on";
-    }
-
     CommandResult Run(bool on)
     {
         if (!on)
@@ -415,9 +339,12 @@ internal sealed class CaptionsModule : IShammyModule
                 : new CommandResult(Glyph, "Captions weren’t on");
         }
         if (IsOn) return new CommandResult(Glyph, "Captions are already on", "Say “captions off” to stop them");
-        if (TurnOn() is { } why) return new CommandResult(Glyph, why, IsError: true);
-        return new CommandResult(Glyph, "Live captions are on",
-            _session is { ModelReady: false } ? GettingReady : "They show under the notch when someone speaks");
+        if (TurnOn() is { } why)
+        {
+            if (why == NeedsWindows11) LiveCaptionsReader.OpenSettings();
+            return new CommandResult(Glyph, why, why == NeedsWindows11 ? "Opening Windows’ captions settings" : null, IsError: true);
+        }
+        return new CommandResult(Glyph, "Live captions are on", "They show under the notch when someone speaks");
     }
 
     CommandPreview Preview(bool on)
@@ -425,7 +352,8 @@ internal sealed class CaptionsModule : IShammyModule
         if (!on) return new CommandPreview(Glyph, "Turn off live captions", IsOn ? null : "They aren’t on");
         return IsOn
             ? new CommandPreview(Glyph, "Live captions are on", "Say “captions off” to stop them")
-            : new CommandPreview(Glyph, "Turn on live captions", Cost());
+            : new CommandPreview(Glyph, "Turn on live captions",
+                LiveCaptionsReader.IsSupported() ? "From Windows Live Captions · made on this PC" : NeedsWindows11);
     }
 
     sealed class CaptionsCommand(CaptionsModule module) : ITextCommand, ICommandPreview
@@ -440,53 +368,33 @@ internal sealed class CaptionsModule : IShammyModule
 
     // ---- Test pipe -----------------------------------------------------------------------------------
 
-    /// <summary>Seconds the model took per chunk, over the chunks it really transcribed (fed text is not timed).</summary>
-    static double Average(Session s) => s.Chunks > s.Fed ? s.Seconds / (s.Chunks - s.Fed) : 0;
-
     string State()
     {
-        if (_session is not { } s) return $"on=false {_lastRun}";
-        string model = Ready(s) ? "ready:" + s.Voice.ActiveModel.Replace(' ', '_') : s.Voice.Failure is not null ? "failed" : "loading";
+        string memory = Search.MemoryState.Line();
+        if (_session is not { } s) return $"on=false supported={LiveCaptionsReader.IsSupported()} {_lastRun} {memory}";
+        var r = s.Reader;
         return string.Create(CultureInfo.InvariantCulture,
-            $"on=true model={model} paused={s.Paused} source={(s.Capture.FromFile ? "file" : "speakers")} listening={s.Capture.IsListening} " +
-            $"heard={s.Audio.Total / (double)CaptionAudio.SampleRate:0.0}s chunks={s.Chunks} fed={s.Fed} avg={Average(s):0.00} " +
-            $"strip={(s.Strip.IsVisible ? "visible" : "hidden")} mode={_ctx.Notch.Mode} language={s.Strip.LanguageName.Replace(' ', '_')} " +
-            $"words={s.Merger.Words.Count + s.Merger.Dropped} last=\"{s.LastText}\" lines=\"{s.Strip.Shown}\"");
+            $"on=true source={(r is null ? "fed" : "live_captions")} attached={r?.Attached ?? false} reading={r?.Reading ?? false} " +
+            $"window={(r?.WindowState ?? "-").Replace(' ', '_')} started_by_shammy={r?.StartedIt ?? false} reads={r?.Reads ?? 0} changes={r?.Changes ?? 0} " +
+            $"updates={s.Updates} fed={s.Fed} strip={(s.Strip.IsVisible ? "visible" : "hidden")} mode={_ctx.Notch.Mode} " +
+            $"words={s.Merger.Words.Count + s.Merger.Dropped} last=\"{s.LastText}\" latest=\"{CaptionsFeed.Latest}\" lines=\"{s.Strip.Shown}\" {memory}");
     }
 
-    /// <summary>"captions-feed and that's why": as if the model had heard this in the next window, so the merging
-    /// and the strip can be watched without any sound.</summary>
+    /// <summary>"captions-feed and that's why": as if Live Captions had shown this, so the merging and the strip can
+    /// be watched without any sound. Turns captions on without Live Captions if they were off (any Windows).</summary>
     string Feed(string arg)
     {
-        if (_session is not { } s) return "error: captions are off (send captions-on first)";
         if (string.IsNullOrWhiteSpace(arg)) return "error: usage captions-feed <text>";
+        if (_session is null && TurnOn(withReader: false) is { } why) return "error: " + why;
+        var s = _session!;
         s.Fed++;
-        Heard(s, arg.Trim(), overlaps: true, seconds: 0);
+        CaptionsFeed.Set(arg.Trim());
+        Heard(s, arg.Trim());
         return State();
-    }
-
-    /// <summary>"captions-file C:\clip.wav": plays the file through the real capture path in place of the
-    /// speakers (turning captions on first if needed), at its real speed.</summary>
-    string PlayFile(string arg)
-    {
-        var path = arg.Trim().Trim('"');
-        if (path.Length == 0) return "error: usage captions-file <path to a wav>";
-        if (!File.Exists(path)) return "error: no such file";
-        if (TurnOn() is { } why) return "error: " + why;
-        try
-        {
-            var length = _session!.Capture.PlayFile(path);
-            return string.Create(CultureInfo.InvariantCulture, $"ok playing {length.TotalSeconds:0.0}s {State()}");
-        }
-        catch (Exception ex)
-        {
-            _ctx.Warn("Opening the caption test file failed", ex);
-            return "error: couldn't read that file (" + ex.GetType().Name + ")";
-        }
     }
 
     public void Dispose()
     {
-        if (_ctx is not null) TurnOff();
+        if (_ctx is not null) TurnOff(waitForWindow: true);
     }
 }
