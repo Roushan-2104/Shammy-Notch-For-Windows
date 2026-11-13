@@ -5,16 +5,12 @@
         xmlns:views="clr-namespace:Shammy.Views"
         Title="Shammy" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize" ShowActivated="False"
-        Width="1100" Height="96" Left="0" Top="0" AllowDrop="True"
+        Width="1100" Height="78" Left="0" Top="0" AllowDrop="True"
         FontFamily="{StaticResource ShammyFont}" Foreground="{StaticResource Fg}"
         TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="Grayscale">
     <Canvas x:Name="Root" Width="1100" Height="1100" AllowDrop="True">
-        <shell:NotchShape x:Name="ShadowShape" Width="1100" Height="1100" Opacity="0" IsHitTestVisible="False">
-            <shell:NotchShape.Effect>
-                <DropShadowEffect BlurRadius="40" ShadowDepth="12" Direction="270" Opacity="0.6" Color="Black" />
-            </shell:NotchShape.Effect>
-        </shell:NotchShape>
-        <shell:EdgeLight x:Name="Edge" Width="1100" Height="1100" />
+        <!-- The island's soft shadow: a prerendered image stretched round it, not a live effect. -->
+        <shell:IslandShadow x:Name="ShadowShape" Width="1100" Height="1100" Opacity="0" />
         <!-- Nearly-invisible hit area: alpha 1/255 still receives the mouse, so hovering just below or beside the pill counts. -->
         <Rectangle x:Name="HitArea" Fill="#01000000" />
         <!-- Messages waiting under the one on screen peek out below it, one or two deep. -->
@@ -34,12 +30,14 @@
             <views:NotificationView x:Name="NotificationCard" />
             <ContentControl x:Name="CardHost" Focusable="False" />
         </Canvas>
+        <!-- The rim light just inside the island's lower edge, over the content. -->
+        <shell:EdgeLight x:Name="Edge" Width="1100" Height="1100" />
         <!-- The tab's hit area: an invisible (alpha 1, so the layered window still takes the click) pad around and below
              the small tab, so it is at least 32 x 20 to aim at. The tab itself (size, place, look) is unchanged. -->
         <Border x:Name="TuckHit" Width="44" Height="22" Background="#01000000" Cursor="Hand" Visibility="Collapsed"
                 ToolTip="Move out of the way for 5 seconds" />
-        <!-- A small tab hanging under the notch: click it and the notch slides out of the way for a few seconds. -->
-        <Border x:Name="TuckTab" Width="30" Height="12" CornerRadius="0,0,6,6" Background="Black" Cursor="Hand" Opacity="0" Visibility="Collapsed"
+        <!-- A small tab floating under the island: click it and the island slides out of the way for a few seconds. -->
+        <Border x:Name="TuckTab" Width="30" Height="12" CornerRadius="6" Background="Black" Cursor="Hand" Opacity="0" Visibility="Collapsed"
                 ToolTip="Move out of the way for 5 seconds" AutomationProperties.Name="Move the notch out of the way for 5 seconds">
             <Path x:Name="TuckArrow" Data="M0,4 L4,0 L8,4" Width="8" Height="4" Stretch="None" Stroke="#B3FFFFFF" StrokeThickness="1.5"
                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"

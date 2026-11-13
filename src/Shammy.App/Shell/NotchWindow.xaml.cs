@@ -19,20 +19,20 @@ namespace Shammy.Shell;
 public enum NotchMode { Hidden, Idle, Compact, Notification, Card, Expanded, Drop, Listening, Circling, Thinking, Typing, Answer, Result, Peek }
 
 /// <summary>
-/// The notch. One fixed-width transparent window pinned to the top-centre of the primary monitor; the
-/// black shape inside it morphs between states with springs, and each state's content fades and scales
-/// in on top, clipped to the shape, so content is revealed by the shape rather than resized with it.
+/// The notch, drawn as a floating island. One fixed-width transparent window pinned to the top-centre of its
+/// monitor; the island floats a few pixels below the top edge (the gap is part of the window, so the pointer at
+/// the very top still reaches it) and morphs between states with springs, and each state's content fades and
+/// scales in on top, clipped to the shape, so content is revealed by the shape rather than resized with it.
 /// The window only grows taller as needed and never moves, so there's nothing to jitter.
 /// </summary>
 public partial class NotchWindow : Window
 {
     // Wide enough for the open notch (1012) plus its hit margin and shadow on both sides.
     public const double WindowWidth = 1100;
-    const double ShadowPad = 64;
     const double Cx = WindowWidth / 2;
 
     readonly ShammyServices _services;
-    readonly SpringValue _w = new(186), _h = new(32), _r = new(11), _shadow = new(0, 0.002);
+    readonly SpringValue _w = new(186), _h = new(IslandGeometry.ClosedHeight), _r = new(IslandGeometry.ClosedHeight / 2), _shadow = new(0, 0.002);
     readonly SpringValue _bubbleOpacity = new(0, 0.002), _bubbleScale = new(0.4, 0.001);
     readonly List<Layer> _layers = new();
     readonly Layer _compactA, _compactB, _expanded, _drop, _searchBar, _answer, _result, _notification, _card;
@@ -43,7 +43,7 @@ public partial class NotchWindow : Window
     IntPtr _hwnd;
 
     NotchMode _mode = NotchMode.Idle;
-    (double W, double H, double R) _spec = (186, 32, 11);
+    (double W, double H, double R) _spec = (186, IslandGeometry.ClosedHeight, IslandGeometry.ClosedHeight / 2);
     double _compactWidth = 290;
 
     /// <summary>Height of the palette rows under the typing bar; the bar grows down by this much.</summary>
@@ -99,6 +99,8 @@ public partial class NotchWindow : Window
         InitializeComponent();
         Shape.CenterX = ShadowShape.CenterX = Edge.CenterX = Cx;
         Edge.Enabled = services.Settings.ShammyGlow;
+        // Before anything borrows the island's fill (the action circle beside the pet).
+        InitIsland();
         // The palette (its first colour is the accent); a change from Settings or the pipe applies at once.
         Theme.PaletteTheme.Choose(services.Settings.Palette);
         services.Settings.Changed += name =>
@@ -268,6 +270,7 @@ public partial class NotchWindow : Window
         Animator.Frame += OnFrame;
         Reposition();
         ApplyVisuals(force: true);
+        UpdateAmbience();
     }
 
     public event Action? InteractiveDeactivated;
@@ -322,21 +325,12 @@ public partial class NotchWindow : Window
         public readonly ScaleTransform Scale = new(0.94, 0.94);
         public readonly SpringValue Opacity = new(0, 0.002);
         public readonly SpringValue Size = new(0.94, 0.0005);
-        /// <summary>1 at rest; dips to 0 and back when the content changes in place, so it blurs through the change.</summary>
-        public readonly SpringValue Swap = new(1, 0.002);
-        public readonly System.Windows.Media.Effects.BlurEffect Blur = new()
-        {
-            Radius = 0,
-            KernelType = System.Windows.Media.Effects.KernelType.Gaussian,
-            RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance,
-        };
-        public bool Active;
-
         /// <summary>
-        /// Only the small layers blur as they change (the resting notch, a pill, a message): the window is drawn
-        /// in software, where blurring a whole open card would cost too much.
+        /// 1 at rest; dips and comes back when the content changes in place, so it dims through the change. (It used
+        /// to blur as well; a blur effect is re-rasterised on every repaint of the layered window, so it's gone.)
         /// </summary>
-        public bool Blurs => El.Width * El.Height is > 0 and <= 60000;
+        public readonly SpringValue Swap = new(1, 0.002);
+        public bool Active;
     }
 
     Layer AddLayer(FrameworkElement el)
@@ -412,6 +406,7 @@ public partial class NotchWindow : Window
         Recompute();
         UpdateBubble();
         FlashForActivity();
+        UpdateAmbience();
 
         // A notification that arrives (or is replaced by the next one) under a resting pointer is being
         // read: hold it, as MouseEnter would have. Only while it still has a countdown, so the hold's own
@@ -708,7 +703,7 @@ public partial class NotchWindow : Window
         }, this, a.Id);
         Color? color = a switch
         {
-            { Kind: ActivityKind.Notification } => Theme.Accent.Current,
+            { Kind: ActivityKind.Notification } => Ui.Tokens.Accent.Color,
             { Kind: ActivityKind.Charging } => Green,
             { Kind: ActivityKind.LowBattery } => Red,
             { Payload: MessagePayload { IsError: true } } => Red,
@@ -721,7 +716,7 @@ public partial class NotchWindow : Window
     void UpdateEdgeHold()
     {
         Edge.Shown = _mode != NotchMode.Hidden;
-        Edge.Hold(_mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking ? Theme.Accent.Current : _moduleGlow);
+        Edge.Hold(_mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking ? Ui.Tokens.Accent.Color : _moduleGlow);
     }
 
     public void Collapse()

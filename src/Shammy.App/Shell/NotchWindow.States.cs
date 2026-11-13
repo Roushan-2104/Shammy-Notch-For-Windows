@@ -77,13 +77,18 @@ public partial class NotchWindow
         _compactActive = next;
     }
 
+    /// <summary>
+    /// Each state's island: width, height and corner radius. The closed states (resting, a pill) are fully rounded
+    /// pills at least <see cref="IslandGeometry.ClosedHeight"/> tall, their content (still its own size) centred in
+    /// them; the open states keep their sizes and become slabs with all four corners rounded.
+    /// </summary>
     (double W, double H, double R) SpecFor(NotchMode mode) => mode switch
     {
         NotchMode.Hidden => (150, 0, 0),
-        NotchMode.Idle => (RestView.RestWidth, RestView.RestHeight, 12),
+        NotchMode.Idle => Pill(RestView.RestWidth, RestView.RestHeight),
         NotchMode.Peek => (PeekView.PeekWidth, PeekView.PeekHeight, 26),
-        NotchMode.Compact when _petShowing => (ActivityView.ViewWidth, _activityView.CurrentHeight, _activityView.CurrentRadius),
-        NotchMode.Compact => (_compactWidth, 32, 12),
+        NotchMode.Compact when _petShowing => (ActivityView.ViewWidth, IslandGeometry.ClosedPill(_activityView.CurrentHeight), _activityView.CurrentRadius),
+        NotchMode.Compact => Pill(_compactWidth, 32),
         NotchMode.Notification => (NotificationView.CardWidth, NotificationView.CardHeight, 30),
         NotchMode.Card => (_cardSize.W, _cardSize.H, Math.Min(32, _cardSize.H / 2)),
         NotchMode.Expanded => (Expanded.Width, Expanded.Height, 36),
@@ -92,8 +97,14 @@ public partial class NotchWindow
         NotchMode.Typing => (560, 58 + _paletteHeight, _paletteHeight > 0 ? 30 : 29),
         NotchMode.Answer => (440, 120, 32),
         NotchMode.Result => (560, 680, 34),
-        _ => (186, 32, 11),
+        _ => Pill(186, 32),
     };
+
+    static (double W, double H, double R) Pill(double width, double contentHeight)
+    {
+        double h = IslandGeometry.ClosedPill(contentHeight);
+        return (width, h, h / 2);
+    }
 
     Layer? LayerFor(NotchMode mode) => mode switch
     {
@@ -130,10 +141,11 @@ public partial class NotchWindow
             _w.AnimateTo(spec.W, response, damping);
             _h.AnimateTo(spec.H, response, damping);
             _r.AnimateTo(spec.R, response, Math.Min(1, damping + 0.08));
-            // A soft shadow always grounds the notch; bigger cards cast a fuller one.
-            _shadow.AnimateTo(mode == NotchMode.Hidden ? 0 : spec.H > 60 ? 1 : 0.5, 0.45, 1);
+            // A soft shadow always grounds the floating island; bigger cards cast a fuller one.
+            _shadow.AnimateTo(mode == NotchMode.Hidden ? 0 : spec.H > 60 ? 1 : 0.6, 0.45, 1);
         }
         UpdateEdgeHold();
+        if (changed) UpdateAmbience();
 
         if (mode == NotchMode.Typing) SearchBar.Width = spec.W;
         else if (mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking) SearchBar.Width = spec.W;
@@ -155,7 +167,7 @@ public partial class NotchWindow
             // Re-arming the springs here kept the render loop and the window repainting on every such update.
             if (layer.Active && layer.Opacity.Target == 1 && layer.Size.Target == 1 && layer.Opacity.IsSettled && layer.Size.IsSettled)
             {
-                Canvas.SetLeft(layer.El, Cx - layer.El.Width / 2);
+                Place(layer);
                 return;
             }
             if (!layer.Active)
@@ -163,7 +175,7 @@ public partial class NotchWindow
                 if (layer.Opacity.Value < 0.05) layer.Size.Snap(grow ? 0.9 : 1.05);
                 layer.El.Visibility = Visibility.Visible;
             }
-            Canvas.SetLeft(layer.El, Cx - layer.El.Width / 2);
+            Place(layer);
             double delay = grow ? 0.03 : 0.02;
             layer.Opacity.AnimateTo(1, 0.24, 1, delay);
             layer.Size.AnimateTo(1, 0.38, MotionPrefs.Lively ? 0.8 : 1, delay);
@@ -174,6 +186,13 @@ public partial class NotchWindow
             layer.Size.AnimateTo(grow ? 1.04 : 0.94, 0.25, 1);
         }
         layer.Active = active;
+    }
+
+    /// <summary>Centred across the island, and down the middle of a pill taller than the content (a 32 px row in a 38 px pill).</summary>
+    void Place(Layer layer)
+    {
+        Canvas.SetLeft(layer.El, Cx - layer.El.Width / 2);
+        Canvas.SetTop(layer.El, IslandGeometry.ContentTop(_spec.H, layer.El.Height));
     }
 
     void UpdateBubble()
