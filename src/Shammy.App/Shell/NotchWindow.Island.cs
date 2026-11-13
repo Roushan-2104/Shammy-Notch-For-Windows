@@ -146,6 +146,8 @@ public partial class NotchWindow
         if (_islandFill.Color != fill) _islandFill.Color = fill;
         var rect = new Rect(0, -_gap, WindowWidth, GlassHeight);
         if (ReferenceEquals(Shape.Glass, glass) && Shape.WavesOpacity == waves && Shape.GlassRect == rect) return;
+        // The action circle beside the island is the same liquid: same glass, same place.
+        _chrome.SetSurface(glass, rect);
         Shape.Glass = glass;
         Shape.GlassRect = rect;
         Shape.WavesOpacity = waves;

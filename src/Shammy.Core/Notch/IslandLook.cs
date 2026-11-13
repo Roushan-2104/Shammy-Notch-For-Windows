@@ -104,6 +104,13 @@ public static class IslandWaves
         (0.46, 0.09, 0.6, 0.12, 0.13, 4.2, 0.6),
     };
 
+    /// <summary>0 at both ends of the island, 1 across its middle, with a long soft shoulder (no visible edge).</summary>
+    static double SmoothEnds(double fx)
+    {
+        double e = Math.Clamp(Math.Min(fx, 1 - fx) / 0.28, 0, 1);
+        return e * e * (3 - 2 * e);
+    }
+
     /// <summary>
     /// Renders the bands at time <paramref name="t"/> (seconds) in <paramref name="colours"/> (three; fewer repeat)
     /// into <paramref name="pbgra"/> (w×h×4, premultiplied). <paramref name="strength"/> 0..1 scales them all; 0 clears.
@@ -118,19 +125,26 @@ public static class IslandWaves
         for (int y = 0; y < h; y++)
         {
             double fy = (y + 0.5) / h;
+            // Water, not stripes: nothing touches an edge. The light dissolves well before the island's ends and
+            // softens towards its top and bottom, so no band is ever cut off by the outline.
+            double rows = Math.Pow(Math.Sin(Math.PI * Math.Clamp(fy * 0.92 + 0.04, 0, 1)), 0.7);
             for (int x = 0; x < w; x++)
             {
                 double fx = (x + 0.5) / w;
-                // Ends of the island fade, so the bands seem to come from nowhere.
-                double ends = Math.Sin(Math.PI * fx);
-                ends = 0.35 + 0.65 * ends;
+                double ends = SmoothEnds(fx) * rows;
                 double r = 0, g = 0, b = 0, a = 0;
                 for (int i = 0; i < Bands.Length; i++)
                 {
                     var band = Bands[i];
-                    double centre = band.Centre + band.Amp * Math.Sin(2 * Math.PI * band.Freq * fx + band.Phase + t * band.Speed * 2 * Math.PI)
-                                    + 0.03 * Math.Sin(2 * Math.PI * 2.3 * fx - t * 0.5 + i);
-                    double d = (fy - centre) / band.Sigma;
+                    double phase = t * band.Speed * 2 * Math.PI;
+                    // A swell plus a slower second ripple, so the crest rolls instead of tracing one sine.
+                    double centre = band.Centre
+                                    + band.Amp * 1.35 * Math.Sin(2 * Math.PI * band.Freq * fx + band.Phase + phase)
+                                    + band.Amp * 0.55 * Math.Sin(2 * Math.PI * band.Freq * 2.1 * fx - band.Phase * 0.7 - phase * 0.6 + i)
+                                    + 0.035 * Math.Sin(2 * Math.PI * 2.3 * fx - t * 0.5 + i);
+                    // The ribbon swells and thins along its length, like light on moving water.
+                    double sigma = band.Sigma * (1.15 + 0.4 * Math.Sin(2 * Math.PI * 0.8 * fx - phase * 0.5 + i * 1.7));
+                    double d = (fy - centre) / sigma;
                     double alpha = Math.Exp(-d * d) * band.Gain * MaxAlpha * strength * ends;
                     if (alpha < 1e-4) continue;
                     var c = colours[i % colours.Count];
@@ -139,6 +153,13 @@ public static class IslandWaves
                     g = c.G / 255.0 * alpha + g * (1 - alpha);
                     b = c.B / 255.0 * alpha + b * (1 - alpha);
                     a = alpha + a * (1 - alpha);
+                }
+                // Where ribbons cross they never add up past a soft ceiling: the light stays quiet.
+                double cap = MaxAlpha * 1.5 * strength;
+                if (a > cap)
+                {
+                    double f = cap / a;
+                    r *= f; g *= f; b *= f; a = cap;
                 }
                 int o = (y * w + x) * 4;
                 pbgra[o] = (byte)Math.Round(b * 255);

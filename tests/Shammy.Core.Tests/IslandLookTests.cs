@@ -339,3 +339,23 @@ public class GlassBackdropTests
         Assert.Equal(255, px[3]);
     }
 }
+
+public class IslandWavesFlowTests
+{
+    [Fact]
+    public void The_waves_dissolve_before_the_islands_ends_and_edges()
+    {
+        var colours = new[] { new Rgb(0x3B, 0x5B, 0xFF), new Rgb(0x7A, 0x3C, 0xFF), new Rgb(0x19, 0xC3, 0xB2) };
+        int w = IslandWaves.Width, h = IslandWaves.Height;
+        var px = new byte[w * h * 4];
+        for (double t = 0; t < 6; t += 0.7)
+        {
+            IslandWaves.Render(px, w, h, colours, t, 1);
+            for (int y = 0; y < h; y++)
+            {
+                Assert.True(px[(y * w + 0) * 4 + 3] <= 2, "left end");
+                Assert.True(px[(y * w + w - 1) * 4 + 3] <= 2, "right end");
+            }
+        }
+    }
+}

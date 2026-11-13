@@ -44,6 +44,12 @@ internal sealed class ActivityChrome
     /// <summary>The glow stays this far inside each side of the notch.</summary>
     const double GlowInset = 8;
     readonly Path _bridge, _dotBridge;
+
+    // The island and its action circle as one drop of liquid: the circle plus a metaball neck to the pill's end,
+    // filled with the island's own glass lined up pixel for pixel, so the surface flows on into the circle.
+    readonly Path _liquid = new() { Opacity = 0 };
+    readonly Brush _plainFill;
+    Brush _surface;
     readonly Border _circle, _disc, _dot, _dotInner;
     readonly Ellipse _dotLight;
     readonly ContentControl _icon = new() { Focusable = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -58,6 +64,8 @@ internal sealed class ActivityChrome
 
     public ActivityChrome(Canvas root, UIElement shape, Brush notchFill)
     {
+        _plainFill = _surface = notchFill;
+        _liquid.Fill = notchFill;
         _glow.Fill = _glowBrush;
         root.Children.Insert(root.Children.IndexOf(shape), _glow);
 
@@ -83,7 +91,8 @@ internal sealed class ActivityChrome
             {
                 if (_spec is { Enabled: true } spec) CircleClicked?.Invoke(spec.Action);
             },
-            Width = CircleSize, Height = CircleSize, CornerRadius = new CornerRadius(CircleSize / 2), Background = notchFill,
+            // Transparent (still clickable): the liquid surface under it is the circle's fill.
+            Width = CircleSize, Height = CircleSize, CornerRadius = new CornerRadius(CircleSize / 2), Background = Brushes.Transparent,
             RenderTransformOrigin = new Point(0, 0.5), RenderTransform = _circleScale, Child = _disc, Cursor = Cursors.Hand, Opacity = 0,
         };
         _circle.MouseEnter += (_, _) => _disc.BorderBrush = _spec is { Enabled: true } ? Ui.Tokens.Frozen(HoverRing) : Brushes.Transparent;
@@ -127,7 +136,7 @@ internal sealed class ActivityChrome
             if (_dotId is { } id) DotClicked?.Invoke(id);
         };
 
-        foreach (var e in new UIElement[] { _bridge, _circle, _dotBridge, _dot }) root.Children.Add(e);
+        foreach (var e in new UIElement[] { _liquid, _bridge, _circle, _dotBridge, _dot }) root.Children.Add(e);
         Hide(snap: true);
     }
 
@@ -140,7 +149,31 @@ internal sealed class ActivityChrome
     /// <summary>The dot was clicked: give this activity the pet and the circle.</summary>
     public event Action<string>? DotClicked;
 
-    public bool IsMouseOver => _circle.IsMouseOver || _dot.IsMouseOver || _bridge.IsMouseOver || _dotBridge.IsMouseOver;
+    public bool IsMouseOver => _circle.IsMouseOver || _dot.IsMouseOver || _liquid.IsMouseOver || _dotBridge.IsMouseOver;
+
+    /// <summary>
+    /// What the liquid is filled with: the island's glass (the same image at the same place, in Root's units), or the
+    /// plain island colour when there is no glass.
+    /// </summary>
+    public void SetSurface(ImageSource? glass, Rect glassRect)
+    {
+        if (glass is null)
+        {
+            _surface = _plainFill;
+        }
+        else
+        {
+            // The same layers as the island: an opaque base, then the glass, at the same place.
+            var base_ = _plainFill is SolidColorBrush solid ? solid.Color : Color.FromRgb(0x08, 0x08, 0x0A);
+            var drawing = new DrawingGroup();
+            drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(base_), null, new RectangleGeometry(glassRect)));
+            drawing.Children.Add(new ImageDrawing(glass, glassRect));
+            var brush = new DrawingBrush(drawing) { ViewportUnits = BrushMappingMode.Absolute, Viewport = glassRect, Stretch = Stretch.Fill, TileMode = TileMode.None };
+            brush.Freeze();
+            _surface = brush;
+        }
+        _liquid.Fill = _surface;
+    }
 
     public CircleSpec? Circle => _spec;
     public string? DotId => _dotId;
@@ -353,11 +386,12 @@ internal sealed class ActivityChrome
         // Beside the row, also when the notch has grown a line under it.
         double rowH = Math.Min(h, Views.ActivityView.ViewHeight);
         Canvas.SetTop(_circle, Math.Max(0, (rowH - CircleSize) / 2));
-        _bridge.Opacity = circle ? 1 : 0;
-        _bridgeScale.ScaleX = Math.Clamp(p, 0, 1.05);
-        _bridgeScale.ScaleY = Math.Clamp(h / 38, 0, 1);
-        Canvas.SetLeft(_bridge, right - BridgeLeft);
-        Canvas.SetTop(_bridge, 0);
+        // The old fixed bridge gives way to the liquid neck.
+        _bridge.Opacity = 0;
+        _bridge.IsHitTestVisible = false;
+        _liquid.Opacity = circle ? Math.Clamp(p * 1.8, 0, 1) : 0;
+        _liquid.IsHitTestVisible = circle;
+        if (circle) _liquid.Data = Liquid(right, rowH, h, p);
 
         // The dot sits beyond the circle (or beside the notch when there's no circle).
         double dotBase = _pop.Target > 0 ? right + Gap + CircleSize + 4 : right + Gap;
@@ -369,6 +403,34 @@ internal sealed class ActivityChrome
         _dotBridgeScale.ScaleX = Math.Clamp(q, 0, 1.05);
         Canvas.SetLeft(_dotBridge, dotBase - 8 - (_pop.Target > 0 ? 0 : 4));
         Canvas.SetTop(_dotBridge, Math.Max(0, (h - 38) / 2));
+    }
+
+    /// <summary>
+    /// The circle (as it is drawn this frame: scaled from its left middle) plus a soft neck to the island's rounded
+    /// end, as one shape. Cheap: one ellipse and one four-curve path per frame, only while the circle shows.
+    /// </summary>
+    Geometry Liquid(double right, double rowH, double h, double p)
+    {
+        double scale = 0.25 + 0.75 * p;
+        double left = right + Gap - 16 * (1 - p);
+        double top = Math.Max(0, (rowH - CircleSize) / 2);
+        double r2 = CircleSize / 2 * scale, x2 = left + CircleSize / 2 * scale, y2 = top + CircleSize / 2;
+        double r1 = Math.Min(rowH, h) / 2, x1 = right - r1, y1 = y2;
+        Geometry circle = new EllipseGeometry(new Point(x2, y2), r2, r2);
+        if (Core.Wheel.Goo.Bridge(x1, y1, r1, x2, y2, r2, v: 0.62, handle: 2.4, reach: 3) is not { } n)
+        {
+            circle.Freeze();
+            return circle;
+        }
+        var figure = new PathFigure { StartPoint = new Point(n.P1.X, n.P1.Y), IsClosed = true, IsFilled = true };
+        figure.Segments.Add(new BezierSegment(new Point(n.H1.X, n.H1.Y), new Point(n.H3.X, n.H3.Y), new Point(n.P3.X, n.P3.Y), true));
+        figure.Segments.Add(new LineSegment(new Point(n.P4.X, n.P4.Y), true));
+        figure.Segments.Add(new BezierSegment(new Point(n.H4.X, n.H4.Y), new Point(n.H2.X, n.H2.Y), new Point(n.P2.X, n.P2.Y), true));
+        // A true union: the neck runs into the circle with the opposite winding, which a plain group would cut as a
+        // hole where they overlap.
+        var liquid = new CombinedGeometry(GeometryCombineMode.Union, circle, new PathGeometry(new[] { figure }));
+        liquid.Freeze();
+        return liquid;
     }
 
     public string Describe() =>

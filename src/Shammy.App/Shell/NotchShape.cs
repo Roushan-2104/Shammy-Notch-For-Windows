@@ -54,6 +54,9 @@ internal sealed class NotchShape : FrameworkElement
         if (_geometry.IsEmpty()) return;
         if (Glass is { } glass)
         {
+            // An opaque base under the glass: the glass is a touch see-through, and the island must look the same
+            // over its own shadow as the liquid circle beside it does over the desktop.
+            dc.DrawGeometry(Fill, null, _geometry);
             dc.PushClip(_geometry);
             dc.DrawImage(glass, GlassRect);
             dc.Pop();
