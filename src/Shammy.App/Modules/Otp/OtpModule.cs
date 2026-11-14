@@ -78,8 +78,15 @@ internal sealed class OtpModule : IShammyModule
         _code = code;
         _app = app;
         _copied = false;
-        _content = new OtpContent(this);
-        _ctx.Post(new Activity(ActivityId, ActivityKind.Custom, Priority, _content, DateTime.UtcNow + Shown) { Click = () => Copy() });
+        var content = _content = new OtpContent(this);
+        _ctx.Post(new Activity(ActivityId, ActivityKind.Custom, Priority, content, DateTime.UtcNow + Shown) { Click = () => Copy() });
+        // Once its pill has gone, the code isn't kept either (unless a newer code took its place).
+        UiDelay.After(Shown, () =>
+        {
+            if (_content != content) return;
+            _code = _app = null;
+            _content = null;
+        }, _ctx.Ui);
         // Never the code itself: the log isn't a place for secrets.
         _ctx.Info($"A one-time code from {app} is in the notch");
         return true;
@@ -110,28 +117,11 @@ internal sealed class OtpModule : IShammyModule
     /// <summary>Copies the code, marked private (no clipboard history, no cloud clipboard); it's cleared a minute later.</summary>
     internal bool Copy()
     {
-        if (_code is null) return false;
-        for (int i = 0; i < 3; i++)
-        {
-            try
-            {
-                var data = new DataObject(DataFormats.UnicodeText, _code);
-                data.SetData("ExcludeClipboardContentFromMonitorProcessing", new MemoryStream(new byte[4]));
-                data.SetData("CanIncludeInClipboardHistory", new MemoryStream(new byte[4]));
-                data.SetData("CanUploadToCloudClipboard", new MemoryStream(new byte[4]));
-                Clipboard.SetDataObject(data, true);
-                _copied = true;
-                ClearLater(_code);
-                if (_ctx.Get(ActivityId) is { } a) _ctx.Post(a);
-                return true;
-            }
-            catch (ExternalException)
-            {
-                // Another app has the clipboard open for a moment.
-                Thread.Sleep(40);
-            }
-        }
-        return false;
+        if (_code is null || !SelectionTools.ClipboardText.TrySet(_code, secret: true)) return false;
+        _copied = true;
+        ClearLater(_code);
+        if (_ctx.Get(ActivityId) is { } a) _ctx.Post(a);
+        return true;
     }
 
     void ClearLater(string code)
