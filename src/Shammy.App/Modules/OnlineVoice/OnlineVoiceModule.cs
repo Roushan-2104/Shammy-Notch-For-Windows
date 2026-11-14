@@ -90,7 +90,8 @@ internal sealed class OnlineVoiceModule : IShammyModule
         }
 
         HostLinks.Say = Say;
-        HostLinks.SayAnyway = text => _ctx.Ui.BeginInvoke(() => Speak(text, test: true));
+        // Something the user asked to hear (an answer, the brief): a few whole sentences, not a reminder-length line.
+        HostLinks.SayAnyway = text => _ctx.Ui.BeginInvoke(() => Speak(text, test: true, asked: true));
         HostLinks.OnlineTranscribe = TranscribeAsync;
         HostLinks.OnlineListening = ListeningOnline;
         OnlineVoiceLink.Current = this;
@@ -233,9 +234,9 @@ internal sealed class OnlineVoiceModule : IShammyModule
     /// Starts (or queues) an utterance and says at once what happened: "started", "queued", or why not
     /// ("no key", "off", "sounds off", "quiet", "paused"). Nothing is sent to Gnani unless it started.
     /// </summary>
-    string Speak(string? raw, bool test = false, Action<string?>? done = null)
+    string Speak(string? raw, bool test = false, Action<string?>? done = null, bool asked = false)
     {
-        var text = SpokenPhrases.Clean(raw);
+        var text = asked ? SpokenPhrases.CleanAsked(raw) : SpokenPhrases.Clean(raw);
         string? fake = _fakeTts;
         var now = DateTime.UtcNow;
         var block = VoiceRules.Speak(text, HasKey || fake is not null, _ctx.Settings.OnlineVoiceSpeaks || test || fake is not null,
@@ -350,7 +351,7 @@ internal sealed class OnlineVoiceModule : IShammyModule
         // A device that never reports the end must not hold up the next line.
         await Task.WhenAny(playing, Task.Delay(info.Duration + TimeSpan.FromSeconds(3)));
         if (!playing.IsCompleted) _player.Stop();
-        _lastSay = string.Create(Inv, $"said ({source}, {info.Duration.TotalSeconds:0.0} s of speech)");
+        _lastSay = string.Create(Inv, $"said ({source}, {u.Text.Length} chars, {info.Duration.TotalSeconds:0.0} s of speech)");
         return null;
     }
 

@@ -20,24 +20,23 @@ internal partial class SearchCoordinator
 
     const string AskGlyph = "";
 
-    /// <summary>The words read aloud: the first two sentences, about 260 characters at most (Gnani credits).</summary>
+    /// <summary>
+    /// The short answer shown and read aloud: its first two whole sentences, as long as they fit about 320 characters
+    /// (the first sentence alone if two don't); only one very long sentence is cut, at a word.
+    /// </summary>
     static string Spoken(string answer)
     {
         var text = answer.Replace('\n', ' ').Trim().Trim('"', '“', '”').Trim();
         int end = 0, sentences = 0;
         for (int i = 0; i < text.Length && sentences < 2; i++)
-            if (text[i] is '.' or '!' or '?' && (i + 1 == text.Length || text[i + 1] == ' '))
-            {
-                end = i + 1;
-                sentences++;
-            }
-        if (end == 0) end = text.Length;
-        if (end > 260)
         {
-            int cut = text.LastIndexOf(' ', 260);
-            end = cut > 120 ? cut : 260;
+            if (text[i] is not ('.' or '!' or '?') || (i + 1 < text.Length && text[i + 1] != ' ')) continue;
+            if (sentences > 0 && i + 1 > Core.OnlineVoice.SpokenPhrases.AskedMaxLength) break;
+            end = i + 1;
+            sentences++;
         }
-        return text[..Math.Min(end, text.Length)].Trim();
+        if (end == 0) end = text.Length;
+        return Core.OnlineVoice.SpokenPhrases.CleanAsked(text[..end]);
     }
 
     static string Clip(string text, int max = 70)

@@ -64,6 +64,27 @@ public static class SpokenPhrases
     /// Text fit to be spoken: one line, links left out (nobody wants a URL read aloud), and cut at a word once it
     /// passes <see cref="MaxLength"/>.
     /// </summary>
+    /// <summary>Something the user asked to hear (an answer, the morning brief): a few sentences, never cut mid-sentence.</summary>
+    public const int AskedMaxLength = 320;
+
+    /// <summary>
+    /// Like <see cref="Clean"/> for something the user asked to hear: up to <see cref="AskedMaxLength"/>, ending at the
+    /// last whole sentence that fits; only a single sentence longer than that is cut at a word.
+    /// </summary>
+    public static string CleanAsked(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        text = Spaces.Replace(Link.Replace(text, " "), " ").Trim();
+        if (text.Length <= AskedMaxLength) return text;
+        int end = -1;
+        for (int i = 0; i < AskedMaxLength; i++)
+            if (text[i] is '.' or '!' or '?' or '।' && (i + 1 == text.Length || text[i + 1] == ' '))
+                end = i + 1;
+        if (end > 0) return text[..end].TrimEnd();
+        int cut = text.LastIndexOf(' ', AskedMaxLength);
+        return text[..(cut > AskedMaxLength / 2 ? cut : AskedMaxLength)].TrimEnd(' ', ',', ';', ':', '-');
+    }
+
     public static string Clean(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";

@@ -954,3 +954,41 @@ public class VoiceRulesTests
     public void Listening_goes_online_only_with_a_key_the_switch_and_a_network(bool key, bool on, bool network, bool online) =>
         Assert.Equal(online, VoiceRules.ListenOnline(key, on, network));
 }
+
+public class SpokenAnswerTests
+{
+    // A real AI Mode answer (about 250 characters): the reminder-length cut stopped it partway through its second sentence.
+    const string Japan = "Tokyo is the capital of Japan, as noted in Britannica's overview of the country, serving as its political, economic, and cultural center. Formerly known as Edo, it became the imperial capital in 1868 when the Emperor moved there from Kyoto.";
+
+    [Fact]
+    public void An_asked_answer_is_never_cut_mid_sentence()
+    {
+        Assert.True(Japan.Length > SpokenPhrases.MaxLength);
+        Assert.Equal(Japan, SpokenPhrases.CleanAsked(Japan));
+    }
+
+    [Fact]
+    public void A_long_answer_ends_at_the_last_whole_sentence_that_fits()
+    {
+        var text = Japan + " " + Japan + " " + Japan;
+        var said = SpokenPhrases.CleanAsked(text);
+        Assert.True(said.Length <= SpokenPhrases.AskedMaxLength);
+        Assert.EndsWith(".", said);
+        Assert.StartsWith(Japan, said);
+    }
+
+    [Fact]
+    public void Only_one_very_long_sentence_is_cut_at_a_word()
+    {
+        var text = string.Join(' ', Enumerable.Repeat("word", 120)) + ".";
+        var said = SpokenPhrases.CleanAsked(text);
+        Assert.True(said.Length <= SpokenPhrases.AskedMaxLength);
+        Assert.EndsWith("word", said);
+    }
+
+    [Fact]
+    public void Reminder_lines_keep_their_short_cut()
+    {
+        Assert.True(SpokenPhrases.Clean(Japan).Length <= SpokenPhrases.MaxLength);
+    }
+}
