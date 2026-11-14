@@ -436,7 +436,12 @@ public partial class ExpandedView : UserControl
         HeightChanged?.Invoke();
     }
 
-    void OnHomeClicked(object sender, RoutedEventArgs e) => ShowHome();
+    // The eyes are Home: always the first page. (Back from a card returns to the page it was opened from.)
+    void OnHomeClicked(object sender, RoutedEventArgs e)
+    {
+        ShowHome();
+        GoToPage(0);
+    }
     void OnBackClicked(object sender, RoutedEventArgs e) => ShowHome();
     void OnSearchClicked(object sender, MouseButtonEventArgs e) => SearchRequested?.Invoke();
 

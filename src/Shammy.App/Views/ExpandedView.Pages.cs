@@ -103,7 +103,9 @@ public partial class ExpandedView
         PageDots.Visibility = Visibility.Visible;
         UpdateDots();
         if (all) EssentialsPanel.ScrollToTop();
-        else RefreshHome();
+        // Both pages are the home's size: this also takes the island back from a card's size (coming back from a
+        // card opened on the everything page) and keeps the right-now sentence and its once-a-second refresh going.
+        RefreshHome();
         if (animate && IsVisible && !ReducedMotion) Slide(all ? EssentialsPanel : HomePanel, direction);
     }
 
@@ -285,6 +287,15 @@ public partial class ExpandedView
         if (_openId is not null && a.Length > 0) GoHome(animate: false);
         if (a == "0" || a == "1") GoToPage(int.Parse(a));
         else if (a.StartsWith("swipe", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[5..].Trim(), out var delta)) SwipePages(delta);
+        else if (a.StartsWith("run", StringComparison.OrdinalIgnoreCase) && !int.TryParse(a[3..].Trim(), out _))
+        {
+            // "home-page run alarms": that feature, wherever it sits on the page.
+            if (_page != 1) GoToPage(1);
+            int at = _essentialShown.FindIndex(x => string.Equals(x.Id, a[3..].Trim(), StringComparison.OrdinalIgnoreCase));
+            if (at < 0) return $"error: no {a[3..].Trim()} on the page";
+            _essentialButtons[at].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            return $"ran {_essentialShown[at].Id} ({(_essentialShown[at].IsCard ? "card" : "action")})";
+        }
         else if (a.StartsWith("run", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[3..].Trim(), out var n))
         {
             if (_page != 1) GoToPage(1);
@@ -303,7 +314,7 @@ public partial class ExpandedView
         if (_page == 1 && _essentialShown.Count == 0) BuildEssentials();
         var shown = _page == 1 ? _essentialShown : Essentials.Arrange(Essentials.Catalog(_cards.Select(c => (c.Id, c.Title))),
             WheelLink.Current?.Uses ?? new Dictionary<string, IReadOnlyList<DateTime>>(), DateTime.Now) is var (m, o) ? m.Concat(o).ToList() : new List<Essential>();
-        return $"page={_page} dots={(PageDots.Visibility == Visibility.Visible ? "shown" : "hidden")} items={shown.Count} " +
+        return $"page={_page} dots={(PageDots.Visibility == Visibility.Visible ? "shown" : "hidden")} size={Width:0}x{Height:0} home={HomeWidth:0}x{HomeHeight:0} items={shown.Count} " +
                $"most=[{string.Join(",", shown.Take(Essentials.TopCount).Select(x => x.Id))}] rest=[{string.Join(",", shown.Skip(Essentials.TopCount).Select(x => x.Id))}]";
     }
 }
