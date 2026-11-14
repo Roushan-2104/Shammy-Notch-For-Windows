@@ -5,7 +5,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 
 namespace Shammy.Views.Cards;
@@ -24,11 +23,8 @@ internal static class CardKit
 
     public static Color Color(string hex) => Ui.Tokens.Color(hex);
 
-    public static Brush Res(string key) => Ui.Tokens.Res(key);
-
-    /// <summary>The notch ground, a tile's surface, the hairline, the two text colours and the accent.</summary>
-    public static readonly Brush Ground = Ui.Tokens.Ground, Surface = Ui.Tokens.Tile, Hairline = Ui.Tokens.Hairline,
-        Ink = Ui.Tokens.Text, Ink2 = Ui.Tokens.Text2, OnAccent = Ui.Tokens.OnAccent;
+    /// <summary>The hairline, the two text colours and the accent.</summary>
+    public static readonly Brush Hairline = Ui.Tokens.Hairline, Ink = Ui.Tokens.Text, Ink2 = Ui.Tokens.Text2, OnAccent = Ui.Tokens.OnAccent;
 
     /// <summary>The accent the user picked (orange by default); it changes live, see <see cref="Theme.AccentTheme"/>.</summary>
     public static Brush Accent => Theme.AccentTheme.Brush;
@@ -41,13 +37,8 @@ internal static class CardKit
     /// <summary>Quiet controls: a translucent white circle over artwork (Wall's .ib) and a dark pill with a hairline (.qb).</summary>
     public static readonly Brush QuietBg = Ui.Tokens.QuietBg, QuietHover = Ui.Tokens.QuietHover, PillBg = Ui.Tokens.Pill, PillHover = Ui.Tokens.PillHover;
 
-    /// <summary>Tracks under meters, rings and scrubbers, and the hairline between list rows.</summary>
-    public static readonly Brush TrackBg = Ui.Tokens.Track, RingTrack = Ui.Tokens.RingTrack, Divider = Hairline;
-
-    /// <summary>Older names some views still use.</summary>
-    public static readonly Brush ControlBg = PillBg, ControlHover = PillHover, RowBg = Ui.Tokens.Row;
-
-    public static readonly Thickness CompactPadding = new(12), DetailPadding = new(0);
+    /// <summary>The track under progress lines and scrubbers.</summary>
+    public static readonly Brush TrackBg = Ui.Tokens.Track;
 
     // ---- Type ------------------------------------------------------------------------------------
 
@@ -96,27 +87,6 @@ internal static class CardKit
     public static TrackedText SectionLabel(string text) => Label(text, Ink2);
 
     /// <summary>
-    /// An empty list's words, the same everywhere: what isn't there (13.5 SemiBold, white) and, under it, how it
-    /// gets there (12, grey). Screen readers hear both.
-    /// </summary>
-    public static FrameworkElement Empty(string title, string? hint = null)
-    {
-        var panel = new StackPanel { Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
-        var head = Text(title, 13.5, FontWeights.SemiBold);
-        head.HorizontalAlignment = HorizontalAlignment.Left;
-        panel.Children.Add(head);
-        if (!string.IsNullOrEmpty(hint))
-        {
-            var line = Text(hint, 12, FontWeights.Normal, secondary: true);
-            line.HorizontalAlignment = HorizontalAlignment.Left;
-            line.Margin = new Thickness(0, 3, 0, 0);
-            panel.Children.Add(line);
-        }
-        AutomationProperties.SetName(panel, string.IsNullOrEmpty(hint) ? title : $"{title}. {hint}");
-        return panel;
-    }
-
-    /// <summary>
     /// A poster: the big number or word in a card's art ("17", "21°", "100%"), set like the island's own numbers on
     /// its home ("3:01", "100%"): the display face, Light, a little tight, even digits. Numbers are light; words are bold.
     /// </summary>
@@ -132,14 +102,6 @@ internal static class CardKit
         TabularDigits = true,
         Foreground = Ink,
     };
-
-    /// <summary>A card's title ("Notes", "Shelf"): bold words, like the home's big moment title.</summary>
-    public static TextBlock PageTitle(string text, double size = 26)
-    {
-        var t = Text(text, size, FontWeights.Bold);
-        t.TextTrimming = TextTrimming.CharacterEllipsis;
-        return t;
-    }
 
     /// <summary>The island's glass for a panel inside it (the home's big moment): a breath of white, a hairline edge.</summary>
     public static readonly Brush Glass = Hex("#0AFFFFFF"), GlassEdge = Hex("#1CFFFFFF");
@@ -283,24 +245,6 @@ internal static class CardKit
     public static Button CloseButton(Action onClick, string name = "Close") =>
         Make(name, Icon(Paths.Close, Ink, 10, 2.4), onClick, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize, Ui.Tokens.CloseSize / 2, QuietBg, QuietHover, null);
 
-    /// <summary>Older call shape: a 36 px round control; with an accent it is the primary one.</summary>
-    public static Button RoundButton(string name, FrameworkElement icon, Action onClick, Brush? accent = null, double size = 36) =>
-        accent is null ? Quiet(name, icon, onClick, size) : Primary(name, Recolour(icon, OnAccent), onClick, size);
-
-    /// <summary>Older call shape: a text chip in the quiet-pill style.</summary>
-    public static Button Chip(string text, string name, Action onClick, double height = 32, double fontSize = 12, double radius = 16) =>
-        Pill(text, name, onClick, height, fontSize);
-
-    static FrameworkElement Recolour(FrameworkElement icon, Brush brush)
-    {
-        if (icon is Viewbox { Child: Canvas { Children.Count: > 0 } c } && c.Children[0] is System.Windows.Shapes.Path p)
-        {
-            if (p.Fill is not null && p.Fill != Brushes.Transparent) p.Fill = brush;
-            if (p.StrokeThickness > 0) p.Stroke = brush;
-        }
-        return icon;
-    }
-
     static Button Make(string name, UIElement content, Action onClick, double width, double height, double radius, Brush bg, Brush hover, Brush? stroke)
     {
         var face = new Border
@@ -355,15 +299,6 @@ internal static class CardKit
 
     // ---- Shapes ----------------------------------------------------------------------------------
 
-    /// <summary>A rounded bar (charts, meters).</summary>
-    public static Border Bar(Brush fill, double width, double height, double radius) => new()
-    {
-        Width = width,
-        Height = height,
-        CornerRadius = new CornerRadius(radius),
-        Background = fill,
-    };
-
     /// <summary>A tall meter (the system tile's battery and earbuds): a translucent well filled from the bottom.</summary>
     public static Grid Meter(double fraction, double width, double height, double radius)
     {
@@ -398,23 +333,6 @@ internal static class CardKit
     /// <summary>A hairline between list rows.</summary>
     public static Border Rule() => new() { Height = 1, Background = Hairline, SnapsToDevicePixels = true };
 
-    /// <summary>A section inside a detail: the island's glass with its hairline edge, rounded like the home's panels.</summary>
-    public static Border Section(UIElement child, double padding = 14) => new()
-    {
-        Background = Glass,
-        BorderBrush = GlassEdge,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
-        Padding = new Thickness(padding),
-        Child = child,
-    };
-
-    /// <summary>A whole detail that isn't a <see cref="WallDetail"/> (it fills what the notch gives it).</summary>
-    public static Border DetailPanel(UIElement child) => new() { Padding = DetailPadding, Child = child };
-
-    /// <summary>A hairline column divider with an 18 px gutter after it.</summary>
-    public static Border VerticalDivider() => new() { Width = 1, Background = Hairline, Margin = new Thickness(18, 0, 18, 0) };
-
     /// <summary>A soft static glow in a colour: a radial gradient, no blur effect to render.</summary>
     public static Ellipse Glow(Color color, double size, double strength)
     {
@@ -424,13 +342,6 @@ internal static class CardKit
         brush.Freeze();
         return new Ellipse { Width = size, Height = size, Fill = brush, IsHitTestVisible = false };
     }
-
-    /// <summary>Depth with an offset and a soft blur (never a zero-offset halo).</summary>
-    public static Effect Shadow(double blur = 24, double depth = 8, double opacity = 0.45) =>
-        new DropShadowEffect { Color = Colors.Black, BlurRadius = blur, ShadowDepth = depth, Direction = 270, Opacity = opacity, RenderingBias = RenderingBias.Performance };
-
-    /// <summary>Older call shape; the colour is ignored (Focus Wall has no coloured glows outside artwork).</summary>
-    public static Effect Shadow(Color color, double blur, double opacity) => Shadow(blur, blur / 3, opacity * 0.8);
 
     // ---- Layout ----------------------------------------------------------------------------------
 

@@ -137,32 +137,6 @@ internal static class Sheet
         return t;
     }
 
-    /// <summary>An on/off switch (42 × 26): the accent when on. Flips itself, then calls <paramref name="set"/>.</summary>
-    public static Button Switch(string name, bool on, Action<bool> set)
-    {
-        var knob = new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(10), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(3, 0, 0, 0) };
-        var track = new Border { Width = 42, Height = 26, CornerRadius = new CornerRadius(13), Child = knob, SnapsToDevicePixels = true };
-        var button = new Button { Content = track, Width = 42, Height = 26, Cursor = Cursors.Hand, Template = Bare, ToolTip = name, VerticalAlignment = VerticalAlignment.Center };
-        AutomationProperties.SetName(button, name);
-        Ui.FocusKit.Button(button);
-        void Show()
-        {
-            track.Background = on ? CardKit.Accent : Ui.Tokens.Brush("#29FFFFFF");
-            knob.Background = on ? CardKit.OnAccent : CardKit.Ink;
-            knob.Margin = new Thickness(on ? 19 : 3, 0, 0, 0);
-            AutomationProperties.SetItemStatus(button, on ? "On" : "Off");
-        }
-        Show();
-        button.Click += (_, e) =>
-        {
-            on = !on;
-            Show();
-            set(on);
-            e.Handled = true;
-        };
-        return button;
-    }
-
     /// <summary>A segmented choice ("5 min · 10 min · 15 min"): the chosen one lifted.</summary>
     public static Border Segmented(IReadOnlyList<string> options, int chosen, Action<int> pick, string name)
     {
