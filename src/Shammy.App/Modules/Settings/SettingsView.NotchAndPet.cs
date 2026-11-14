@@ -32,7 +32,7 @@ internal partial class SettingsView
         SwitchRow("Peek", "A quick glance when you rest the pointer, before it opens.", nameof(AppSettings.PeekEnabled), "Peek on", "Peek off");
         SwitchRow("Gestures", "Scroll over the notch for volume, swipe sideways to skip a track.", nameof(AppSettings.GesturesEnabled), "Gestures on", "Gestures off",
             words: "swipe scroll wheel volume");
-        SwitchRow("Tuck-away tab", "A small tab under the notch. Click it and the notch slides away for a few seconds, so you can click what is under it.",
+        SwitchRow("Tuck-away tab", "A small tab under the notch slides it away for a few seconds, to reach what is under it.",
             nameof(AppSettings.TuckAwayEnabled), "Tuck-away tab on", "Tuck-away tab off", words: "hide");
         SwitchRow("Right now line", "One line at the top of the open notch with what matters this minute: a meeting soon, Claude waiting, a timer, new messages.",
             nameof(AppSettings.NowLineEnabled), "Right now line on", "Right now line off");
