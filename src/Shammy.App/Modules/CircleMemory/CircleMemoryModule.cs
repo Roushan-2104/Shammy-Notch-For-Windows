@@ -53,6 +53,8 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
         HostLinks.RememberCircle = _remember;
         HostLinks.OpenCircles = () => !PrivacyState.Presenting && ctx.OpenCard("circles");
         PrivacyState.Changed += OnPrivacy;
+        // Copies a crash left behind.
+        _ = Task.Run(DeleteDragFiles);
 
         ctx.AddPipeCommand("circles-add", PipeAdd);
         ctx.AddPipeCommand("circles-state", _ => PipeState());
@@ -284,17 +286,7 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
         try
         {
             if (CircleMemoryStore.ToPng(Picture(circle)) is not { } png) return null;
-            var root = DragRoot;
-            // Dragged copies only have to outlive the drop: older ones go now.
-            if (Directory.Exists(root))
-                foreach (var dir in Directory.EnumerateDirectories(root))
-                    if (Directory.GetLastWriteTime(dir) < DateTime.Now.AddHours(-1))
-                        try { Directory.Delete(dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            var folder = Path.Combine(root, circle.Id);
-            Directory.CreateDirectory(folder);
-            var path = Path.Combine(folder, CircleWhen.FileName(circle.At, CardKit.H24));
-            File.WriteAllBytes(path, png);
-            return path;
+            return WriteDragFile(circle.Id, CircleWhen.FileName(circle.At, CardKit.H24), png);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
         {
@@ -304,6 +296,41 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
     }
 
     static string DragRoot => Path.Combine(Path.GetTempPath(), "Shammy circles");
+
+    /// <summary>
+    /// Writes a circled picture for a drag out of Shammy (this card, the answer card) into one tidied temp folder:
+    /// copies only have to outlive the drop, so older ones go on each new drag and all of them at start and exit.
+    /// Throws on IO errors.
+    /// </summary>
+    internal static string WriteDragFile(string folder, string fileName, byte[] png)
+    {
+        var root = DragRoot;
+        if (Directory.Exists(root))
+            foreach (var dir in Directory.EnumerateDirectories(root))
+                if (Directory.GetLastWriteTime(dir) < DateTime.Now.AddHours(-1))
+                    try { Directory.Delete(dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        var target = Path.Combine(root, folder);
+        Directory.CreateDirectory(target);
+        var path = Path.Combine(target, fileName);
+        File.WriteAllBytes(path, png);
+        return path;
+    }
+
+    /// <summary>Deletes every dragged copy (and the answer card's old folder from before they shared this one).</summary>
+    static void DeleteDragFiles()
+    {
+        foreach (var dir in new[] { DragRoot, Path.Combine(Path.GetTempPath(), "Shammy", "circles") })
+        {
+            try
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warn("Tidying dragged circle pictures failed", ex);
+            }
+        }
+    }
 
     public void HoldOpen(bool on) => _ctx.Notch.ExpandedView.HoldOpen(on);
 
@@ -408,13 +435,6 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
         if (HostLinks.RememberCircle == _remember) HostLinks.RememberCircle = null;
         HostLinks.OpenCircles = null;
         // Pictures dragged out today were copies for the drop; the kept (encrypted) ones stay.
-        try
-        {
-            if (Directory.Exists(DragRoot)) Directory.Delete(DragRoot, true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Log.Warn("Tidying dragged circle pictures failed", ex);
-        }
+        DeleteDragFiles();
     }
 }

@@ -392,14 +392,13 @@ public partial class AnswerView : UserControl
         if (text is null && m.DragPng is null) return;
         var data = new DataObject();
         if (text is not null) data.SetData(DataFormats.UnicodeText, text);
+        string? file = null;
         if (m.DragPng is { } png)
         {
             try
             {
-                var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Shammy", "circles");
-                System.IO.Directory.CreateDirectory(dir);
-                var file = System.IO.Path.Combine(dir, $"Circle {DateTime.Now:d MMM h.mm tt}.png");
-                System.IO.File.WriteAllBytes(file, png);
+                // Circle memory's tidied drag folder, so the copy doesn't stay in %TEMP%.
+                file = Modules.CircleMemory.CircleMemoryModule.WriteDragFile(Guid.NewGuid().ToString("N"), $"Circle {DateTime.Now:d MMM h.mm tt}.png", png);
                 data.SetData(DataFormats.FileDrop, new[] { file });
             }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
@@ -412,6 +411,8 @@ public partial class AnswerView : UserControl
         {
             var done = DragDrop.DoDragDrop(Moment, data, DragDropEffects.Copy);
             if (done != DragDropEffects.None) Say("Dropped");
+            // Nothing took the copy: it goes now (a dropped one is left for the drop target to finish reading).
+            else if (file is not null) System.IO.File.Delete(file);
         }
         catch (Exception ex)
         {
