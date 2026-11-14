@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Shammy.Core.Conversions;
 
 namespace Shammy.Core.Shopping;
 
@@ -114,26 +115,5 @@ public static class ShoppingOffers
             .ToHashSet();
 
     /// <summary>₹ in Indian grouping: 1,18,000 · 1,199 · 749.50.</summary>
-    public static string Rupees(decimal amount)
-    {
-        var whole = decimal.Truncate(amount);
-        var paise = amount - whole;
-        var digits = ((long)whole).ToString(CultureInfo.InvariantCulture);
-        string grouped;
-        if (digits.Length <= 3) grouped = digits;
-        else
-        {
-            var last3 = digits[^3..];
-            var rest = digits[..^3];
-            var parts = new List<string>();
-            while (rest.Length > 2)
-            {
-                parts.Insert(0, rest[^2..]);
-                rest = rest[..^2];
-            }
-            if (rest.Length > 0) parts.Insert(0, rest);
-            grouped = string.Join(",", parts) + "," + last3;
-        }
-        return paise > 0 ? $"₹{grouped}.{(int)Math.Round(paise * 100):00}" : $"₹{grouped}";
-    }
+    public static string Rupees(decimal amount) => Currency.Format((double)amount, "INR");
 }

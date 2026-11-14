@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Shammy.Core.Conversions;
 
 namespace Shammy.Core.Search;
 
@@ -297,11 +298,8 @@ public static partial class CircleSense
     }
 
     /// <summary>Rupees in the Indian grouping (₹1,20,000), others in the usual one; paise only when there are some.</summary>
-    static string Money(double value, string currency)
-    {
-        var format = currency == "₹" ? CultureInfo.GetCultureInfo("en-IN").NumberFormat : CultureInfo.InvariantCulture.NumberFormat;
-        return value.ToString(value % 1 == 0 ? "#,0" : "#,0.00", format);
-    }
+    static string Money(double value, string currency) =>
+        currency == "₹" ? Currency.Format(value, "INR").Replace("₹", "") : value.ToString(value % 1 == 0 ? "#,0" : "#,0.00", CultureInfo.InvariantCulture);
 
     // ---- A word or name worth explaining -----------------------------------------------------------------------
 
