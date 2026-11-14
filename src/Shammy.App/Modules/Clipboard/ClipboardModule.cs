@@ -59,7 +59,8 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
 
         _history.Load(ctx.Load<ClipStore>().Items.Where(e => e is { Kind: not ClipKind.Image, Text: not null, Files: not null }));
         _history.Changed += () => Restart(_saveDelay);
-        if (_history.Expire(DateTime.Now - KeepFor) > 0) Persist();
+        ApplyHistorySettings();
+        ctx.Settings.Changed += OnSettingChanged;
         _expiry = new DispatcherTimer(TimeSpan.FromMinutes(10), DispatcherPriority.Background,
             (_, _) => _history.Expire(DateTime.Now - KeepFor), ctx.Ui);
 
@@ -254,6 +255,27 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     void Remember(ClipEntry entry)
     {
         if (_ctx.Settings.ClipboardHistoryEnabled) _history.Add(entry);
+    }
+
+    void OnSettingChanged(string name)
+    {
+        if (name is not (nameof(AppSettings.ClipboardHistoryEnabled) or nameof(AppSettings.ClipboardRetentionHours) or "")) return;
+        if (!_ctx.Ui.CheckAccess())
+        {
+            _ctx.Ui.BeginInvoke(() => OnSettingChanged(name));
+            return;
+        }
+        ApplyHistorySettings();
+    }
+
+    /// <summary>
+    /// History off forgets what's kept too, not only new copies (pinned items stay, as with Clear), and a shorter
+    /// retention applies at once rather than at the next sweep. A change saves through the history's Changed.
+    /// </summary>
+    void ApplyHistorySettings()
+    {
+        if (!_ctx.Settings.ClipboardHistoryEnabled) _history.Clear();
+        _history.Expire(DateTime.Now - KeepFor);
     }
 
     void ShowPreview(string text, ImageSource? thumb)
@@ -725,6 +747,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     public void Dispose()
     {
         if (Connect.Links.Clipboard == this) Connect.Links.Clipboard = null;
+        if (_ctx is not null) _ctx.Settings.Changed -= OnSettingChanged;
         _listener?.Dispose();
         _screens?.Dispose();
         _readDelay?.Stop();
