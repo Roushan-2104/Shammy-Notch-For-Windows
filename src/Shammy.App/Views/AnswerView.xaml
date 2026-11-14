@@ -102,7 +102,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource Icon}" Text="&#xE720;" FontSize="13" Foreground="{DynamicResource WallText2}" Margin="0,0,9,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="MomentAskHint" Grid.Column="1" Text="Or say or type what to do" FontFamily="{DynamicResource WallFont}" FontSize="13"
+                    <TextBlock x:Name="MomentAskHint" Grid.Column="1" Text="Or type what to do: translate, explain, copy…" FontFamily="{DynamicResource WallFont}" FontSize="13"
                                Foreground="{DynamicResource WallText2}" VerticalAlignment="Center" IsHitTestVisible="False" />
                     <TextBox x:Name="MomentAskBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource WallText}"
                              CaretBrush="{DynamicResource WallText}" FontFamily="{DynamicResource WallFont}" FontSize="13" VerticalContentAlignment="Center"

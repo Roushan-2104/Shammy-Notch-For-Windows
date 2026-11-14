@@ -75,7 +75,7 @@ internal static class CircleMoments
 
     static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
-    static IReadOnlyList<MomentSend> Sends(SelectionInfo s, Action close)
+    internal static IReadOnlyList<MomentSend> Sends(SelectionInfo s, Action close)
     {
         var list = new List<MomentSend>();
         if (CircleSend.CanNote(s)) list.Add(new MomentSend("", "Save to Notes", () => Task.FromResult<string?>(Word(CircleSend.ToNotes(s), "Saved to Notes"))));
@@ -102,11 +102,11 @@ internal static class CircleMoments
 
     static string Word(CommandResult r, string ok) => r.IsError ? r.Title : ok;
 
-    static MomentAction Copy(string text, string label = "Copy") =>
+    internal static MomentAction Copy(string text, string label = "Copy") =>
         new(label, () => ClipboardText.TrySet(text) ? "Copied" : "Clipboard is busy");
 
     /// <summary>Opens a link or a tel:/mailto: address in its app; a word back when nothing could, else null (the moment closes).</summary>
-    static string? Open(string target, string? missing)
+    internal static string? Open(string target, string? missing)
     {
         try
         {
@@ -122,7 +122,7 @@ internal static class CircleMoments
     }
 
     /// <summary>A Shammy reminder at the circled time (9 AM on a circled day with no time).</summary>
-    static string Remind(CircleMeaning m)
+    internal static string Remind(CircleMeaning m)
     {
         if (Modules.Connect.Links.Notes is not { } notes) return "Reminders are off";
         var due = m.HasTime ? m.At!.Value : m.At!.Value.Date.AddHours(9);

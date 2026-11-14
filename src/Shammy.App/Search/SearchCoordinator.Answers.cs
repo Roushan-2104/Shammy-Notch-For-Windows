@@ -50,10 +50,11 @@ internal partial class SearchCoordinator
     /// Asks Google AI Mode <paramref name="question"/> and shows its short answer in the island. Falls back to the full
     /// results when no short answer appears in time. <paramref name="label"/> is the moment's quiet top line.
     /// </summary>
-    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null)
+    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null, string? title = null)
     {
         var ai = full with { Query = question, Mode = SearchMode.Ai, Png = null, Page = null };
-        string title = Clip(full.Selection is { Text.Length: > 0 } ? question : full.DisplayQuery.Length > 0 ? full.DisplayQuery : question);
+        // The big line: what was asked about (the circled thing) or the question itself.
+        title = Clip(title ?? (full.Selection is { Text.Length: > 0 } sel ? sel.Text : full.DisplayQuery.Length > 0 ? full.DisplayQuery : question), 60);
         label ??= "You asked";
 
         // At once: the question in the island, AI Mode thinking.
@@ -173,7 +174,7 @@ internal partial class SearchCoordinator
         if (translated is null)
         {
             Log.Info("Google Translate gave nothing: asking AI Mode instead");
-            await AskAsync(session, $"Translate to {LanguageName(target)}: \"{Clip(text, 900)}\"", full, spoken: false, label: label);
+            await AskAsync(session, $"Translate to {LanguageName(target)}, only the translation: \"{Clip(text, 900)}\"", full, spoken: false, label: label, title: Clip(text, 60));
             return;
         }
         string other = target == "hi" ? "en" : "hi";

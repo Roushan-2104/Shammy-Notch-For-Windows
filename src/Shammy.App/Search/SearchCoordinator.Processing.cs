@@ -127,10 +127,11 @@ internal partial class SearchCoordinator
 
         // Understood on this PC (a number to call, a date, a sum, a colour…) or a short fact: the answer flows into the
         // island as a moment instead of a full results card. Only for a silent circle: a spoken question is a search.
-        if (selection is not null && info is not null && query.Length == 0)
+        // A circle: what was said while drawing it picks the action; a silent one answers or shows the choices.
+        if (selection is not null && info is not null)
         {
-            if (await TryMomentAsync(session, selection, info, ContextFor(selection, query, filters, info))) return;
-            if (session != _session) return;
+            await CircleAsync(session, selection, info, ContextFor(selection, "", filters, info), spoken.Trim());
+            return;
         }
 
         // Spoken commands ("play …", "timer 10 minutes") run instead of a web search.
@@ -192,42 +193,6 @@ internal partial class SearchCoordinator
     Context? _momentFull;
     CancellationTokenSource? _factLookup;
 
-    /// <summary>
-    /// Shows what was circled as a moment in the island when Shammy understands it on this PC, or finds a short fact for
-    /// a circled name or term. True when it did (the moment is up or on its way); false means search as usual.
-    /// </summary>
-    async Task<bool> TryMomentAsync(int session, Selection selection, Modules.SelectionInfo info, Context full)
-    {
-        CircleMeaning? meaning = null;
-        try { meaning = Understand(selection, info); }
-        catch (Exception ex) { Log.Warn("Reading the circle failed", ex); }
-        // Kinds the island has no moment for yet go on to the short fact or search, as before.
-        if (meaning is not null && !CircleMoments.Shows(meaning.Kind)) meaning = null;
-
-        Views.IslandMoment? moment = null;
-        if (meaning is not null)
-        {
-            Log.Info($"Circle understood on this PC: {meaning.Kind}");
-            moment = CircleMoments.For(meaning, info, Cancel);
-        }
-        else if (selection.Kind == SelectionKind.Text && QuickFacts.Worth(selection.Text))
-        {
-            _notch.SearchBarView.ShowThinking("Looking it up…");
-            _factLookup?.Cancel();
-            _factLookup = new CancellationTokenSource();
-            var fact = await QuickFacts.TryAsync(selection.Text, _factLookup.Token);
-            if (session != _session) return true;
-            if (fact is not null)
-            {
-                Log.Info("Circle answered with a short fact");
-                moment = CircleMoments.For(fact, info, Cancel);
-            }
-        }
-        if (moment is null) return false;
-        ShowMoment(session, moment, full);
-        return true;
-    }
-
     /// <summary>Words: what they are. A picture: one colour filling it is that colour; otherwise any words in it.</summary>
     static CircleMeaning? Understand(Selection selection, Modules.SelectionInfo info)
     {
@@ -283,9 +248,8 @@ internal partial class SearchCoordinator
         var selection = new Selection(SelectionKind.Text, text, new Box(0, 0, 10, 10));
         var info = new Modules.SelectionInfo(text, null, null, false);
         var full = new Context(text, text, _settings.DefaultSearchMode, SearchFilter.None, null, null) { Selection = info };
-        if (await TryMomentAsync(session, selection, info, full)) return "moment";
-        if (session == _session) await ShowResultAsync(full);
-        return "search";
+        await CircleAsync(session, selection, info, full, "");
+        return _notch.Mode == NotchMode.Result ? "search" : "moment";
     }
 
     /// <summary>Runs the first module command that recognises the text. Returns false if none did.</summary>

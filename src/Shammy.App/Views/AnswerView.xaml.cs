@@ -51,6 +51,9 @@ public partial class AnswerView : UserControl
         MomentAskBox.TextChanged += (_, _) => MomentAskHint.Visibility = MomentAskBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>The moment on show, if any.</summary>
+    internal IslandMoment? CurrentMoment => _moment;
+
     /// <summary>The "say or type" box (the notch hands it the keyboard when it's clicked).</summary>
     internal TextBox AskBox => MomentAskBox;
 
@@ -257,7 +260,10 @@ public partial class AnswerView : UserControl
     /// <summary>The card is as tall as what it holds (a short answer can run to a few lines).</summary>
     void FitMoment()
     {
+        // Lay out what just changed first: a direct Measure with the same size as last time would reuse the old answer.
         // DesiredSize already includes the margins.
+        UpdateLayout();
+        Moment.InvalidateMeasure();
         Moment.Measure(new Size(Width, double.PositiveInfinity));
         Height = Math.Max(120, Math.Ceiling(Moment.DesiredSize.Height));
     }

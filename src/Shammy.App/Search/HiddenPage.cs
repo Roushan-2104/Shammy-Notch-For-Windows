@@ -24,7 +24,9 @@ internal static class HiddenPage
           }
           if (at < 0) return JSON.stringify({ state: 'wait' });
           const lines = t.slice(at + 1).split('\n').map(s => s.trim())
-            .filter(s => s.length >= 40 && !/^AI (can|responses may) make mistakes/i.test(s) && !/^(Thinking|Searching)/.test(s));
+            .filter(s => (s.length >= 40 || (s.length >= 6 && /[.!?。)"”]$/.test(s)))
+                && !/^AI (can|responses may) make mistakes/i.test(s) && !/^(Thinking|Searching)/.test(s)
+                && !/^(Would you like|Do you want|Let me know|Feel free|I can also|If you'd like)/i.test(s));
           return JSON.stringify({ state: lines.length ? 'text' : 'wait', text: lines.slice(0, 2).join('\n') });
         })()
         """;

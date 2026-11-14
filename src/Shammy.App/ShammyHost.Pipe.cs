@@ -359,6 +359,22 @@ internal sealed partial class ShammyHost
                 return "ok";
             }
             case "picture-file": _ = _search.PictureForTestAsync(arg.Trim()); return "ok";
+            case "circle-say":
+            {
+                var bar = arg.IndexOf('|');
+                if (bar < 0) return "error: usage circle-say <words>|<text>";
+                _ = _search.CircleSayForTest(arg[..bar].Trim(), arg[(bar + 1)..]);
+                return "ok";
+            }
+            case "moment-ask":
+            {
+                var box = _notch.AnswerView.AskBox;
+                box.Text = arg;
+                box.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
+                    System.Windows.PresentationSource.FromVisual(box) ?? System.Windows.PresentationSource.CurrentSources.OfType<System.Windows.PresentationSource>().First(), 0, System.Windows.Input.Key.Enter)
+                    { RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent });
+                return "ok";
+            }
             // "circle-freeze" then "circle-draw x,y x,y …|seconds" (fractions of the screen): the real freeze and circle, no mouse.
             case "circle-freeze": return _search.FreezeForTest();
             case "circle-draw": return _search.DrawForTest(arg);
