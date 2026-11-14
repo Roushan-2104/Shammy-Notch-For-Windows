@@ -7,7 +7,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-using Path = System.Windows.Shapes.Path;
 
 namespace Shammy.Views.Screens;
 
@@ -43,16 +42,15 @@ internal static class ScreenKit
     /// <summary>Each weight is its own embedded family (asking one family for a weight can pick the wrong file).</summary>
     public static (FontFamily Family, FontWeight Weight) Font(Weight w)
     {
-        (string key, FontWeight weight) = w switch
+        var weight = w switch
         {
-            Weight.Medium => ("WallFontMedium", FontWeights.Medium),
-            Weight.SemiBold => ("WallFontSemiBold", FontWeights.SemiBold),
-            Weight.Bold => ("WallFont", FontWeights.Bold),
-            Weight.ExtraBold => ("WallFontExtraBold", FontWeights.ExtraBold),
-            _ => ("WallFont", FontWeights.Normal),
+            Weight.Medium => FontWeights.Medium,
+            Weight.SemiBold => FontWeights.SemiBold,
+            Weight.Bold => FontWeights.Bold,
+            Weight.ExtraBold => FontWeights.ExtraBold,
+            _ => FontWeights.Normal,
         };
-        var family = Application.Current?.TryFindResource(key) as FontFamily ?? new FontFamily("Segoe UI");
-        return (family, weight);
+        return (WallParts.Family(weight), weight);
     }
 
     /// <summary>Plain text in the wall's face, the right embedded file per weight.</summary>
@@ -103,19 +101,9 @@ internal static class ScreenKit
     /// <summary>A stroked 24×24 icon (the mockup's inline SVGs) at <paramref name="size"/>.</summary>
     public static FrameworkElement Icon(string data, Brush stroke, double size = 14, double strokeWidth = 2.2, Brush? fill = null)
     {
-        var path = new Path
-        {
-            Data = Geometry.Parse(data),
-            Stroke = stroke,
-            StrokeThickness = strokeWidth,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Fill = fill,
-        };
-        var canvas = new Canvas { Width = 24, Height = 24 };
-        canvas.Children.Add(path);
-        return new Viewbox { Width = size, Height = size, Child = canvas, IsHitTestVisible = false, VerticalAlignment = VerticalAlignment.Center };
+        var icon = Views.Cards.CardKit.Icon(data, stroke, size, strokeWidth, fill);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        return icon;
     }
 
     public static class Paths
@@ -228,24 +216,9 @@ internal static class ScreenKit
 
     // ---- Layout helpers --------------------------------------------------------------------------
 
-    public static StackPanel Row(double gap, params UIElement[] children) => Stack(Orientation.Horizontal, gap, children);
+    public static StackPanel Row(double gap, params UIElement[] children) => Views.Cards.CardKit.Row(gap, children);
 
-    public static StackPanel Column(double gap, params UIElement[] children) => Stack(Orientation.Vertical, gap, children);
-
-    static StackPanel Stack(Orientation o, double gap, UIElement[] children)
-    {
-        var panel = new StackPanel { Orientation = o };
-        for (int i = 0; i < children.Length; i++)
-        {
-            if (i > 0 && children[i] is FrameworkElement fe)
-            {
-                var m = fe.Margin;
-                fe.Margin = o == Orientation.Horizontal ? new Thickness(m.Left + gap, m.Top, m.Right, m.Bottom) : new Thickness(m.Left, m.Top + gap, m.Right, m.Bottom);
-            }
-            panel.Children.Add(children[i]);
-        }
-        return panel;
-    }
+    public static StackPanel Column(double gap, params UIElement[] children) => Views.Cards.CardKit.Column(gap, children);
 
     /// <summary>A soft fade-and-rise for content that just appeared (the mockup's "rise"); snaps with reduced motion.</summary>
     public static void Rise(FrameworkElement e, double delayMs = 0, double distance = 8)
