@@ -119,17 +119,17 @@ public class CircleSenseKindsTests
     [InlineData("3 PM PST", "4:30 AM", "3:00 PM Pacific · your time", "tomorrow, Sat 14 Nov")]
     [InlineData("10:30 GMT", "4:00 PM", "10:30 AM GMT · your time", "today")]
     [InlineData("15:00 CET", "7:30 PM", "3:00 PM Central Europe · your time", "today")]
-    [InlineData("15:00 CEST", "6:30 PM", "3:00 PM Central Europe · your time", "today")]
+    [InlineData("15:00 CEST", "7:30 PM", "3:00 PM Central Europe · your time", "today")]
     [InlineData("9am ET", "7:30 PM", "9:00 AM Eastern · your time", "today")]
     [InlineData("18:00 UTC+2", "9:30 PM", "6:00 PM UTC+2 · your time", "today")]
     [InlineData("4 pm IST", "4:00 PM", "4:00 PM India · your time", "today")]
-    [InlineData("11:00 PM EDT", "8:30 AM", "11:00 PM Eastern · your time", "tomorrow, Sat 14 Nov")]
+    [InlineData("11:00 PM EDT", "9:30 AM", "11:00 PM Eastern · your time", "tomorrow, Sat 14 Nov")]
     [InlineData("8:00 JST", "4:30 AM", "8:00 AM Japan · your time", "today")]
     [InlineData("10 AM SGT", "7:30 AM", "10:00 AM Singapore · your time", "today")]
     [InlineData("9:00 AEDT", "3:30 AM", "9:00 AM Sydney · your time", "today")]
     [InlineData("Starts 2 PM GMT+5:30", "2:00 PM", "2:00 PM GMT+5:30 · your time", "today")]
     [InlineData("1 PM GST", "2:30 PM", "1:00 PM Gulf · your time", "today")]
-    [InlineData("Webinar at 7 PM BST", "11:30 PM", "7:00 PM UK · your time", "today")]
+    [InlineData("Webinar at 7 PM BST", "12:30 AM", "7:00 PM UK · your time", "tomorrow, Sat 14 Nov")]
     public void Converts_zone_times_to_mine(string text, string display, string label, string detail)
     {
         var m = ReadAs(text, CircleKind.ZoneTime);
@@ -157,6 +157,16 @@ public class CircleSenseKindsTests
         var july = Read("9am ET", new DateTime(2026, 7, 10, 12, 0, 0));
         Assert.Equal("6:30 PM", july!.Display);
         Assert.Equal("9:00 AM Eastern · your time", july.Label);
+    }
+
+    [Fact]
+    public void A_zone_abbreviation_names_the_region_like_the_world_clock()
+    {
+        // In November New York is on EST, so "EDT" still means New York clock time: the same answer as "5pm edt in ist".
+        var circled = ReadAs("5:00 PM EDT", CircleKind.ZoneTime);
+        Assert.True(Shammy.Core.Conversions.WorldClock.TryParse("5pm edt in ist", out var q));
+        var spoken = Shammy.Core.Conversions.WorldClock.Answer(q, new DateTime(2026, 11, 13, 9, 30, 0, DateTimeKind.Utc), Ist);
+        Assert.StartsWith(circled.Display, spoken.Title);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Shammy.Core.Conversions;
 
 namespace Shammy.Core.Search;
 
@@ -12,17 +13,18 @@ public static partial class CircleSense
         @"(?:\s*([+\-−])\s*(\d{1,2})(?::?(\d{2}))?)?\)?(?![a-z0-9])",
         Opt, Budget);
 
-    /// <summary>A zone's offset in minutes and the name the island uses; null minutes means US rules decide (ET, PT…).</summary>
-    static readonly Dictionary<string, (int? Minutes, string Name, int UsStandard)> Zones = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// The name the island uses for each zone. The clock itself comes from the world clock's Windows zone, so an
+    /// abbreviation names the region as there: "6 PM EST" in July is 6 PM New York time, the same answer everywhere.
+    /// </summary>
+    static readonly Dictionary<string, string> ZoneNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["PST"] = (-480, "Pacific", 0), ["PDT"] = (-420, "Pacific", 0), ["PT"] = (null, "Pacific", -480),
-        ["EST"] = (-300, "Eastern", 0), ["EDT"] = (-240, "Eastern", 0), ["ET"] = (null, "Eastern", -300),
-        ["CST"] = (-360, "Central", 0), ["CDT"] = (-300, "Central", 0), ["CT"] = (null, "Central", -360),
-        ["MST"] = (-420, "Mountain", 0), ["MDT"] = (-360, "Mountain", 0), ["MT"] = (null, "Mountain", -420),
-        ["GMT"] = (0, "GMT", 0), ["UTC"] = (0, "UTC", 0), ["BST"] = (60, "UK", 0),
-        ["CET"] = (60, "Central Europe", 0), ["CEST"] = (120, "Central Europe", 0),
-        ["IST"] = (330, "India", 0), ["JST"] = (540, "Japan", 0), ["SGT"] = (480, "Singapore", 0),
-        ["AEST"] = (600, "Sydney", 0), ["AEDT"] = (660, "Sydney", 0), ["GST"] = (240, "Gulf", 0),
+        ["PST"] = "Pacific", ["PDT"] = "Pacific", ["PT"] = "Pacific",
+        ["EST"] = "Eastern", ["EDT"] = "Eastern", ["ET"] = "Eastern",
+        ["CST"] = "Central", ["CDT"] = "Central", ["CT"] = "Central",
+        ["MST"] = "Mountain", ["MDT"] = "Mountain", ["MT"] = "Mountain",
+        ["GMT"] = "GMT", ["UTC"] = "UTC", ["BST"] = "UK", ["CET"] = "Central Europe", ["CEST"] = "Central Europe",
+        ["IST"] = "India", ["JST"] = "Japan", ["SGT"] = "Singapore", ["AEST"] = "Sydney", ["AEDT"] = "Sydney", ["GST"] = "Gulf",
     };
 
     static CircleMeaning? ZoneTime(string text, DateTime now, CultureInfo culture, TimeZoneInfo local)
@@ -44,7 +46,8 @@ public static partial class CircleSense
         else if (h > 23) return null;
 
         var abbr = m.Groups[4].Value.ToUpperInvariant();
-        var (fixedMinutes, name, usStandard) = Zones[abbr];
+        var name = ZoneNames[abbr];
+        TimeZoneInfo theirZone;
         if (m.Groups[5].Success)
         {
             // Only GMT and UTC take an offset ("UTC+2", "GMT+5:30").
@@ -52,9 +55,11 @@ public static partial class CircleSense
             int oh = Int(m, 6), om = m.Groups[7].Success ? Int(m, 7) : 0;
             if (oh > 14 || om > 59) return null;
             int sign = m.Groups[5].Value == "+" ? 1 : -1;
-            fixedMinutes = sign * (oh * 60 + om);
             name = abbr + (sign > 0 ? "+" : "−") + oh.ToString(CultureInfo.InvariantCulture) + (om > 0 ? ":" + om.ToString("00", CultureInfo.InvariantCulture) : "");
+            theirZone = TimeZoneInfo.CreateCustomTimeZone(name, TimeSpan.FromMinutes(sign * (oh * 60 + om)), name, name);
         }
+        else if (WorldClock.TryFindZone(abbr, out var zone)) theirZone = zone.Info;
+        else return null;
 
         // Words around it: a date ("Sat 21 Nov") sets the day, a few words are a title, more is a sentence.
         var rest = Regex.Replace(Cut(text, m), @"\s+", " ").Trim(' ', '·', '|', ',', '-', '–', '@', ':');
@@ -68,13 +73,12 @@ public static partial class CircleSense
             else title = rest;
         }
 
-        int Offset(DateTime date) => fixedMinutes ?? (UsSummer(date) ? usStandard + 60 : usStandard);
-
-        var utcNow = now - local.GetUtcOffset(now);
-        var theirNow = utcNow.AddMinutes(Offset(utcNow.Date));
+        var utcNow = DateTime.SpecifyKind(now - local.GetUtcOffset(now), DateTimeKind.Utc);
+        var theirNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, theirZone);
         var theirDay = day ?? theirNow.Date;
-        var theirs = theirDay.AddHours(h).AddMinutes(min);
-        var utc = DateTime.SpecifyKind(theirs.AddMinutes(-Offset(theirDay)), DateTimeKind.Utc);
+        var theirs = DateTime.SpecifyKind(theirDay.AddHours(h).AddMinutes(min), DateTimeKind.Unspecified);
+        if (theirZone.IsInvalidTime(theirs)) theirs = theirs.AddHours(1); // skipped by a DST jump
+        var utc = TimeZoneInfo.ConvertTimeToUtc(theirs, theirZone);
         var mine = DateTime.SpecifyKind(utc + local.GetUtcOffset(utc), DateTimeKind.Unspecified);
 
         var dayWord = mine.Date == now.Date ? "today"
@@ -93,19 +97,4 @@ public static partial class CircleSense
     }
 
     static string Clock(DateTime t) => t.ToString("h:mm tt", CultureInfo.InvariantCulture);
-
-    /// <summary>US daylight saving: from the second Sunday in March to the first Sunday in November.</summary>
-    static bool UsSummer(DateTime date)
-    {
-        var start = NthSunday(date.Year, 3, 2);
-        var end = NthSunday(date.Year, 11, 1);
-        return date.Date >= start && date.Date < end;
-    }
-
-    static DateTime NthSunday(int year, int month, int n)
-    {
-        var first = new DateTime(year, month, 1);
-        int toSunday = ((int)DayOfWeek.Sunday - (int)first.DayOfWeek + 7) % 7;
-        return first.AddDays(toSunday + 7 * (n - 1));
-    }
 }
