@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="Shammy: a floating island for Windows" width="100%">
+  <img src="docs/images/hero.png" alt="Shammy: circle 3 PM PST in a chat message and the island answers 4:30 AM, your time" width="100%">
 </p>
 
 <p align="center">
