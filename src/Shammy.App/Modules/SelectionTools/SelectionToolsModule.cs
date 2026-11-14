@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Imaging;
+using Shammy.Core.Clipboard;
 using Shammy.Core.Conversions;
+using Shammy.Modules.ClipboardHistory;
 using Shammy.Views;
 
 namespace Shammy.Modules.SelectionTools;
@@ -222,17 +224,27 @@ internal static class ClipboardText
         return false;
     }
 
+    /// <summary>Copies longer than this are never offered or sent anywhere (the same limit as To phone).</summary>
+    const int MaxText = 2_000_000;
+
     /// <summary>
     /// The clipboard's text on the UI thread, retrying briefly while another app holds the clipboard: "" when it
-    /// holds no text, null when it stayed busy.
+    /// holds no text, a copy password managers mark private, or one too big to be meant; null when it stayed busy.
     /// </summary>
     public static string? TryGet()
     {
+        // Checking the format needs no clipboard lock.
+        if (ClipNative.HasFormat(ClipPrivacy.ExcludeFormat)) return "";
         for (int i = 0; i < 3; i++)
         {
             try
             {
-                return System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() ?? "" : "";
+                if (!System.Windows.Clipboard.ContainsText()) return "";
+                if (System.Windows.Clipboard.GetDataObject() is { } data
+                    && ClipPrivacy.ShouldSkip(false, ClipboardModule.Flag(data, ClipPrivacy.HistoryFormat), ClipboardModule.Flag(data, ClipPrivacy.CloudFormat)))
+                    return "";
+                var text = System.Windows.Clipboard.GetText() ?? "";
+                return text.Length <= MaxText ? text : "";
             }
             catch (ExternalException)
             {
