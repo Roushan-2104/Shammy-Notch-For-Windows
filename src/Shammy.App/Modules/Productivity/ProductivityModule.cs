@@ -674,7 +674,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
             card.IsVisibleChanged += (_, _) =>
             {
                 if (card.IsVisible) seen = true;
-                else if (seen) After(TimeSpan.FromMilliseconds(400), () =>
+                else if (seen) UiDelay.After(TimeSpan.FromMilliseconds(400), () =>
                 {
                     if (_card == card && !card.IsVisible) CloseCard();
                 });
@@ -700,7 +700,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         // Another module may have replaced the card since; only close it if it's still ours.
         if (card.Parent is not null) _ctx.CloseCard();
         ClearGlow();
-        if (_cardQueue.Count > 0) After(TimeSpan.FromMilliseconds(450), () =>
+        if (_cardQueue.Count > 0) UiDelay.After(TimeSpan.FromMilliseconds(450), () =>
         {
             if (_card is null) ShowNextCard();
         });
@@ -818,15 +818,4 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
     // A long timer can end tomorrow: "Ends 10:09 PM" then reads as tonight.
     static string ClockText(DateTime t) =>
         t.Date == DateTime.Now.Date ? Shammy.Core.Cards.ClockFormat.Time(t, Kit.CardKit.H24) : TimeFormat.When(t, DateTime.Now, Kit.CardKit.H24);
-
-    static void After(TimeSpan delay, Action action)
-    {
-        var timer = new DispatcherTimer { Interval = delay };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            action();
-        };
-        timer.Start();
-    }
 }

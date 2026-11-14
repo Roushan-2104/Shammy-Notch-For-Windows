@@ -648,15 +648,12 @@ internal sealed class QuickModule : IShammyModule
     void After(TimeSpan delay, Action run)
     {
         _pending?.Stop();
-        var timer = new DispatcherTimer(DispatcherPriority.Normal, _ctx.Ui) { Interval = delay };
-        timer.Tick += (_, _) =>
+        DispatcherTimer? timer = null;
+        timer = _pending = UiDelay.After(delay, () =>
         {
-            timer.Stop();
             if (ReferenceEquals(_pending, timer)) _pending = null;
             run();
-        };
-        _pending = timer;
-        timer.Start();
+        }, _ctx.Ui, DispatcherPriority.Normal);
     }
 
     /// <summary>

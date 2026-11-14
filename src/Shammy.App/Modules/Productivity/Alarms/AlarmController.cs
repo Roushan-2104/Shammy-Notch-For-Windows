@@ -227,7 +227,7 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
     }
 
     /// <summary>A covered ring card: look again every few seconds while it rings, and come back once the notch is free.</summary>
-    void ComeBack(AlarmRingView card) => After(TimeSpan.FromSeconds(4), () =>
+    void ComeBack(AlarmRingView card) => UiDelay.After(TimeSpan.FromSeconds(4), () =>
     {
         if (_ringing is null || _ringCard != card || card.IsVisible) return;
         if (Busy(_ctx.Notch.Mode)) ComeBack(card);
@@ -655,16 +655,5 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
                $"snooze={DefaultSnoozeMinutes} gentle={GentleWake} breaks={BreaksFullscreen} " +
                $"wake={(_wake.IsEnabled ? $"{_wake.Interval.TotalSeconds:0.#}s" : "off")} now={now:HH:mm:ss} " +
                string.Join(" ", List.Select(Describe));
-    }
-
-    static void After(TimeSpan delay, Action action)
-    {
-        var timer = new DispatcherTimer { Interval = delay };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            action();
-        };
-        timer.Start();
     }
 }

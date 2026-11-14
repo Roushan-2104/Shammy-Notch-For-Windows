@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Shammy.Core.Activities;
 using Shammy.Core.Notch;
+using Shammy.Infrastructure;
 using Shammy.Interop;
 using Shammy.Modules;
 using Shammy.Views;
@@ -32,24 +33,13 @@ internal sealed class KeyboardIndicators
         _ui = ui;
         _post = post;
         _caps = (Native.GetKeyState(VK_CAPITAL) & 1) != 0;
-        keys.CapsLockPressed += () => After(TimeSpan.FromMilliseconds(100), ReadCaps);
+        keys.CapsLockPressed += () => UiDelay.After(TimeSpan.FromMilliseconds(100), ReadCaps, _ui);
         keys.LanguageComboStarted += () => _layoutBefore = ForegroundLayout();
-        keys.LanguageComboEnded += () => After(TimeSpan.FromMilliseconds(250), ReadLayout);
+        keys.LanguageComboEnded += () => UiDelay.After(TimeSpan.FromMilliseconds(250), ReadLayout, _ui);
     }
 
     /// <summary>The current keyboard language's short name ("ENG").</summary>
     public static string CurrentLabel() => KeyboardPills.Label(LanguageId(ForegroundLayout()));
-
-    void After(TimeSpan delay, Action action)
-    {
-        var timer = new DispatcherTimer(DispatcherPriority.Background, _ui) { Interval = delay };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            action();
-        };
-        timer.Start();
-    }
 
     /// <summary>Each press flips the state; the read confirms it (or, if it lags, the flip wins).</summary>
     void ReadCaps()
