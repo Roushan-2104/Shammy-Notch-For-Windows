@@ -32,17 +32,26 @@ internal static class HoverReader
 
         var pixels = Copy(left, top, w, h);
         if (pixels is null) return null;
-        // Small screen text reads far better at twice the size; a high-DPI screen's text is big enough already.
+        // Small screen text reads far better at twice the size; a high-DPI screen's text is big enough already. Large
+        // text at twice the size is too big for OCR, though (it reads nothing), so a miss is read again as it is.
         int factor = scale < 1.4 ? 2 : 1;
-        if (factor == 2) pixels = Double(pixels, w, h);
-        int sw = w * factor, sh = h * factor;
-        var image = BitmapSource.Create(sw, sh, 96, 96, PixelFormats.Bgra32, null, pixels, sw * 4);
-        image.Freeze();
-        var shot = new ScreenShot { Image = image, Pixels = pixels, Width = sw, Height = sh, Bounds = new Native.RECT { Left = left, Top = top, Right = left + w, Bottom = top + h } };
-        var words = await OcrService.RecognizeAsync(shot);
+        var words = await Recognize(factor == 2 ? Double(pixels, w, h) : pixels, w * factor, h * factor, left, top, w, h);
+        if (words.Count == 0 && factor == 2)
+        {
+            words = await Recognize(pixels, w, h, left, top, w, h);
+            factor = 1;
+        }
         if (factor == 1) return new HoverRead(words, left, top);
         var back = words.Select(o => o with { Bounds = new Box(o.Bounds.X / factor, o.Bounds.Y / factor, o.Bounds.W / factor, o.Bounds.H / factor) }).ToList();
         return new HoverRead(back, left, top);
+    }
+
+    static Task<IReadOnlyList<OcrWord>> Recognize(byte[] pixels, int sw, int sh, int left, int top, int w, int h)
+    {
+        var image = BitmapSource.Create(sw, sh, 96, 96, PixelFormats.Bgra32, null, pixels, sw * 4);
+        image.Freeze();
+        var shot = new ScreenShot { Image = image, Pixels = pixels, Width = sw, Height = sh, Bounds = new Native.RECT { Left = left, Top = top, Right = left + w, Bottom = top + h } };
+        return OcrService.RecognizeAsync(shot);
     }
 
     /// <summary>The screen's pixels in a rectangle (BGRA, top-down), or null.</summary>

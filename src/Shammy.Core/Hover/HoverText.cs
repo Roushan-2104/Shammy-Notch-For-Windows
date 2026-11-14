@@ -131,6 +131,10 @@ public static class HoverText
         first = Regex.Replace(first, @"\s+", " ", RegexOptions.None, Budget).Trim();
         if (first.Length == 0) return null;
 
+        // Citations before the meaning: "According to the Merriam-Webster definition of ephemeral, it means …".
+        first = Regex.Replace(first, @"^(?:according\s+to|as\s+(?:defined|noted|described|explained)\s+(?:by|in))\s+[^,]{3,90},\s*", "",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, Budget);
+        first = Regex.Replace(first, @"^(?:it|this(?:\s+word)?)\s+(?:means|refers\s+to|describes)\s+", "", RegexOptions.IgnoreCase, Budget);
         var w = Regex.Escape(word.Trim());
         // A heading: the word itself, with a part of speech or a pronunciation and nothing more.
         var bare = Regex.Replace(first, $@"(?i){w}|\([^)]*\)|/[^/]*/|\[[^\]]*\]|[^\p{{L}}]", "", RegexOptions.None, Budget);

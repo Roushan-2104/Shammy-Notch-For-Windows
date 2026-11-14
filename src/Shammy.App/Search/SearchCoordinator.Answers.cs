@@ -51,7 +51,8 @@ internal partial class SearchCoordinator
     /// Asks Google AI Mode <paramref name="question"/> and shows its short answer in the island. Falls back to the full
     /// results when no short answer appears in time. <paramref name="label"/> is the moment's quiet top line.
     /// </summary>
-    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null, string? title = null)
+    /// <param name="brief">The reply is one short line (a translation): read it however short it is.</param>
+    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null, string? title = null, bool brief = false)
     {
         var ai = full with { Query = question, Mode = SearchMode.Ai, Png = null, Page = null };
         // The big line: what was asked about (the circled thing) or the question itself.
@@ -71,7 +72,10 @@ internal partial class SearchCoordinator
         var cts = _answerRead = new CancellationTokenSource();
         _ctx = ai;
         var url = QueryBuilder.BuildUrl(question, SearchMode.Ai);
-        var answer = await HiddenPage.ReadAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle, url, TimeSpan.FromSeconds(15), cts.Token);
+        var parent = new System.Windows.Interop.WindowInteropHelper(_notch).Handle;
+        var answer = brief
+            ? await HiddenPage.ReadBriefAsync(parent, url, TimeSpan.FromSeconds(15), cts.Token)
+            : await HiddenPage.ReadAsync(parent, url, TimeSpan.FromSeconds(15), cts.Token);
         if (session != _session || cts.IsCancellationRequested) return;
         if (answer is null)
         {
@@ -175,7 +179,7 @@ internal partial class SearchCoordinator
         if (translated is null)
         {
             Log.Info("Google Translate gave nothing: asking AI Mode instead");
-            await AskAsync(session, $"Translate to {LanguageName(target)}, only the translation: \"{Clip(text, 900)}\"", full, spoken: false, label: label, title: Clip(text, 60));
+            await AskAsync(session, $"Translate to {LanguageName(target)}, only the translation: \"{Clip(text, 900)}\"", full, spoken: false, label: label, title: Clip(text, 60), brief: true);
             return;
         }
         string other = target == "hi" ? "en" : "hi";

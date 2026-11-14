@@ -94,6 +94,13 @@ internal sealed class HoverAnswers
         if (parent == IntPtr.Zero) return null;
         // Always into English: English text is never translated (Hindi only if asked, and a hover doesn't ask).
         var translated = await HiddenPage.TranslateAsync(parent, t.Text, "en", TranslateLimit, ct);
+        if (translated is null && !ct.IsCancellationRequested)
+        {
+            // Google Translate's page unavailable (a robot check, slow): AI Mode translates instead, as circling does.
+            var url = QueryBuilder.BuildUrl($"Translate to English, reply with only the translation: \"{t.Text}\"", SearchMode.Ai);
+            var answer = await HiddenPage.ReadBriefAsync(parent, url, MeaningLimit, ct);
+            translated = answer?.Text.Trim().Trim('"', '“', '”').Trim();
+        }
         return HoverText.Translation(t.Text, translated, t.Language);
     }
 

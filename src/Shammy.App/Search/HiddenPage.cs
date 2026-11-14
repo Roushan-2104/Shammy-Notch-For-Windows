@@ -40,6 +40,26 @@ internal static class HiddenPage
     public static Task<ShortAnswer?> ReadAsync(IntPtr parent, Uri url, TimeSpan limit, CancellationToken ct) =>
         ReadAsync(parent, core => core.Navigate(url.AbsoluteUri), limit, ct);
 
+    // A one-line reply ("Weekend" for a translation): the first real line under the question, however short, skipping
+    // the page's own labels. Taken once it has stayed the same for a moment, so a reply still streaming isn't cut.
+    const string BriefProbe = """
+        (() => {
+          if (/\/sorry\//.test(location.href)) return JSON.stringify({ state: 'robot' });
+          const t = document.body ? document.body.innerText : '';
+          const k = t.indexOf('AI Mode reply for');
+          if (k < 0) return JSON.stringify({ state: 'wait' });
+          const lines = t.slice(t.indexOf('\n', k) + 1).split('\n').map(s => s.trim())
+            .filter(s => /[\p{L}\p{N}]/u.test(s)
+                && !/^(Skip to|AI Mode response|AI (can|responses may) make mistakes|Thinking|Searching|Show (more|all)|Ask anything)/i.test(s)
+                && !/^(Would you like|Do you want|Let me know|Feel free|I can also|If you'd like)/i.test(s));
+          return JSON.stringify({ state: lines.length ? 'text' : 'wait', text: lines.length ? lines[0] : '' });
+        })()
+        """;
+
+    /// <summary>AI Mode's one-line reply on <paramref name="url"/> (a translation, a single word), or null.</summary>
+    public static Task<ShortAnswer?> ReadBriefAsync(IntPtr parent, Uri url, TimeSpan limit, CancellationToken ct) =>
+        ReadAsync(parent, core => core.Navigate(url.AbsoluteUri), limit, ct, BriefProbe, steadyPolls: 2);
+
     const string TranslateProbe = """
         (() => {
           if (/\/sorry\//.test(location.href)) return JSON.stringify({ state: 'robot' });
