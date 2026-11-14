@@ -384,6 +384,7 @@ internal sealed class StageScriptSheet : CardSheet, Shammy.Shell.ICardDrop
         StageSheetMode.Type => string.Create(CultureInfo.InvariantCulture,
             $"mode=type words={PrompterText.Words(_box?.Text)} start={(_start?.IsEnabled == true ? "on" : "off")} focused={_box?.IsKeyboardFocused == true} height={FitHeight:0}"),
         _ => string.Create(CultureInfo.InvariantCulture,
-            $"mode=offer buttons={(_host.HasScript ? "Keep my script" : "Not now")},Use it words={PrompterText.Words(_copied)} title=\"{StageScripts.Title(_copied)}\" height={FitHeight:0}"),
+            $"mode=offer buttons={(_host.HasScript ? "Keep my script" : "Not now")},Use it words={PrompterText.Words(_copied)} height={FitHeight:0}"),
+        // (Never what was copied: the pipe's answers end up in test logs.)
     };
 }

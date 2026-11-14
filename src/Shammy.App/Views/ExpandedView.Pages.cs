@@ -155,10 +155,18 @@ public partial class ExpandedView
         return el;
     }
 
-    /// <summary>The feature's icon: the wheel's own glyph, else its initial.</summary>
+    // Cards that have no wheel droplet: the icon each card's own module uses.
+    static readonly IReadOnlyDictionary<string, string> CardGlyphs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["alarms"] = "", ["circles"] = "", ["health"] = "", ["quick"] = "",
+        ["battery"] = "", ["cricket"] = "", ["system"] = "",
+    };
+
+    /// <summary>The feature's icon: the wheel's own glyph or its card's, else its initial.</summary>
     static TextBlock IconFor(Essential e, double size)
     {
-        var glyph = WheelModule.GlyphFor(e.Id);
+        // The wheel answers an unknown id with its info glyph, so a card's own icon is asked first.
+        var glyph = CardGlyphs.TryGetValue(e.Id, out var card) ? card : WheelSlots.Find(e.Id) is not null ? WheelModule.GlyphFor(e.Id) : "";
         if (glyph.Length > 0) return CardKit.FluentGlyph(glyph, size);
         var letter = CardKit.Text(e.Name[..1].ToUpperInvariant(), size * 0.9, FontWeights.Bold);
         letter.HorizontalAlignment = HorizontalAlignment.Center;
@@ -284,6 +292,13 @@ public partial class ExpandedView
             var e = _essentialShown[n - 1];
             _essentialButtons[n - 1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
             return $"ran {e.Id} ({(e.IsCard ? "card" : "action")})";
+        }
+        if (a.Equals("glyphs", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_page != 1) GoToPage(1);
+            static string Of(Button b) => b.Content is Border { Child: TextBlock t } ? string.Join("", t.Text.Select(c => $"U+{(int)c:X4}"))
+                : b.Content is Border { Child: StackPanel { Children.Count: > 0 } s } && s.Children[0] is TextBlock t2 ? string.Join("", t2.Text.Select(c => $"U+{(int)c:X4}")) : "?";
+            return string.Join(" ", _essentialShown.Select((e, i) => $"{e.Id}={Of(_essentialButtons[i])}"));
         }
         if (_page == 1 && _essentialShown.Count == 0) BuildEssentials();
         var shown = _page == 1 ? _essentialShown : Essentials.Arrange(Essentials.Catalog(_cards.Select(c => (c.Id, c.Title))),

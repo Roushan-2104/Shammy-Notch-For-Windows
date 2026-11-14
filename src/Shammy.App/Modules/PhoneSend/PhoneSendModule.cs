@@ -264,7 +264,8 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
     };
 
     static string DescribeRows(IReadOnlyList<PhoneChoiceSheet.Row> rows) =>
-        string.Join("\n", rows.Select((r, i) => $"{i + 1}. {r.Id} | {r.Title}"));
+        // One line: the test pipe answers a single line.
+        string.Join(" ; ", rows.Select((r, i) => $"{i + 1}. {r.Id} | {r.Title}"));
 
     /// <summary>Sends what a row offered. Kinds only reach the log, never what was copied or which page.</summary>
     string Pick(PhoneChoiceKind kind, PhoneSnapshot s)
