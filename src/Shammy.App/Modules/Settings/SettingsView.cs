@@ -27,6 +27,7 @@ internal sealed partial class SettingsView : CardSheet
 
     readonly Action<bool> _setPet;
     readonly AppSettings _s;
+    readonly UpdateService? _updates;
     readonly Func<IReadOnlyList<string>> _modules;
     readonly StackPanel _tabs = new();
     readonly StackPanel _rows = new();
@@ -42,11 +43,14 @@ internal sealed partial class SettingsView : CardSheet
 
     /// <param name="done">Kept for callers; the card's own Back goes home now.</param>
     /// <param name="setPet">Shows or hides the pet on the notch (and saves it).</param>
-    public SettingsView(AppSettings settings, Func<IReadOnlyList<string>> modules, Action done, Action<bool> setPet, string? tab = null)
+    /// <param name="updates">The update checker (General's version row); null before the host has started it.</param>
+    public SettingsView(AppSettings settings, Func<IReadOnlyList<string>> modules, Action done, Action<bool> setPet,
+        UpdateService? updates = null, string? tab = null)
         : base("Settings", SheetWidth)
     {
         _setPet = setPet;
         _s = settings;
+        _updates = updates;
         _modules = modules;
         if (tab is not null && SettingsCatalog.Sections.Contains(tab)) _tab = tab;
 

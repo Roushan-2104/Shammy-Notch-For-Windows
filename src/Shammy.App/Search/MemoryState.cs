@@ -9,6 +9,9 @@ namespace Shammy.Search;
 /// </summary>
 internal static class MemoryState
 {
+    /// <summary>The offline voice model (set by the host), to say whether it is loaded.</summary>
+    public static WhisperService? Voice { get; set; }
+
     public static string Line()
     {
         long ws = 0, priv = 0;
@@ -21,7 +24,7 @@ internal static class MemoryState
         catch (Exception)
         {
         }
-        bool voice = Modules.HostLinks.Voice?.IsLoaded == true;
+        bool voice = Voice?.IsLoaded == true;
         return string.Create(CultureInfo.InvariantCulture,
             $"memory=ws:{ws >> 20}MB,private:{priv >> 20}MB,voice_model:{(voice ? "loaded" : "no")},webview:{Views.ResultView.BrowserState}");
     }

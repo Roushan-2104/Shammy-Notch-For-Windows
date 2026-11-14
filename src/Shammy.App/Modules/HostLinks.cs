@@ -3,8 +3,8 @@ using Shammy.Infrastructure;
 namespace Shammy.Modules;
 
 /// <summary>
-/// The few host services the designed screens reach for (the tour opens the palette, Settings shows the version
-/// and checks for updates, the alarm reads the weather glance). Set by ShammyHost at start-up; null in tests and
+/// The few host services the designed screens reach for (the tour opens the palette, the alarm reads the weather
+/// glance). Set by ShammyHost at start-up; null in tests and
 /// before the host is up, so every caller copes without them.
 /// </summary>
 internal static class HostLinks
@@ -24,12 +24,6 @@ internal static class HostLinks
         catch (Exception ex) { Infrastructure.Log.Warn("A CommandRan listener failed", ex); }
     }
 
-    /// <summary>
-    /// Whether something in Shammy could be what the words mean (set by the palette). Voice uses it to offer
-    /// choices instead of searching the web when no command took the words.
-    /// </summary>
-    public static Func<string, bool>? HasChoices { get; set; }
-
     /// <summary>"Screenshot → Send to phone" when the text is several commands in one sentence; null otherwise.</summary>
     public static Func<string, string?>? ChainPlan { get; set; }
 
@@ -42,31 +36,8 @@ internal static class HostLinks
     /// <summary>Up to three things in Shammy the words could mean, best first (set by the palette); empty for a plain question.</summary>
     public static Func<string, IReadOnlyList<Choice>>? Choices { get; set; }
 
-    /// <summary>Whether this PC can run the Hinglish voice (it needs the graphics-card engine).</summary>
-    public static Func<bool>? HinglishAvailable { get; set; }
-
-    /// <summary>The offline voice model voice commands use; live captions borrow it between commands.</summary>
-    public static Search.WhisperService? Voice { get; set; }
-
-    /// <summary>The running version ("0.4.0").</summary>
-    public static Func<string>? Version { get; set; }
-
-    /// <summary>The update checker's last result ("up to date", "ready 0.4.1", "not checked") and whether it's an installed copy.</summary>
-    public static Func<(string Result, bool Installed)>? UpdateStatus { get; set; }
-
-    /// <summary>Checks for an update now; the result reads like <see cref="UpdateStatus"/>.</summary>
-    public static Func<Task<string>>? CheckForUpdates { get; set; }
-
     /// <summary>The lyric line being sung right now, when the song has synced lyrics; null or empty otherwise.</summary>
     public static Func<string?>? CurrentLyric { get; set; }
-
-    /// <summary>Restarts into a downloaded update.</summary>
-    public static Action? RestartForUpdate { get; set; }
-
-    /// <summary>The update checker's status changed; read it from <see cref="UpdateStatus"/>.</summary>
-    public static event Action? UpdateChanged;
-
-    public static void RaiseUpdateChanged() => UpdateChanged?.Invoke();
 
     /// <summary>
     /// Says a short line aloud ("Tea's ready!") when the user turned on online voice; does nothing otherwise.

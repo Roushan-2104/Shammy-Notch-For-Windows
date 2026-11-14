@@ -19,4 +19,7 @@ internal sealed record ShammyServices(
 
     /// <summary>Connected Bluetooth audio devices and their battery (the System card); null if Bluetooth is unavailable.</summary>
     public BluetoothService? Bluetooth { get; set; }
+
+    /// <summary>The version, the update checker and its restart (Settings, What's new, the guide); set once the host has started it.</summary>
+    public UpdateService? Updates { get; set; }
 }

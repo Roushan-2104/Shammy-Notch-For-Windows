@@ -249,8 +249,6 @@ internal sealed partial class ShammyHost : IDisposable
         // What the designed screens borrow from the host (the tour opens the palette, Settings asks about voice).
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
         Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);
-        // The local Hinglish model is gone: Hinglish is heard online (Gnani).
-        Modules.HostLinks.HinglishAvailable = () => false;
         Modules.HostLinks.ListenUntilSilence = _search.ListenUntilSilence;
         Modules.HostLinks.ChainPlan = text => _search.ResolveChain(text) is { } chain
             ? string.Join(" → ", chain.Select(s => SearchCoordinator.StepTitle(s.Command, s.Clean))) : null;
@@ -262,7 +260,7 @@ internal sealed partial class ShammyHost : IDisposable
             wheelKeys = on ? handler : null;
             _keys.InterceptWheel = on;
         };
-        Modules.HostLinks.Voice = _whisper;
+        MemoryState.Voice = _whisper;
         Modules.HostLinks.Glances = _modules.Glances;
         _notch.ExpandedView.ShelfActions = _modules.ShelfActions;
         _notch.ExpandedView.SearchRequested += _search.OpenTyping;
@@ -313,11 +311,7 @@ internal sealed partial class ShammyHost : IDisposable
 
         PrivacyState.Changed += presenting => _ui.BeginInvoke(() => HideShownNotification(presenting));
         _updates = Own(new UpdateService(_ui));
-        Modules.HostLinks.Version = () => _updates.CurrentVersion;
-        Modules.HostLinks.UpdateStatus = () => (_updates.LastResult, _updates.IsInstalled);
-        Modules.HostLinks.CheckForUpdates = _updates.CheckAsync;
-        Modules.HostLinks.RestartForUpdate = RestartForUpdate;
-        _updates.Changed += Modules.HostLinks.RaiseUpdateChanged;
+        services.Updates = _updates;
         // Settings can switch these too; the tray has its own callbacks for them.
         _settings.Changed += name => _ui.BeginInvoke(() => ApplySettingChange(name));
         _updates.Ready += _ => AnnounceUpdate();

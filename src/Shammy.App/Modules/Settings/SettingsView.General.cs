@@ -73,14 +73,15 @@ internal partial class SettingsView
     /// <summary>The version, where updates stand, and the one button that makes sense right now.</summary>
     void UpdateRow()
     {
-        (string Result, bool Installed) Status() => HostLinks.UpdateStatus?.Invoke() ?? (UpdateText.NotChecked, false);
+        var updates = _updates;
+        (string Result, bool Installed) Status() => updates is null ? (UpdateText.NotChecked, false) : (updates.LastResult, updates.IsInstalled);
         TextBlock hint = null!;
         var slot = new Border();
         Pressable check = ScreenKit.Secondary("Check now", async () =>
         {
-            if (HostLinks.CheckForUpdates is not { } checkNow) return;
+            if (updates is null) return;
             string result;
-            try { result = await checkNow(); }
+            try { result = await updates.CheckAsync(); }
             catch (Exception ex)
             {
                 Log.Warn("Update check from Settings failed", ex);
@@ -88,21 +89,28 @@ internal partial class SettingsView
             }
             Say(UpdateText.Said(result));
         });
-        Pressable restart = ScreenKit.Secondary("Restart to update", () => HostLinks.RestartForUpdate?.Invoke());
+        // Velopack waits for this process to exit, swaps in the new version and starts it again.
+        Pressable restart = ScreenKit.Secondary("Restart to update", () =>
+        {
+            if (updates?.RestartIntoUpdate() == true) Application.Current.Shutdown();
+        });
         void Show()
         {
             var (result, installed) = Status();
             hint.Text = UpdateText.Hint(result, installed);
             slot.Child = !installed || UpdateText.IsBusy(result) ? null : UpdateText.IsReady(result) ? restart : check;
         }
-        Row($"Version {HostLinks.Version?.Invoke() ?? "?"}", UpdateText.Hint(Status().Result, Status().Installed), slot, out hint, words: "update updates version check");
+        Row($"Version {updates?.CurrentVersion ?? "?"}", UpdateText.Hint(Status().Result, Status().Installed), slot, out hint, words: "update updates version check");
         Show();
         slot.Loaded += (_, _) =>
         {
-            HostLinks.UpdateChanged += Show;
+            if (updates is not null) updates.Changed += Show;
             Show();
         };
-        slot.Unloaded += (_, _) => HostLinks.UpdateChanged -= Show;
+        slot.Unloaded += (_, _) =>
+        {
+            if (updates is not null) updates.Changed -= Show;
+        };
     }
 
     static string VolumeHint(int v) => v == 0 ? "0% · alarms still ring at 20%" : $"{v}% · pings, chimes and alarms";

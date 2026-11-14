@@ -88,7 +88,6 @@ internal sealed partial class PaletteModule : IShammyModule
         };
 
         _bar.QueryChanged += OnQuery;
-        HostLinks.HasChoices = HasChoices;
         HostLinks.Choices = ChoicesFor;
         _bar.PaletteKeys = OnKey;
         _icons = new IconLoader(ctx.Ui);
@@ -319,13 +318,6 @@ internal sealed partial class PaletteModule : IShammyModule
 
     /// <summary>The lowest match at which a setting, app or view counts as something the words could mean.</summary>
     const int ChoiceMatch = 60;
-
-    /// <summary>
-    /// <see cref="HostLinks.HasChoices"/>: whether anything in Shammy could be what <paramref name="text"/> means (a
-    /// command, a feature, a setting, a view, an app, music). When so, voice opens the palette with the words, to
-    /// pick from; when not, it is a plain question and goes straight to the web.
-    /// </summary>
-    bool HasChoices(string text) => ChoicesFor(text).Count > 0;
 
     static bool IsChoice(PaletteItem i) => i.Kind switch
     {

@@ -52,13 +52,13 @@ internal sealed class WhatsNewModule : IShammyModule
     }
 
     string State() =>
-        $"lastRun={_ctx.Settings.LastRunVersion ?? "-"} version={HostLinks.Version?.Invoke() ?? "?"} waiting={_wait.IsEnabled} " +
+        $"lastRun={_ctx.Settings.LastRunVersion ?? "-"} version={_ctx.Services.Updates?.CurrentVersion ?? "?"} waiting={_wait.IsEnabled} " +
         $"shown={(_card?.Parent is not null ? "yes" : "no")} lines={_lines.Count} notch={_ctx.Notch.Mode}";
 
     void Look()
     {
         _wait.Stop();
-        if (HostLinks.UpdateStatus?.Invoke() is not { Installed: true } || HostLinks.Version?.Invoke() is not { } version) return;
+        if (_ctx.Services.Updates is not { IsInstalled: true, CurrentVersion: var version }) return;
 
         if (_version != version)
         {

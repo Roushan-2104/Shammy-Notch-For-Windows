@@ -150,7 +150,7 @@ internal sealed class GuideModule : IShammyModule
     FrameworkElement BuildDetail()
     {
         _view = new GuideView(new GuideView.Host(
-            () => HostLinks.Version?.Invoke(),
+            () => _ctx.Services.Updates?.CurrentVersion,
             id => _data.Used.Contains(id),
             IsOn,
             SetOn,
