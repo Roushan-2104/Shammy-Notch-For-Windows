@@ -230,7 +230,7 @@ internal partial class SearchCoordinator
         var cts = _answerRead = new CancellationTokenSource();
         var page = await HiddenPage.ReadLensPageAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle, png, TimeSpan.FromSeconds(16), cts.Token);
         if (session != _session || cts.IsCancellationRequested) return;
-        var overview = HiddenPage.AnswerFrom(page);
+        var overview = Core.Search.AnswerText.FromPage(page);
         // A product (Lens lists it with prices): the price list, cheapest first, from Google Shopping.
         var lensOffers = Core.Shopping.ShoppingOffers.Parse(page);
         if (lensOffers.Count >= 2)

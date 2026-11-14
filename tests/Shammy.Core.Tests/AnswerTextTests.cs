@@ -24,4 +24,11 @@ public class AnswerTextTests
     [InlineData("")]
     [InlineData(null)]
     public void Words_stay_bold(string? text) => Assert.False(AnswerText.IsValue(text));
+
+    [Fact]
+    public void Page_answer_skips_the_chatbot_offer_at_the_end()
+    {
+        const string page = "Lens\nAI Overview\nThis is a monstera deliciosa, a tropical houseplant.\nWould you like tips on caring for it?\nShopping";
+        Assert.Equal("This is a monstera deliciosa, a tropical houseplant.", AnswerText.FromPage(page));
+    }
 }

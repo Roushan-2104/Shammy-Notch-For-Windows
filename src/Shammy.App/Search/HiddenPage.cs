@@ -101,7 +101,7 @@ internal static class HiddenPage
     public static Uri ShoppingUrl(string product) => new("https://www.google.com/search?udm=28&hl=en&gl=in&q=" + Uri.EscapeDataString(product));
 
     /// <summary>
-    /// Lens's whole results page for a picture, as visible text: its AI Overview (see <see cref="AnswerFrom"/>) and, for a
+    /// Lens's whole results page for a picture, as visible text: its AI Overview (see <see cref="Core.Search.AnswerText.FromPage"/>) and, for a
     /// product, its shopping results. Null on a robot check or nothing in time.
     /// </summary>
     public static async Task<string?> ReadLensPageAsync(IntPtr parent, byte[] png, TimeSpan limit, CancellationToken ct)
@@ -121,30 +121,6 @@ internal static class HiddenPage
           return JSON.stringify({ state: ready ? 'text' : 'wait', text: t });
         })()
         """;
-
-    /// <summary>The short answer in a page's text (its first lines under "AI Mode reply" or "AI Overview"), or null; the same rule as the live probe.</summary>
-    public static string? AnswerFrom(string? pageText)
-    {
-        if (string.IsNullOrEmpty(pageText)) return null;
-        int at = -1;
-        foreach (var marker in new[] { "AI Mode reply for", "AI Overview" })
-        {
-            int k = pageText.IndexOf(marker, StringComparison.Ordinal);
-            if (k >= 0)
-            {
-                at = pageText.IndexOf('\n', k);
-                break;
-            }
-        }
-        if (at < 0) return null;
-        var lines = pageText[(at + 1)..].Split('\n').Select(s => s.Trim())
-            .Where(s => (s.Length >= 40 || (s.Length >= 6 && ".!?。)\"”".Contains(s[^1])))
-                        && !s.StartsWith("AI can make mistakes", StringComparison.OrdinalIgnoreCase)
-                        && !s.StartsWith("AI responses may make mistakes", StringComparison.OrdinalIgnoreCase)
-                        && !s.StartsWith("Thinking", StringComparison.Ordinal) && !s.StartsWith("Searching", StringComparison.Ordinal))
-            .Take(2).ToList();
-        return lines.Count > 0 ? string.Join("\n", lines) : null;
-    }
 
     static void UploadToLens(CoreWebView2 core, byte[] png)
     {
