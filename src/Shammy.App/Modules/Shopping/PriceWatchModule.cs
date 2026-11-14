@@ -22,14 +22,12 @@ internal sealed class WatchedPrice
 /// <summary>
 /// "Watch price" from Circle to buy smarter: up to ten products, checked against Google Shopping about once a day (only
 /// while Shammy runs, one product at a time, out of sight), and a pop-up in the island when one gets cheaper. The list
-/// is encrypted on this PC (DPAPI); only the product's name goes to Google, when it's checked.
+/// is kept in the module store (encrypted on this PC); only the product's name goes to Google, when it's checked.
 /// </summary>
 internal sealed class PriceWatchModule : IShammyModule
 {
     public const int MaxWatched = 10;
     static readonly TimeSpan Every = TimeSpan.FromHours(24);
-    static readonly byte[] Entropy = "Shammy price watch v1"u8.ToArray();
-    static string FilePath => Path.Combine(Paths.Root, "price-watch.dat");
 
     ModuleContext _ctx = null!;
     List<WatchedPrice> _items = new();
@@ -42,7 +40,8 @@ internal sealed class PriceWatchModule : IShammyModule
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
-        _items = Load();
+        _items = ctx.Load<List<WatchedPrice>>();
+        MoveOldList();
         HostLinks.WatchPrice = Watch;
         // A look every hour costs nothing; a product is only fetched once its day is up.
         _timer = new DispatcherTimer(TimeSpan.FromHours(1), DispatcherPriority.Background, (_, _) => _ = CheckDueAsync(force: false), ctx.Ui);
@@ -146,32 +145,23 @@ internal sealed class PriceWatchModule : IShammyModule
         $"watched={_items.Count} checking={_checking} last={_last} items=[" +
         string.Join("; ", _items.Select(i => $"{i.Product} {ShoppingOffers.Rupees(i.Price)} at {i.Store}")) + "]";
 
-    static List<WatchedPrice> Load()
+    void Save() => _ctx.Save(_items);
+
+    /// <summary>Older versions kept the list in a file of its own; bring it into the module store once.</summary>
+    void MoveOldList()
     {
+        var old = Path.Combine(Paths.Root, "price-watch.dat");
+        if (!File.Exists(old)) return;
         try
         {
-            if (!File.Exists(FilePath)) return new();
-            var json = ProtectedData.Unprotect(File.ReadAllBytes(FilePath), Entropy, DataProtectionScope.CurrentUser);
-            return JsonSerializer.Deserialize<List<WatchedPrice>>(json) ?? new();
+            var json = ProtectedData.Unprotect(File.ReadAllBytes(old), "Shammy price watch v1"u8.ToArray(), DataProtectionScope.CurrentUser);
+            if (_items.Count == 0) _items = JsonSerializer.Deserialize<List<WatchedPrice>>(json) ?? new();
+            Save();
+            File.Delete(old);
         }
         catch (Exception ex) when (ex is IOException or CryptographicException or JsonException or UnauthorizedAccessException)
         {
-            Log.Warn("Reading the watched prices failed", ex);
-            return new();
-        }
-    }
-
-    void Save()
-    {
-        try
-        {
-            var tmp = FilePath + ".tmp";
-            File.WriteAllBytes(tmp, ProtectedData.Protect(JsonSerializer.SerializeToUtf8Bytes(_items), Entropy, DataProtectionScope.CurrentUser));
-            File.Move(tmp, FilePath, true);
-        }
-        catch (Exception ex) when (ex is IOException or CryptographicException or UnauthorizedAccessException)
-        {
-            Log.Warn("Saving the watched prices failed", ex);
+            Log.Warn("Moving the old watched prices failed", ex);
         }
     }
 }
