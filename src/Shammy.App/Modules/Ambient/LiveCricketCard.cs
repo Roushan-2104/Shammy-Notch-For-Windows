@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,8 +11,8 @@ namespace Shammy.Modules.Ambient;
 
 /// <summary>
 /// The cricket card on the Focus Wall, on the rail only while a match is live: a tile with the score as a poster on
-/// a dark pitch green; focused, the teams, the line and a control to open the detail. The detail has the two teams
-/// and the format, the score big, the overs and the line the feed gives. It shows only what it was given: the
+/// a dark pitch green; focused, the teams, the line and a control to open the detail. The detail (the card family's
+/// shape) has the teams and the format, the batting side's score as the hero, the overs and the line the feed gives. It shows only what it was given: the
 /// public feed has no overs, no result line, no format and no ball-by-ball, so for a real match those places stay
 /// empty and the line is the other side's score. The last-six-balls chips appear only with ball-by-ball data.
 /// </summary>
@@ -116,50 +118,125 @@ internal sealed class LiveCricketCard
     }
 
     /// <summary>
-    /// The mock's hover card on the kit's detail: the score big on the pitch (the overs under it), the teams and
-    /// format as the kicker with "Live" opposite, the two teams as the title, the feed's line, then the balls.
+    /// The opened card (the card family's shape, 580 wide): "IND v AUS · T20 · live" with a small red Live chip;
+    /// the other side's score quiet, the batting side's the hero in light numbers in the accent, the overs, and the
+    /// feed's line ("Need 24 from 10") bold with the rate it asks for; the last balls under it when known. A
+    /// finished match drops the Live chip and says so; no match is one short line.
     /// </summary>
-    sealed class Detail : WallDetail
+    sealed class Detail : CardSheet
     {
-        readonly TrackedText _score = CardKit.Poster("", 72), _under = CardKit.Label("");
-        readonly TextBlock _liveMark = CardKit.Text("Live", 12.5, FontWeights.SemiBold, secondary: true);
-        readonly StackPanel _ballsRow = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
+        const double SheetWidth = 580;
 
-        public Detail() : base(Pitch, "Cricket", "", "")
+        /// <summary>The one colour outside the palette in the card family: the small Live dot.</summary>
+        static readonly Brush LiveRed = Ui.Tokens.Brush("#FF6B6B");
+
+        static readonly Regex NeedRx = new(@"^Need (\d+) from (\d+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        static readonly Regex EndedRx = new(@"\b(won|tied|drawn|draw|no result|abandoned)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        readonly Border _liveChip;
+
+        public Detail() : base("Cricket", SheetWidth)
         {
-            _under.Margin = new Thickness(0, 8, 0, 0);
-            ArtBottomLeft(_score, _under);
-            Corner = _liveMark;
-            Body.Children.Add(_ballsRow);
+            var dot = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(3.5), Background = LiveRed, VerticalAlignment = VerticalAlignment.Center };
+            var word = CardKit.Text("Live", 12, FontWeights.SemiBold, secondary: true);
+            word.VerticalAlignment = VerticalAlignment.Center;
+            word.Margin = new Thickness(8, 0, 0, 0);
+            _liveChip = Action(new Border
+            {
+                Height = 28,
+                CornerRadius = new CornerRadius(14),
+                Background = Ui.Tokens.Brush("#0FFFFFFF"),
+                Padding = new Thickness(12, 0, 12, 0),
+                Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { dot, word } },
+            });
         }
+
+        /// <summary>Whether the feed's line says the match is over ("India won by 5 wickets").</summary>
+        static bool Ended(CricketLiveScore m) => m.Status is { Length: > 0 } s && EndedRx.IsMatch(s);
 
         public void Show(CricketLiveScore? match, IReadOnlyList<string> balls)
         {
-            _ballsRow.Children.Clear();
+            Body.Children.Clear();
             if (match is not { } m)
             {
-                Kicker.Text = "Cricket";
-                TitleText.Text = "No live match";
-                TitleText.FontSize = 40;
-                Line.Text = "The score shows here while India is playing.";
-                _score.Text = "–";
-                _under.Text = "";
-                _liveMark.Visibility = Visibility.Collapsed;
+                TitleText.Text = "Cricket";
+                Status = null;
+                _liveChip.Visibility = Visibility.Collapsed;
+                var line = Sheet.Meta("", 14);
+                line.Inlines.Add(CardKit.Run("No live match. ", FontWeights.Bold, CardKit.Ink));
+                line.Inlines.Add(new System.Windows.Documents.Run("The score shows here while India is playing."));
+                Body.Children.Add(line);
                 CardKit.Name(this, "Cricket: no live match");
                 return;
             }
-            string title = CricketText.Teams(m, codes: false), score = CricketText.Score(m);
-            Kicker.Text = CricketText.Kicker(m);
-            TitleText.Text = title;
-            TitleText.FontSize = title.Length > 20 ? 28 : 40;
-            Line.Text = CricketText.Line(m);
-            _score.Text = score;
-            _score.FontSize = score.Length > 6 ? 58 : 72;
-            _under.Text = Under(m);
-            _liveMark.Visibility = Visibility.Visible;
-            foreach (var ball in balls) _ballsRow.Children.Add(Ball(ball));
-            if (balls.Count > 0) CardKit.Name(_ballsRow, "Last balls: " + string.Join(", ", balls.Select(b => b == "W" ? "wicket" : b)));
-            CardKit.Name(this, $"Cricket: {title}, {CricketText.Label(m)}, {Under(m)}, {CricketText.Line(m)}");
+
+            bool ended = Ended(m);
+            TitleText.Text = CricketText.Teams(m);
+            Status = string.Join(" · ", new[] { m.Format, ended ? "result" : "live" }.Where(s => !string.IsNullOrEmpty(s)));
+            _liveChip.Visibility = ended ? Visibility.Collapsed : Visibility.Visible;
+
+            var row = new Grid();
+            foreach (var w in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+
+            // The other side: quiet (only when the feed gives its score).
+            if (m.BowlingScore is { Length: > 0 } other)
+            {
+                var side = Side(CricketLive.Code(m.Bowling), Sheet.Num(other, 30, CardKit.Ink2), CardKit.Ink2);
+                side.Margin = new Thickness(0, 0, 18, 0);
+                side.MaxWidth = 150;
+                row.Children.Add(side);
+            }
+
+            // The batting side: the hero.
+            var hero = Side($"{CricketLive.Code(m.Batting)} · batting", Sheet.Num(CricketText.Score(m), 44, Ink.Soft), Ink.Soft);
+            Grid.SetColumn(hero, 1);
+            row.Children.Add(hero);
+
+            if (m.Balls is { } b)
+            {
+                var overs = Sheet.Meta($"{CricketText.Overs(b)} ov");
+                overs.Margin = new Thickness(18, 0, 0, 0);
+                Grid.SetColumn(overs, 2);
+                row.Children.Add(overs);
+            }
+
+            // The line the feed gives, bold, with the rate it asks for (or the rate so far).
+            if (m.Status is { Length: > 0 } status)
+            {
+                var words = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
+                var said = Sheet.Word(status, 18);
+                said.HorizontalAlignment = HorizontalAlignment.Right;
+                words.Children.Add(said);
+                if (Rate(m) is { } rate)
+                {
+                    var r = Sheet.Meta(rate, 12);
+                    r.HorizontalAlignment = HorizontalAlignment.Right;
+                    r.Margin = new Thickness(0, 6, 0, 0);
+                    words.Children.Add(r);
+                }
+                Grid.SetColumn(words, 4);
+                row.Children.Add(words);
+            }
+            else if (Rate(m) is { } rate)
+            {
+                var r = Sheet.Meta(rate, 12);
+                r.Margin = new Thickness(16, 0, 0, 0);
+                Grid.SetColumn(r, 4);
+                row.Children.Add(r);
+            }
+
+            var col = new StackPanel();
+            col.Children.Add(row);
+            if (balls.Count > 0)
+            {
+                var ballsRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };
+                foreach (var ball in balls) ballsRow.Children.Add(Ball(ball));
+                CardKit.Name(ballsRow, "Last balls: " + string.Join(", ", balls.Select(x => x == "W" ? "wicket" : x)));
+                col.Children.Add(ballsRow);
+            }
+            Body.Children.Add(col);
+            CardKit.Name(this, $"Cricket: {CricketText.Teams(m, codes: false)}, {CricketText.Label(m)}, {Under(m)}, {CricketText.Line(m)}");
         }
 
         /// <summary>"IND · 18.2 ov" under the score; without overs just who is batting.</summary>
@@ -167,16 +244,38 @@ internal sealed class LiveCricketCard
             ? $"{CricketLive.Code(m.Batting)} · {CricketText.Overs(b)} ov"
             : $"{CricketLive.Code(m.Batting)} batting";
 
+        /// <summary>"Run rate needed 14.4" for a "Need 24 from 10" line; else the rate so far when the overs are known.</summary>
+        static string? Rate(CricketLiveScore m)
+        {
+            if (m.Status is { Length: > 0 } s && NeedRx.Match(s) is { Success: true } need
+                && int.TryParse(need.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int runs)
+                && int.TryParse(need.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int left) && left > 0)
+                return "Run rate needed " + (runs * 6.0 / left).ToString("0.0", CultureInfo.InvariantCulture);
+            if (Ended(m) || m.Balls is not { } b || b <= 0) return null;
+            return "Run rate " + (m.Runs * 6.0 / b).ToString("0.0", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>A side: its small tracked label over its score.</summary>
+        static StackPanel Side(string label, TextBlock score, Brush labelBrush)
+        {
+            var lab = CardKit.Text(label.ToUpperInvariant(), 10, FontWeights.Bold);
+            lab.Foreground = labelBrush;
+            lab.TextTrimming = TextTrimming.CharacterEllipsis;
+            score.Margin = new Thickness(0, 4, 0, 0);
+            return new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { lab, score } };
+        }
+
         /// <summary>
-        /// One ball: a 26 px chip. A boundary is filled white and a wicket the meaning red; the accent stays the
-        /// primary control's alone.
+        /// One ball: a 26 px glass chip. A boundary takes the palette's tint and a wicket the third palette colour;
+        /// the accent stays the hero's alone.
         /// </summary>
         static Border Ball(string ball)
         {
             bool wicket = ball == "W", boundary = ball is "4" or "6";
             var text = CardKit.Text(ball, 12, FontWeights.Bold);
             text.HorizontalAlignment = HorizontalAlignment.Center;
-            text.Foreground = wicket ? Brushes.White : boundary ? CardKit.OnAccent : CardKit.Ink;
+            text.VerticalAlignment = VerticalAlignment.Center;
+            text.Foreground = wicket ? CardKit.OnAccent : boundary ? Ink.Soft : CardKit.Ink;
             return new Border
             {
                 MinWidth = 26,
@@ -184,8 +283,8 @@ internal sealed class LiveCricketCard
                 CornerRadius = new CornerRadius(13),
                 Padding = new Thickness(7, 0, 7, 0),
                 Margin = new Thickness(0, 0, 6, 0),
-                Background = wicket ? CardKit.Alarm : boundary ? CardKit.Ink : CardKit.Surface,
-                BorderBrush = wicket || boundary ? Brushes.Transparent : CardKit.Hairline,
+                Background = wicket ? Ink.C : boundary ? Ink.Tint : Sheet.GlassFill,
+                BorderBrush = wicket ? Brushes.Transparent : boundary ? Ink.TintEdge : Sheet.GlassEdge,
                 BorderThickness = new Thickness(1),
                 Child = text,
             };

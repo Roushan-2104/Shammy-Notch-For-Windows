@@ -13,8 +13,8 @@ namespace Shammy.Modules.Ambient;
 /// <summary>
 /// The weather card on the Focus Wall (Wall.dc.html): a tile whose field is the sky now (its colour by condition,
 /// darker at night), the temperature as a poster and six white bars for the next hours; focused, the city, the
-/// condition and feels-like, and a control to open the detail. The detail grows the sky into the art panel with
-/// the temperature and today's range, the next 12 hours as bars and a 5-day range list, all from the Open-Meteo
+/// condition and feels-like, and a control to open the detail. The detail (the card family's shape) has the
+/// temperature and today's range, the next 12 hours as a curve and a 4-day range list, all from the Open-Meteo
 /// forecast the weather feature already fetches; anything the forecast lacks is left out.
 /// </summary>
 internal sealed class WeatherCard
@@ -126,24 +126,56 @@ internal sealed class WeatherCard
 
     // ---- Detail ---------------------------------------------------------------------------------
 
+    /// <summary>The card family's weather card, 700 wide; with no forecast yet, a small card with one line.</summary>
+    const double SheetWidth = 700, EmptyWidth = 460, CurveWidth = 300, CurveHeight = 110;
+
+    /// <summary>The days the opened card lists (the test pipe still describes <see cref="DaysShown"/>).</summary>
+    const int DaysListed = 4;
+
+    /// <summary>
+    /// The opened card: the city with "clear · feels like 32°" in the header; the temperature big and light in the
+    /// accent with "H · L · wind" under it; the next 12 hours as one smooth curve in the palette's gradient (four
+    /// points labelled); and a 4-day list with slim palette ranges. No sky panel: the island's waves are the sky.
+    /// </summary>
     public FrameworkElement BuildDetail()
     {
         if (_report is not { } r)
         {
-            var empty = new WallDetail(Fields.Sky(WeatherKind.Cloudy, true), "Weather", "Weather", _status.Text);
-            empty.ArtBottomLeft(CardKit.Poster("–", 96));
+            var empty = new CardSheet("Weather", EmptyWidth);
+            empty.Body.Children.Add(Sheet.Meta(_status.Text, 14));
             return empty;
         }
-        var kind = WeatherCodes.Kind(r.Code);
-        var now = r.LocalNow(DateTime.UtcNow);
-        var d = new WallDetail(Fields.Sky(kind, r.IsDay), $"Now · {now.ToString(CardKit.H24 ? "HH:mm" : "h:mm tt", CultureInfo.InvariantCulture)}", _cityName,
-            string.Join(" · ", new[] { WeatherCodes.Describe(r.Code) }.Concat(Stats(r).Select(s => $"{s.Label.ToLowerInvariant()} {s.Value}"))));
-        var range = CardKit.Label($"{WeatherCodes.Describe(r.Code)} · H {WeatherText.Temp(r.TodayHigh)} L {WeatherText.Temp(r.TodayLow)}");
-        range.Margin = new Thickness(0, 8, 0, 0);
-        d.ArtBottomLeft(CardKit.Poster(WeatherText.Temp(r.Temperature), 96), range);
-        d.Body.Children.Add(HoursBlock(r));
-        d.Aside = DaysBlock(r);
-        return d;
+
+        var sheet = new CardSheet(_cityName.Length > 0 ? _cityName : "Weather", SheetWidth,
+            $"{WeatherCodes.Describe(r.Code).ToLowerInvariant()} · feels like {WeatherText.Temp(r.FeelsLike)}");
+
+        var big = Sheet.Num(WeatherText.Temp(r.Temperature), 80, Ink.Soft);
+        big.TextTrimming = TextTrimming.None;
+        var range = new List<string> { $"H {WeatherText.Temp(r.TodayHigh)}", $"L {WeatherText.Temp(r.TodayLow)}" };
+        if (r.WindKmh is { } w) range.Add($"wind {WeatherText.Wind(w)}");
+        var under = Sheet.Meta(string.Join(" · ", range));
+        under.Margin = new Thickness(0, 8, 0, 0);
+        under.ToolTip = string.Join(" · ", Stats(r).Select(s => $"{s.Label} {s.Value}"));
+        var now = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, MaxWidth = 180 };
+        now.Children.Add(big);
+        now.Children.Add(under);
+
+        var curve = new HourCurve(CurvePoints(r)) { Width = CurveWidth, Height = CurveHeight, Margin = new Thickness(18, 0, 18, 0), VerticalAlignment = VerticalAlignment.Bottom };
+        var days = DaysBlock(r);
+        days.VerticalAlignment = VerticalAlignment.Bottom;
+
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.Children.Add(now);
+        Grid.SetColumn(curve, 1);
+        row.Children.Add(curve);
+        Grid.SetColumn(days, 2);
+        row.Children.Add(days);
+        sheet.Body.Children.Add(row);
+        CardKit.Name(sheet, $"Weather: {_cityName} {WeatherText.Temp(r.Temperature)}, {WeatherCodes.Describe(r.Code)}");
+        return sheet;
     }
 
     /// <summary>Only what the forecast actually has: feels-like always, humidity and wind when present.</summary>
@@ -164,68 +196,44 @@ internal sealed class WeatherCard
         return points;
     }
 
-    /// <summary>The next 12 hours: the temperature over a white bar (now solid, later ones softer), the hour under it.</summary>
-    static FrameworkElement HoursBlock(WeatherReport r)
+    /// <summary>The curve's points: "Now", then the next 11 hours as "4 PM".</summary>
+    static List<(string Label, double Temp)> CurvePoints(WeatherReport r)
     {
-        var points = ChartPoints(r);
-        var heights = CardMath.BarHeights(points.Select(p => p.Temp).ToList(), floor: 0.25);
-        var chart = new UniformGrid { Rows = 1, Columns = Math.Max(1, points.Count), VerticalAlignment = VerticalAlignment.Bottom };
-        const double maxBar = 56;
-        for (int i = 0; i < points.Count; i++)
-        {
-            var temp = CardKit.Text(WeatherText.Temp(points[i].Temp), 11, FontWeights.Bold);
-            temp.HorizontalAlignment = HorizontalAlignment.Center;
-            var bar = new Border
-            {
-                Height = Math.Round(maxBar * heights[i]),
-                CornerRadius = new CornerRadius(4, 4, 2, 2),
-                Background = points[i].IsNow ? CardKit.Ink : CardKit.Hex("#73F5F5F7"),
-                VerticalAlignment = VerticalAlignment.Bottom,
-            };
-            var slot = new Grid { Height = maxBar, Margin = new Thickness(0, 4, 0, 4) };
-            slot.Children.Add(bar);
-            var label = CardKit.Text(points[i].Label, 11, points[i].IsNow ? FontWeights.Bold : FontWeights.Medium, secondary: !points[i].IsNow);
-            label.TextTrimming = TextTrimming.None;
-            label.HorizontalAlignment = HorizontalAlignment.Center;
-            var column = CardKit.Column(0, temp, slot, label);
-            column.Margin = new Thickness(3.5, 0, 3.5, 0);
-            column.VerticalAlignment = VerticalAlignment.Bottom;
-            chart.Children.Add(column);
-        }
-        return chart;
+        var points = new List<(string, double)> { ("Now", r.Temperature) };
+        foreach (var h in r.NextHours(r.LocalNow(DateTime.UtcNow), ChartHours - 1))
+            points.Add((WeatherText.HourLabel(h.Time), h.Temperature));
+        return points;
     }
 
-    /// <summary>The 5-day list: day, low, the day's range on the shared scale (a dot for now, today), high.</summary>
+    /// <summary>The 4-day list: day, low, the day's range on the shared scale in the palette's gradient, high.</summary>
     static FrameworkElement DaysBlock(WeatherReport r)
     {
-        var days = r.Days.Take(DaysShown).ToList();
-        var list = new StackPanel { Width = 206 };
+        var days = r.Days.Take(DaysListed).ToList();
+        var list = new StackPanel();
         if (days.Count == 0) return list;
         double min = days.Min(d => d.Low), max = days.Max(d => d.High);
         var today = r.LocalNow(DateTime.UtcNow).Date;
         foreach (var d in days)
         {
-            var line = new DockPanel { Height = 24 };
-            var name = CardKit.Text(WeatherText.DayLabel(d.Date, today), 12.5, FontWeights.Bold);
-            name.Width = 38;
-            var lo = CardKit.Text(WeatherText.Temp(d.Low), 12.5, FontWeights.Medium, secondary: true);
-            lo.Width = 28;
-            lo.TextAlignment = TextAlignment.Right;
-            var hi = CardKit.Text(WeatherText.Temp(d.High), 12.5, FontWeights.Bold);
-            hi.Width = 30;
-            hi.Margin = new Thickness(8, 0, 0, 0);
-            DockPanel.SetDock(name, Dock.Left);
-            DockPanel.SetDock(lo, Dock.Left);
-            DockPanel.SetDock(hi, Dock.Right);
+            var line = new Grid { Height = 18, Margin = new Thickness(0, list.Children.Count > 0 ? 9 : 0, 0, 0) };
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+            line.ColumnDefinitions.Add(new ColumnDefinition());
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+            var name = Sheet.Word(WeatherText.DayLabel(d.Date, today), 12);
+            var lo = Sheet.Meta(WeatherText.Temp(d.Low), 12);
+            var hi = Sheet.Word(WeatherText.Temp(d.High), 12);
+            hi.TextAlignment = TextAlignment.Right;
+            var span = CardMath.RangeSpan(d.Low, d.High, min, max);
+            var bar = RangeBar(span.Left, span.Width);
+            bar.Margin = new Thickness(0, 0, 8, 0);
+            Grid.SetColumn(lo, 1);
+            Grid.SetColumn(bar, 2);
+            Grid.SetColumn(hi, 3);
             line.Children.Add(name);
             line.Children.Add(lo);
+            line.Children.Add(bar);
             line.Children.Add(hi);
-            line.Children.Add(new RangeBar
-            {
-                Margin = new Thickness(8, 0, 0, 0),
-                Span = CardMath.RangeSpan(d.Low, d.High, min, max),
-                Dot = d.Date == today ? CardMath.Fraction(r.Temperature - min, max - min) : null,
-            });
             line.ToolTip = $"{WeatherCodes.Describe(d.Code)} · low {WeatherText.Temp(d.Low)}, high {WeatherText.Temp(d.High)}" +
                            (d.RainChance is { } p && p > 0 ? $" · {p}% rain" : "");
             list.Children.Add(line);
@@ -233,26 +241,110 @@ internal sealed class WeatherCard
         return list;
     }
 
-    /// <summary>A day's low–high range on the shared scale: white on a quiet track, a dot for the temperature now (today only).</summary>
-    sealed class RangeBar : FrameworkElement
+    /// <summary>A slim (6 px) palette bar from <paramref name="left"/> across <paramref name="width"/> of a quiet track.</summary>
+    static Grid RangeBar(double left, double width)
     {
-        public (double Left, double Width) Span { get; init; }
-        public double? Dot { get; init; }
+        left = Math.Clamp(left, 0, 1);
+        width = Math.Clamp(width, 0.04, 1 - left);
+        var g = new Grid { Height = 6, VerticalAlignment = VerticalAlignment.Center };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(left, GridUnitType.Star) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 1 - left - width), GridUnitType.Star) });
+        var track = new Border { Background = Sheet.Track, CornerRadius = new CornerRadius(3) };
+        Grid.SetColumnSpan(track, 3);
+        g.Children.Add(track);
+        var fill = new Border { Background = Ink.Gradient, CornerRadius = new CornerRadius(3) };
+        Grid.SetColumn(fill, 1);
+        g.Children.Add(fill);
+        return g;
+    }
 
-        protected override Size MeasureOverride(Size available) => new(0, 10);
+    /// <summary>
+    /// The next 12 hours as one smooth curve: stroked with the palette's gradient over a soft fade of the first
+    /// palette colour, a dot on "now", and four points labelled (the temperature above, the hour along the bottom).
+    /// </summary>
+    sealed class HourCurve : FrameworkElement
+    {
+        const double PadX = 10, Top = 26, Bottom = 92, LabelGap = 7;
+
+        readonly List<(string Label, double Temp)> _points;
+
+        public HourCurve(List<(string Label, double Temp)> points)
+        {
+            _points = points;
+            ToolTip = string.Join(" · ", points.Select(p => $"{p.Label} {WeatherText.Temp(p.Temp)}"));
+            System.Windows.Automation.AutomationProperties.SetName(this, "Next 12 hours: " + ToolTip);
+        }
+
+        /// <summary>The four labelled points: now, a third and two thirds of the way, and the last.</summary>
+        IEnumerable<int> Labelled()
+        {
+            int n = _points.Count;
+            if (n == 0) yield break;
+            var seen = new HashSet<int>();
+            foreach (var i in new[] { 0, (int)Math.Round((n - 1) / 3.0), (int)Math.Round((n - 1) * 2 / 3.0), n - 1 })
+                if (seen.Add(i)) yield return i;
+        }
 
         protected override void OnRender(DrawingContext dc)
         {
-            double w = ActualWidth, y = (ActualHeight - 4) / 2;
-            if (w <= 0) return;
-            dc.DrawRoundedRectangle(CardKit.TrackBg, null, new Rect(0, y, w, 4), 2, 2);
-            dc.DrawRoundedRectangle(CardKit.Ink, null, new Rect(w * Span.Left, y, Math.Max(4, w * Span.Width), 4), 2, 2);
-            if (Dot is { } d)
+            double w = ActualWidth;
+            int n = _points.Count;
+            if (w <= 0 || n == 0) return;
+            double lo = _points.Min(p => p.Temp), hi = _points.Max(p => p.Temp);
+            double spread = Math.Max(hi - lo, 3);
+            double mid = (hi + lo) / 2;
+            Point At(int i) => new(
+                n == 1 ? PadX : PadX + (w - 2 * PadX) * i / (n - 1),
+                Bottom - 12 - (_points[i].Temp - (mid - spread / 2)) / spread * (Bottom - 12 - Top));
+            var pts = Enumerable.Range(0, n).Select(At).ToList();
+
+            var line = new StreamGeometry();
+            var area = new StreamGeometry();
+            using (var c = line.Open()) Trace(c, pts, false);
+            using (var c = area.Open()) Trace(c, pts, true);
+            line.Freeze();
+            area.Freeze();
+
+            var a = Ink.A.Color;
+            var fade = new LinearGradientBrush(Color.FromArgb(0x47, a.R, a.G, a.B), Color.FromArgb(0, a.R, a.G, a.B), 90);
+            fade.Freeze();
+            dc.DrawGeometry(fade, null, area);
+            dc.DrawGeometry(null, new Pen(Ink.Gradient, 3) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round }, line);
+            dc.DrawEllipse(CardKit.Ink, null, pts[0], 5, 5);
+
+            double dip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+            foreach (int i in Labelled())
             {
-                var c = new Point(Math.Clamp(w * d, 4, w - 4), y + 2);
-                dc.DrawEllipse(CardKit.Ink, new Pen(CardKit.Surface, 2), c, 4, 4);
+                bool now = i == 0;
+                var temp = Text(WeatherText.Temp(_points[i].Temp), 12, now ? FontWeights.Bold : FontWeights.SemiBold, now ? CardKit.Ink : CardKit.Ink2, dip);
+                var hour = Text(_points[i].Label, 11, FontWeights.Medium, CardKit.Ink2, dip);
+                dc.DrawText(temp, new Point(Place(pts[i].X, temp.Width, w), pts[i].Y - LabelGap - temp.Height));
+                dc.DrawText(hour, new Point(Place(pts[i].X, hour.Width, w), ActualHeight - hour.Height));
             }
         }
+
+        /// <summary>A label centred on its point but kept inside the curve's box.</summary>
+        static double Place(double x, double width, double box) => Math.Clamp(x - width / 2, 0, Math.Max(0, box - width));
+
+        /// <summary>A smooth path through the points (Catmull-Rom as Béziers); closed down to the baseline for the fill.</summary>
+        static void Trace(StreamGeometryContext c, List<Point> p, bool closed)
+        {
+            c.BeginFigure(p[0], closed, closed);
+            for (int i = 0; i < p.Count - 1; i++)
+            {
+                Point p0 = p[Math.Max(0, i - 1)], p1 = p[i], p2 = p[i + 1], p3 = p[Math.Min(p.Count - 1, i + 2)];
+                var c1 = new Point(p1.X + (p2.X - p0.X) / 6, p1.Y + (p2.Y - p0.Y) / 6);
+                var c2 = new Point(p2.X - (p3.X - p1.X) / 6, p2.Y - (p3.Y - p1.Y) / 6);
+                c.BezierTo(c1, c2, p2, true, true);
+            }
+            if (!closed) return;
+            c.LineTo(new Point(p[^1].X, Bottom), false, false);
+            c.LineTo(new Point(p[0].X, Bottom), false, false);
+        }
+
+        static FormattedText Text(string s, double size, FontWeight weight, Brush brush, double dip) =>
+            new(s, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(CardKit.Face(weight), FontStyles.Normal, weight, FontStretches.Normal), size, brush, dip);
     }
 
     // ---- Test pipe --------------------------------------------------------------------------------

@@ -22,10 +22,10 @@ internal sealed record SystemCardData(
 /// <summary>
 /// The system card on the Focus Wall (Wall.dc.html): a graphite tile whose artwork is two tall meters — the
 /// laptop's battery and a connected headset (or CPU and memory on a desktop) — with the battery as a poster;
-/// focused, a line about the headset and a control to open the detail. The detail grows the meters into the art
-/// panel, says how things are in words, and shows battery, headsets, CPU and memory as rings. Windows reports one
-/// level per headset, so earbuds get one "Earbuds" level rather than made-up left/right numbers. A low battery is
-/// the one place colour appears: the meaning red.
+/// focused, a line about the headset and a control to open the detail. The detail (the card family's shape) says
+/// how things are in its header and shows battery, memory and CPU as three palette rings, headsets as chips. Windows reports one
+/// level per headset, so earbuds get one "Earbuds" level rather than made-up left/right numbers. On the tile a low
+/// battery is the one place colour appears: the meaning red.
 /// </summary>
 internal sealed class SystemCard
 {
@@ -150,89 +150,101 @@ internal sealed class SystemCard
     {
         var detail = new Detail();
         _detail = detail;
-        detail.Root.IsVisibleChanged += (_, _) =>
+        detail.IsVisibleChanged += (_, _) =>
         {
-            _detailOpen = detail.Root.IsVisible;
+            _detailOpen = detail.IsVisible;
             if (_detailOpen) _detail = detail;
             else if (_detail == detail) _detail = null;
             VisibilityChanged?.Invoke();
         };
         if (_data is { } d) detail.Show(d);
-        return detail.Root;
+        return detail;
     }
 
-    sealed class Detail
+    /// <summary>
+    /// The opened card (the card family's shape, 560 wide): "System · all good · plugged in" in the header, then
+    /// three equal rings, one palette colour each: the battery (its number in the accent), memory and the processor
+    /// (on a desktop, just memory and the processor), each with a bold name and a quiet line. Connected headsets
+    /// follow as quiet chips.
+    /// </summary>
+    sealed class Detail : CardSheet
     {
-        readonly Grid _meters = new() { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(24, 0, 0, 20) };
-        readonly TrackedText _big = CardKit.Poster("", 52), _bigLabel = CardKit.Label("Battery");
-        readonly UniformGrid _rings = new() { Columns = 2, VerticalAlignment = VerticalAlignment.Top };
+        const double SheetWidth = 560, RingSize = 76;
 
-        public Detail()
+        public Detail() : base("System", SheetWidth)
         {
-            Root = new WallDetail(Fields.System(), "System", "", "");
-            Root.Art.Children.Add(_meters);
-            _big.HorizontalAlignment = _bigLabel.HorizontalAlignment = HorizontalAlignment.Right;
-            _bigLabel.Margin = new Thickness(0, 6, 0, 0);
-            var right = CardKit.Column(0, _big, _bigLabel);
-            Root.Art.Children.Add(CardKit.At(right, HorizontalAlignment.Right, VerticalAlignment.Bottom, 0, 0, 20, 20));
-            Root.Body.Children.Add(_rings);
+            Body.Children.Add(Sheet.Meta("Reading the system…", 14));
         }
-
-        public WallDetail Root { get; }
 
         public void Show(SystemCardData d)
         {
             var s = d.Sample;
             bool low = s.HasBattery && PowerText.IsLow(s.BatteryPercent, s.PluggedIn);
-            var levels = Levels(d).ToList();
-            _meters.Children.Clear();
-            for (int i = 0; i < Math.Min(2, levels.Count); i++)
+            Status = string.Join(" · ", new[]
             {
-                var meter = CardKit.Meter(levels[i].Fraction, 40, 150, 9);
-                if (i == 0 && low) ((Border)meter.Children[1]).Background = CardKit.Alarm;
-                meter.HorizontalAlignment = HorizontalAlignment.Left;
-                meter.Margin = new Thickness(i * 50, 0, 0, 0);
-                _meters.Children.Add(meter);
-            }
-            _big.Text = levels[0].Value;
-            _bigLabel.Text = levels[0].Name;
+                low ? "battery low" : s.Charging ? "charging" : "all good",
+                !s.HasBattery ? "desktop power" : s.PluggedIn ? "plugged in" : "on battery",
+            });
 
-            Root.TitleText.Text = low ? "Battery low" : s.Charging ? "Charging" : "All good";
-            var parts = new List<string>();
+            var rings = new UniformGrid { Rows = 1 };
             if (s.HasBattery)
-            {
-                parts.Add(s.PluggedIn ? "Plugged in" : "On battery");
-                parts.Add(s.Charging ? (d.FullAt is { } at ? PowerText.FullBy(at).ToLowerInvariant() : "charging")
-                    : s.PluggedIn ? (s.BatteryPercent >= 99 ? "fully charged" : PowerText.Status(true, true, false, s.BatteryPercent).ToLowerInvariant())
-                    : d.TimeLeft is { } left ? PowerText.TimeLeft(left).ToLowerInvariant() : "estimating time left");
-            }
-            else parts.Add("Desktop power");
-            foreach (var h in d.Headsets.Take(1)) parts.Add($"{h.Name} connected");
-            Root.Line.Text = string.Join(" · ", parts);
+                rings.Children.Add(Gauge("Battery", CardMath.Percent(s.BatteryPercent), s.BatteryPercent.ToString(CultureInfo.InvariantCulture), BatteryLine(d), Ink.A, Ink.Soft));
+            rings.Children.Add(Gauge("Memory", CardMath.Percent(s.MemoryLoad), s.MemoryLoad.ToString(CultureInfo.InvariantCulture),
+                $"{SystemFormat.Gigabytes(s.UsedMemory)} of {SystemFormat.Gigabytes(s.TotalMemory)} GB", Ink.B, CardKit.Ink));
+            rings.Children.Add(Gauge("CPU", CardMath.Percent(s.Cpu), SystemFormat.Percent(s.Cpu).TrimEnd('%'),
+                s.Top is { } t ? $"{AppNames.Friendly(t.Name)} uses most" : "Processor", Ink.C, CardKit.Ink));
+            rings.Columns = rings.Children.Count;
 
-            _rings.Children.Clear();
-            foreach (var level in levels.Take(4)) _rings.Children.Add(RingRow(level.Name, level.Fraction, level.Value, level.Meta, low && level.Name == "Battery"));
+            var col = new StackPanel();
+            col.Children.Add(rings);
+            if (d.Headsets.Count > 0)
+            {
+                var chips = new WrapPanel { Margin = new Thickness(0, 14, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
+                foreach (var h in d.Headsets.Take(3))
+                {
+                    var chip = Sheet.Chip($"{h.Name} · {(h.Battery is { } b ? b + "%" : "connected")}", quiet: true, height: 28);
+                    chip.Margin = new Thickness(4, 0, 4, 0);
+                    chip.ToolTip = h.Battery is null ? $"{h.Name}: level not reported" : $"{h.Name}: {h.Battery}%";
+                    chips.Children.Add(chip);
+                }
+                col.Children.Add(chips);
+            }
+            Body.Children.Clear();
+            Body.Children.Add(col);
+            CardKit.Name(this, $"System: {Status}");
         }
 
-        static FrameworkElement RingRow(string name, double fraction, string value, string meta, bool alarm)
+        /// <summary>"Full", "Charging · full by 4:10", "About 2 h left", "Plugged in", "On battery".</summary>
+        static string BatteryLine(SystemCardData d)
         {
-            var ring = new Ring { Width = 50, Height = 50, Thickness = 5, Value = fraction, Track = CardKit.TrackBg, Fill = alarm ? CardKit.Alarm : CardKit.Ink };
-            var pct = CardKit.Big(value.TrimEnd('%'), 13);
-            pct.HorizontalAlignment = HorizontalAlignment.Center;
-            var dial = new Grid { Width = 50, Height = 50 };
-            dial.Children.Add(ring);
-            dial.Children.Add(pct);
-            var title = CardKit.Text(name, 14, FontWeights.Bold);
-            var sub = CardKit.Text(meta, 12, FontWeights.Medium, secondary: true);
-            var words = CardKit.Column(0, title, sub);
-            words.VerticalAlignment = VerticalAlignment.Center;
-            words.Margin = new Thickness(12, 0, 8, 0);
-            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-            DockPanel.SetDock(dial, Dock.Left);
-            row.Children.Add(dial);
-            row.Children.Add(words);
-            row.ToolTip = $"{name} {value} · {meta}";
-            return row;
+            var s = d.Sample;
+            if (s.Charging) return PowerText.ChargingLine(d.FullAt);
+            if (s.PluggedIn) return s.BatteryPercent >= 99 ? "Full" : "Plugged in";
+            return d.TimeLeft is { } left ? PowerText.TimeLeft(left) : "On battery";
+        }
+
+        /// <summary>A ring in one palette colour with its number inside, then a bold name and a quiet line beside it.</summary>
+        static FrameworkElement Gauge(string name, double fraction, string value, string meta, Brush ring, Brush number)
+        {
+            var dial = new Grid { Width = RingSize, Height = RingSize };
+            dial.Children.Add(new ArcRing(RingSize, fraction) { Thickness = 6, Stroke = ring });
+            var num = Sheet.Num(value, 24, number);
+            num.HorizontalAlignment = HorizontalAlignment.Center;
+            num.TextTrimming = TextTrimming.None;
+            dial.Children.Add(num);
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+            words.Children.Add(Sheet.Word(name, 14));
+            var line = Sheet.Meta(meta, 12);
+            line.Margin = new Thickness(0, 2, 0, 0);
+            words.Children.Add(line);
+            var grid = new Grid { HorizontalAlignment = HorizontalAlignment.Center, ToolTip = $"{name} {value} · {meta}" };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.Children.Add(dial);
+            Grid.SetColumn(words, 1);
+            grid.Children.Add(words);
+            CardKit.Name(grid, $"{name} {value} percent, {meta}");
+            return grid;
         }
     }
 
