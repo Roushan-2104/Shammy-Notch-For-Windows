@@ -17,6 +17,12 @@ public static class WhatsNew
 
     public static readonly IReadOnlyDictionary<string, string[]> Notes = new Dictionary<string, string[]>
     {
+        ["1.2.3"] = new[]
+        {
+            "Private copies and hidden alerts stay private",
+            "Hotkeys and hover come back after lock or sleep",
+            "Lighter on memory, with 30 fixes under the hood",
+        },
         ["1.2.2"] = new[]
         {
             "The everything page stays full size after a card",
