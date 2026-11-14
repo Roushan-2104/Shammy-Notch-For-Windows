@@ -49,7 +49,6 @@ public partial class App : Application
         Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = 60 });
 
         Log.Info($"Shammy {typeof(App).Assembly.GetName().Version} starting on {Environment.OSVersion}");
-        Theme.Accent.Apply();
         try
         {
             _host = new ShammyHost(AppSettings.Load());

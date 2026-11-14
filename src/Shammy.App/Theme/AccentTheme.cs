@@ -43,6 +43,13 @@ internal static class AccentTheme
         if (Application.Current is not { } app) return;
         if (app.Resources["WallAccent"] is not SolidColorBrush { Color: var was } || was != accent) app.Resources["WallAccent"] = Ui.Tokens.Frozen(accent);
         if (app.Resources["WallAccentHover"] is not SolidColorBrush { Color: var wasHover } || wasHover != hover) app.Resources["WallAccentHover"] = Ui.Tokens.Frozen(hover);
+        // The older "AccentBrush" (spinners, carets, the compact pill's glyphs) is the same one colour.
+        if (app.Resources["AccentBrush"] is not SolidColorBrush { Color: var wasOld } || wasOld != accent)
+        {
+            app.Resources["AccentBrush"] = Ui.Tokens.Frozen(accent);
+            double luma = (0.299 * accent.R + 0.587 * accent.G + 0.114 * accent.B) / 255;
+            app.Resources["OnAccentBrush"] = Ui.Tokens.Frozen(luma > 0.55 ? Colors.Black : Colors.White);
+        }
     }
 
     /// <summary>

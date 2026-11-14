@@ -14,8 +14,8 @@
     <SolidColorBrush x:Key="Green" Color="#FF30D158" />
     <SolidColorBrush x:Key="Red" Color="#FFFF453A" />
     <SolidColorBrush x:Key="Amber" Color="#FFFFD60A" />
-    <!-- Replaced at startup with the user's Windows accent colour. -->
-    <SolidColorBrush x:Key="AccentBrush" Color="#FF4CC2FF" />
+    <!-- Replaced at startup with the palette's accent (Theme/AccentTheme.cs), like WallAccent. -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#FF758CFF" />
     <!-- v2 design: one accent per kind of activity, card surfaces (see Modules/NotchCards.cs). -->
     <SolidColorBrush x:Key="MusicAccent" Color="#FFFF8A3D" />
     <SolidColorBrush x:Key="CalendarAccent" Color="#FF4C9AFF" />

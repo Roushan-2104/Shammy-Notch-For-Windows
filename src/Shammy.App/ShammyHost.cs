@@ -625,8 +625,6 @@ internal sealed partial class ShammyHost : IDisposable
 
     void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
     {
-        if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Color or UserPreferenceCategory.VisualStyle)
-            _ui.BeginInvoke(Theme.Accent.Apply);
         // Moving, resizing or auto-hiding the taskbar changes the work area (reported as "Desktop").
         if (e.Category is UserPreferenceCategory.Desktop or UserPreferenceCategory.General)
             _ui.BeginInvoke(_notch.Reposition);
