@@ -41,14 +41,6 @@ public class CardMathTests
     }
 
     [Fact]
-    public void Warmer_bars_are_more_opaque()
-    {
-        Assert.Equal(0.4, CardMath.BarOpacity(0.3), 3);
-        Assert.Equal(1, CardMath.BarOpacity(1), 3);
-        Assert.True(CardMath.BarOpacity(0.7) > CardMath.BarOpacity(0.5));
-    }
-
-    [Fact]
     public void Day_ranges_share_one_scale()
     {
         var (left, width) = CardMath.RangeSpan(21, 33, 20, 33);

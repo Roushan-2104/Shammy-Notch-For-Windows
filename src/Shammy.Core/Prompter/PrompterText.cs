@@ -57,10 +57,6 @@ public static class PrompterText
     /// <summary>How long reading this many words takes at that pace; never less than two seconds.</summary>
     public static double Seconds(int words, PrompterPace pace) => Math.Max(2, words * 60.0 / WordsPerMinute(pace));
 
-    /// <summary>How fast the script moves so that <paramref name="distance"/> pixels pass in the reading time.</summary>
-    public static double PixelsPerSecond(double distance, int words, PrompterPace pace) =>
-        distance <= 0 ? 0 : distance / Seconds(Math.Max(1, words), pace);
-
     /// <summary>"12 min at this pace" for the bar.</summary>
     public static string Length(int words, PrompterPace pace)
     {

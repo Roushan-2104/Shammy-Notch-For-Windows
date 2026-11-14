@@ -173,7 +173,6 @@ public class EyeTests
     {
         var t = new DateTime(2026, 11, 3, hour, minute, 0);
         Assert.Equal(sleepy, EyeLogic.IsSleepy(t));
-        Assert.Equal(sleepy ? 0.45 : 1, EyeLogic.Openness(t));
     }
 
     [Fact]

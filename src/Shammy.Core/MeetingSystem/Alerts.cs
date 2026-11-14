@@ -28,8 +28,6 @@ public sealed class SustainedCondition
 
     public SustainedCondition(TimeSpan duration) => _duration = duration;
 
-    public string? Subject => _subject;
-
     public bool Update(string? subject, DateTime now)
     {
         if (subject is null)

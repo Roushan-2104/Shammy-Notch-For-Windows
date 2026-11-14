@@ -72,13 +72,6 @@ public sealed class CaptionAudio
         }
     }
 
-    /// <summary>Time passed with nothing playing (Windows sends no sound at all then): it counts as quiet.</summary>
-    public void AddSilence(int samples)
-    {
-        if (samples <= 0) return;
-        Add(new float[Math.Min(samples, _ring.Length)]);
-    }
-
     /// <summary>The window to transcribe now, or false when it is too soon or there was only silence.</summary>
     public bool TryTake(out CaptionChunk chunk)
     {

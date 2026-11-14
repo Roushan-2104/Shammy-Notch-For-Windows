@@ -83,13 +83,6 @@ public class PrompterTests
         Assert.Equal(2, PrompterText.Seconds(1, PrompterPace.Fast));
     }
 
-    [Fact]
-    public void The_scroll_speed_covers_the_distance_in_the_reading_time()
-    {
-        Assert.Equal(10, PrompterText.PixelsPerSecond(600, 140, PrompterPace.Normal), 3);
-        Assert.Equal(0, PrompterText.PixelsPerSecond(0, 140, PrompterPace.Normal));
-    }
-
     [Theory]
     [InlineData(70, PrompterPace.Normal, "30 s")]
     [InlineData(1400, PrompterPace.Normal, "10 min")]

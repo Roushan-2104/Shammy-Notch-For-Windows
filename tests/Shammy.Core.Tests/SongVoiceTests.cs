@@ -480,32 +480,4 @@ public class ApexSpellingTests
         Assert.Null(ProductivityParser.Parse(text, Now));
         Assert.Null(MusicCommand.Parse(text));
     }
-
-    [Theory]
-    [InlineData("nan", TranscriptDoubt.Hallucination)]
-    [InlineData("NaN.", TranscriptDoubt.Hallucination)]
-    [InlineData("...", TranscriptDoubt.Hallucination)]
-    [InlineData(",aar.", TranscriptDoubt.Hallucination)]
-    [InlineData("ok", TranscriptDoubt.Hallucination)]
-    [InlineData("Kesriya bhaajao. вступ", TranscriptDoubt.Hallucination)]
-    [InlineData("Play kesariya 好", TranscriptDoubt.Hallucination)]
-    [InlineData("Play kesariya شكرا", TranscriptDoubt.Hallucination)]
-    public void Apex_junk_is_caught(string text, TranscriptDoubt expected) => Assert.Equal(expected, TranscriptCheck.AssessHinglish(text, 0.9f));
-
-    [Theory]
-    [InlineData("Kal subah saat baaje ka alarm lagaadoo.", 0.86f, TranscriptDoubt.None)]
-    [InlineData("Turn on Bluetooth.", 0.71f, TranscriptDoubt.None)]
-    [InlineData("कल सुबह सात बजे", 0.8f, TranscriptDoubt.None)]
-    [InlineData("Play channa mirea.", 0.56f, TranscriptDoubt.LowConfidence)]
-    [InlineData("Next", 0.9f, TranscriptDoubt.None)]
-    public void Apex_good_output_passes(string text, float p, TranscriptDoubt expected) => Assert.Equal(expected, TranscriptCheck.AssessHinglish(text, p));
-
-    [Fact]
-    public void English_rerun_wins_only_when_better()
-    {
-        Assert.True(TranscriptCheck.PreferEnglishRerun(TranscriptDoubt.Hallucination, 0.9f, "Kessria Bajau.", 0.5f));
-        Assert.False(TranscriptCheck.PreferEnglishRerun(TranscriptDoubt.Hallucination, 0.9f, "nan", 0.9f));
-        Assert.True(TranscriptCheck.PreferEnglishRerun(TranscriptDoubt.LowConfidence, 0.56f, "Play Chan-na-mi-reya.", 0.64f));
-        Assert.False(TranscriptCheck.PreferEnglishRerun(TranscriptDoubt.LowConfidence, 0.58f, "Play something", 0.5f));
-    }
 }

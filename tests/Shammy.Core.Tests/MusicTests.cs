@@ -160,7 +160,7 @@ public class YouTubeMusicTests
     [Fact]
     public void Finds_the_first_song_with_title_and_artist()
     {
-        var song = YouTubeMusic.ParseFirstSong(Response);
+        var song = YouTubeMusic.ParseSongs(Response).FirstOrDefault();
         Assert.NotNull(song);
         Assert.Equal("M4bYA-xuZ6I", song!.VideoId);
         Assert.Equal("Kaahe Mose", song.Title);
@@ -176,16 +176,16 @@ public class YouTubeMusicTests
           {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Song"},{"text":" \u2022 "},{"text":"Coldplay"},{"text":" \u2022 "},{"text":"4:29"}]}}}],
           "overlay":{"x":{"watchEndpoint":{"videoId":"yKNxeF4KMsY"}}}}}]}
         """;
-        var song = YouTubeMusic.ParseFirstSong(json);
+        var song = YouTubeMusic.ParseSongs(json).FirstOrDefault();
         Assert.Equal(new YouTubeMusicSong("yKNxeF4KMsY", "Yellow", "Coldplay"), song);
     }
 
     [Fact]
     public void Falls_back_to_any_video_id_and_survives_junk()
     {
-        Assert.Equal("abc", YouTubeMusic.ParseFirstSong("""{"x":{"watchEndpoint":{"videoId":"abc"}}}""")?.VideoId);
-        Assert.Null(YouTubeMusic.ParseFirstSong("""{"contents":{}}"""));
-        Assert.Null(YouTubeMusic.ParseFirstSong("<html>not json"));
+        Assert.Equal("abc", YouTubeMusic.ParseSongs("""{"x":{"watchEndpoint":{"videoId":"abc"}}}""").FirstOrDefault()?.VideoId);
+        Assert.Null(YouTubeMusic.ParseSongs("""{"contents":{}}""").FirstOrDefault());
+        Assert.Null(YouTubeMusic.ParseSongs("<html>not json").FirstOrDefault());
     }
 
     [Fact]

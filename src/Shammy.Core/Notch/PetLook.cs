@@ -38,8 +38,6 @@ public static class PetLooks
         _ => ("#F5F5F7", "#A3A6B2"),
     };
 
-    public static string ColorName(PetEyeColor color) => color.ToString();
-
     /// <summary>One eye at the design's 1× face: width, height and corner radius.</summary>
     public static (double Width, double Height, double Radius) Eye(PetEyeStyle style) => style switch
     {

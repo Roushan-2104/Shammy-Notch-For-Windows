@@ -18,9 +18,6 @@ public static class EyeLogic
     /// <summary>Half-closed eyes late at night, 11 PM to 6 AM.</summary>
     public static bool IsSleepy(DateTime local) => local.Hour >= 23 || local.Hour < 6;
 
-    /// <summary>How open the eyes are at rest (1 = open).</summary>
-    public static double Openness(DateTime local) => IsSleepy(local) ? 0.45 : 1;
-
     /// <summary>The sideways look towards a pointer at (dx, dy) DIPs from the eyes, or null when it is too far to care.</summary>
     public static double? Follow(double dx, double dy)
     {

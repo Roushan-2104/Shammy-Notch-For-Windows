@@ -587,7 +587,7 @@ public class CaptionAudioTests
         Assert.True(a.TryTake(out _));
         for (int i = 0; i < 120; i++)
         {
-            a.AddSilence(Rate / 2);
+            a.Add(new float[Rate / 2]);
             a.TryTake(out _);
         }
         a.Add(Speech(2));

@@ -36,10 +36,6 @@ public class WeatherCodeTests
     [Fact]
     public void Wetness_and_intensity()
     {
-        Assert.True(WeatherCodes.IsWet(61));
-        Assert.True(WeatherCodes.IsWet(95));
-        Assert.False(WeatherCodes.IsWet(3));
-        Assert.False(WeatherCodes.IsWet(45));
         Assert.Equal(1, WeatherCodes.Intensity(61));
         Assert.Equal(3, WeatherCodes.Intensity(65));
         Assert.Equal(0, WeatherCodes.Intensity(2));

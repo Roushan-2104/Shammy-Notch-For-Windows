@@ -13,22 +13,12 @@ public static class PaletteQuery
 {
     const RegexOptions Opts = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
 
-    static readonly Regex Question = new(
-        @"^(?:how|what|whats|what's|why|when|where|who|whom|whose|which|is|are|was|were|can|could|does|do|did|should|will|would|define|meaning|weather|news|price|best|near)\b", Opts);
-
     static readonly (string Word, MediaControl Control)[] MediaWords =
     {
         ("pause", MediaControl.PlayPause), ("play", MediaControl.PlayPause), ("resume", MediaControl.PlayPause),
         ("next", MediaControl.Next), ("skip", MediaControl.Next),
         ("previous", MediaControl.Previous), ("prev", MediaControl.Previous),
     };
-
-    /// <summary>Reads like a question or a search ("how to…", "weather today", "is it…?").</summary>
-    public static bool IsQuestion(string text)
-    {
-        var t = (text ?? "").Trim();
-        return t.Contains('?') || Question.IsMatch(t);
-    }
 
     /// <summary>
     /// Media rows for a typed prefix of a transport word ("pa" → play/pause, "nex" → next). Two letters at

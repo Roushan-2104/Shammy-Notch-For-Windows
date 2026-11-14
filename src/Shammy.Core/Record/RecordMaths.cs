@@ -39,10 +39,6 @@ public static class RecordMaths
         return (int)Math.Clamp(rounded, MinBitrate, MaxBitrate);
     }
 
-    /// <summary>Roughly how many bytes a minute of recording takes at this size (video plus sound).</summary>
-    public static long BytesPerMinute(int width, int height, bool sound) =>
-        ((long)Bitrate(width, height) + (sound ? AudioBitrate : 0)) * 60 / 8;
-
     /// <summary>When frame <paramref name="index"/> is due, counted from the start (frame 0 at zero).</summary>
     public static TimeSpan FrameTime(long index, int frameRate = FrameRate) =>
         TimeSpan.FromTicks(index * TimeSpan.TicksPerSecond / Math.Max(1, frameRate));

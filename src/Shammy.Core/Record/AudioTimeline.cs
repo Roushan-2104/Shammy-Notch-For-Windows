@@ -28,15 +28,6 @@ public sealed class AudioTimeline
         _ring = new float[_capacity * channels];
     }
 
-    /// <summary>Frames waiting to be read.</summary>
-    public int Buffered
-    {
-        get
-        {
-            lock (_gate) return (int)(_end - _lo);
-        }
-    }
-
     /// <summary>The position the next burst would continue from.</summary>
     public long End
     {

@@ -85,13 +85,6 @@ public class RecordMathsTests
     }
 
     [Fact]
-    public void An_hour_at_full_hd_with_sound_is_about_three_and_a_half_gigabytes()
-    {
-        long hour = RecordMaths.BytesPerMinute(1920, 1080, sound: true) * 60;
-        Assert.InRange(hour, 3_600_000_000L, 3_700_000_000L);
-    }
-
-    [Fact]
     public void A_dragged_area_is_kept_on_the_screen_with_even_sides()
     {
         Assert.Equal((100, 50, 300, 200), RecordMaths.Area(100, 50, 301, 201, 1920, 1080));
@@ -412,7 +405,6 @@ public class AudioTimelineTests
         var t = new AudioTimeline(Rate, 2);
         t.Write(Burst(960, 0.4f), 960);
         Read(t, 0, 480, out _);
-        Assert.Equal(480, t.Buffered);
         // Reading the same stretch again finds nothing.
         Read(t, 0, 480, out int again);
         Assert.Equal(0, again);
@@ -423,7 +415,6 @@ public class AudioTimelineTests
     {
         var t = new AudioTimeline(Rate, 2, bufferSeconds: 1);
         for (int i = 1; i <= 300; i++) t.Write(Burst(480, i), i * 480L);
-        Assert.Equal(Rate, t.Buffered);
         var newest = Read(t, 300 * 480 - 480, 480, out int had);
         Assert.Equal(480, had);
         Assert.All(newest, v => Assert.Equal(300f, v));

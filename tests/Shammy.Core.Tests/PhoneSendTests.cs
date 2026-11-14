@@ -377,7 +377,6 @@ public class TransferTokenTests
         Assert.All(tokens, t =>
         {
             Assert.Equal(22, t.Length);
-            Assert.True(TransferToken.IsWellFormed(t));
             Assert.Matches("^[A-Za-z0-9_-]{22}$", t);
         });
         Assert.Equal(tokens.Count, tokens.Distinct().Count());
@@ -391,8 +390,6 @@ public class TransferTokenTests
         Assert.False(TransferToken.Matches(t, t[..^1]));
         Assert.False(TransferToken.Matches(t, t + "x"));
         Assert.False(TransferToken.Matches(t, null));
-        Assert.False(TransferToken.IsWellFormed("abc"));
-        Assert.False(TransferToken.IsWellFormed(new string('+', 22)));
     }
 
     [Theory]
@@ -572,7 +569,7 @@ public sealed class PhoneTransferServerTests : IDisposable
     {
         Assert.True(_server.IsRunning);
         Assert.InRange(_server.Port, 49200, 49900);
-        Assert.True(TransferToken.IsWellFormed(_server.Token));
+        Assert.Matches("^[A-Za-z0-9_-]{22}$", _server.Token);
     }
 
     [Fact]

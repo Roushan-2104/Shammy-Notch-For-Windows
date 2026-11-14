@@ -31,13 +31,6 @@ public static class CardMath
         return heights;
     }
 
-    /// <summary>Warmer bars are more opaque (the mockup's 0.4–1.0 ramp), from the same 0..1 heights.</summary>
-    public static double BarOpacity(double height, double floor = 0.3, double minOpacity = 0.4)
-    {
-        double n = floor >= 1 ? 1 : Math.Clamp((height - floor) / (1 - floor), 0, 1);
-        return minOpacity + (1 - minOpacity) * n;
-    }
-
     /// <summary>
     /// Where one day's low–high range sits on a shared scale (the 5-day list): left edge and width, both 0..1.
     /// A day whose low equals its high still gets a sliver so it stays visible.

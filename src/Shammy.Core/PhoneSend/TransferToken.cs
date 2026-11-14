@@ -9,17 +9,12 @@ namespace Shammy.Core.PhoneSend;
 /// </summary>
 public static class TransferToken
 {
-    public const int Length = 22;
-
     public static string New()
     {
         Span<byte> bytes = stackalloc byte[16];
         RandomNumberGenerator.Fill(bytes);
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
-
-    public static bool IsWellFormed(string? token) =>
-        token is { Length: Length } && token.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '-' or '_');
 
     /// <summary>Constant-time comparison so response timing doesn't leak how much of a guess was right.</summary>
     public static bool Matches(string expected, string? candidate)

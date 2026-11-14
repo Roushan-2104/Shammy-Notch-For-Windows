@@ -495,15 +495,6 @@ public class PaletteQueryTests
         Assert.Null(PaletteQuery.MusicQuery(text));
     }
 
-    [Theory]
-    [InlineData("how do I", true)]
-    [InlineData("is it raining?", true)]
-    [InlineData("spotify", false)]
-    public void Questions(string text, bool expected)
-    {
-        Assert.Equal(expected, PaletteQuery.IsQuestion(text));
-    }
-
     [Fact]
     public void Describes_productivity_commands()
     {

@@ -72,9 +72,6 @@ public static class WeatherCodes
         _ => "Unknown",
     };
 
-    /// <summary>True for codes where something falls from the sky.</summary>
-    public static bool IsWet(int code) => Kind(code) is WeatherKind.Drizzle or WeatherKind.Rain or WeatherKind.Snow or WeatherKind.Thunderstorm;
-
     /// <summary>The best single Fluent glyph for a code.</summary>
     public static string Glyph(int code, bool isDay = true) => Kind(code) switch
     {

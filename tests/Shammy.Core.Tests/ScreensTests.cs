@@ -8,21 +8,6 @@ public class ScreensTests
 {
     static readonly DateTime Wed2248 = new(2026, 11, 4, 22, 48, 0);
 
-    [Fact]
-    public void NextLineTomorrowMorning() =>
-        Assert.Equal("Next · tomorrow 7:00 AM · in 8 h 12 m", AlarmText.NextLine(Wed2248, new DateTime(2026, 11, 5, 7, 0, 0), use24Hour: false));
-
-    [Fact]
-    public void NextLineToday() =>
-        Assert.Equal("Next · today 23:30 · in 42 m", AlarmText.NextLine(Wed2248, new DateTime(2026, 11, 4, 23, 30, 0), use24Hour: true));
-
-    [Fact]
-    public void NextLineLaterThisWeekAndFurther()
-    {
-        Assert.Equal("Next · Saturday 9:30 AM · in 2 days", AlarmText.NextLine(Wed2248, new DateTime(2026, 11, 7, 9, 30, 0), use24Hour: false));
-        Assert.StartsWith("Next · Thu 12 Nov 7:00 AM", AlarmText.NextLine(Wed2248, new DateTime(2026, 11, 12, 7, 0, 0), use24Hour: false));
-    }
-
     [Theory]
     [InlineData(0, "now")]
     [InlineData(0.2, "in 1 m")]

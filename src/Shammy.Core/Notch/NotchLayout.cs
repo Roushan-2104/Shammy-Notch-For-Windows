@@ -1,36 +1,5 @@
 namespace Shammy.Core.Notch;
 
-/// <summary>A home-row candidate: only what the fitting needs to know about a card.</summary>
-public readonly record struct RowCard(string Id, double Width, int Order, bool Relevant);
-
-/// <summary>
-/// Which cards the open notch's home row shows. The row is one line with no scrolling, so when the relevant
-/// cards don't all fit, the lowest-priority ones (highest <see cref="RowCard.Order"/>) are left out; a smaller,
-/// later card still takes a gap that a bigger one couldn't use. Left-out cards stay reachable from the chips.
-/// </summary>
-public static class HomeRowLayout
-{
-    /// <summary>The open notch's inner width (1012 minus 18 px padding each side) and the gap between cards.</summary>
-    public const double RowWidth = 976, Gap = 8;
-
-    /// <returns>The ids to show, left to right (by Order; equal Orders keep registration order).</returns>
-    public static IReadOnlyList<string> Fit(IEnumerable<RowCard> cards, double rowWidth = RowWidth, double gap = Gap)
-    {
-        var shown = new List<string>();
-        double used = 0;
-        // OrderBy is stable, so ties keep the order the modules registered them in.
-        foreach (var c in cards.Where(c => c.Relevant && c.Width > 0).OrderBy(c => c.Order))
-        {
-            double need = shown.Count == 0 ? c.Width : used + gap + c.Width;
-            // Half a pixel of slack: 340 + 260 + 176 + 176 + 3 gaps is exactly 976 and must fit.
-            if (need > rowWidth + 0.5) continue;
-            shown.Add(c.Id);
-            used = need;
-        }
-        return shown;
-    }
-}
-
 /// <summary>
 /// How many chips the top row shows. A chip cut in half looks broken, so chips show whole or not at all, in
 /// order; when they don't all fit, a "More" chip takes the end of the row and lists the rest, so every card

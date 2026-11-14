@@ -59,34 +59,6 @@ public static class TranscriptCheck
         return TranscriptDoubt.None;
     }
 
-    // What the Hinglish model (Apex) says when it didn't really hear anything: "nan", "...", ",aar.".
-    static readonly Regex ApexJunk = new(@"^\s*(?:nan|null|none)\s*[.!?]?\s*$|^\s*[,.;:]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    static readonly Regex ForeignScript = new(@"[\p{IsCJKUnifiedIdeographs}\p{IsHiragana}\p{IsKatakana}\p{IsHangulSyllables}\p{IsArabic}\p{IsCyrillic}\p{IsThai}]", RegexOptions.CultureInvariant);
-
-    /// <summary>
-    /// Whether a transcript from the Hinglish model needs checking against the regular English model:
-    /// <see cref="TranscriptDoubt.Hallucination"/> for its known junk (fewer than three letters or digits,
-    /// "nan", a leading comma, stray CJK/Arabic characters), <see cref="TranscriptDoubt.LowConfidence"/> below
-    /// <see cref="LowConfidence"/>, else None. Devanagari is fine: it's Hindi, just not romanized.
-    /// </summary>
-    public static TranscriptDoubt AssessHinglish(string text, float probability)
-    {
-        var t = (text ?? "").Trim();
-        if (t.Count(char.IsLetterOrDigit) < 3 || ApexJunk.IsMatch(t) || ForeignScript.IsMatch(t)) return TranscriptDoubt.Hallucination;
-        if (probability >= 0 && probability < LowConfidence) return TranscriptDoubt.LowConfidence;
-        return TranscriptDoubt.None;
-    }
-
-    /// <summary>
-    /// Between the Hinglish model's doubted transcript and the English model's re-run: junk always loses, and
-    /// otherwise the likelier one wins.
-    /// </summary>
-    public static bool PreferEnglishRerun(TranscriptDoubt hinglishDoubt, float hinglishProbability, string english, float englishProbability)
-    {
-        if (AssessHinglish(english, -1) == TranscriptDoubt.Hallucination) return false;
-        return hinglishDoubt == TranscriptDoubt.Hallucination || englishProbability > hinglishProbability;
-    }
-
     /// <summary>True when most letters are not Latin (Urdu, Devanagari...).</summary>
     public static bool IsMostlyOtherScript(string text)
     {

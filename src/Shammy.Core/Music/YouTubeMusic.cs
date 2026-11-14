@@ -38,8 +38,6 @@ public static class YouTubeMusic
         ["params"] = SongsFilter,
     }.ToJsonString();
 
-    public static YouTubeMusicSong? ParseFirstSong(string json) => ParseSongs(json).FirstOrDefault();
-
     /// <summary>
     /// Every song row in result order (duplicates dropped), so the caller can pass over remixes and covers
     /// (<see cref="SongPick"/>). Without song rows (a layout change?) it settles for any playable id, so

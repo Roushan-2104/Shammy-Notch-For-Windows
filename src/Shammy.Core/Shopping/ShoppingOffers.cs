@@ -12,9 +12,6 @@ public sealed record ShoppingOffer(string Title, decimal Price, string Store, st
 {
     /// <summary>"₹1,199" in Indian grouping.</summary>
     public string PriceText => ShoppingOffers.Rupees(Price);
-
-    /// <summary>Delivery is free (with or without a date).</summary>
-    public bool FreeDelivery => Delivery.StartsWith("Free delivery", StringComparison.OrdinalIgnoreCase) && !Delivery.Contains('+');
 }
 
 /// <summary>

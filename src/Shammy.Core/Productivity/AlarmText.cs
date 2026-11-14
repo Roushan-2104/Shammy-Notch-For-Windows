@@ -73,20 +73,6 @@ public static class AlarmText
     /// <summary>"Missed alarm 7:00 AM".</summary>
     public static string Missed(Alarm a) => $"Missed alarm {Time(a)}";
 
-    /// <summary>The Alarms screen's header: "Next · tomorrow 7:00 AM · in 8 h 12 m", "Next · today 6:30 PM · in 45 m".</summary>
-    public static string NextLine(DateTime nowLocal, DateTime nextLocal, bool? use24Hour = null)
-    {
-        int days = (nextLocal.Date - nowLocal.Date).Days;
-        string day = days switch
-        {
-            <= 0 => "today",
-            1 => "tomorrow",
-            < 7 => nextLocal.ToString("dddd", Invariant),
-            _ => nextLocal.ToString("ddd d MMM", Invariant),
-        };
-        return $"Next · {day} {ClockPreference.Format(nextLocal, use24Hour)} · {Short(nextLocal - nowLocal)}";
-    }
-
     /// <summary>The short form of <see cref="Until"/> for tight rows: "in 45 m", "in 8 h 12 m", "in 3 days".</summary>
     public static string Short(TimeSpan until)
     {
