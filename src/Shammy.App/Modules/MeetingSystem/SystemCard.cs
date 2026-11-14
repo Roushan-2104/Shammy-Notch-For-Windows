@@ -162,14 +162,14 @@ internal sealed class SystemCard
     }
 
     /// <summary>
-    /// The opened card (the card family's shape, 560 wide): "System · all good · plugged in" in the header, then
+    /// The opened card (the card family's shape, 620 wide): "System · all good · plugged in" in the header, then
     /// three equal rings, one palette colour each: the battery (its number in the accent), memory and the processor
     /// (on a desktop, just memory and the processor), each with a bold name and a quiet line. Connected headsets
     /// follow as quiet chips.
     /// </summary>
     sealed class Detail : CardSheet
     {
-        const double SheetWidth = 560, RingSize = 76;
+        const double SheetWidth = 620, RingSize = 76;
 
         public Detail() : base("System", SheetWidth)
         {

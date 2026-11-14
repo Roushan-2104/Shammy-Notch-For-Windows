@@ -57,6 +57,42 @@ internal class CardSheet : Grid
         Grid.SetRow(Body, 1);
         frame.Children.Add(Body);
         System.Windows.Automation.AutomationProperties.SetName(this, title);
+        // Any list in the card that scrolls fades out at the edge where more is hidden, so a row half in view reads
+        // as "there's more" instead of being cut off.
+        AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, e) =>
+        {
+            if (e.OriginalSource is ScrollViewer sv) FadeEdges(sv);
+        }));
+    }
+
+    /// <summary>The fade (28 px) at whichever ends of a scrolling list still hide something; none when it all fits.</summary>
+    static void FadeEdges(ScrollViewer sv)
+    {
+        bool vertical = sv.ScrollableHeight > 0.5;
+        bool horizontal = !vertical && sv.ScrollableWidth > 0.5;
+        if (!vertical && !horizontal)
+        {
+            if (sv.OpacityMask is not null) sv.OpacityMask = null;
+            return;
+        }
+        double length = vertical ? sv.ViewportHeight : sv.ViewportWidth;
+        if (length < 60) return;
+        double offset = vertical ? sv.VerticalOffset : sv.HorizontalOffset;
+        double scrollable = vertical ? sv.ScrollableHeight : sv.ScrollableWidth;
+        bool start = offset > 0.5, end = offset < scrollable - 0.5;
+        const double fade = 28;
+        var mask = new LinearGradientBrush
+        {
+            MappingMode = BrushMappingMode.Absolute,
+            StartPoint = new Point(0, 0),
+            EndPoint = vertical ? new Point(0, length) : new Point(length, 0),
+        };
+        mask.GradientStops.Add(new GradientStop(start ? Colors.Transparent : Colors.Black, 0));
+        mask.GradientStops.Add(new GradientStop(Colors.Black, fade / length));
+        mask.GradientStops.Add(new GradientStop(Colors.Black, 1 - fade / length));
+        mask.GradientStops.Add(new GradientStop(end ? Colors.Transparent : Colors.Black, 1));
+        mask.Freeze();
+        sv.OpacityMask = mask;
     }
 
     /// <summary>Back was clicked (the notch goes home).</summary>
