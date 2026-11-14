@@ -37,7 +37,7 @@ internal sealed class TimerCard
 
     readonly ITimerCardHost _host;
     readonly WallTile _tile = new();
-    readonly Ring _ring = new() { Width = 72, Height = 72, Thickness = 6 };
+    readonly ArcRing _ring = new(72, 0) { Thickness = 6, Stroke = CardKit.Ink };
     readonly TrackedText _digits = CardKit.Big("", 18), _rest = CardKit.Label("");
     readonly TextBlock _name, _of;
     readonly StackPanel _buttons = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 10, 0) };
@@ -145,8 +145,8 @@ internal sealed class TimerCard
         {
             bool done = _done is not null;
             _tile.Field = done ? Fields.Alarm() : Fields.Timer();
-            _ring.Fill = done ? CardKit.Alarm : CardKit.Ink;
-            _ring.Value = done ? 1 : 0;
+            _ring.Stroke = done ? CardKit.Alarm : CardKit.Ink;
+            _ring.Fraction = done ? 1 : 0;
             _digits.Text = "0:00";
             _rest.Text = done ? $"{_done} · done" : "Timer";
             _name.Text = done ? _done! : "Timer";
@@ -156,8 +156,8 @@ internal sealed class TimerCard
         else
         {
             _tile.Field = Fields.Timer();
-            _ring.Fill = CardKit.Ink;
-            _ring.Value = RingValue(c, now);
+            _ring.Stroke = CardKit.Ink;
+            _ring.Fraction = RingValue(c, now);
             var display = c.Display(now);
             _digits.Text = display;
             _digits.FontSize = display.Length > 5 ? 14 : 18;

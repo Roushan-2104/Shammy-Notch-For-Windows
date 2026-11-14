@@ -379,9 +379,14 @@ internal static class Ink
     }
 }
 
-/// <summary>A progress ring: a faint track and an arc in <see cref="Stroke"/> (the palette by default).</summary>
+/// <summary>
+/// The progress ring: a faint track and a round-capped arc from 12 o'clock, clockwise, in <see cref="Stroke"/> (the
+/// palette by default). Drawn directly, so a new value is one cheap re-render.
+/// </summary>
 internal sealed class ArcRing : FrameworkElement
 {
+    Brush _stroke = Ink.Gradient;
+
     public static readonly DependencyProperty FractionProperty = DependencyProperty.Register(nameof(Fraction), typeof(double), typeof(ArcRing),
         new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
 
@@ -393,7 +398,17 @@ internal sealed class ArcRing : FrameworkElement
 
     public double Thickness { get; init; } = 6;
 
-    public Brush Stroke { get; init; } = Ink.Gradient;
+    /// <summary>The arc's colour; changing it redraws (the timer tile turns red when time's up).</summary>
+    public Brush Stroke
+    {
+        get => _stroke;
+        set
+        {
+            if (ReferenceEquals(_stroke, value)) return;
+            _stroke = value;
+            InvalidateVisual();
+        }
+    }
 
     public ArcRing(double size, double fraction)
     {
