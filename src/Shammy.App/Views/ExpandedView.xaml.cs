@@ -512,7 +512,8 @@ public partial class ExpandedView : UserControl
 
     internal void Refresh()
     {
-        if (_s is null || !IsInitialized) return;
+        // Closed: nothing to redraw (opening refreshes); a notification arriving shouldn't rebuild a hidden home.
+        if (_s is null || !IsInitialized || !IsVisible) return;
         if (_openId is null) RefreshHome();
         else RefreshSentence();
         if (_openId == AlertsId) RefreshAlertsHeader();

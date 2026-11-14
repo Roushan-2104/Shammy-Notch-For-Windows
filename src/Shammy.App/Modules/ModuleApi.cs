@@ -156,8 +156,6 @@ internal sealed class ModuleContext
         Notch = notch;
         _activities = activities;
         _registry = registry;
-        notch.NotchWheel += d => NotchWheel?.Invoke(d);
-        notch.NotchHorizontalWheel += d => NotchHorizontalWheel?.Invoke(d);
     }
 
     public string Name { get; }
@@ -267,11 +265,13 @@ internal sealed class ModuleContext
     /// <summary>Briefly light the notch's edge in a colour (an event, not a state).</summary>
     public void FlashEdge(Color color) => Notch.FlashEdge(color);
 
+    // The wheel events subscribe straight to the notch, so a module that never listens leaves no handler behind.
+
     /// <summary>Vertical mouse wheel over the compact/idle notch (delta, 120 per notch).</summary>
-    public event Action<int>? NotchWheel;
+    public event Action<int>? NotchWheel { add => Notch.NotchWheel += value; remove => Notch.NotchWheel -= value; }
 
     /// <summary>Horizontal wheel / two-finger swipe over the notch (positive = right).</summary>
-    public event Action<int>? NotchHorizontalWheel;
+    public event Action<int>? NotchHorizontalWheel { add => Notch.NotchHorizontalWheel += value; remove => Notch.NotchHorizontalWheel -= value; }
 
     // ---- Storage and helpers ---------------------------------------------------------------------
 
