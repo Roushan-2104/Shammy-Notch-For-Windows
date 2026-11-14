@@ -6,9 +6,6 @@ internal static class Paths
 
     public static string Root { get; } = ResolveRoot();
 
-    /// <summary>Set when this start moved the data folder over from the app's old name ("Halo").</summary>
-    public static string? MigratedFrom { get; private set; }
-
     public static string Logs => Ensure("logs");
     public static string Models => Ensure("models");
     public static string WebView => Ensure("webview");
@@ -21,32 +18,11 @@ internal static class Paths
         return dir;
     }
 
-    /// <summary>
-    /// Shammy was called Halo; its settings, notes, clipboard, voice model and browser profile lived in
-    /// %LOCALAPPDATA%\Halo. Move that folder over once, but only if it really is ours (another app could
-    /// use a folder called "Halo"). If the move fails (something has a file open), keep using the old
-    /// folder rather than starting empty.
-    /// </summary>
+    /// <summary>%LOCALAPPDATA%\Shammy: settings, notes, clipboard, voice model and browser profile.</summary>
     static string ResolveRoot()
     {
         // Test pipe only: a separate data folder, so screenshots and tests never touch (or show) the user's own data.
         if (CommandServer.IsEnabled && Environment.GetEnvironmentVariable("SHAMMY_DATA_ROOT") is { Length: > 0 } testRoot) return testRoot;
-        var root = Path.Combine(Local, "Shammy");
-        var old = Path.Combine(Local, "Halo");
-        if (Directory.Exists(root) || !Directory.Exists(old) || !LooksLikeOurs(old)) return root;
-        try
-        {
-            Directory.Move(old, root);
-            MigratedFrom = old;
-            return root;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return old;
-        }
+        return Path.Combine(Local, "Shammy");
     }
-
-    static bool LooksLikeOurs(string dir) =>
-        File.Exists(Path.Combine(dir, "settings.json")) &&
-        (Directory.Exists(Path.Combine(dir, "modules")) || Directory.Exists(Path.Combine(dir, "logs")));
 }

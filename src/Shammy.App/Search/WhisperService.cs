@@ -33,8 +33,8 @@ internal sealed class WhisperService : IDisposable
 
     const string Revision = "5359861c739e955e79d9a303bcbc70fb988958b1";
 
-    /// <summary>The one model Shammy keeps (see <see cref="Shammy.Core.Search.ModelCleanup"/>).</summary>
-    internal static readonly VoiceModel Base = new("base", Shammy.Core.Search.ModelCleanup.Keep, 147_951_465,
+    /// <summary>The one model Shammy keeps, the offline backup.</summary>
+    internal static readonly VoiceModel Base = new("base", "ggml-base.bin", 147_951_465,
         "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe");
 
     /// <summary>How long the model stays in memory after the last command that used it.</summary>

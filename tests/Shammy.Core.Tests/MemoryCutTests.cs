@@ -1,42 +1,6 @@
 using Shammy.Core.Captions;
-using Shammy.Core.Search;
 
 namespace Shammy.Core.Tests;
-
-public class ModelCleanupTests
-{
-    [Fact]
-    public void Every_model_but_base_goes_including_half_finished_downloads()
-    {
-        var names = new[]
-        {
-            "ggml-base.bin", "ggml-small.bin", "ggml-large-v3-turbo-q5_0.bin", "ggml-apex-hinglish-q5_0.bin.part",
-            "ggml-apex-hinglish-q5_0.bin", "verified.txt",
-        };
-        Assert.Equal(new[] { "ggml-small.bin", "ggml-large-v3-turbo-q5_0.bin", "ggml-apex-hinglish-q5_0.bin.part", "ggml-apex-hinglish-q5_0.bin" },
-            ModelCleanup.ToRecycle(names));
-    }
-
-    [Fact]
-    public void The_kept_model_and_its_own_resumable_download_stay_whatever_the_case()
-    {
-        Assert.Empty(ModelCleanup.ToRecycle(new[] { "GGML-BASE.BIN", "ggml-base.bin.part" }));
-    }
-
-    [Fact]
-    public void Files_that_are_not_models_and_anything_like_a_path_are_left_alone()
-    {
-        Assert.Empty(ModelCleanup.ToRecycle(new[] { "verified.txt", "notes.md", "..\\other.bin", "C:\\x.bin", "sub/y.bin", "", " " }));
-    }
-
-    [Fact]
-    public void The_log_line_is_counts_and_size_only()
-    {
-        Assert.Equal("nothing", ModelCleanup.Describe(0, 0));
-        Assert.Equal("1 file, 149 MB", ModelCleanup.Describe(1, 149L << 20));
-        Assert.Equal("3 files, 1.2 GB", ModelCleanup.Describe(3, (long)(1.2 * (1L << 30))));
-    }
-}
 
 public class LiveCaptionsTextTests
 {

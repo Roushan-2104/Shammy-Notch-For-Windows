@@ -225,9 +225,6 @@ internal sealed partial class ShammyHost : IDisposable
             _activities.Remove("voice-model");
             Post(new Activity("voice-failed", ActivityKind.Message, PriorityMessage, new MessagePayload("", reason, true), In(4)));
         });
-        // Once after this update: the voice models no longer used go to the Recycle Bin (a minute in, off the UI thread).
-        _ = Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(_ => ModelFolderCleanup.RunOnce(), TaskScheduler.Default);
-        _modules.PipeCommands["models-cleanup"] = _ => ModelFolderCleanup.DryRun();
         _modules.PipeCommands["voice-unload"] = _ => (_whisper.UnloadNow() ? "ok: freed " : "ok: wasn't loaded ") + MemoryState.Line();
         _modules.PipeCommands["browser-free"] = _ => _notch.ResultView.FreeNowForTest() + " " + MemoryState.Line();
         if (!WebView2Check.IsInstalled())

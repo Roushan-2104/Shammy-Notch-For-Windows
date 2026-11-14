@@ -318,28 +318,7 @@ internal sealed class AppSettings
 
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    /// <summary>
-    /// The startup entry used to be called "Halo" and point at Halo.exe. Replace it with "Shammy" pointing at
-    /// this exe, and repair a "Shammy" entry whose exe no longer exists (it moved or was renamed).
-    /// </summary>
-    public static void MigrateStartupEntry()
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key is null || Environment.ProcessPath is not { } exe) return;
-            // Only the installed copy may claim the startup entry (a dev build would otherwise take it over).
-            if (!exe.Contains(@"\HaloNotch\current\", StringComparison.OrdinalIgnoreCase)) return;
-            bool wanted = key.GetValue(OldRunName) is string || key.GetValue("Shammy") is string old && !File.Exists(old.Trim('"'));
-            key.DeleteValue(OldRunName, false);
-            if (wanted) key.SetValue("Shammy", $"\"{exe}\"");
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Updating the startup entry failed", ex);
-        }
-    }
-
+    // The startup entry's name when the app was called Halo; the uninstaller removes it too.
     const string OldRunName = "Halo";
 
     /// <summary>Called by the uninstaller, before Shammy's files are removed.</summary>

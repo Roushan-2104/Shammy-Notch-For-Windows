@@ -49,10 +49,6 @@ public partial class App : Application
         Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = 60 });
 
         Log.Info($"Shammy {typeof(App).Assembly.GetName().Version} starting on {Environment.OSVersion}");
-        if (Paths.MigratedFrom is { } from) Log.Info($"Moved the data folder over from {Path.GetFileName(from)} (the app's old name)");
-        AppSettings.MigrateStartupEntry();
-        // After the updater has finished: it can still be restoring files for a few seconds after a restart.
-        Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(_ => RenameCleanup.Run(), TaskScheduler.Default);
         Theme.Accent.Apply();
         try
         {
