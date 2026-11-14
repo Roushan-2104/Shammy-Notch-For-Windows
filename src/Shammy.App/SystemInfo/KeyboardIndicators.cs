@@ -66,7 +66,7 @@ internal sealed class KeyboardIndicators
 
     static IntPtr ForegroundLayout()
     {
-        var thread = Native.GetWindowThreadProcessId(Native.GetForegroundWindow(), out _);
+        var thread = Native.GetWindowThreadProcessId(FrontWindow.Handle, out _);
         return Native.GetKeyboardLayout(thread);
     }
 

@@ -23,6 +23,23 @@ internal sealed class WheelStore
 internal static class WheelLink
 {
     public static WheelModule? Current { get; set; }
+
+    /// <summary>
+    /// The moment now, the same for the dial and the island's tool row: the plain beads when following the moment is
+    /// off, otherwise from a call on the mic, the app in front (skipping Shammy's own windows) and music playing.
+    /// </summary>
+    public static WheelMoment Moment(bool follow, bool musicPlaying, out string why)
+    {
+        if (!follow)
+        {
+            why = "following the moment is off";
+            return WheelMoment.Usual;
+        }
+        bool call = QuietState.Has(Core.Connect.QuietReason.Call);
+        var front = FrontWindow.Ordinary;
+        why = $"call={call} front={front.Process ?? "-"} music={musicPlaying}";
+        return WheelMoments.Decide(new MomentSignals(call, front.Process, front.Title, musicPlaying));
+    }
 }
 
 /// <summary>
@@ -260,7 +277,7 @@ internal sealed partial class WheelModule : IShammyModule
         }
     }
 
-    /// <summary>The moment now: forced by the test pipe, the plain beads when the setting is off, or what is going on.</summary>
+    /// <summary>The moment now: forced by the test pipe, or <see cref="WheelLink.Moment"/>.</summary>
     WheelMoment DecideMoment(out string why)
     {
         if (_forcedMoment is { } forced)
@@ -268,34 +285,7 @@ internal sealed partial class WheelModule : IShammyModule
             why = "set by wheel-moment";
             return forced;
         }
-        if (!_store.FollowMoment)
-        {
-            why = "following the moment is off";
-            return WheelMoment.Usual;
-        }
-        bool call = QuietState.Describe().Split('+').Contains("call");
-        string? process = null, title = null;
-        try
-        {
-            var front = Native.GetForegroundWindow();
-            if (front != IntPtr.Zero)
-            {
-                title = MeetingSystem.MeetingSystemNative.WindowTitle(front);
-                Native.GetWindowThreadProcessId(front, out var pid);
-                if (pid != 0)
-                {
-                    using var p = Process.GetProcessById((int)pid);
-                    process = p.ProcessName;
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // The app in front closed as we looked, or it runs elevated: decide without it.
-        }
-        bool playing = _ctx.Services.Media.IsPlaying;
-        why = $"call={call} front={process ?? "-"} music={playing}";
-        return WheelMoments.Decide(new MomentSignals(call, process, title, playing));
+        return WheelLink.Moment(_store.FollowMoment, _ctx.Services.Media.IsPlaying, out why);
     }
 
     void Follow(int x, int y)

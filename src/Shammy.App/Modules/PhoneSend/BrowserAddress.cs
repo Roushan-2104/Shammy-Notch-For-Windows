@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using Shammy.Core.PhoneSend;
@@ -19,21 +18,8 @@ internal static class BrowserAddress
         "msedge", "chrome", "brave", "vivaldi", "opera", "chromium", "firefox",
     };
 
-    const uint GW_HWNDNEXT = 2;
-    const int GWL_EXSTYLE = -20;
-    const long WS_EX_TOOLWINDOW = 0x80;
-    const int DWMWA_CLOAKED = 14;
-
     // The address box sits a few levels into the frame; the walk stops well before anything large.
     const int MaxDepth = 14, MaxNodes = 900;
-
-    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool IsIconic(IntPtr hWnd);
-    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
-    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
 
     /// <summary>A page and whether its browser is the app in front (rather than a window further back).</summary>
     public readonly record struct Page(string Url, bool InFront);
@@ -76,38 +62,13 @@ internal static class BrowserAddress
     /// </summary>
     static (IntPtr Hwnd, bool InFront) FindBrowserWindow()
     {
-        uint own = (uint)Environment.ProcessId;
         bool first = true;
-        var hwnd = GetForegroundWindow();
-        for (int i = 0; hwnd != IntPtr.Zero && i < 96; i++, hwnd = GetWindow(hwnd, GW_HWNDNEXT))
+        foreach (var (hwnd, pid) in Interop.FrontWindow.OrdinaryWindows(96))
         {
-            if (!Ordinary(hwnd)) continue;
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            if (pid == 0 || pid == own) continue;
-            if (IsBrowser(pid)) return (hwnd, first);
+            if (Interop.FrontWindow.ProcessName(pid) is { } name && Browsers.Contains(name)) return (hwnd, first);
             first = false;
         }
         return (IntPtr.Zero, false);
-    }
-
-    static bool IsBrowser(uint pid)
-    {
-        try
-        {
-            using var p = Process.GetProcessById((int)pid);
-            return Browsers.Contains(p.ProcessName);
-        }
-        catch (ArgumentException)
-        {
-            return false; // closed as we looked
-        }
-    }
-
-    static bool Ordinary(IntPtr hwnd)
-    {
-        if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) return false;
-        if ((GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64() & WS_EX_TOOLWINDOW) != 0) return false;
-        return DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) != 0 || cloaked == 0;
     }
 
     /// <summary>

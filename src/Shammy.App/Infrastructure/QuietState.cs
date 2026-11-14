@@ -15,6 +15,9 @@ internal static class QuietState
 
     public static string Describe() => QuietRules.Describe(Reasons);
 
+    /// <summary>Whether this reason holds now (a call app has the mic: <see cref="QuietReason.Call"/>).</summary>
+    public static bool Has(QuietReason reason) => Reasons.Contains(reason);
+
     /// <summary>Raised when <see cref="IsQuiet"/> flips (not when only the reasons change).</summary>
     public static event Action<bool>? Changed;
 

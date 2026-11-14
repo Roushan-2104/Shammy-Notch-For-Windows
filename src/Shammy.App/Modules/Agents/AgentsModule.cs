@@ -144,7 +144,7 @@ internal sealed class AgentsModule : IShammyModule
         {
             string id = arg.Trim();
             if (_sessions.Find(id) is null) return "error: no such session";
-            _windows[id] = Interop.Native.GetForegroundWindow();
+            _windows[id] = Interop.FrontWindow.Handle;
             Sync(force: true);
             return State();
         });

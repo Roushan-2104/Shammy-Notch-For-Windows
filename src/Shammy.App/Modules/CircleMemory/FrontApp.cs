@@ -11,18 +11,7 @@ namespace Shammy.Modules.CircleMemory;
 /// </summary>
 internal static class FrontApp
 {
-    const uint GW_HWNDNEXT = 2;
-    const int GWL_EXSTYLE = -20;
-    const long WS_EX_TOOLWINDOW = 0x80;
-    const int DWMWA_CLOAKED = 14;
-
-    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool IsIconic(IntPtr hWnd);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
-    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
 
     delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool EnumChildWindows(IntPtr parent, EnumProc proc, IntPtr lParam);
@@ -32,29 +21,15 @@ internal static class FrontApp
     {
         try
         {
-            uint own = (uint)Environment.ProcessId;
-            var hwnd = GetForegroundWindow();
-            // Walk down the z-order from the front past Shammy's own windows, tool windows and hidden ones.
-            for (int i = 0; hwnd != IntPtr.Zero && i < 64; i++, hwnd = GetWindow(hwnd, GW_HWNDNEXT))
-            {
-                if (!Ordinary(hwnd)) continue;
-                GetWindowThreadProcessId(hwnd, out uint pid);
-                if (pid == 0 || pid == own) continue;
-                return Friendly(StoreAppPid(hwnd, pid));
-            }
+            // The first ordinary window from the front, past Shammy's own windows, tool windows and hidden ones.
+            var (hwnd, pid) = Interop.FrontWindow.OrdinaryWindows(64).FirstOrDefault();
+            if (hwnd != IntPtr.Zero) return Friendly(StoreAppPid(hwnd, pid));
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or ExternalException)
         {
             Infrastructure.Log.Warn("Reading the app in front for circle memory failed", ex);
         }
         return null;
-    }
-
-    static bool Ordinary(IntPtr hwnd)
-    {
-        if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) return false;
-        if ((GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64() & WS_EX_TOOLWINDOW) != 0) return false;
-        return DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) != 0 || cloaked == 0;
     }
 
     /// <summary>A Store app's frame belongs to ApplicationFrameHost; the app itself owns a child window inside it.</summary>

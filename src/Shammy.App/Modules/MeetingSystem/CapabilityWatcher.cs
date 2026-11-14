@@ -283,11 +283,11 @@ internal sealed class CapabilityWatcher : IDisposable
     static List<(uint Pid, string Title)> VisibleWindowTitles()
     {
         var list = new List<(uint, string)>();
-        var foreground = MeetingSystemNative.GetForegroundWindow();
+        var foreground = Interop.FrontWindow.Handle;
         MeetingSystemNative.EnumWindows((hwnd, _) =>
         {
             if (!MeetingSystemNative.IsWindowVisible(hwnd)) return true;
-            var title = MeetingSystemNative.WindowTitle(hwnd);
+            var title = Interop.FrontWindow.TitleOf(hwnd);
             if (title.Length == 0) return true;
             MeetingSystemNative.GetWindowThreadProcessId(hwnd, out var pid);
             if (hwnd == foreground) list.Insert(0, (pid, title));

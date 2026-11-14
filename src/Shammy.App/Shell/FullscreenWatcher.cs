@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows.Threading;
 using Shammy.Interop;
 
@@ -24,6 +23,7 @@ internal sealed class FullscreenWatcher : IDisposable
     {
         _proc = (_, _, _, _, _, _, _) => ui.BeginInvoke(() =>
         {
+            FrontWindow.Note();
             Check();
             ForegroundChanged?.Invoke();
         });
@@ -40,31 +40,9 @@ internal sealed class FullscreenWatcher : IDisposable
     /// <summary>The apps the notch stays away from (Settings → Hide while using).</summary>
     public Func<IReadOnlyList<string>>? HiddenApps { get; set; }
 
-    // Only the window in front has its app name remembered: a process id is reused by another app once its own exits.
-    IntPtr _nameWindow;
-    uint _namePid;
-    string _name = "";
-
     /// <summary>The app in front is one the user asked the notch to hide for.</summary>
-    bool HiddenAppInFront(IntPtr window, uint pid)
-    {
-        if (HiddenApps?.Invoke() is not { Count: > 0 } apps) return false;
-        if (window != _nameWindow || pid != _namePid)
-        {
-            try
-            {
-                using var p = Process.GetProcessById((int)pid);
-                _name = p.ProcessName;
-            }
-            catch (Exception)
-            {
-                _name = "";
-            }
-            _nameWindow = window;
-            _namePid = pid;
-        }
-        return Shammy.Core.Settings.HideRules.Hides(_name, apps);
-    }
+    bool HiddenAppInFront(IntPtr window) =>
+        HiddenApps?.Invoke() is { Count: > 0 } apps && Shammy.Core.Settings.HideRules.Hides(FrontWindow.ProcessOf(window, out _), apps);
 
     /// <summary>Raised on every foreground change (not on the slow re-check), so the notch can re-assert topmost.</summary>
     public event Action? ForegroundChanged;
@@ -83,14 +61,14 @@ internal sealed class FullscreenWatcher : IDisposable
             quns is Native.QUNS_RUNNING_D3D_FULL_SCREEN or Native.QUNS_PRESENTATION_MODE)
             return true;
 
-        var fg = Native.GetForegroundWindow();
+        var fg = FrontWindow.Handle;
         if (fg == IntPtr.Zero || fg == Native.GetShellWindow() || fg == Native.GetDesktopWindow()) return false;
         Native.GetWindowThreadProcessId(fg, out uint pid);
         // Our own windows are never a fullscreen app (the freeze overlay never takes focus, and when
         // Windows hands focus to one of Shammy's background windows the fullscreen app is gone).
         if (pid == _pid) return false;
         if (ShellClasses.Contains(Native.ClassName(fg))) return false;
-        if (HiddenAppInFront(fg, pid)) return true;
+        if (HiddenAppInFront(fg)) return true;
 
         var primary = NotchMonitor?.Invoke() is { } m0 && m0 != IntPtr.Zero ? m0 : Native.PrimaryMonitor();
         if (Native.MonitorFromWindow(fg, Native.MONITOR_DEFAULTTONEAREST) != primary) return false;

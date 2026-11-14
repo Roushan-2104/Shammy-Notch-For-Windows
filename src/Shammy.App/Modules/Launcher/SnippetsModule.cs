@@ -194,7 +194,7 @@ internal sealed class SnippetsModule : IShammyModule, ITextCommand
         // Our own expansion (and other tools' typing) comes back through the hook marked as injected.
         if ((flags & Native.LLKHF_INJECTED) != 0) return;
 
-        var fg = Native.GetForegroundWindow();
+        var fg = FrontWindow.Handle;
         uint thread = Native.GetWindowThreadProcessId(fg, out uint pid);
         lock (_gate)
         {
@@ -202,7 +202,7 @@ internal sealed class SnippetsModule : IShammyModule, ITextCommand
             {
                 _foreground = fg;
                 _buffer.Reset();
-                _skipped = SkipReason(pid);
+                _skipped = SkipReason(fg, pid);
             }
             if (_skipped is not null) return;
 
@@ -263,11 +263,12 @@ internal sealed class SnippetsModule : IShammyModule, ITextCommand
         return _chars[0];
     }
 
-    string? SkipReason(uint pid)
+    string? SkipReason(IntPtr window, uint pid)
     {
         if (pid == 0) return null;
         if (pid == _ownPid) return "shammy";
-        var name = ProcessName(pid);
+        // The name is read once per window in front, so this costs nothing per key.
+        var name = FrontWindow.ProcessOf(window, out _)?.ToLowerInvariant();
         return name is not null && SkipProcesses.Contains(name) ? name : null;
     }
 

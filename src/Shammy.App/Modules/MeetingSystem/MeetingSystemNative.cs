@@ -35,12 +35,7 @@ internal static class MeetingSystemNative
 
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
-    [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hwnd);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int maxCount);
 
     const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
@@ -119,14 +114,5 @@ internal static class MeetingSystemNative
         {
             CloseHandle(handle);
         }
-    }
-
-    public static string WindowTitle(IntPtr hwnd)
-    {
-        int length = GetWindowTextLength(hwnd);
-        if (length <= 0) return "";
-        var sb = new StringBuilder(length + 1);
-        GetWindowText(hwnd, sb, sb.Capacity);
-        return sb.ToString();
     }
 }

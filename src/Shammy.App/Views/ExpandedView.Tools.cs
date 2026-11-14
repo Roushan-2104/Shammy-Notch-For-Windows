@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -29,7 +28,6 @@ public partial class ExpandedView
     WheelMoment _toolMoment = WheelMoment.Usual;
     WheelMoment? _forcedToolMoment;
     string _toolWhy = "";
-    static (string? Process, string? Title) _lastFront;
 
     void RefreshTools()
     {
@@ -136,7 +134,7 @@ public partial class ExpandedView
 
     // ---- The moment -----------------------------------------------------------------------------------
 
-    /// <summary>The wheel's moment, from the signals the wheel reads: a call app on the mic, the app in front, music playing.</summary>
+    /// <summary>The wheel's moment (<see cref="WheelLink.Moment"/>), unless the test pipe fixed it.</summary>
     WheelMoment DecideToolMoment(out string why)
     {
         if (_forcedToolMoment is { } forced)
@@ -144,39 +142,7 @@ public partial class ExpandedView
             why = "set by home-tool";
             return forced;
         }
-        if (WheelLink.Current is { FollowMoment: false })
-        {
-            why = "following the moment is off";
-            return WheelMoment.Usual;
-        }
-        bool call = QuietState.Describe().Split('+').Contains("call");
-        var (process, title) = ForegroundApp();
-        bool playing = _s?.Media.IsPlaying == true;
-        why = $"call={call} front={process ?? "-"} music={playing}";
-        return WheelMoments.Decide(new MomentSignals(call, process, title, playing));
-    }
-
-    /// <summary>The app in front; while Shammy itself is in front (the island has the keyboard) the one before it.</summary>
-    static (string? Process, string? Title) ForegroundApp()
-    {
-        try
-        {
-            var front = Interop.Native.GetForegroundWindow();
-            if (front != IntPtr.Zero)
-            {
-                Interop.Native.GetWindowThreadProcessId(front, out var pid);
-                if (pid != 0 && pid != (uint)Environment.ProcessId)
-                {
-                    using var p = Process.GetProcessById((int)pid);
-                    _lastFront = (p.ProcessName, Modules.MeetingSystem.MeetingSystemNative.WindowTitle(front));
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // The app in front closed as we looked, or it runs elevated: keep the last one seen.
-        }
-        return _lastFront;
+        return WheelLink.Moment(WheelLink.Current?.FollowMoment != false, _s?.Media.IsPlaying == true, out why);
     }
 
     // ---- The test pipe -------------------------------------------------------------------------------

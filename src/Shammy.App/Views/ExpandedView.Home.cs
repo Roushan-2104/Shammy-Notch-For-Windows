@@ -115,7 +115,7 @@ public partial class ExpandedView
         var media = _s!.Media;
 
         // The call: the mic activity when the host shares its activities, else quiet mode's "call".
-        bool inCall = QuietState.Describe().Split('+').Contains("call");
+        bool inCall = QuietState.Has(Core.Connect.QuietReason.Call);
         bool timed = false;
         try
         {

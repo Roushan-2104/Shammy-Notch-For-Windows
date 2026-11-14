@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Shammy.Modules.Launcher;
 
@@ -14,8 +13,6 @@ internal static class SnippetNative
 
     /// <summary>ToUnicodeEx flag (Windows 10 1607+): don't touch the keyboard state, so dead keys keep working in the app.</summary>
     public const uint TOUNICODE_NO_STATE_CHANGE = 0x4;
-
-    const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct INPUT
@@ -62,32 +59,7 @@ internal static class SnippetNative
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
     [DllImport("user32.dll")] public static extern short GetKeyState(int vk);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref int size);
-
-    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
-
     public static bool IsDown(int vk) => GetAsyncKeyState(vk) < 0;
-
-    /// <summary>The exe name without extension (lowercase), or null if the process can't be opened.</summary>
-    public static string? ProcessName(uint pid)
-    {
-        var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        if (h == IntPtr.Zero) return null;
-        try
-        {
-            var sb = new StringBuilder(1024);
-            int size = sb.Capacity;
-            return QueryFullProcessImageName(h, 0, sb, ref size) ? Path.GetFileNameWithoutExtension(sb.ToString()).ToLowerInvariant() : null;
-        }
-        finally
-        {
-            CloseHandle(h);
-        }
-    }
 
     public static INPUT Key(ushort vk, bool up) => new()
     {
