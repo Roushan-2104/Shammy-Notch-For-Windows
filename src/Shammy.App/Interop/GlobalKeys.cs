@@ -46,6 +46,7 @@ internal sealed class GlobalKeys : IDisposable
         _rightCtrlTimer = new DispatcherTimer(RightCtrlHold, DispatcherPriority.Input, (_, _) => OnRightCtrlHeld(), ui) { IsEnabled = false };
         _leftAltTimer = new DispatcherTimer(LeftAltHold, DispatcherPriority.Input, (_, _) => OnLeftAltHeld(), ui) { IsEnabled = false };
         _hook = new KeyboardHook(Filter);
+        BackAtPc.Happened += ForgetHeldKeys;
         Current = this;
     }
 
@@ -72,7 +73,7 @@ internal sealed class GlobalKeys : IDisposable
     public event Action<HotKey>? Pressed;
     public event Action<HotKey>? Released;
 
-    /// <summary>The key turned out to be part of something else (AltGr+4 typing ₹): drop what it started.</summary>
+    /// <summary>The key turned out to be part of something else (AltGr+4 typing ₹), or was let go on the lock screen: drop what it started.</summary>
     public event Action<HotKey>? Aborted;
     public event Action? EscapePressed;
 
@@ -383,10 +384,34 @@ internal sealed class GlobalKeys : IDisposable
         Post(() => Released?.Invoke(HotKey.Look));
     }
 
+    /// <summary>
+    /// Key releases on the lock screen (Win+L, Ctrl+Alt+Del) never reach the hook: forget every key it thought was
+    /// down, or Win would stay "held" (no Left Alt hover again) and a held Left Alt would look like auto-repeat.
+    /// </summary>
+    void ForgetHeldKeys()
+    {
+        _winDown = _shiftDown = _copilot = _altGr = _altGrTalk = false;
+        _capsDown = _altKey = _ctrlKey = _shiftKey = _langCombo = false;
+        _leftCtrlDownAt = uint.MaxValue;
+        _rightCtrlCandidate = _rightCtrlLook = _leftAltDown = false;
+        if (_talkHeld)
+        {
+            _talkHeld = false;
+            Post(() => Aborted?.Invoke(HotKey.Talk));
+        }
+        if (_lookHeld)
+        {
+            _lookHeld = false;
+            Post(() => Aborted?.Invoke(HotKey.Look));
+        }
+        CancelHover();
+    }
+
     void Post(Action action) => _ui.BeginInvoke(action);
 
     public void Dispose()
     {
+        BackAtPc.Happened -= ForgetHeldKeys;
         _rightCtrlTimer.Stop();
         _leftAltTimer.Stop();
         if (Current == this) Current = null;
