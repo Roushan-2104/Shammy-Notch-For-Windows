@@ -399,6 +399,8 @@ internal partial class SearchCoordinator
     {
         DismissOverlay();
         _phase = Phase.Showing;
+        // The card doesn't take the keyboard and closes by itself: Esc belongs to the app you're in again.
+        _keys.InterceptEscape = false;
         _notch.AnswerView.ShowCommand(result);
         _notch.SetInteractive(false);
         _notch.SetSearchMode(NotchMode.Answer);

@@ -240,6 +240,8 @@ public partial class ResultView : UserControl
         _browserState = "none";
         _init = null;
         _generation++;
+        // No navigation will finish now: stop the loading bar, or its frame clock runs on while hidden.
+        SetLoading(false);
         if (IsVisible) ShowError("The results view stopped. Search again to restart it.");
         Log.Info("Results view replaced after its browser process exited");
     }

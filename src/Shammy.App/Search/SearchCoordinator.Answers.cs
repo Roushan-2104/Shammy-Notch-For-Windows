@@ -128,12 +128,7 @@ internal partial class SearchCoordinator
             }, Closes: true),
         };
         if (answer is not null)
-            list.Add(new("Copy", () =>
-            {
-                try { Clipboard.SetText(answer); }
-                catch (Exception) { return "Couldn't copy"; }
-                return "Copied";
-            }));
+            list.Add(new("Copy", () => Modules.SelectionTools.ClipboardText.TrySet(answer) ? "Copied" : "Clipboard is busy"));
         list.Add(new("Search", () =>
         {
             _ = ShowResultAsync(ai with { Mode = SearchMode.Web }, navigate: true);
