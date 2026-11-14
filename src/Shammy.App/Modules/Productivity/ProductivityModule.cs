@@ -366,7 +366,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         _store.Reminders.Add(item);
         Save();
         ScheduleReminders();
-        return new CommandResult(BellGlyph, "Reminder set", $"{TimeFormat.When(due, now, Kit.CardKit.H24)} \u00B7 {item.Title}");
+        return new CommandResult(BellGlyph, "Reminder set", $"{TimeFormat.When(due, now, Views.Cards.CardKit.H24)} \u00B7 {item.Title}");
     }
 
     CommandResult AddNote(string text)
@@ -826,5 +826,5 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
 
     // A long timer can end tomorrow: "Ends 10:09 PM" then reads as tonight.
     static string ClockText(DateTime t) =>
-        t.Date == DateTime.Now.Date ? Shammy.Core.Cards.ClockFormat.Time(t, Kit.CardKit.H24) : TimeFormat.When(t, DateTime.Now, Kit.CardKit.H24);
+        t.Date == DateTime.Now.Date ? Shammy.Core.Cards.ClockFormat.Time(t, Views.Cards.CardKit.H24) : TimeFormat.When(t, DateTime.Now, Views.Cards.CardKit.H24);
 }

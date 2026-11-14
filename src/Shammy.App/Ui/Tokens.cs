@@ -7,7 +7,7 @@ namespace Shammy.Ui;
 /// <summary>
 /// The one place Shammy's colours and brushes come from in code: the named tokens of the Focus Wall look, frozen
 /// brushes made from a hex string or a colour (cached), and the theme's own resources by key. The older kits
-/// (Views/Cards/CardKit, Views/Screens/ScreenKit, Modules/Kit/CardKit) hand these out under their own names.
+/// (Views/Cards/CardKit, Views/Screens/ScreenKit) hand these out under their own names.
 /// </summary>
 internal static class Tokens
 {

@@ -2,7 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using Shammy.Modules.Kit;
+using Shammy.Views.Cards;
+using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Calendar;
 
@@ -28,12 +29,12 @@ internal sealed class CalendarSetup : Border
         Padding = compact ? new Thickness(0) : new Thickness(22, 18, 22, 16);
 
         var stack = new StackPanel();
-        var title = CardKit.Row(10, CardKit.Glyph("", 16, CardKit.Brush(NotchPalette.Calendar)),
-            CardKit.Label("Connect Google Calendar", 15, FontWeights.Bold));
+        var title = CardKit.Row(10, CardKit.FluentGlyph("", 16, CardKit.Hex(NotchPalette.Calendar)),
+            CardKit.Text("Connect Google Calendar", 15, FontWeights.Bold));
         stack.Children.Add(title);
 
-        var help = CardKit.Label("In Google Calendar: Settings › your calendar › Integrate calendar › copy the “Secret address in iCal format”.",
-            11.5, FontWeights.Normal, CardKit.Text2);
+        var help = CardKit.Text("In Google Calendar: Settings › your calendar › Integrate calendar › copy the “Secret address in iCal format”.",
+            11.5, FontWeights.Normal, secondary: true);
         help.TextTrimming = TextTrimming.None;
         help.TextWrapping = TextWrapping.Wrap;
         help.Margin = new Thickness(0, 8, 0, 0);
@@ -50,15 +51,15 @@ internal sealed class CalendarSetup : Border
             if (e.Key == Key.Enter) _ = ConnectAsync();
             else if (e.Key == Key.Escape) _close?.Invoke();
         };
-        var hint = CardKit.Label("https://calendar.google.com/calendar/ical/…/private-…/basic.ics", 12.5, FontWeights.Normal, CardKit.Text2);
+        var hint = CardKit.Text("https://calendar.google.com/calendar/ical/…/private-…/basic.ics", 12.5, FontWeights.Normal, secondary: true);
         hint.IsHitTestVisible = false;
         _box.TextChanged += (_, _) => hint.Visibility = _box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         var field = new Border
         {
             Height = 36,
             CornerRadius = new CornerRadius(18),
-            Background = CardKit.Raised,
-            BorderBrush = CardKit.RaisedStroke,
+            Background = CardKit.PillBg,
+            BorderBrush = CardKit.Hairline,
             BorderThickness = new Thickness(1),
             Padding = new Thickness(14, 0, 14, 0),
             Margin = new Thickness(0, 12, 0, 0),
@@ -67,17 +68,17 @@ internal sealed class CalendarSetup : Border
         stack.Children.Add(field);
 
         var bottom = new DockPanel { Margin = new Thickness(0, 12, 0, 0), LastChildFill = true };
-        _connect = CardKit.PrimaryPillButton("Connect", () => _ = ConnectAsync(), height: 30, fontSize: 13);
+        _connect = ScreenKit.Primary("Connect", () => _ = ConnectAsync(), height: 30, fontSize: 13, padding: 12);
         DockPanel.SetDock(_connect, Dock.Right);
         bottom.Children.Add(_connect);
         if (_close is not null)
         {
-            var cancel = CardKit.PillButton("Cancel", _close, height: 30, fontSize: 13);
+            var cancel = ScreenKit.Secondary("Cancel", _close, height: 30, fontSize: 13);
             cancel.Margin = new Thickness(0, 0, 8, 0);
             DockPanel.SetDock(cancel, Dock.Right);
             bottom.Children.Add(cancel);
         }
-        _status = CardKit.Label("Stays on this PC, encrypted. Shammy only reads it.", 11, FontWeights.Normal, CardKit.Text2);
+        _status = CardKit.Text("Stays on this PC, encrypted. Shammy only reads it.", 11, FontWeights.Normal, secondary: true);
         bottom.Children.Add(_status);
         stack.Children.Add(bottom);
 
@@ -107,7 +108,7 @@ internal sealed class CalendarSetup : Border
     {
         if (_busy) return;
         _busy = true;
-        _status.Foreground = CardKit.Text2;
+        _status.Foreground = CardKit.Ink2;
         _status.Text = "Checking…";
         _connect.Opacity = 0.6;
         var error = await _module.ConnectAsync(_box.Text);

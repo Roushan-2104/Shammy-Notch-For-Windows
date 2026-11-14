@@ -52,7 +52,7 @@ the one primary control), and a card opens into a `WallDetail` (a 300 px art pan
 kicker, a big title, one line, then the controls). Colour comes only from artwork fields and meaning (red); the
 accent `#FF8A3D` is only for focus and the primary control. `Live` says who gets the focus when the notch opens and
 `Peek` what the hover peek shows while the tile is focused. `CardKit.H24` says whether to write times on a 24-hour
-clock; `Modules/Kit/CardKit` is an older facade over the same tokens.
+clock.
 
 Pure black notch, white text. Use the theme resources from `Theme/Theme.xaml`: brushes `Fg`, `Fg2`
 (secondary text), `Fg3` (hints), `Fill1`–`Fill3` (subtle surfaces), `AccentBrush` (the Windows accent),

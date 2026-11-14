@@ -7,7 +7,7 @@ using Microsoft.Win32;
 using Shammy.Core.Activities;
 using Shammy.Core.Calendar;
 using Shammy.Core.Cards;
-using Shammy.Modules.Kit;
+using Shammy.Views.Cards;
 
 namespace Shammy.Modules.Calendar;
 

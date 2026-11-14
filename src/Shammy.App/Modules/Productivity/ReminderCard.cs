@@ -38,7 +38,7 @@ internal sealed class ReminderCard : Grid
         Children.Add(Layout(
             WallParts.ArtTile(WallParts.Glyph("", 20), 56),
             "Reminder",
-            Shammy.Core.Cards.ClockFormat.Time(reminder.Due, Kit.CardKit.H24),
+            Shammy.Core.Cards.ClockFormat.Time(reminder.Due, Views.Cards.CardKit.H24),
             title,
             line: null,
             WallParts.Primary("Done", done, 30),

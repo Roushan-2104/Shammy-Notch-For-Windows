@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Shammy.Core.Productivity;
-using Shammy.Modules.Kit;
+using Shammy.Views.Cards;
 
 namespace Shammy.Modules.Productivity.Alarms;
 
@@ -83,22 +83,22 @@ internal sealed class AlarmsCard
 
         if (_host.Ringing is { } ringing)
         {
-            stack.Children.Add(CardKit.Caption("Ringing", CardKit.Brush(Accent)));
+            stack.Children.Add(CardKit.Label("Ringing", CardKit.Hex(Accent)));
             stack.Children.Add(TimeBig(ringing, 34));
             stack.Children.Add(Sub(ringing.Label.Length > 0 ? ringing.Label : "Alarm"));
             return;
         }
         if (Next() is not { } next)
         {
-            stack.Children.Add(CardKit.Caption("Alarms"));
-            stack.Children.Add(CardKit.Label("No alarms on", 15));
+            stack.Children.Add(CardKit.SectionLabel("Alarms"));
+            stack.Children.Add(CardKit.Text("No alarms on", 15, FontWeights.SemiBold));
             stack.Children.Add(Sub("Say “alarm at 7 every weekday”"));
         }
         else
         {
-            stack.Children.Add(CardKit.Caption(next.Alarm.IsSnoozed ? "Snoozed" : "Next alarm", CardKit.Brush(Accent)));
+            stack.Children.Add(CardKit.Label(next.Alarm.IsSnoozed ? "Snoozed" : "Next alarm", CardKit.Hex(Accent)));
             var (time, suffix) = ClockPreference.Parts(next.At.Hour, next.At.Minute);
-            var big = CardKit.Row(4, CardKit.Big(time, 34), CardKit.Label(suffix, 13, brush: CardKit.Text2));
+            var big = CardKit.Row(4, CardKit.Text(time, 34, FontWeights.ExtraBold), CardKit.Text(suffix, 13, FontWeights.SemiBold, secondary: true));
             stack.Children.Add(big);
             stack.Children.Add(Sub(AlarmText.Repeat(next.Alarm, now, next.At)));
             stack.Children.Add(Sub(AlarmText.Until(next.At - now)));
@@ -109,12 +109,13 @@ internal sealed class AlarmsCard
     static FrameworkElement TimeBig(Alarm a, double size)
     {
         var (time, suffix) = ClockPreference.Parts(a.Hour, a.Minute);
-        return CardKit.Row(4, CardKit.Big(time, size), CardKit.Label(suffix, 13, brush: CardKit.Text2));
+        return CardKit.Row(4, CardKit.Text(time, size, FontWeights.ExtraBold), CardKit.Text(suffix, 13, FontWeights.SemiBold, secondary: true));
     }
 
     static TextBlock Sub(string text, string? accent = null)
     {
-        var t = CardKit.Label(text, 12, FontWeights.Medium, accent is null ? CardKit.Text2 : CardKit.Brush(accent));
+        var t = CardKit.Text(text, 12, FontWeights.Medium, secondary: true);
+        if (accent is not null) t.Foreground = CardKit.Hex(accent);
         t.Margin = new Thickness(0, 4, 0, 0);
         return t;
     }

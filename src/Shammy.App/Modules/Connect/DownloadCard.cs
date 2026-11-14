@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Shammy.Infrastructure;
-using Shammy.Modules.Kit;
+using Shammy.Views.Cards;
 
 namespace Shammy.Modules.Connect;
 
@@ -32,13 +32,13 @@ internal sealed class DownloadCard : Grid
 
         // Top: icon, name, size · folder.
         var head = new DockPanel();
-        var icon = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(10), Background = CardKit.Raised, Margin = new Thickness(0, 0, 12, 0) };
+        var icon = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(10), Background = CardKit.PillBg, Margin = new Thickness(0, 0, 12, 0) };
         if (Shelf.ShellIcons.Get(path, 64) is { } image) icon.Child = new Image { Source = image, Width = 28, Height = 28 };
-        else icon.Child = CardKit.Glyph("", 16, CardKit.Text2);
+        else icon.Child = CardKit.FluentGlyph("", 16, CardKit.Ink2);
         head.Children.Add(icon);
         var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         words.Children.Add(Views.WallParts.PopupTitle(Path.GetFileName(path)));
-        words.Children.Add(CardKit.Label(Details(path), 11.5, FontWeights.Medium, CardKit.Text2));
+        words.Children.Add(CardKit.Text(Details(path), 11.5, FontWeights.Medium, secondary: true));
         head.Children.Add(words);
         DockPanel.SetDock(head, Dock.Top);
         body.Children.Add(head);
@@ -47,12 +47,12 @@ internal sealed class DownloadCard : Grid
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 12, 0, 0) };
         actions.Children.Add(Action("Open", "", () => Run(() => Open(path))));
         actions.Children.Add(Action("Show in folder", "", () => Run(() => Process.Start(Interop.Native.ExplorerPath, $"/select,\"{path}\""))));
-        Border? shelve = null;
+        Button? shelve = null;
         shelve = Action("Add to shelf", "", () =>
         {
             if (!File.Exists(path)) return;
             shelf.Add(new[] { path });
-            if (shelve?.Child is StackPanel row && row.Children.OfType<TextBlock>().LastOrDefault() is { } label) label.Text = "On the shelf";
+            if (shelve?.Content is StackPanel row && row.Children.OfType<TextBlock>().LastOrDefault() is { } label) label.Text = "On the shelf";
         });
         actions.Children.Add(shelve);
         if (Links.Phone is { } phone)
@@ -60,9 +60,9 @@ internal sealed class DownloadCard : Grid
         body.Children.Add(actions);
     }
 
-    static Border Action(string text, string glyph, Action onClick)
+    static Button Action(string text, string glyph, Action onClick)
     {
-        var b = CardKit.PillButton(text, onClick, 28, glyph, fontSize: 11.5);
+        var b = Views.WallParts.GlyphButton(glyph, text, onClick, primary: false, out _, out _, height: 28);
         b.Margin = new Thickness(0, 0, 6, 0);
         return b;
     }

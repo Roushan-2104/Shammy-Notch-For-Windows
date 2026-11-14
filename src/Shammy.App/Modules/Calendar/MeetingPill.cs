@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using Shammy.Modules.Kit;
+using Shammy.Views.Cards;
+using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Calendar;
 
@@ -24,11 +25,13 @@ internal sealed class MeetingPill : ICompactContent
 
     public double Build(ContentControl left, ContentControl right)
     {
-        left.Content = CardKit.Glyph("", 14, CardKit.Brush(NotchPalette.Calendar));
+        left.Content = CardKit.FluentGlyph("", 14, CardKit.Hex(NotchPalette.Calendar));
 
-        _label = CardKit.Label(_text, 12, FontWeights.SemiBold);
+        _label = CardKit.Text(_text, 12, FontWeights.SemiBold);
         _label.MaxWidth = MaxText;
-        var join = CardKit.PrimaryPillButton("Join", _join, height: 20, glyph: "", fontSize: 11, tip: "Join the meeting");
+        var join = ScreenKit.Primary("Join", _join, height: 20, fontSize: 11, icon: CardKit.Paths.Video, padding: 11);
+        join.ToolTip = "Join the meeting";
+        CardKit.Name(join, "Join the meeting");
         join.Margin = new Thickness(8, 0, 0, 0);
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_label);
@@ -42,7 +45,7 @@ internal sealed class MeetingPill : ICompactContent
         return Math.Ceiling(row.DesiredSize.Width) + 4;
     }
 
-    public UIElement? BuildBubble() => CardKit.Glyph("", 13, CardKit.Brush(NotchPalette.Calendar));
+    public UIElement? BuildBubble() => CardKit.FluentGlyph("", 13, CardKit.Hex(NotchPalette.Calendar));
 
     public void Set(string text)
     {

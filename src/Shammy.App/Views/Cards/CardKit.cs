@@ -14,8 +14,7 @@ namespace Shammy.Views.Cards;
 /// The one card kit: Focus Wall (see FOCUSWALL / Wall.dc.html). A deep neutral ground, tiles that are artwork
 /// fields, white type in Schibsted Grotesk (big tight posters, small tracked uppercase labels, tabular figures)
 /// and ONE accent, used only for focus and the single primary control. Every card, tile and detail is built
-/// from these pieces in code, so nothing costs anything while it isn't on screen. (Shammy.Modules.Kit.CardKit
-/// is a thin older facade over the same tokens for views that haven't moved yet.)
+/// from these pieces in code, so nothing costs anything while it isn't on screen.
 /// </summary>
 internal static class CardKit
 {
