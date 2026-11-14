@@ -201,6 +201,8 @@ internal partial class SearchCoordinator
         CircleMeaning? meaning = null;
         try { meaning = Understand(selection, info); }
         catch (Exception ex) { Log.Warn("Reading the circle failed", ex); }
+        // Kinds the island has no moment for yet go on to the short fact or search, as before.
+        if (meaning is not null && !CircleMoments.Shows(meaning.Kind)) meaning = null;
 
         Views.IslandMoment? moment = null;
         if (meaning is not null)

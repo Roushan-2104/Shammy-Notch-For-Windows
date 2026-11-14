@@ -18,6 +18,10 @@ internal static class CircleMoments
     const string PhoneGlyph = "", MailGlyph = "", LinkGlyph = "", CalendarGlyph = "", MapGlyph = "",
         SumGlyph = "", InfoGlyph = "";
 
+    /// <summary>The kinds this class has a moment for; any other kind is searched as before until it gets one.</summary>
+    public static bool Shows(CircleKind kind) =>
+        kind is CircleKind.Phone or CircleKind.Email or CircleKind.Link or CircleKind.When or CircleKind.Address or CircleKind.Sum or CircleKind.Colour;
+
     /// <param name="close">Closes the moment (Stage and the phone's QR card take the island next).</param>
     public static IslandMoment For(CircleMeaning m, SelectionInfo selection, Action close)
     {

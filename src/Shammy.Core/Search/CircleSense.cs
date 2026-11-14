@@ -5,8 +5,17 @@ using Shammy.Core.Notch;
 
 namespace Shammy.Core.Search;
 
-/// <summary>What a circled thing is, read on this PC: a phone number, an email, a link, a date, an address, a sum or a colour.</summary>
-public enum CircleKind { Phone, Email, Link, When, Address, Sum, Colour }
+/// <summary>
+/// What a circled thing is, read on this PC: a phone number, an email, a link, a date, an address, a sum, a colour, text
+/// in another language, a time in another zone, a parcel or a flight, an Indian railway PNR, UPI ID, IFSC, PIN code or
+/// number plate, an error or some code, or a word or name worth explaining. New kinds go at the end so the old ones keep
+/// their numbers.
+/// </summary>
+public enum CircleKind
+{
+    Phone, Email, Link, When, Address, Sum, Colour,
+    Foreign, ZoneTime, Tracking, Flight, Pnr, Upi, Ifsc, Pin, Vehicle, Code, Term,
+}
 
 /// <param name="Value">What actions use: digits with a leading + for a phone, the address, a full https URL, "#RRGGBB"…</param>
 /// <param name="Display">What the island shows big ("+91 98765 43210", "Fri 21 Nov · 6:30 PM", "= 84").</param>
@@ -24,6 +33,21 @@ public sealed record CircleMeaning(CircleKind Kind, string Value, string Display
 
     /// <summary>The colour for <see cref="CircleKind.Colour"/>.</summary>
     public Rgb? Colour { get; init; }
+
+    /// <summary>For <see cref="CircleKind.Foreign"/>: the language's English name ("Japanese", "Hinglish").</summary>
+    public string? Language { get; init; }
+
+    /// <summary>For <see cref="CircleKind.Foreign"/>: its ISO 639-1 code ("ja"; "hi" for Hinglish).</summary>
+    public string? LanguageCode { get; init; }
+
+    /// <summary>
+    /// One more fact to show small: the day for <see cref="CircleKind.ZoneTime"/> ("today", "tomorrow, Sat 14 Nov"), the
+    /// app or bank behind a UPI ID or IFSC, the state for a PIN code or number plate, the number for a tracking or flight.
+    /// </summary>
+    public string? Detail { get; init; }
+
+    /// <summary>Who carries it: the courier for <see cref="CircleKind.Tracking"/> ("UPS"), the airline for <see cref="CircleKind.Flight"/> ("IndiGo").</summary>
+    public string? Carrier { get; init; }
 }
 
 /// <summary>
@@ -31,7 +55,7 @@ public sealed record CircleMeaning(CircleKind Kind, string Value, string Display
 /// number with "Call us:" before it still is; a paragraph that happens to contain one is not), so an ordinary circle
 /// still goes to search. Never throws.
 /// </summary>
-public static class CircleSense
+public static partial class CircleSense
 {
     const int MaxText = 240;
 
@@ -78,21 +102,41 @@ public static class CircleSense
         ["NZ"] = "64", ["IE"] = "353", ["MY"] = "60", ["ZA"] = "27", ["NG"] = "234", ["KE"] = "254",
     };
 
+    /// <summary>How much text an error, some code or a passage in another language may be; those are read at any length up to this.</summary>
+    const int MaxLong = 8000;
+
     /// <summary>What <paramref name="text"/> is, or null for anything that should simply be searched.</summary>
     /// <param name="culture">Decides whether 03/04 is 3 April (most places) or March 4 (US); the PC's culture by default.</param>
-    public static CircleMeaning? Read(string? text, DateTime now, CultureInfo? culture = null)
+    /// <param name="localZone">The PC's time zone, for a time circled with a zone ("3 PM PST"); <see cref="TimeZoneInfo.Local"/> by default.</param>
+    /// <remarks>
+    /// The order: an error or code first, at any length. Then the short, exact things: a UPI ID before an email, a link,
+    /// a colour, a PNR, an IFSC, a number plate, a tracking number, a flight, a PIN code and a phone number. A time with a
+    /// zone before a plain date, a percentage before any other sum, then text in another script, an address, a sentence
+    /// in another Latin-script language, and last a word or name worth explaining. An ordinary English sentence stays
+    /// null and is searched.
+    /// </remarks>
+    public static CircleMeaning? Read(string? text, DateTime now, CultureInfo? culture = null, TimeZoneInfo? localZone = null)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
-            var flat = Regex.Replace(text.ReplaceLineEndings(" "), @"\s+", " ").Trim();
-            if (flat.Length == 0 || flat.Length > MaxText) return null;
+            var raw = (text.Length > MaxLong ? text[..MaxLong] : text).Trim();
+            var flat = Regex.Replace(raw.ReplaceLineEndings(" "), @"\s+", " ").Trim();
+            if (flat.Length == 0) return null;
+            if (Code(raw, flat) is { } code) return code;
+            // A long passage is only ever something to translate; everything else is short.
+            if (flat.Length > MaxText) return Foreign(raw, flat, latin: true);
             flat = DigitFix(flat);
             culture ??= CultureInfo.CurrentCulture;
-            return Email(flat) ?? Link(flat) ?? ColourText(flat) ?? Phone(flat) ?? When(flat, now, culture) ?? Sum(flat) ?? Address(flat);
+            localZone ??= TimeZoneInfo.Local;
+            return Upi(flat) ?? Email(flat) ?? Link(flat) ?? ColourText(flat)
+                ?? Pnr(flat) ?? Ifsc(flat) ?? Vehicle(flat) ?? Tracking(flat) ?? Flight(flat) ?? Pin(flat)
+                ?? Phone(flat) ?? ZoneTime(flat, now, culture, localZone) ?? When(flat, now, culture) ?? Percent(flat) ?? Sum(flat)
+                ?? Foreign(raw, flat, latin: false) ?? Address(flat) ?? Foreign(raw, flat, latin: true) ?? Term(flat);
         }
-        catch (RegexMatchTimeoutException)
+        catch (Exception)
         {
+            // A regex over its time budget, or an odd date at a zone's edge: the circle is simply searched.
             return null;
         }
     }
