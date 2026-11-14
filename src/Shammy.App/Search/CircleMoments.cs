@@ -141,7 +141,8 @@ internal static class CircleMoments
         {
             var dir = Path.Combine(Path.GetTempPath(), "Shammy", "calendar");
             Directory.CreateDirectory(dir);
-            var path = Path.Combine(dir, $"Shammy {DateTime.Now:yyyyMMdd-HHmmss}.ics");
+            // One file, written over each time: the circled titles don't pile up in %TEMP%.
+            var path = Path.Combine(dir, "Shammy event.ics");
             File.WriteAllText(path, CircleSense.CalendarFile(m, DateTime.UtcNow, Guid.NewGuid().ToString("N") + "@shammy"));
             return Open(path, "No calendar app on this PC");
         }
