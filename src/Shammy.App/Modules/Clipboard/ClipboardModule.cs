@@ -690,9 +690,11 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
 
     // ---- Plumbing --------------------------------------------------------------------------------
 
+    // Pinned text is kept whatever its size (history holds at most MaxHistoryText); images aren't saved, so they
+    // can't be pinned.
     void Persist() => _ctx.Save(new ClipStore
     {
-        Items = _history.Items.Where(e => e.Kind != ClipKind.Image && e.Text.Length <= MaxSavedText).ToList(),
+        Items = _history.Items.Where(e => e.Kind != ClipKind.Image && (e.Pinned || e.Text.Length <= MaxSavedText)).ToList(),
     });
 
     DispatcherTimer OneShot(TimeSpan delay, Action run)

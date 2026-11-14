@@ -540,7 +540,8 @@ internal sealed class ClipboardCard
                 meta.Text = "Saved as a note";
                 Ui.A11y.Announce(meta.Text, meta);
             });
-            Act(e.Pinned ? "Unpin" : "Pin", CardKit.Paths.Pin, () => _card._history.SetPinned(e, !e.Pinned));
+            // Copied images live only in memory, so a pin couldn't survive a restart.
+            if (e.Kind != ClipKind.Image) Act(e.Pinned ? "Unpin" : "Pin", CardKit.Paths.Pin, () => _card._history.SetPinned(e, !e.Pinned));
             Act("Remove", CardKit.Paths.Close, () => _card._history.Remove(e));
             return row;
         }
