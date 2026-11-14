@@ -189,7 +189,12 @@ public partial class NotchWindow
             case "rim": Edge.Visibility = v; break;
             case "content": ContentHost.Visibility = v; break;
             case "shape": Shape.Visibility = v; break;
-            default: return "error: waves, rim, content or shape";
+            case "software":
+                // "software on": WPF draws this window on the CPU instead of the graphics card.
+                if (System.Windows.Interop.HwndSource.FromHwnd(_hwnd)?.CompositionTarget is { } target)
+                    target.RenderMode = p[1] == "on" ? System.Windows.Interop.RenderMode.SoftwareOnly : System.Windows.Interop.RenderMode.Default;
+                break;
+            default: return "error: waves, rim, content, shape or software";
         }
         return "ok";
     }

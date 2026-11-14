@@ -102,6 +102,22 @@ internal sealed partial class ShammyHost
                 found.Add($"focus={focus?.GetType().Name ?? "none"}{(focus is { Name.Length: > 0 } ? "#" + focus.Name : "")} {focus?.ActualWidth:0.#}x{focus?.ActualHeight:0.#} at {where} local={local}");
                 return string.Join(" | ", found);
             }
+            case "render-png":
+            {
+                // Test: saves what the island draws right now (rendered in-app, device pixels) and replies with where
+                // that image's top-left sits on screen, so a screen capture can be compared with it ("render-png C:\x.png").
+                if (arg.Length == 0) return "error: usage render-png <path>";
+                if (_notch.Content is not System.Windows.FrameworkElement root) return "error: no content";
+                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(root);
+                int w = (int)Math.Ceiling(root.ActualWidth * dpi.DpiScaleX), h = (int)Math.Ceiling(root.ActualHeight * dpi.DpiScaleY);
+                var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, dpi.PixelsPerInchX, dpi.PixelsPerInchY, System.Windows.Media.PixelFormats.Pbgra32);
+                rtb.Render(root);
+                var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                using (var fs = System.IO.File.Create(arg)) enc.Save(fs);
+                var at = root.PointToScreen(new System.Windows.Point(0, 0));
+                return $"ok {(int)Math.Round(at.X)} {(int)Math.Round(at.Y)} {w} {h}";
+            }
             case "paint-probe":
             {
                 // Test: renders the island with one layer hidden at a time and reads one screen pixel, to find which
