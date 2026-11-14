@@ -15,7 +15,7 @@ namespace Shammy.Views;
 /// The open island's bottom row: six round tools, the same moment-aware set the wheel shows (call tools in a call,
 /// music controls with music, writing tools in an editor, otherwise your own beads). The moment is decided by the
 /// Core's <see cref="WheelMoments"/> from the same signals the wheel reads, and each tool runs exactly as its
-/// droplet does (<see cref="HostLinks.RunWheelAction"/>). The first carries a thin accent ring; a tool lifts a
+/// droplet does (<see cref="WheelActions.Run"/>). The first carries a thin accent ring; a tool lifts a
 /// little under the pointer; Tab or ←/→ walk them and Enter runs one.
 /// </summary>
 public partial class ExpandedView
@@ -106,7 +106,9 @@ public partial class ExpandedView
         if (_s is null) return;
         try
         {
-            if (!HostLinks.RunWheelAction(id, OpenByClick, _s)) Log.Warn($"The island's {id} tool isn't a wheel action");
+            if (!RunWheelAction(id)) Log.Warn($"The island's {id} tool isn't a wheel action");
+            // The wheel learns its bead actions from here as from the dial.
+            if (WheelSlots.ById(id) is not null) WheelLink.Current?.NoteUse(id);
         }
         catch (Exception ex)
         {
@@ -114,6 +116,10 @@ public partial class ExpandedView
         }
         if (id is "playpause" or "next" or "previous") Dispatcher.BeginInvoke(() => RefreshHome(), System.Windows.Threading.DispatcherPriority.Background);
     }
+
+    /// <summary>Runs a wheel action as its droplet would (<see cref="WheelActions.Run"/>), with cards opening in place.</summary>
+    bool RunWheelAction(string id) =>
+        _s is not null && WheelActions.Run(id, OpenByClick, _s.Media, (text, error) => WheelLink.Current?.Say(text, error));
 
     // ---- Keyboard -----------------------------------------------------------------------------------
 
@@ -169,6 +175,6 @@ public partial class ExpandedView
         if (!int.TryParse(a, out var n) || n < 1 || n > _toolButtons.Count)
             return $"error: home-tool <1-{_toolButtons.Count}> (tools=[{string.Join(",", _toolIds)}])";
         _toolButtons[n - 1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        return $"ran {_toolIds[n - 1]} (tool {n} of {_toolIds.Count}, moment={WheelMoments.Name(_toolMoment)}, runner={(HostLinks.WheelRunner is null ? "fallback" : "wheel")})";
+        return $"ran {_toolIds[n - 1]} (tool {n} of {_toolIds.Count}, moment={WheelMoments.Name(_toolMoment)})";
     }
 }

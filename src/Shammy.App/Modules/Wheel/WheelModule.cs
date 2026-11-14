@@ -97,8 +97,6 @@ internal sealed partial class WheelModule : IShammyModule
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
-        // The open island's tool row runs its buttons the same way the dial does (and counts them as use).
-        HostLinks.WheelRunner = RunSoon;
         _store = ctx.Load<WheelStore>();
         _slots = Arrange();
         WheelLink.Current = this;
@@ -200,7 +198,6 @@ internal sealed partial class WheelModule : IShammyModule
 
     public void Dispose()
     {
-        if (HostLinks.WheelRunner == (Action<string>)RunSoon) HostLinks.WheelRunner = null;
         _ctx.Settings.Changed -= OnSettingsChanged;
         HostLinks.CommandRan -= OnCommandRan;
         if (WheelLink.Current == this) WheelLink.Current = null;
@@ -375,41 +372,7 @@ internal sealed partial class WheelModule : IShammyModule
         _ctx.Info($"Wheel: {id}");
         try
         {
-            switch (id)
-            {
-                case "screenshot": RunText("screenshot"); break;
-                case "record": RunText("record my screen"); break;
-                case "timer": _ctx.OpenCard("timer"); break;
-                case "music": RunText(_ctx.Services.Media.IsPlaying ? "pause" : "play music"); break;
-                case "notes": _ctx.OpenCard("notes"); break;
-                case "ask":
-                    if (HostLinks.ListenUntilSilence is { } listen) listen();
-                    else _ctx.ShowMessage("", "Voice isn't ready", error: true);
-                    break;
-                case "phone": RunText("send this to my phone"); break;
-                case "awake": RunText("keep my pc awake"); break;
-                case "mirror": _ctx.OpenCard("mirror"); break;
-                case "captions": RunText("turn on captions"); break;
-                case "clipboard": _ctx.OpenCard("clipboard"); break;
-                case "calendar": _ctx.OpenCard("calendar"); break;
-                case "weather": _ctx.OpenCard("weather"); break;
-                case "mixer": _ctx.OpenCard("mixer"); break;
-                case "prompter": RunText("open the teleprompter"); break;
-                case "settings": _ctx.OpenCard(Settings.SettingsModule.ModuleName); break;
-                case "guide": RunText("what can you do"); break;
-                case "focus": RunText($"start focus for {(int)Core.Productivity.Pomodoro.FocusLength.TotalMinutes} minutes"); break;
-                // The moment's droplets.
-                case "stage": RunText("stage"); break;
-                case "mute": RunText("toggle mic"); break;
-                case "share": RunText("send this to my phone"); break;
-                case "playpause": _ctx.Services.Media.TogglePlayPause(); break;
-                case "next": _ctx.Services.Media.Next(); break;
-                case "previous": _ctx.Services.Media.Previous(); break;
-                case "lyrics": RunText("show lyrics"); break;
-                case "musiccard": _ctx.OpenCard("music"); break;
-                case "snippets": _ctx.OpenCard("snippets"); break;
-                case "translate": Translate(); break;
-            }
+            WheelActions.Run(id, card => _ctx.OpenCard(card), _ctx.Services.Media, Say);
         }
         catch (Exception ex)
         {
@@ -417,30 +380,8 @@ internal sealed partial class WheelModule : IShammyModule
         }
     }
 
-    static void RunText(string text) => HostLinks.RunText?.Invoke(text);
-
-    /// <summary>Translates the copied text (into the home language, or English when it isn't English), in the results card.</summary>
-    void Translate()
-    {
-        string text = "";
-        try
-        {
-            if (System.Windows.Clipboard.ContainsText()) text = System.Windows.Clipboard.GetText().Trim();
-        }
-        catch (Exception)
-        {
-            // Another app holds the clipboard open; treat it as empty.
-        }
-        if (text.Length == 0)
-        {
-            _ctx.ShowMessage("", "Copy some text, then pick Translate");
-            return;
-        }
-        if (text.Length > 500) text = text[..500];
-        text = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        var language = Core.Conversions.Translation.LanguageName(Core.Conversions.Translation.DefaultTarget(text));
-        RunText($"translate {text} to {language}");
-    }
+    /// <summary>A short message from a wheel action (the dial's, or one the island's tool row ran).</summary>
+    public void Say(string text, bool error) => _ctx.ShowMessage("", text, error);
 
     /// <summary>A droplet's icon as it opens: Play/pause shows pause while music plays.</summary>
     string GlyphNow(string id) => id == "playpause" && _ctx.Services.Media.IsPlaying ? "" : GlyphFor(id);

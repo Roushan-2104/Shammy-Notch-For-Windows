@@ -218,10 +218,10 @@ public partial class ExpandedView
         if (_s is null) return;
         try
         {
-            bool ran = e.IsCard ? OpenByClick(e.Id) : HostLinks.RunWheelAction(e.Id, OpenByClick, _s);
+            bool ran = e.IsCard ? OpenByClick(e.Id) : RunWheelAction(e.Id);
             if (!ran) Log.Warn($"The everything page couldn't run {e.Id}");
-            // The wheel learns its own actions as they run; cards and moment-only actions are noted here.
-            if (e.IsCard || WheelSlots.ById(e.Id) is null) WheelLink.Current?.NoteUse(e.Id);
+            // The wheel learns every pick here, as it ranks this page by use.
+            WheelLink.Current?.NoteUse(e.Id);
         }
         catch (Exception ex)
         {
