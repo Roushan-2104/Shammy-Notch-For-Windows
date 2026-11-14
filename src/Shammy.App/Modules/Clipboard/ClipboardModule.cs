@@ -61,6 +61,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         _history.Changed += () => Restart(_saveDelay);
         ApplyHistorySettings();
         ctx.Settings.Changed += OnSettingChanged;
+        _ = Task.Run(DeleteOldScreenshots);
         _expiry = new DispatcherTimer(TimeSpan.FromMinutes(10), DispatcherPriority.Background,
             (_, _) => _history.Expire(DateTime.Now - KeepFor), ctx.Ui);
 
@@ -423,7 +424,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         }
         try
         {
-            var dir = Path.Combine(Paths.Root, "screenshots");
+            var dir = ScreenshotsFolder;
             Directory.CreateDirectory(dir);
             var stem = $"Screenshot {c.At:yyyy-MM-dd HHmmss}";
             var path = Path.Combine(dir, stem + ".png");
@@ -439,6 +440,26 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         {
             _ctx.Warn("Saving the screenshot failed", ex);
             return null;
+        }
+    }
+
+    static string ScreenshotsFolder => Path.Combine(Paths.Root, "screenshots");
+
+    /// <summary>Shammy's own copies of snips only had to reach a share, a drag or the shelf; a week on they go.</summary>
+    static void DeleteOldScreenshots()
+    {
+        try
+        {
+            var dir = new DirectoryInfo(ScreenshotsFolder);
+            if (!dir.Exists) return;
+            var cutoff = DateTime.Now.AddDays(-7);
+            foreach (var file in dir.EnumerateFiles("*.png"))
+                if (file.LastWriteTime < cutoff)
+                    try { file.Delete(); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warn("Tidying old screenshots failed", ex);
         }
     }
 
