@@ -16,13 +16,44 @@ using Shammy.Views;
 
 namespace Shammy.Shell;
 
+/// <summary>
+/// A card that takes some drops itself while it is open (Stage takes a .txt or .md script, or dragged text). Whatever
+/// it doesn't take still goes to the shelf and the drop zone as usual.
+/// </summary>
+internal interface ICardDrop
+{
+    /// <summary>Whether the card takes this; asked as the drag moves, so it only looks.</summary>
+    bool AcceptsDrop(IDataObject data);
+
+    /// <summary>The drag is over the island with something the card takes (a chance to say "drop to …").</summary>
+    void DropHover();
+
+    /// <summary>It was dropped on the island while the card was open.</summary>
+    void TakeDrop(IDataObject data);
+}
+
 public partial class NotchWindow
 {
+    /// <summary>The card on the island now (see <see cref="ShowCard"/>), or null when no card is open.</summary>
+    internal object? OpenCardContent => _cardOpen ? CardHost.Content : null;
+
+    /// <summary>The open card, when it takes this drag itself (see <see cref="ICardDrop"/>).</summary>
+    ICardDrop? CardTaking(DragEventArgs e) =>
+        !_dragging && _searchMode is null && !_fullscreen && OpenCardContent is ICardDrop card && card.AcceptsDrop(e.Data) ? card : null;
+
     // ---- Drag and drop onto the shelf -----------------------------------------------------------
 
     void OnDragEnter(object sender, DragEventArgs e)
     {
         _dragOut.Stop();
+        // An open card that takes this drop itself (Stage and a script) keeps the island; the shelf never opens.
+        if (CardTaking(e) is { } card)
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+            card.DropHover();
+            return;
+        }
         // A tab a module opened for you (held for 8 s) mustn't block dropping files; only a shelf drag does.
         bool files = e.Data.GetDataPresent(DataFormats.FileDrop) && _searchMode is null && _holdOpen - (_held ? 1 : 0) == 0;
         e.Effects = files ? DragDropEffects.Copy | DragDropEffects.Link : DragDropEffects.None;
@@ -48,6 +79,12 @@ public partial class NotchWindow
     void OnDrop(object sender, DragEventArgs e)
     {
         _dragOut.Stop();
+        if (CardTaking(e) is { } card)
+        {
+            e.Handled = true;
+            card.TakeDrop(e.Data);
+            return;
+        }
         _dragging = false;
         // The drop zone knows which of its targets (Shelf, phone, compress, convert) the files landed on.
         var target = DropZone.TakeTarget();

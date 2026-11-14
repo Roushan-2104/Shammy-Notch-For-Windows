@@ -4,18 +4,18 @@ using Shammy.Interop;
 namespace Shammy.Modules.Stage;
 
 /// <summary>A key Stage answers to.</summary>
-internal enum StageKey { Space, Back, On, Bigger, Smaller, Close, Light, Captions, Mirror, Voice }
+internal enum StageKey { Space, Back, On, Bigger, Smaller, Close, Light, Captions, Mirror, Voice, Script }
 
 /// <summary>
 /// Stage's keys without taking the keyboard from the meeting or camera app: while the pointer rests on Stage,
-/// Space, the arrows, + and −, Esc, and L (light), C (captions), M (mirror), V (voice) go to Stage and nowhere else;
+/// Space, the arrows, + and −, Esc, and L (light), C (captions), M (mirror), V (voice), N (a new script) go to Stage and nowhere else;
 /// with the pointer anywhere else every key goes where it always does. The hook exists only while Stage is open.
 /// </summary>
 internal sealed class StageKeys : IDisposable
 {
     const int VK_SPACE = 0x20, VK_LEFT = 0x25, VK_UP = 0x26, VK_RIGHT = 0x27, VK_DOWN = 0x28, VK_ESCAPE = 0x1B;
     const int VK_OEM_PLUS = 0xBB, VK_OEM_MINUS = 0xBD, VK_ADD = 0x6B, VK_SUBTRACT = 0x6D;
-    const int VK_C = 0x43, VK_L = 0x4C, VK_M = 0x4D, VK_V = 0x56;
+    const int VK_C = 0x43, VK_L = 0x4C, VK_M = 0x4D, VK_N = 0x4E, VK_V = 0x56;
     const int VK_CONTROL = 0x11, VK_MENU = 0x12, VK_LWIN = 0x5B, VK_RWIN = 0x5C;
 
     readonly Dispatcher _ui;
@@ -60,6 +60,7 @@ internal sealed class StageKeys : IDisposable
                 VK_C => StageKey.Captions,
                 VK_M => StageKey.Mirror,
                 VK_V => StageKey.Voice,
+                VK_N => StageKey.Script,
                 _ => null,
             };
             if (key is not { } k) return false;

@@ -27,7 +27,9 @@ internal sealed record StageHost(
     Action<double, double> Resize,
     Func<bool, Task<string?>> SetCaptions,
     Func<IntPtr> Monitor,
-    Func<IntPtr> Notch);
+    Func<IntPtr> Notch,
+    Action? ChangeScript = null,
+    Action<IDataObject>? Dropped = null);
 
 /// <summary>
 /// Stage: the notch as a small studio around the camera. Right under the lens, three lines of the script (the one
@@ -38,8 +40,10 @@ internal sealed record StageHost(
 /// face. The quiet controls (Light, Captions, Mirror, Voice, Record, pace, text size, close) show only while the
 /// pointer rests on Stage, and so do its keys, so the meeting app keeps the keyboard.
 /// Everything that listens or lights (microphone, ring light, camera, keys) lives only while Stage is open.
+/// A .txt or .md file, or dragged text, dropped on the island while Stage is open becomes the script; "Script" (N)
+/// opens the sheet to paste, type, open or pick another one.
 /// </summary>
-internal sealed class StageCard : Grid
+internal sealed class StageCard : Grid, Shammy.Shell.ICardDrop
 {
     public const double BaseWidth = 640, ColumnWidth = 560, MirrorSide = 108, MirrorSize = 84;
     const double TopPad = 10, QuietHeight = 26, GlideSeconds = 0.9, PreviousOpacity = 0.32, NextOpacity = 0.4;
@@ -129,7 +133,7 @@ internal sealed class StageCard : Grid
         _view.Children.Add(_stack);
         _view.Width = ColumnWidth;
         // No tooltip over the script: nothing should pop up over the words mid-sentence.
-        AutomationProperties.SetHelpText(_view, "Click to pause or carry on. With the pointer here, Space pauses, the arrows step a line, plus and minus change the size, and Esc closes.");
+        AutomationProperties.SetHelpText(_view, "Click to pause or carry on. With the pointer here, Space pauses, the arrows step a line, plus and minus change the size, N changes the script, and Esc closes.");
         _view.MouseLeftButtonUp += (_, e) =>
         {
             TogglePause();
@@ -266,7 +270,12 @@ internal sealed class StageCard : Grid
         }
         if (_prefs.Mirror) StartCamera();
         BuildChips();
-        if (Listening) Notice("Start speaking and Stage follows", 4);
+        if (Opening is { } opening)
+        {
+            Opening = null;
+            Notice(opening, 6);
+        }
+        else if (Listening) Notice("Start speaking and Stage follows", 4);
         else ShowQuiet();
         _clock.Restart();
         _lastTick = 0;
@@ -495,8 +504,28 @@ internal sealed class StageCard : Grid
             case StageKey.Captions: _ = ToggleCaptions(); break;
             case StageKey.Mirror: ToggleMirror(); break;
             case StageKey.Voice: ToggleVoice(); break;
+            case StageKey.Script: _host.ChangeScript?.Invoke(); break;
         }
     }
+
+    /// <summary>Back on the island after the script sheet was over it: everything starts again where it was.</summary>
+    public void Resume()
+    {
+        if (IsLoaded) Begin();
+    }
+
+    // ---- A script dropped on the island ----------------------------------------------------------------
+
+    public bool AcceptsDrop(IDataObject data) => _host.Dropped is not null && StageDrop.Accepts(data);
+
+    public void DropHover()
+    {
+        const string Hint = "Drop to put it on Stage";
+        if (_notice != Hint) Notice(Hint, 2);
+        else _noticeUntil = DateTime.UtcNow.AddSeconds(2);
+    }
+
+    public void TakeDrop(IDataObject data) => _host.Dropped?.Invoke(data);
 
     // ---- The controls ------------------------------------------------------------------------------------
 
@@ -618,6 +647,7 @@ internal sealed class StageCard : Grid
         _chips.Children.Clear();
         var record = RecordModule.Current;
         bool recording = record?.IsRecording == true;
+        if (_host.ChangeScript is { } change) Add(Chip("Script", false, "Change the script: paste, type, open a file or pick a recent one (N)", change));
         Add(Chip("Light", _prefs.Ring, _prefs.Ring ? "Turn the ring light off (L)" : "Turn the ring light on (L)", ToggleRing, wheel: d => SetRing(true, StageText.StepRing(_prefs.RingStrength, d))));
         Add(Chip("Captions", CaptionsFeed.IsOn, CaptionsFeed.IsOn ? "Turn live captions off (C)" : "Show their words with live captions (C)", () => _ = ToggleCaptions()));
         Add(Chip("Mirror", _prefs.Mirror, _prefs.Mirror ? "Hide your camera (M)" : "Check your framing in a small mirror (M)", ToggleMirror));
@@ -731,6 +761,12 @@ internal sealed class StageCard : Grid
     }
 
     public string QuietLine => $"{_quietKind} \"{_quietText.Text}\"";
+
+    /// <summary>A notice for the first moments on screen instead of the usual "Start speaking" (e.g. a script that was cut).</summary>
+    public string? Opening { get; set; }
+
+    /// <summary>A short notice in the quiet line (a drop that couldn't be read, say).</summary>
+    public void Say(string text, double seconds = 5) => Notice(text, seconds);
 
     // ---- The mirror ------------------------------------------------------------------------------------------
 

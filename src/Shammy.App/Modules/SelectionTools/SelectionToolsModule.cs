@@ -221,4 +221,24 @@ internal static class ClipboardText
         }
         return false;
     }
+
+    /// <summary>
+    /// The clipboard's text on the UI thread, retrying briefly while another app holds the clipboard: "" when it
+    /// holds no text, null when it stayed busy.
+    /// </summary>
+    public static string? TryGet()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            try
+            {
+                return System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() ?? "" : "";
+            }
+            catch (ExternalException)
+            {
+                Thread.Sleep(40);
+            }
+        }
+        return null;
+    }
 }
