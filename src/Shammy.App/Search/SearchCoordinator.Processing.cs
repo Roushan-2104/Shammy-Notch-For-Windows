@@ -156,7 +156,10 @@ internal partial class SearchCoordinator
             return;
         }
 
-        await ShowResultAsync(ContextFor(selection, query, filters, info));
+        var full = ContextFor(selection, query, filters, info);
+        // A spoken question with nothing circled: a short answer in the island, read aloud.
+        if (selection is null && !WantsResults(query, filters, out _)) await AskAsync(session, query, full, spoken: true);
+        else await ShowResultAsync(full);
     }
 
     /// <summary>The full results for a circle (Lens for a picture, the default mode for words) or for words alone.</summary>
@@ -236,6 +239,7 @@ internal partial class SearchCoordinator
     {
         _phase = Phase.Showing;
         _momentFull = full;
+        _momentLoaded = false;
         _keys.InterceptEscape = true;
         void Land()
         {
@@ -256,7 +260,7 @@ internal partial class SearchCoordinator
     {
         if (_phase != Phase.Showing || _momentFull is not { } full) return;
         _momentFull = null;
-        _ = ShowResultAsync(full);
+        _ = ShowResultAsync(full, navigate: !_momentLoaded);
     }
 
     internal void ExpandMomentForTest() => ExpandMoment();
@@ -462,7 +466,10 @@ internal partial class SearchCoordinator
         }
         var (query, filters) = QueryBuilder.ExtractSpokenFilters(text);
         if (query.Length == 0) query = text;
-        await ShowResultAsync(new Context(query, query, _settings.DefaultSearchMode, filters, null, null));
+        var ctx = new Context(query, query, _settings.DefaultSearchMode, filters, null, null);
+        // A question gets a short answer in the island; "search …" or a filter ("on reddit") wants the results page.
+        if (WantsResults(text, filters, out var search)) await ShowResultAsync(ctx with { Query = search, DisplayQuery = search });
+        else await AskAsync(_session, query, ctx, spoken: false);
     }
 
     Task SearchWebAsync(string text)
@@ -481,9 +488,10 @@ internal partial class SearchCoordinator
         _notch.SetInteractive(true);
     }
 
-    async Task ShowResultAsync(Context ctx)
+    async Task ShowResultAsync(Context ctx, bool navigate = true)
     {
         int session = _session;
+        _answerRead?.Cancel();
         _ctx = ctx;
         _phase = Phase.Showing;
         DismissOverlay();
@@ -501,6 +509,7 @@ internal partial class SearchCoordinator
         _notch.SetSearchMode(NotchMode.Result);
         _notch.SetInteractive(true);
         Log.Info($"Search [{ctx.Mode}] {ctx.Query.Length} chars");
+        if (!navigate) return;
         try
         {
             await NavigateAsync(ctx);

@@ -18,6 +18,21 @@ internal sealed record IslandMoment(string Glyph, string Label, string Title, st
 {
     /// <summary>A circled colour: the orb shows the colour itself.</summary>
     public Color? Swatch { get; init; }
+
+    /// <summary>A short answer in words (AI Mode's first lines, a translation): a few lines under the title.</summary>
+    public string? Answer { get; init; }
+
+    /// <summary>Where <see cref="Answer"/> came from ("Google AI Mode", "Google Translate"), as a small chip by the label.</summary>
+    public string? Source { get; init; }
+
+    /// <summary>A "say or type what to do" box under the actions; Enter hands it the words.</summary>
+    public Action<string>? Ask { get; init; }
+
+    /// <summary>A speaker button that reads this aloud (Gnani).</summary>
+    public string? SpeakText { get; init; }
+
+    /// <summary>The card's width (560 by default; answers with a few lines are wider).</summary>
+    public double Width { get; init; } = 560;
 }
 
 /// <summary>
@@ -29,7 +44,15 @@ public partial class AnswerView : UserControl
     string _query = "";
     string? _copyText;
 
-    public AnswerView() => InitializeComponent();
+    public AnswerView()
+    {
+        InitializeComponent();
+        MomentAskBox.KeyDown += OnAskKey;
+        MomentAskBox.TextChanged += (_, _) => MomentAskHint.Visibility = MomentAskBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>The "say or type" box (the notch hands it the keyboard when it's clicked).</summary>
+    internal TextBox AskBox => MomentAskBox;
 
     internal event Action<string>? SearchWebRequested;
 
@@ -134,14 +157,19 @@ public partial class AnswerView : UserControl
         _moment = m;
         Plain.Visibility = Visibility.Collapsed;
         Moment.Visibility = Visibility.Visible;
-        Width = 560;
-        Height = string.IsNullOrEmpty(m.Body) ? 136 : 172;
+        Width = m.Width;
 
         MomentLabel.Text = m.Label;
         MomentTitle.Text = m.Title;
         MomentTitle.FontSize = m.Title.Length > 26 ? 20 : 23;
         MomentBody.Text = m.Body ?? "";
         MomentBody.Visibility = string.IsNullOrEmpty(m.Body) ? Visibility.Collapsed : Visibility.Visible;
+        MomentAnswer.Text = m.Answer ?? "";
+        MomentAnswer.Visibility = string.IsNullOrEmpty(m.Answer) ? Visibility.Collapsed : Visibility.Visible;
+        MomentSourceText.Text = m.Source ?? "";
+        MomentSource.Visibility = string.IsNullOrEmpty(m.Source) ? Visibility.Collapsed : Visibility.Visible;
+        MomentAsk.Visibility = m.Ask is null ? Visibility.Collapsed : Visibility.Visible;
+        MomentAskBox.Text = "";
 
         if (m.Swatch is { } swatch)
         {
@@ -205,6 +233,41 @@ public partial class AnswerView : UserControl
             };
             SendRow.Children.Add(button);
         }
+        if (m.SpeakText is { Length: > 0 } speak)
+        {
+            var listen = new Button
+            {
+                Content = "",
+                Style = (Style)FindResource("WallQuietButton"),
+                FontFamily = (FontFamily)FindResource("IconFont"),
+                FontWeight = FontWeights.Normal,
+                FontSize = 13,
+                Width = 32,
+                Padding = new Thickness(0),
+                Margin = new Thickness(6, 0, 0, 0),
+                ToolTip = "Read it aloud",
+            };
+            AutomationProperties.SetName(listen, "Read it aloud");
+            listen.Click += (_, _) => Modules.HostLinks.SayAnyway?.Invoke(speak);
+            SendRow.Children.Add(listen);
+        }
+        FitMoment();
+    }
+
+    /// <summary>The card is as tall as what it holds (a short answer can run to a few lines).</summary>
+    void FitMoment()
+    {
+        // DesiredSize already includes the margins.
+        Moment.Measure(new Size(Width, double.PositiveInfinity));
+        Height = Math.Max(120, Math.Ceiling(Moment.DesiredSize.Height));
+    }
+
+    void OnAskKey(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter || _moment?.Ask is not { } ask) return;
+        e.Handled = true;
+        var words = MomentAskBox.Text.Trim();
+        if (words.Length > 0) ask(words);
     }
 
     void RunAction(MomentAction action)
@@ -224,6 +287,12 @@ public partial class AnswerView : UserControl
     void Say(string text) => MomentLabel.Text = "✓  " + text;
 
     void OnMomentExpand(object sender, System.Windows.Input.MouseButtonEventArgs e) => MomentExpandRequested?.Invoke();
+
+    /// <summary>Test pipe: what the moment shows (label | title | answer | actions).</summary>
+    internal string DescribeMomentForTest() => _moment is not { } m ? "-"
+        : $"{MomentLabel.Text} | {m.Title} | {(m.Answer ?? "").Replace('\n', ' ')} | source={m.Source ?? "-"} | " +
+          $"actions={string.Join(",", m.Actions.Select(x => x.Label))} | ask={(m.Ask is null ? "no" : "yes")} | size={Width}x{Height} " +
+          $"parts={MomentTop.DesiredSize.Height:0}+{MomentActions.DesiredSize.Height:0}+{MomentAsk.DesiredSize.Height:0} answer={MomentAnswer.DesiredSize.Height:0} title={MomentTitle.DesiredSize.Height:0}";
 
     /// <summary>Test pipe: runs the moment's action or send target by its label, as a click would.</summary>
     internal async Task<string> RunMomentForTest(string label)

@@ -346,6 +346,19 @@ internal sealed partial class ShammyHost
                 return run.IsCompleted ? run.Result : "started";
             }
             case "circle-expand": _search.ExpandMomentForTest(); return "ok";
+            // Short answers: "ask <question>" (typed) or "ask-voice <question>" (as if spoken, so it is read aloud).
+            case "ask": _ = _search.AskForTestAsync(arg, spoken: false); return "ok";
+            case "ask-voice": _ = _search.AskForTestAsync(arg, spoken: true); return "ok";
+            case "moment-state": return _notch.AnswerView.DescribeMomentForTest();
+            case "answer-probe": return Search.HiddenPage.LastProbe;
+            case "translate-text":
+            {
+                var bar = arg.IndexOf('|');
+                if (bar < 1) return "error: usage translate-text <lang>|<text>";
+                _ = _search.TranslateForTestAsync(arg[..bar].Trim(), arg[(bar + 1)..]);
+                return "ok";
+            }
+            case "picture-file": _ = _search.PictureForTestAsync(arg.Trim()); return "ok";
             // "circle-freeze" then "circle-draw x,y x,y …|seconds" (fractions of the screen): the real freeze and circle, no mouse.
             case "circle-freeze": return _search.FreezeForTest();
             case "circle-draw": return _search.DrawForTest(arg);

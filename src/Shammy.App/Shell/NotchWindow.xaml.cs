@@ -458,6 +458,12 @@ public partial class NotchWindow : Window
         if (id is not null) ActionHovered?.Invoke(id, on);
     }
 
+    /// <summary>The answer card changed size in place (a short answer arrived): the island follows.</summary>
+    internal void RefitAnswer()
+    {
+        if (_mode == NotchMode.Answer) Transition(NotchMode.Answer);
+    }
+
     public void SetSearchMode(NotchMode? mode)
     {
         // The search bar takes over the keyboard (and manages SetInteractive itself).
