@@ -53,9 +53,11 @@ public sealed record CircleIntent(CircleAction Action, string? TargetLanguage, s
     // "in hindi", "into English", "to french"; "hindi mein", "english me", "hindi main"; "hindi" said alone.
     static readonly Regex LanguageRx = Rx($@"(?:\b(?:in|into|to)\s+(?<l>{LanguageNames})\b|\b(?<l>{LanguageNames})\s+(?:mein|me|main|men|mai|mei)\b|^(?<l>{LanguageNames})$|\b(?<l>{LanguageNames})\s+(?:translation|translate|batao|bolo|karo)\b)");
 
-    static readonly Regex ConvertRx = Rx(@"\b(?:what\s+time|my\s+time|local\s+time|in\s+my\s+time|my\s+timezone|convert|conversion|kitne\s+baje|kitna\s+baje|kab\s+hai\s+mere|mere\s+time|in\s+(?:rupees?|rs|inr|dollars?|usd|euros?|eur|pounds?|gbp|dirhams?|aed)|to\s+(?:rupees?|inr|dollars?|usd|euros?)|rupees?\s+(?:mein|me)|kitne\s+(?:rupa?y?e+s?|rs|dollars?))\b");
-    /// <summary>Asking what it costs or where it's cheapest ("price", "kitne ka hai", "where to buy"): the shopping list.</summary>
-    static readonly Regex PriceRx = Rx(@"\b(?:price|prices|pricing|cost|costs|how\s+much|cheapest|cheaper|buy|where\s+to\s+buy|kitne\s+ka|kitne\s+ki|kitna\s+ka|kitne\s+mein|kitne\s+me|kya\s+daam|daam|kimat|keemat|sasta|saste|sasti)\b");
+    // "what time is it/this" and "what time for me" convert; "what time does this shop close?" is a question for the AI.
+    static readonly Regex ConvertRx = Rx(@"\b(?:what\s+time(?!\s+(?!is\s+(?:it|this|that)\b|for\s+me\b)\w)|my\s+time|local\s+time|in\s+my\s+time|my\s+timezone|convert|conversion|kitne\s+baje|kitna\s+baje|kab\s+hai\s+mere|mere\s+time|in\s+(?:rupees?|rs|inr|dollars?|usd|euros?|eur|pounds?|gbp|dirhams?|aed)|to\s+(?:rupees?|inr|dollars?|usd|euros?)|rupees?\s+(?:mein|me)|kitne\s+(?:rupa?y?e+s?|rs|dollars?))\b");
+    /// <summary>Asking what it costs or where it's cheapest ("price", "kitne ka hai", "where to buy"): the shopping list. Only
+    /// "how much is it" / "how much for" is the price; "how much protein is in this?" is a question.</summary>
+    static readonly Regex PriceRx = Rx(@"\b(?:price|prices|pricing|cost|costs|how\s+much\s+(?:(?:is|are)\s+(?:it|this|that|these|those|they)|for)|cheapest|cheaper|buy|where\s+to\s+buy|kitne\s+ka|kitne\s+ki|kitna\s+ka|kitne\s+mein|kitne\s+me|kya\s+daam|daam|kimat|keemat|sasta|saste|sasti)\b");
     static readonly Regex TranslateRx = Rx(@"\b(?:translate|translation|translated|anuvad|anuvaad|tarjuma)\b");
     static readonly Regex MeaningRx = Rx(@"\b(?:matlab|meaning|means?|arth)\b");
     static readonly Regex RemindRx = Rx(@"\b(?:remind|reminder|ya+d\s+dil(?:a+|ana|ao|a\s+dena|a\s+do)|ya+d\s+kara)\w*");

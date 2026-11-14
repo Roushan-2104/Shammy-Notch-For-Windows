@@ -250,6 +250,11 @@ public class CircleSenseKindsTests
     [InlineData("XY 123")]
     [InlineData("6E 2134 and AI 101")]
     [InlineData("ai 101")]
+    [InlineData("PR 123")]
+    [InlineData("AZ-900")]
+    [InlineData("GA4")]
+    [InlineData("PG-13")]
+    [InlineData("MS 365")]
     public void Not_a_flight(string text) => Assert.NotEqual(CircleKind.Flight, Read(text)?.Kind);
 
     // ---- PNR -------------------------------------------------------------------------------------------------------

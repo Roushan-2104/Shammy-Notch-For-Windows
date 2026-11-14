@@ -157,6 +157,9 @@ public class UnitTests
     [InlineData("the box weighs 2 kg and is red")]
     [InlineData("$49.99")]
     [InlineData("")]
+    [InlineData("10 in")]
+    [InlineData("1 in 3 people")]
+    [InlineData("3 in 1 printer")]
     public void Ignores_circles_that_arent_measurements(string text) => Assert.False(Units.TryReadMeasurement(text, out _), text);
 
     [Fact]

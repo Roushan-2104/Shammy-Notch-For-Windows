@@ -152,6 +152,9 @@ public class CircleIntentTests
     [InlineData("Who made this painting?")]
     [InlineData("can I eat this during a fast")]
     [InlineData("best time to visit")]
+    [InlineData("how much protein is in this?")]
+    [InlineData("how much does it weigh")]
+    [InlineData("what time does this shop close?")]
     public void Anything_else_is_a_question_for_the_ai(string text)
     {
         var i = Parse(text);

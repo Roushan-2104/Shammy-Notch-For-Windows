@@ -278,6 +278,8 @@ public static class Units
         if (digits.Length == 0 || !char.IsDigit(digits[0])) return false;
         if (!TryParseQuantity(s, out var q, out var raw)) return false;
         if (raw.Any(AmbiguousOnScreen.Contains)) return false;
+        // A lone "in" is the word, not inches ("Top 10 in India", "1 in 3 people"); 5" and "5 ft 10 in" still read.
+        if (raw is ["in"]) return false;
         // "1M views" is a million, "2 m" a length: only the capital is ambiguous.
         if (raw.Contains("m") && MillionSuffix.IsMatch(text)) return false;
         var to = Counterpart(q.Unit, q.Value);

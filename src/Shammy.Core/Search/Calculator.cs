@@ -33,7 +33,8 @@ public static class Calculator
         text = Regex.Replace(text, @"\bminus\b", "-", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\bdivided\s+by\b", "/", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\bof\b", "*", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"(?<=\d),(?=\d{3}\b)", "");
+        // Thousands commas, Western or Indian ("1,500,000", "1,20,000").
+        text = Regex.Replace(text, @"(?<=\d),(?=(?:\d{2},)*\d{3}\b)", "");
         // "5 lakh", "2.5 crore", "10 lakh + 5 lakh": Indian number words as their values, bracketed so "2 lakh^2"
         // can't bind wrongly. A bare "5 lakh" is still a sum worth answering.
         text = IndianMultiplier.Replace(text, m => "(" + m.Groups["n"].Value + "*" + (char.ToLowerInvariant(m.Groups["w"].Value[0]) == 'c' ? "10000000" : "100000") + ")");

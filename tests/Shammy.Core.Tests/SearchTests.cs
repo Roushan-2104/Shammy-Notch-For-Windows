@@ -70,6 +70,7 @@ public class CalculatorTests
     [InlineData("-5 + 3", -2)]
     [InlineData("sqrt 144 + 1", 13)]
     [InlineData("1,500 / 3", 500)]
+    [InlineData("1,20,000 + 35,000", 155000)]
     [InlineData("calculate 7 times 6", 42)]
     [InlineData("2(3+4)", 14)]
     public void Evaluates(string input, double expected)

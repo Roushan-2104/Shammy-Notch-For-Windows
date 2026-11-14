@@ -303,6 +303,9 @@ public static partial class CircleSense
 
     static readonly Regex FlightWordRx = new(@"(?<!\w)(?:flight|flt|fl)(?!\w)", Opt, Budget);
 
+    /// <summary>Airline codes that are more often something else ("PR 123", "MS 365", "AZ 900"): only a flight when "flight" is said.</summary>
+    static readonly HashSet<string> FlightClashes = new(StringComparer.Ordinal) { "PR", "MS", "AZ", "GA", "PG" };
+
     static CircleMeaning? Flight(string text)
     {
         var all = FlightRx.Matches(text).Where(x => Airlines.ContainsKey(x.Groups[1].Value) && !x.Groups[1].Value.All(char.IsDigit)).ToList();
@@ -312,6 +315,8 @@ public static partial class CircleSense
         if (Cover(m.Value, text) < Mostly && rest.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length > 3) return null;
         string code = m.Groups[1].Value, number = m.Groups[2].Value;
         bool said = FlightWordRx.IsMatch(text);
+        // Without the word, a flight is a 3-4 digit number with no dash ("GA4", "PG-13" are not).
+        if (!said && (number.Length < 3 || m.Value.Contains('-') || FlightClashes.Contains(code))) return null;
         // "UK 2024" is a year more often than a flight; say "flight" and it counts.
         if (!said && number.Length == 4 && (number.StartsWith("19", StringComparison.Ordinal) || number.StartsWith("20", StringComparison.Ordinal))) return null;
         // Digits elsewhere mean it's part of something else (a date, an address, a sum).

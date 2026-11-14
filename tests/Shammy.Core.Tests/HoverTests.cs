@@ -162,6 +162,19 @@ public class HoverTests
         Assert.Equal(five.X, t.Bounds.X);
     }
 
+    [Theory]
+    [InlineData("Top 10 in India this week", "10")]
+    [InlineData("1 in 3 people agree", "1")]
+    [InlineData("3 in 1 printer", "3")]
+    public void TheWordInIsNotInches(string line, string word)
+    {
+        var words = Layout(line);
+        Assert.NotEqual(HoverKind.Measure, PickAt(words, On(words, word))?.Kind);
+        // Inches with a mark, or after feet, still read.
+        Assert.True(Units.TryReadMeasurement("5\"", out _));
+        Assert.True(Units.TryReadMeasurement("5 ft 10 in", out _));
+    }
+
     [Fact]
     public void PicksATimeWithItsZone()
     {
