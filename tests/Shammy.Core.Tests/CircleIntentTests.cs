@@ -148,11 +148,9 @@ public class CircleIntentTests
 
     [Theory]
     [InlineData("is this vegan?")]
-    [InlineData("how much does it cost")]
     [InlineData("is this open on Sunday?")]
     [InlineData("Who made this painting?")]
     [InlineData("can I eat this during a fast")]
-    [InlineData("ye sasta hai ya mehenga")]
     [InlineData("best time to visit")]
     public void Anything_else_is_a_question_for_the_ai(string text)
     {

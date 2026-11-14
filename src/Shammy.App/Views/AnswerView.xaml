@@ -80,6 +80,8 @@
                         <TextBlock x:Name="MomentAnswer" FontFamily="{DynamicResource WallFontMedium}" FontWeight="Medium" FontSize="15"
                                    Foreground="{DynamicResource WallText}" TextWrapping="Wrap" TextTrimming="WordEllipsis" MaxHeight="86"
                                    LineStackingStrategy="BlockLineHeight" LineHeight="21" Margin="0,8,0,0" Visibility="Collapsed" />
+                        <!-- Rows under the title (a price list: store, delivery and rating, the price) -->
+                        <StackPanel x:Name="MomentRows" Margin="0,10,0,0" Visibility="Collapsed" />
                     </StackPanel>
                     <TextBlock Grid.Column="2" Style="{StaticResource Icon}" Text="&#xE8A7;" FontSize="12" Foreground="{DynamicResource WallText2}" Opacity="0.7"
                                VerticalAlignment="Top" Margin="10,4,0,0" />

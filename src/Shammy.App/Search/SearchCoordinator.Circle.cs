@@ -226,6 +226,17 @@ internal partial class SearchCoordinator
             case CircleAction.Search:
                 await ShowResultAsync(now.Full);
                 return;
+            case CircleAction.Price:
+            {
+                // "price" / "kitne ka hai": the circled product's prices. A picture goes through Lens first to name it.
+                if (picture && now.Info.Png is { } png && text.Length < 3)
+                {
+                    await PictureAsync(session, png, text, now.Full);
+                    return;
+                }
+                await ShopAsync(session, m?.Kind == CircleKind.Term ? m.Display : Clip(text, 80), now.Full);
+                return;
+            }
             case CircleAction.Copy when text.Length > 0:
             {
                 bool ok = Modules.SelectionTools.ClipboardText.TrySet(text);

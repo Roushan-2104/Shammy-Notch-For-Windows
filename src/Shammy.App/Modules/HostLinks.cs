@@ -81,6 +81,12 @@ internal static class HostLinks
     public static Action<string>? SayAnyway { get; set; }
 
     /// <summary>
+    /// "Watch price" (Circle to buy smarter): watches a product and pops up in the island when it gets cheaper. Returns the
+    /// word back to show. Set by the price watch module.
+    /// </summary>
+    public static Func<string, decimal, string, string>? WatchPrice { get; set; }
+
+    /// <summary>
     /// Online listening: the talk key's recording (16 kHz mono) as text, or null when the local voice model
     /// should transcribe it (the mode is off, the service was slow or failed). Asked before the local model.
     /// </summary>

@@ -9,6 +9,10 @@ namespace Shammy.Views;
 /// ("Copied"), or null; with <see cref="Closes"/> and no word back, the moment closes (another app took over).</summary>
 internal sealed record MomentAction(string Label, Func<string?> Run, bool Closes = false);
 
+/// <summary>A row in a moment's list (a price list): the left words, a quiet middle line, a light number on the right;
+/// <see cref="Highlight"/> tints it in the accent with <see cref="Badge"/> ("Cheapest").</summary>
+internal sealed record MomentRow(string Left, string Middle, string Right, bool Highlight = false, string? Badge = null);
+
 /// <summary>A quiet "send it" icon on a moment (Notes, Shelf, phone, Stage); returns the word back to show.</summary>
 internal sealed record MomentSend(string Glyph, string Tip, Func<Task<string?>> Run);
 
@@ -30,6 +34,9 @@ internal sealed record IslandMoment(string Glyph, string Label, string Title, st
 
     /// <summary>A speaker button that reads this aloud (Gnani).</summary>
     public string? SpeakText { get; init; }
+
+    /// <summary>A short list under the title (a price list).</summary>
+    public IReadOnlyList<MomentRow>? Rows { get; init; }
 
     /// <summary>The card's width (560 by default; answers with a few lines are wider).</summary>
     public double Width { get; init; } = 560;
@@ -169,6 +176,10 @@ public partial class AnswerView : UserControl
         MomentBody.Visibility = string.IsNullOrEmpty(m.Body) ? Visibility.Collapsed : Visibility.Visible;
         MomentAnswer.Text = m.Answer ?? "";
         MomentAnswer.Visibility = string.IsNullOrEmpty(m.Answer) ? Visibility.Collapsed : Visibility.Visible;
+        MomentRows.Children.Clear();
+        MomentRows.Visibility = m.Rows is { Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+        if (m.Rows is { } rows)
+            foreach (var row in rows) MomentRows.Children.Add(RowView(row, MomentRows.Children.Count > 0));
         MomentSourceText.Text = m.Source ?? "";
         MomentSource.Visibility = string.IsNullOrEmpty(m.Source) ? Visibility.Collapsed : Visibility.Visible;
         MomentAsk.Visibility = m.Ask is null ? Visibility.Collapsed : Visibility.Visible;
@@ -255,6 +266,33 @@ public partial class AnswerView : UserControl
             SendRow.Children.Add(listen);
         }
         FitMoment();
+    }
+
+    static FrameworkElement RowView(MomentRow r, bool spaced)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var left = Cards.Sheet.Word(r.Left, 13.5);
+        var middle = Cards.Sheet.Meta(r.Middle, 12.5);
+        middle.Margin = new Thickness(10, 0, 10, 0);
+        Grid.SetColumn(middle, 1);
+        var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        if (r.Badge is { Length: > 0 } badge)
+        {
+            var chip = Cards.Sheet.Chip(badge, height: 22);
+            chip.Margin = new Thickness(0, 0, 10, 0);
+            right.Children.Add(chip);
+        }
+        right.Children.Add(Cards.Sheet.Num(r.Right, r.Highlight ? 24 : 20, r.Highlight ? Cards.Ink.Soft : null));
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(left);
+        grid.Children.Add(middle);
+        grid.Children.Add(right);
+        var tile = Cards.Sheet.Tile(grid, new Thickness(14, 8, 14, 8), 16, accent: r.Highlight);
+        if (spaced) tile.Margin = new Thickness(0, 6, 0, 0);
+        return tile;
     }
 
     /// <summary>The card is as tall as what it holds (a short answer can run to a few lines).</summary>

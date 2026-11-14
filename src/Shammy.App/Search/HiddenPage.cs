@@ -57,6 +57,94 @@ internal static class HiddenPage
         return answer?.Text;
     }
 
+    const string TextProbe = """
+        (() => {
+          if (/\/sorry\//.test(location.href)) return JSON.stringify({ state: 'robot' });
+          if (document.readyState !== 'complete' || !document.body) return JSON.stringify({ state: 'wait' });
+          const t = document.body.innerText.slice(0, 30000);
+          return JSON.stringify({ state: t.length > 200 ? 'text' : 'wait', text: t });
+        })()
+        """;
+
+    /// <summary>A page's visible text once it has settled (up to 30,000 characters), or null (a robot check, nothing in time).</summary>
+    public static async Task<string?> ReadTextAsync(IntPtr parent, Uri url, TimeSpan limit, CancellationToken ct)
+    {
+        var page = await ReadAsync(parent, core => core.Navigate(url.AbsoluteUri), limit, ct, TextProbe, steadyPolls: 2);
+        return page?.Text;
+    }
+
+    /// <summary>Google Shopping's results for <paramref name="product"/> in India, as visible text (for <see cref="Core.Shopping.ShoppingOffers"/>), or null.</summary>
+    public static Task<string?> ReadShoppingAsync(IntPtr parent, string product, TimeSpan limit, CancellationToken ct) =>
+        ReadTextAsync(parent, ShoppingUrl(product), limit, ct);
+
+    /// <summary>Google Shopping's results page for <paramref name="product"/> (Indian stores, English).</summary>
+    public static Uri ShoppingUrl(string product) => new("https://www.google.com/search?udm=28&hl=en&gl=in&q=" + Uri.EscapeDataString(product));
+
+    /// <summary>
+    /// Lens's whole results page for a picture, as visible text: its AI Overview (see <see cref="AnswerFrom"/>) and, for a
+    /// product, its shopping results. Null on a robot check or nothing in time.
+    /// </summary>
+    public static async Task<string?> ReadLensPageAsync(IntPtr parent, byte[] png, TimeSpan limit, CancellationToken ct)
+    {
+        var page = await ReadAsync(parent, core => UploadToLens(core, png), limit, ct, LensTextProbe, steadyPolls: 1);
+        return page?.Text;
+    }
+
+    // Lens's page is ready once its AI Overview has words under it (or it plainly has none and has settled).
+    const string LensTextProbe = """
+        (() => {
+          if (/\/sorry\//.test(location.href)) return JSON.stringify({ state: 'robot' });
+          if (document.readyState !== 'complete' || !document.body) return JSON.stringify({ state: 'wait' });
+          const t = document.body.innerText.slice(0, 30000);
+          const k = t.indexOf('AI Overview');
+          const ready = k < 0 ? t.length > 400 : t.slice(k).split('\n').some(s => s.trim().length >= 40);
+          return JSON.stringify({ state: ready ? 'text' : 'wait', text: t });
+        })()
+        """;
+
+    /// <summary>The short answer in a page's text (its first lines under "AI Mode reply" or "AI Overview"), or null; the same rule as the live probe.</summary>
+    public static string? AnswerFrom(string? pageText)
+    {
+        if (string.IsNullOrEmpty(pageText)) return null;
+        int at = -1;
+        foreach (var marker in new[] { "AI Mode reply for", "AI Overview" })
+        {
+            int k = pageText.IndexOf(marker, StringComparison.Ordinal);
+            if (k >= 0)
+            {
+                at = pageText.IndexOf('\n', k);
+                break;
+            }
+        }
+        if (at < 0) return null;
+        var lines = pageText[(at + 1)..].Split('\n').Select(s => s.Trim())
+            .Where(s => (s.Length >= 40 || (s.Length >= 6 && ".!?。)\"”".Contains(s[^1])))
+                        && !s.StartsWith("AI can make mistakes", StringComparison.OrdinalIgnoreCase)
+                        && !s.StartsWith("AI responses may make mistakes", StringComparison.OrdinalIgnoreCase)
+                        && !s.StartsWith("Thinking", StringComparison.Ordinal) && !s.StartsWith("Searching", StringComparison.Ordinal))
+            .Take(2).ToList();
+        return lines.Count > 0 ? string.Join("\n", lines) : null;
+    }
+
+    static void UploadToLens(CoreWebView2 core, byte[] png)
+    {
+        string boundary = "----ShammyLens" + Guid.NewGuid().ToString("N");
+        var body = new MemoryStream();
+        void Write(string s)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(s);
+            body.Write(bytes, 0, bytes.Length);
+        }
+        Write($"--{boundary}\r\nContent-Disposition: form-data; name=\"encoded_image\"; filename=\"shammy.png\"\r\nContent-Type: image/png\r\n\r\n");
+        body.Write(png, 0, png.Length);
+        Write($"\r\n--{boundary}--\r\n");
+        body.Position = 0;
+        long stamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var request = core.Environment.CreateWebResourceRequest($"https://lens.google.com/v3/upload?hl=en&gl=in&re=df&stcs={stamp}&ep=gsbubb", "POST", body,
+            $"Content-Type: multipart/form-data; boundary={boundary}");
+        core.NavigateWithWebResourceRequest(request);
+    }
+
     /// <summary>Lens's short answer for a picture (the same upload the results card's Lens makes), or null.</summary>
     public static Task<ShortAnswer?> ReadLensAsync(IntPtr parent, byte[] png, TimeSpan limit, CancellationToken ct) =>
         ReadAsync(parent, core =>

@@ -217,8 +217,19 @@ internal partial class SearchCoordinator
         ShowMoment(session, waiting, full);
         _answerRead?.Cancel();
         var cts = _answerRead = new CancellationTokenSource();
-        var answer = await HiddenPage.ReadLensAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle, png, TimeSpan.FromSeconds(16), cts.Token);
+        var page = await HiddenPage.ReadLensPageAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle, png, TimeSpan.FromSeconds(16), cts.Token);
         if (session != _session || cts.IsCancellationRequested) return;
+        var overview = HiddenPage.AnswerFrom(page);
+        // A product (Lens lists it with prices): the price list, cheapest first, from Google Shopping.
+        var lensOffers = Core.Shopping.ShoppingOffers.Parse(page);
+        if (lensOffers.Count >= 2)
+        {
+            string product = overview is not null ? FirstPhrase(Spoken(overview)) : Clip(lensOffers[0].Title, 50);
+            Log.Info($"Circled picture is a product ({lensOffers.Count} offers on Lens)");
+            await ShopAsync(session, product, full, lensOffers);
+            return;
+        }
+        var answer = overview is null ? null : new ShortAnswer(overview, "");
         if (answer is null)
         {
             Log.Info("No short answer for the picture: showing Lens");
@@ -251,6 +262,81 @@ internal partial class SearchCoordinator
         var done = waiting with { Label = "Looks like", Title = FirstPhrase(shortText), Answer = shortText, Actions = actions, SpeakText = shortText };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
+    }
+
+    // ---- Shopping ---------------------------------------------------------------------------------------------
+
+    const string ShopGlyph = "";
+
+    /// <summary>
+    /// Circle to buy smarter: who sells <paramref name="product"/> cheapest, from Google Shopping (Indian stores), as a short
+    /// list in the island: store, delivery and rating, price, the cheapest highlighted. All prices opens the full list;
+    /// Watch price tells you in the island when it drops. <paramref name="fallback"/> (Lens's own offers) is used when the
+    /// Shopping page gives nothing.
+    /// </summary>
+    async Task ShopAsync(int session, string product, Context full, IReadOnlyList<Core.Shopping.ShoppingOffer>? fallback = null)
+    {
+        product = product.Trim();
+        var shoppingPage = full with { Page = HiddenPage.ShoppingUrl(product), Query = product, DisplayQuery = product, Mode = SearchMode.Web };
+        var waiting = new Views.IslandMoment(ShopGlyph, "Finding prices", Clip(product, 50), null, Array.Empty<Views.MomentAction>(), Array.Empty<Views.MomentSend>())
+        {
+            Answer = "Looking at the stores…",
+            Source = "Google Shopping",
+            Width = 640,
+        };
+        ShowMoment(session, waiting, shoppingPage);
+        _answerRead?.Cancel();
+        var cts = _answerRead = new CancellationTokenSource();
+        var text = await HiddenPage.ReadShoppingAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle, product, TimeSpan.FromSeconds(18), cts.Token);
+        if (session != _session || cts.IsCancellationRequested) return;
+        var offers = Core.Shopping.ShoppingOffers.Best(Core.Shopping.ShoppingOffers.Parse(text), product);
+        if (offers.Count == 0 && fallback is not null) offers = Core.Shopping.ShoppingOffers.Best(fallback, null);
+        if (offers.Count == 0)
+        {
+            Log.Info("No prices found: showing the shopping page");
+            await ShowResultAsync(shoppingPage);
+            return;
+        }
+        Log.Info($"Prices: {offers.Count} stores");
+        var rows = offers.Select((o, i) => new Views.MomentRow(o.Store, Detail(o), o.PriceText, i == 0, i == 0 ? "Cheapest" : null)).ToList();
+        var cheapest = offers[0];
+        var actions = new List<Views.MomentAction>
+        {
+            new("All prices", () =>
+            {
+                _ = ShowResultAsync(shoppingPage);
+                return null;
+            }),
+            new("Watch price", () => Modules.HostLinks.WatchPrice?.Invoke(product, cheapest.Price, cheapest.Store) ?? "Price watch is off"),
+            new("Copy", () => Modules.SelectionTools.ClipboardText.TrySet(string.Join(Environment.NewLine, offers.Select(o => $"{o.Store}: {o.PriceText}")))
+                ? "Copied" : "Clipboard is busy"),
+            new("Search", () =>
+            {
+                _ = ShowResultAsync(full with { Query = product, DisplayQuery = product, Page = null });
+                return null;
+            }),
+        };
+        var done = waiting with { Label = "Prices · cheapest first", Answer = null, Rows = rows, Actions = actions };
+        _notch.AnswerView.ShowMoment(done);
+        _notch.RefitAnswer();
+    }
+
+    /// <summary>"Free delivery · tomorrow · ★ 4.4 (1.1K)": delivery, fee and rating, as the owner asked for each store.</summary>
+    static string Detail(Core.Shopping.ShoppingOffer o)
+    {
+        var parts = new List<string>();
+        if (o.Delivery.Length > 0) parts.Add(o.Delivery);
+        if (o.Rating is { } r) parts.Add($"★ {r:0.0}{(o.Reviews.Length > 0 ? $" ({o.Reviews})" : "")}");
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>Test pipe ("shop <product>"): the price list for a product, as saying "price" over its name would show it.</summary>
+    internal async Task ShopForTestAsync(string product)
+    {
+        Cancel();
+        int session = ++_session;
+        var ctx = new Context(product, product, SearchMode.Ai, SearchFilter.None, null, null);
+        await ShopAsync(session, product, ctx);
     }
 
     /// <summary>A title from an answer's first sentence: up to its first comma or "is", at most about 40 characters.</summary>

@@ -18,6 +18,7 @@ namespace Shammy;
 /// <summary>The test pipe's host commands (SHAMMY_TEST_PIPE=1 only): states, fakes and test hooks.</summary>
 internal sealed partial class ShammyHost
 {
+    string _pageText = "-";
     [System.Runtime.InteropServices.DllImport("psapi.dll")]
     static extern bool EmptyWorkingSet(IntPtr process);
 
@@ -351,6 +352,16 @@ internal sealed partial class ShammyHost
             case "ask-voice": _ = _search.AskForTestAsync(arg, spoken: true); return "ok";
             case "moment-state": return _notch.AnswerView.DescribeMomentForTest();
             case "answer-probe": return Search.HiddenPage.LastProbe;
+            // Development aid: "page-text <url>" reads a page's visible text out of sight; "page-text-result" returns it.
+            case "page-text":
+                _ = Task.Run(async () =>
+                {
+                    var t = await _ui.InvokeAsync(() => Search.HiddenPage.ReadTextAsync(new System.Windows.Interop.WindowInteropHelper(_notch).Handle,
+                        new Uri(arg.Trim()), TimeSpan.FromSeconds(15), CancellationToken.None)).Task.Unwrap();
+                    _pageText = t ?? "(none)";
+                });
+                return "started";
+            case "page-text-result": return _pageText.Replace("\r", "").Replace("\n", " ¶ ");
             case "translate-text":
             {
                 var bar = arg.IndexOf('|');
@@ -359,6 +370,7 @@ internal sealed partial class ShammyHost
                 return "ok";
             }
             case "picture-file": _ = _search.PictureForTestAsync(arg.Trim()); return "ok";
+            case "shop": _ = _search.ShopForTestAsync(arg.Trim()); return "ok";
             case "circle-say":
             {
                 var bar = arg.IndexOf('|');
