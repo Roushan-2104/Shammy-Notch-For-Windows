@@ -19,11 +19,22 @@ public class QuietRulesTests
     [InlineData("Teams", true)]
     [InlineData("Google Meet", true)]
     [InlineData(" discord ", true)]
+    [InlineData("Jitsi Meet", true)]
+    [InlineData("Whereby", true)]
     [InlineData("Sound Recorder", false)]
     [InlineData("Chrome", false)]
     [InlineData("OBS Studio", false)]
     [InlineData(null, false)]
     public void Only_call_apps_on_the_mic_mean_a_call(string? app, bool call) => Assert.Equal(call, QuietRules.IsCallApp(app));
+
+    [Theory]
+    [InlineData("firefox.exe", "Jitsi Meet — Mozilla Firefox")]
+    [InlineData("chrome.exe", "Team sync | Whereby - Google Chrome")]
+    public void A_web_call_on_the_mic_is_a_call_like_the_wheel_sees_it(string browser, string title)
+    {
+        Assert.True(QuietRules.IsCallApp(Shammy.Core.MeetingSystem.AppNames.Friendly(browser, new[] { title })));
+        Assert.True(Shammy.Core.Wheel.WheelMoments.IsMeetingInFront(browser[..^4], title));
+    }
 
     [Fact]
     public void Any_call_app_among_several_counts()

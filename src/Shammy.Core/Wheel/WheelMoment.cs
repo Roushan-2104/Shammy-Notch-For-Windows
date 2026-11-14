@@ -1,3 +1,5 @@
+using Shammy.Core.Connect;
+
 namespace Shammy.Core.Wheel;
 
 /// <summary>What the user is doing when the wheel opens; it decides which six droplets show.</summary>
@@ -89,9 +91,7 @@ public static class WheelMoments
         if (p.Equals("zoom", StringComparison.OrdinalIgnoreCase)) return Has(t, "Zoom Meeting") || Has(t, "Zoom Webinar");
         if (TeamsProcesses.Contains(p)) return meetingWord;
         if (!Browsers.Contains(p)) return false;
-        return t.StartsWith("Meet - ", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Meet – ", StringComparison.OrdinalIgnoreCase) ||
-               Has(t, "Google Meet") || Has(t, "Zoom Meeting") || Has(t, "Jitsi Meet") || Has(t, "Whereby") ||
-               (Has(t, "Microsoft Teams") && meetingWord);
+        return QuietRules.WebCallApp(t) is not null || (Has(t, "Microsoft Teams") && meetingWord);
     }
 
     /// <summary>A music player in front, or a browser on a music site.</summary>

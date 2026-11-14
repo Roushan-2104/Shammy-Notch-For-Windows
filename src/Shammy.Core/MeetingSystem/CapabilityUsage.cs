@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Shammy.Core.Connect;
 
 namespace Shammy.Core.MeetingSystem;
 
@@ -19,32 +20,10 @@ public static class CapabilityUsage
         a is not null && b is not null && string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>Human names for apps seen in the registry or the process list.</summary>
+/// <summary>Human names for apps seen in the registry or the process list (exe names from <see cref="CircleMemory.AppNames"/>).</summary>
 public static class AppNames
 {
     static readonly Regex PackageFamily = new(@"^(?<name>[^\\_]+)_[a-z0-9]{13}$", RegexOptions.IgnoreCase);
-
-    static readonly Dictionary<string, string> Exes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["chrome"] = "Chrome",
-        ["msedge"] = "Edge",
-        ["firefox"] = "Firefox",
-        ["brave"] = "Brave",
-        ["opera"] = "Opera",
-        ["vivaldi"] = "Vivaldi",
-        ["zoom"] = "Zoom",
-        ["ms-teams"] = "Teams",
-        ["msteams"] = "Teams",
-        ["teams"] = "Teams",
-        ["discord"] = "Discord",
-        ["slack"] = "Slack",
-        ["skype"] = "Skype",
-        ["webex"] = "Webex",
-        ["ciscocollabhost"] = "Webex",
-        ["obs64"] = "OBS Studio",
-        ["whatsapp"] = "WhatsApp",
-        ["telegram"] = "Telegram",
-    };
 
     static readonly HashSet<string> Browsers = new(StringComparer.OrdinalIgnoreCase)
         { "chrome", "msedge", "firefox", "brave", "opera", "vivaldi" };
@@ -99,11 +78,12 @@ public static class AppNames
         if (Browsers.Contains(stem) && windowTitles is not null)
         {
             foreach (var title in windowTitles)
+            {
+                if (QuietRules.WebCallApp(title) is { } call) return call;
                 foreach (var (pattern, webName) in WebApps)
                     if (pattern.IsMatch(title)) return webName;
+            }
         }
-        if (Exes.TryGetValue(stem, out var friendly)) return friendly;
-        if (!string.IsNullOrWhiteSpace(fileDescription)) return fileDescription.Trim();
-        return stem.Length > 0 ? char.ToUpperInvariant(stem[0]) + stem[1..] : "An app";
+        return CircleMemory.AppNames.Friendly(stem, fileDescription) ?? "An app";
     }
 }

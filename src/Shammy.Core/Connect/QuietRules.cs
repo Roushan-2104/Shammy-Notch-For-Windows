@@ -17,8 +17,25 @@ public static class QuietRules
     // counts once its window title showed it hosting one of these (it then reports as "Google Meet" etc.).
     static readonly HashSet<string> CallApps = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Zoom", "Teams", "Google Meet", "Skype", "Webex", "Discord", "Slack", "WhatsApp", "Telegram",
+        "Zoom", "Teams", "Google Meet", "Skype", "Webex", "Discord", "Slack", "WhatsApp", "Telegram", "Jitsi Meet", "Whereby",
     };
+
+    // Browser tab titles that show a call, and the call app each reports as. The wheel reads the window in front,
+    // the meeting watcher a browser holding the microphone; both use this one list.
+    static readonly (string Title, string App)[] WebCalls =
+    {
+        ("Google Meet", "Google Meet"), ("Zoom Meeting", "Zoom"), ("Zoom Webinar", "Zoom"), ("Jitsi Meet", "Jitsi Meet"), ("Whereby", "Whereby"),
+    };
+
+    /// <summary>The call app a browser tab's title shows ("Meet - abc-defg-hij" is Google Meet), or null.</summary>
+    public static string? WebCallApp(string? title)
+    {
+        var t = title ?? "";
+        if (t.StartsWith("Meet - ", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Meet – ", StringComparison.OrdinalIgnoreCase)) return "Google Meet";
+        foreach (var (part, app) in WebCalls)
+            if (t.Contains(part, StringComparison.OrdinalIgnoreCase)) return app;
+        return null;
+    }
 
     /// <summary>Whether an app holding the microphone is a call (not a voice recorder or a game).</summary>
     public static bool IsCallApp(string? appName) => appName is not null && CallApps.Contains(appName.Trim());

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Shammy.Core.CircleMemory;
 
 namespace Shammy.Core.Clipboard;
 
@@ -86,59 +87,11 @@ public static class ClipCardText
         _ => "Text",
     };
 
-    static readonly Dictionary<string, string> Apps = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["chrome"] = "Chrome",
-        ["msedge"] = "Edge",
-        ["firefox"] = "Firefox",
-        ["brave"] = "Brave",
-        ["opera"] = "Opera",
-        ["arc"] = "Arc",
-        ["code"] = "VS Code",
-        ["devenv"] = "Visual Studio",
-        ["rider64"] = "Rider",
-        ["idea64"] = "IntelliJ",
-        ["winword"] = "Word",
-        ["excel"] = "Excel",
-        ["powerpnt"] = "PowerPoint",
-        ["outlook"] = "Outlook",
-        ["olk"] = "Outlook",
-        ["onenote"] = "OneNote",
-        ["notepad"] = "Notepad",
-        ["notepad++"] = "Notepad++",
-        ["explorer"] = "File Explorer",
-        ["windowsterminal"] = "Terminal",
-        ["wt"] = "Terminal",
-        ["cmd"] = "Command Prompt",
-        ["powershell"] = "PowerShell",
-        ["pwsh"] = "PowerShell",
-        ["slack"] = "Slack",
-        ["discord"] = "Discord",
-        ["teams"] = "Teams",
-        ["ms-teams"] = "Teams",
-        ["whatsapp"] = "WhatsApp",
-        ["telegram"] = "Telegram",
-        ["notion"] = "Notion",
-        ["obsidian"] = "Obsidian",
-        ["figma"] = "Figma",
-        ["photos"] = "Photos",
-        ["microsoft.photos"] = "Photos",
-        ["snippingtool"] = "Snipping Tool",
-        ["screenclippinghost"] = "Snipping Tool",
-        ["acrobat"] = "Acrobat",
-        ["acrord32"] = "Acrobat",
-        ["spotify"] = "Spotify",
-    };
-
     /// <summary>A friendly app name for a process name ("msedge" → "Edge"); unknown names are title-cased.</summary>
     public static string SourceName(string? processName)
     {
-        if (string.IsNullOrWhiteSpace(processName)) return "";
-        var p = processName.Trim();
-        if (p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) p = p[..^4];
-        if (Apps.TryGetValue(p, out var known)) return known;
-        if (p.Length > 24) p = p[..24];
-        return char.ToUpperInvariant(p[0]) + p[1..];
+        var name = AppNames.Friendly(processName) ?? "";
+        return name.Length > 24 ? name[..24] : name;
     }
 
     /// <summary>"Chrome · 2m ago", "18m ago", "now".</summary>

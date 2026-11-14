@@ -1,6 +1,9 @@
 namespace Shammy.Core.CircleMemory;
 
-/// <summary>The name people call an app by ("WhatsApp", "Chrome"), from its process name and file description.</summary>
+/// <summary>
+/// The name people call an app by ("WhatsApp", "Chrome"), from its process name and file description. The one table
+/// of app names: the clipboard's source line, the meeting watcher and the system card all read it.
+/// </summary>
 public static class AppNames
 {
     static readonly Dictionary<string, string> Known = new(StringComparer.OrdinalIgnoreCase)
@@ -8,15 +11,18 @@ public static class AppNames
         ["chrome"] = "Chrome", ["msedge"] = "Edge", ["firefox"] = "Firefox", ["brave"] = "Brave", ["opera"] = "Opera",
         ["arc"] = "Arc", ["vivaldi"] = "Vivaldi",
         ["whatsapp"] = "WhatsApp", ["whatsapp.root"] = "WhatsApp", ["telegram"] = "Telegram", ["signal"] = "Signal",
-        ["discord"] = "Discord", ["slack"] = "Slack", ["teams"] = "Teams", ["ms-teams"] = "Teams", ["zoom"] = "Zoom",
+        ["discord"] = "Discord", ["slack"] = "Slack", ["teams"] = "Teams", ["ms-teams"] = "Teams", ["msteams"] = "Teams",
+        ["zoom"] = "Zoom", ["skype"] = "Skype", ["webex"] = "Webex", ["ciscocollabhost"] = "Webex", ["obs64"] = "OBS Studio",
         ["outlook"] = "Outlook", ["olk"] = "Outlook", ["thunderbird"] = "Thunderbird",
         ["winword"] = "Word", ["excel"] = "Excel", ["powerpnt"] = "PowerPoint", ["onenote"] = "OneNote",
         ["acrobat"] = "Acrobat", ["acrord32"] = "Acrobat Reader", ["sumatrapdf"] = "SumatraPDF",
-        ["explorer"] = "File Explorer", ["code"] = "VS Code", ["devenv"] = "Visual Studio", ["notepad"] = "Notepad",
-        ["notepad++"] = "Notepad++", ["spotify"] = "Spotify", ["vlc"] = "VLC", ["photos"] = "Photos",
-        ["windowsterminal"] = "Terminal", ["wt"] = "Terminal", ["powershell"] = "PowerShell", ["cmd"] = "Command Prompt",
+        ["explorer"] = "File Explorer", ["code"] = "VS Code", ["devenv"] = "Visual Studio", ["rider64"] = "Rider",
+        ["idea64"] = "IntelliJ", ["notepad"] = "Notepad",
+        ["notepad++"] = "Notepad++", ["spotify"] = "Spotify", ["vlc"] = "VLC", ["photos"] = "Photos", ["microsoft.photos"] = "Photos",
+        ["windowsterminal"] = "Terminal", ["wt"] = "Terminal", ["powershell"] = "PowerShell", ["pwsh"] = "PowerShell",
+        ["cmd"] = "Command Prompt",
         ["instagram"] = "Instagram", ["messenger"] = "Messenger", ["notion"] = "Notion", ["obsidian"] = "Obsidian",
-        ["figma"] = "Figma", ["snippingtool"] = "Snipping Tool",
+        ["figma"] = "Figma", ["snippingtool"] = "Snipping Tool", ["screenclippinghost"] = "Snipping Tool",
     };
 
     /// <summary>
