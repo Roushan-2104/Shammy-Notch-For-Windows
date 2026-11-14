@@ -250,6 +250,13 @@ public partial class NotchWindow : Window
         };
         Root.MouseWheel += (_, e) =>
         {
+            // Shift + wheel over the open island's home slides its pages (wheel down = right = the next page).
+            const int VK_SHIFT_KEY = 0x10;
+            if (_mode == NotchMode.Expanded && Native.GetAsyncKeyState(VK_SHIFT_KEY) < 0 && Expanded.SwipePages(-e.Delta))
+            {
+                e.Handled = true;
+                return;
+            }
             if (_mode is NotchMode.Idle or NotchMode.Compact or NotchMode.Notification or NotchMode.Peek && GesturesOn)
             {
                 // Shift+wheel is the usual horizontal scroll on a mouse without a tilt wheel: wheel down = right = next.
@@ -361,6 +368,13 @@ public partial class NotchWindow : Window
             return new IntPtr(Native.MA_NOACTIVATE);
         }
         const int WM_MOUSEHWHEEL = 0x020E;
+        // Over the open island's home, a sideways swipe slides between its two pages instead of skipping tracks.
+        if (msg == WM_MOUSEHWHEEL && Root.IsMouseOver && _mode == NotchMode.Expanded
+            && Expanded.SwipePages((short)((wParam.ToInt64() >> 16) & 0xFFFF)))
+        {
+            handled = true;
+            return new IntPtr(1);
+        }
         if (msg == WM_MOUSEHWHEEL && Root.IsMouseOver && GesturesOn)
         {
             NotchHorizontalWheel?.Invoke((short)((wParam.ToInt64() >> 16) & 0xFFFF));

@@ -252,6 +252,14 @@ internal static class CardKit
     public static Button Quiet(string name, FrameworkElement icon, Action onClick, double size = 28) =>
         Make(name, icon, onClick, size, size, size / 2, QuietBg, QuietHover, null);
 
+    /// <summary>A quiet rounded tile of any size (the island's second page): translucent glass with a hairline.</summary>
+    public static Button Tile(string name, UIElement content, Action onClick, double width, double height, double radius = 18) =>
+        Make(name, content, onClick, width, height, radius, QuietBg, QuietHover, Hairline);
+
+    /// <summary>A control with no face until hovered (the page dots): the content draws itself.</summary>
+    public static Button Bare(string name, UIElement content, Action onClick, double width, double height) =>
+        Make(name, content, onClick, width, height, height / 2, Brushes.Transparent, QuietBg, null);
+
     /// <summary>A quiet text pill (Wall's .qb): "+1 min", "Lyrics", "Clear".</summary>
     public static Button Pill(string text, string name, Action onClick, double height = 32, double fontSize = 12)
     {

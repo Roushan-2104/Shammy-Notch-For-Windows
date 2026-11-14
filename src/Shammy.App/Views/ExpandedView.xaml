@@ -127,6 +127,17 @@
             <StackPanel x:Name="ToolRow" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" AutomationProperties.Name="Tools" />
         </Grid>
 
+        <!-- The second page, one slide right of the home: most used, then everything A to Z (filled in code: Pages.cs) -->
+        <ScrollViewer x:Name="EssentialsPanel" Grid.Row="1" Margin="0,10,0,0" Height="198" VerticalAlignment="Top" Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      AutomationProperties.Name="Everything Shammy does">
+            <StackPanel x:Name="EssentialsStack" />
+        </ScrollViewer>
+
+        <!-- Page dots (home, everything) in the bottom margin, on the home level only -->
+        <StackPanel x:Name="PageDots" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Margin="0,0,0,-13" AutomationProperties.Name="Pages" />
+
         <!-- One card opened in place -->
         <Grid x:Name="DetailFrame" Grid.Row="1" Width="924" Height="248" Margin="0,12,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
               Visibility="Collapsed">

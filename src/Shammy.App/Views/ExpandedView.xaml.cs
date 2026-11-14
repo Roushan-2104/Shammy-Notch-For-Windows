@@ -61,6 +61,7 @@ public partial class ExpandedView : UserControl
             }
         };
         PreviewKeyDown += OnKey;
+        InitPages();
         // The hover-opened notch never takes focus, so a click into a text box (Notes' add box, the clipboard
         // search) has to ask for it, or the typing goes to the app underneath.
         // Any other click hands the notch the keyboard (Tab, arrows, Enter, Space, Esc) until Esc or a click elsewhere.
@@ -127,6 +128,12 @@ public partial class ExpandedView : UserControl
         if (_openId is not null || Keyboard.FocusedElement is TextBoxBase or PasswordBox) return;
         int tool = ToolIndexOf(Keyboard.FocusedElement as DependencyObject);
         bool inside = Keyboard.FocusedElement is Visual focused && focused != this && IsAncestorOf(focused);
+        if (e.Key is Key.Left or Key.Right or Key.Down && PageKey(e.Key, tool, inside))
+        {
+            e.Handled = true;
+            return;
+        }
+        if (_page == 1) return;
         switch (e.Key)
         {
             case Key.Left or Key.Right when tool >= 0 || !inside:
@@ -311,6 +318,7 @@ public partial class ExpandedView : UserControl
 
         StopHome();
         HomePanel.Visibility = Visibility.Collapsed;
+        ApplyPage(animate: false);
         DetailFrame.Visibility = Visibility.Visible;
         RefreshSentence();
         if (_openId == AlertsId) RefreshAlertsHeader();
@@ -346,6 +354,7 @@ public partial class ExpandedView : UserControl
         double h = sheet.Fit();
         StopHome();
         HomePanel.Visibility = Visibility.Collapsed;
+        ApplyPage(animate: false);
         DetailFrame.Visibility = Visibility.Visible;
         RefreshSentence();
         SetBodySize(sheet.Width, h);
@@ -387,9 +396,9 @@ public partial class ExpandedView : UserControl
         DetailFrame.Visibility = Visibility.Collapsed;
         DetailFrame.Clip = null;
         SheetMode(false);
-        HomePanel.Visibility = Visibility.Visible;
-        RefreshHome();
-        if (animate && wasOpen && IsVisible) AnimateIn(HomePanel);
+        // Back to the page it was opened from (the home, or everything).
+        ApplyPage(animate: false);
+        if (animate && wasOpen && IsVisible) AnimateIn(_page == 1 ? EssentialsPanel : HomePanel);
         if (wasOpen) ViewChanged?.Invoke();
     }
 

@@ -462,6 +462,13 @@ internal sealed partial class WheelModule : IShammyModule
         if (WheelSlots.ActionFor(text) is { } id) RecordUse(id);
     }
 
+    /// <summary>Every use kept, by action or card id: the island's everything page ranks by it as the beads do.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<DateTime>> Uses =>
+        _store.Uses.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<DateTime>)kv.Value.ToList());
+
+    /// <summary>A use from outside the wheel (a card opened from the everything page), learned like a pick.</summary>
+    public void NoteUse(string id) => RecordUse(id);
+
     void RecordUse(string id)
     {
         if (!_store.Uses.TryGetValue(id, out var list)) _store.Uses[id] = list = new List<DateTime>();

@@ -75,6 +75,7 @@ internal sealed partial class ShammyHost : IDisposable
         _modules.PipeCommands["activity-test"] = petTest.Run;
         _modules.PipeCommands["circle-state"] = _ => _notch.DescribeCircle();
         _modules.PipeCommands["home-tool"] = arg => _notch.ExpandedView.HomeTool(arg);
+        _modules.PipeCommands["home-page"] = arg => _notch.ExpandedView.HomePage(arg);
         Modules.HostLinks.Activities = () => _activities.Ranked;
         _modules.PipeCommands["circle-click"] = arg => _notch.ClickCircle(arg);
         // Expiry: one timer set to the soonest expiring activity, instead of checking every 150 ms forever.
