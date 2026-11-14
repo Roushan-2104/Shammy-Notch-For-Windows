@@ -530,15 +530,18 @@ internal sealed class DictationController
         $"card={(_onScreen?.Parent is null ? "none" : "'" + _onScreen.Describe() + "'")}";
 
     /// <summary>
-    /// "dictate-fake &lt;words&gt;": the island's moments for these words as if heard (live words, then "Typed into …"),
+    /// "dictate-fake [App|]&lt;words&gt;": the island's moments for these words as if heard (live words, then "Typed into …"),
     /// through the real clean-up, without the microphone, Gnani, the clipboard or a paste. Says what would be typed.
     /// </summary>
-    string Fake(string heard)
+    string Fake(string arg)
     {
         if (_phase != Phase.Idle) return "error: dictation is running";
+        // "App|words" names the app (README pictures); otherwise it's the one in front.
+        var bar = arg.IndexOf('|');
+        var heard = bar >= 0 ? arg[(bar + 1)..] : arg;
         var hindi = DictationText.AsksForHindi(heard);
         var typed = DictationText.Finish(heard, hindi, _settings.DictationCleanup);
-        var app = Modules.CircleMemory.FrontApp.Name() ?? "this app";
+        var app = bar > 0 ? arg[..bar].Trim() : Modules.CircleMemory.FrontApp.Name() ?? "this app";
         var card = DictationCard.Live(() => 0.35f, app, "let go to type it");
         card.SetScript(hindi);
         card.SetWords(DictationText.Live(heard), PrivacyState.Presenting);
