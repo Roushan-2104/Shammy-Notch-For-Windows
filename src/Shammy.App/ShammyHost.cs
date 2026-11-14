@@ -436,6 +436,13 @@ internal sealed partial class ShammyHost : IDisposable
 
     async Task StartNotificationsAsync()
     {
+        // A scripted test run never reads the PC's real notifications (they could end up in its screenshots);
+        // made-up ones still come in through the test pipe. SHAMMY_REAL_NOTIFICATIONS=1 lets real ones through.
+        if (Environment.GetEnvironmentVariable("SHAMMY_TEST_PIPE") == "1" && Environment.GetEnvironmentVariable("SHAMMY_REAL_NOTIFICATIONS") != "1")
+        {
+            Log.Info("Test run: real notifications are not read");
+            return;
+        }
         try
         {
             if (!_notifications.IsAvailable) await _notifications.StartAsync();
