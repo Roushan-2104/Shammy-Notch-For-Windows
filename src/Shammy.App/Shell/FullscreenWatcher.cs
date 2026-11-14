@@ -22,7 +22,11 @@ internal sealed class FullscreenWatcher : IDisposable
 
     public FullscreenWatcher(Dispatcher ui)
     {
-        _proc = (_, _, _, _, _, _, _) => ui.BeginInvoke(Check);
+        _proc = (_, _, _, _, _, _, _) => ui.BeginInvoke(() =>
+        {
+            Check();
+            ForegroundChanged?.Invoke();
+        });
         _hook = Native.SetWinEventHook(Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _proc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(1500), DispatcherPriority.Background, (_, _) => Check(), ui);
         _timer.Start();
@@ -36,36 +40,38 @@ internal sealed class FullscreenWatcher : IDisposable
     /// <summary>The apps the notch stays away from (Settings → Hide while using).</summary>
     public Func<IReadOnlyList<string>>? HiddenApps { get; set; }
 
-    readonly Dictionary<uint, string> _names = new();
+    // Only the window in front has its app name remembered: a process id is reused by another app once its own exits.
+    IntPtr _nameWindow;
+    uint _namePid;
+    string _name = "";
 
     /// <summary>The app in front is one the user asked the notch to hide for.</summary>
-    bool HiddenAppInFront(uint pid)
+    bool HiddenAppInFront(IntPtr window, uint pid)
     {
         if (HiddenApps?.Invoke() is not { Count: > 0 } apps) return false;
-        if (!_names.TryGetValue(pid, out var name))
+        if (window != _nameWindow || pid != _namePid)
         {
             try
             {
                 using var p = Process.GetProcessById((int)pid);
-                name = p.ProcessName;
+                _name = p.ProcessName;
             }
             catch (Exception)
             {
-                name = "";
+                _name = "";
             }
-            if (_names.Count > 200) _names.Clear();
-            _names[pid] = name;
+            _nameWindow = window;
+            _namePid = pid;
         }
-        return Shammy.Core.Settings.HideRules.Hides(name, apps);
+        return Shammy.Core.Settings.HideRules.Hides(_name, apps);
     }
 
-    /// <summary>Raised on every foreground change, so the notch can re-assert topmost.</summary>
+    /// <summary>Raised on every foreground change (not on the slow re-check), so the notch can re-assert topmost.</summary>
     public event Action? ForegroundChanged;
 
     public void Check()
     {
         bool now = Evaluate();
-        ForegroundChanged?.Invoke();
         if (now == _state) return;
         _state = now;
         Changed?.Invoke(now);
@@ -84,7 +90,7 @@ internal sealed class FullscreenWatcher : IDisposable
         // Windows hands focus to one of Shammy's background windows the fullscreen app is gone).
         if (pid == _pid) return false;
         if (ShellClasses.Contains(Native.ClassName(fg))) return false;
-        if (HiddenAppInFront(pid)) return true;
+        if (HiddenAppInFront(fg, pid)) return true;
 
         var primary = NotchMonitor?.Invoke() is { } m0 && m0 != IntPtr.Zero ? m0 : Native.PrimaryMonitor();
         if (Native.MonitorFromWindow(fg, Native.MONITOR_DEFAULTTONEAREST) != primary) return false;
