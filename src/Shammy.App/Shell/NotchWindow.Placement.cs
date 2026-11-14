@@ -118,9 +118,14 @@ public partial class NotchWindow
         if (_hwnd != IntPtr.Zero && !MenusAboveNotch.AnyOpen) Native.BringToTopmost(_hwnd);
     }
 
+    /// <summary>Whether the notch is kept out of captures now (Stage, a recording, a screen freeze).</summary>
+    public bool ExcludedFromCapture { get; private set; }
+
     /// <summary>Keep the notch out of Shammy's own screen freeze (it's drawn live on top anyway).</summary>
     public void ExcludeFromCapture(bool exclude)
     {
-        if (_hwnd != IntPtr.Zero) Native.SetWindowDisplayAffinity(_hwnd, exclude ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
+        if (_hwnd == IntPtr.Zero) return;
+        Native.SetWindowDisplayAffinity(_hwnd, exclude ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
+        ExcludedFromCapture = exclude;
     }
 }

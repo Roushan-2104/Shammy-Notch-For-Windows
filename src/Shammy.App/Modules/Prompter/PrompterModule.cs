@@ -59,8 +59,8 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
     string? _declinedKey;
     bool _offersOff;
     bool _showInCaptures;
-    // The screen freeze for circle-to-search also switches capture hiding; this puts it back while we are open.
-    readonly DispatcherTimer _keepHidden = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
+    // Notices while we are open when something else took the notch, so Stage counts as closed.
+    readonly DispatcherTimer _watch = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
 
     public string Name => "prompter";
 
@@ -71,7 +71,7 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
         _data.Recent = StageScripts.Tidy(_data.Recent);
         // A script saved before there was a recent list is its first entry.
         if (_data.Recent.Count == 0 && _data.Script.Length > 0) _data.Recent = StageScripts.Remember(null, _data.Script, DateTime.Now);
-        _keepHidden.Tick += (_, _) =>
+        _watch.Tick += (_, _) =>
         {
             // Something else took the notch (an alarm, another card), or a click elsewhere closed the sheet: we are closed.
             if (!Showing)
@@ -79,7 +79,6 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
                 ctx.Info($"Stage closed: the notch moved on ({ctx.Notch.Mode})");
                 Closed();
             }
-            else ctx.Notch.ExcludeFromCapture(!_showInCaptures);
         };
         ctx.AddCommand(new Command(this));
         ctx.AddTrayItem("Stage", () => Open());
@@ -253,7 +252,7 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
     public void Dispose()
     {
         if (Connect.Links.Stage == this) Connect.Links.Stage = null;
-        _keepHidden.Stop();
+        _watch.Stop();
         _card?.Shutdown();
         if (_view is not null) _ctx.Notch.ExcludeFromCapture(false);
     }
@@ -482,7 +481,7 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
         // From the sheet (which had the keyboard) to the prompter (which never takes it).
         if (giveBack) _ctx.Notch.SetInteractive(false);
         _ctx.Notch.ExcludeFromCapture(!_showInCaptures);
-        _keepHidden.Start();
+        _watch.Start();
     }
 
     void Close()
@@ -493,8 +492,8 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
 
     void Closed()
     {
-        if (_view is null && _card is null && !_keepHidden.IsEnabled) return;
-        _keepHidden.Stop();
+        if (_view is null && _card is null && !_watch.IsEnabled) return;
+        _watch.Stop();
         _card?.Shutdown();
         _card = null;
         _sheet = null;

@@ -30,7 +30,7 @@ internal sealed class RecordModule : IShammyModule
 
     enum Phase { Idle, Starting, Recording, Saving }
 
-    readonly DispatcherTimer _guard = new(DispatcherPriority.Background), _close = new(DispatcherPriority.Background);
+    readonly DispatcherTimer _close = new(DispatcherPriority.Background);
     ModuleContext _ctx = null!;
     ScreenRecorder _recorder = null!;
     RecordContent? _content;
@@ -88,13 +88,6 @@ internal sealed class RecordModule : IShammyModule
             ? new GlanceItem("Recording · " + RecordText.Elapsed(_recorder.Elapsed), NotchPalette.Alarm, 90) : null);
         _recorder.Finished += result => ctx.Ui.BeginInvoke(() => OnFinished(result));
 
-        // A screenshot taken meanwhile lets the notch back into captures when it is done; put that right.
-        _guard.Interval = TimeSpan.FromSeconds(2);
-        _guard.Tick += (_, _) =>
-        {
-            if (_phase is Phase.Recording or Phase.Saving) _ctx.Notch.ExcludeFromCapture(true);
-            else _guard.Stop();
-        };
         _close.Tick += (_, _) => CloseResultCard();
 
         // Fixed phrases only, ahead of broader matchers ("stop …", "start …").
@@ -115,7 +108,6 @@ internal sealed class RecordModule : IShammyModule
 
     public void Dispose()
     {
-        _guard.Stop();
         _close.Stop();
         // Finishes the file if the app closes mid-recording.
         _recorder?.Dispose();
@@ -238,7 +230,6 @@ internal sealed class RecordModule : IShammyModule
         _last = "recording";
         _content = new RecordContent(() => _recorder.Elapsed, () => Stop());
         _ctx.Post(new Activity(ActivityId, ActivityKind.Custom, Priority, _content));
-        _guard.Start();
         _ctx.Info($"Recording the {source} (sound {(sound ? "on" : "off")}, mic {(mic ? "on" : "off")})");
         return null;
     }
@@ -274,7 +265,6 @@ internal sealed class RecordModule : IShammyModule
     void Reset()
     {
         _phase = Phase.Idle;
-        _guard.Stop();
         // Stage hides the notch from captures for its own reasons; it stays hidden while Stage is open.
         _ctx.Notch.ExcludeFromCapture(HoldCards?.Invoke() == true);
         PrivacyState.SetRecording(false);

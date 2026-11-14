@@ -55,6 +55,8 @@ internal sealed class ScreenshotModule : IShammyModule, ITextCommand
     async Task<string?> CaptureAsync()
     {
         await Task.Delay(650);
+        // Stage or a recording may already keep the notch out of captures; leave it that way afterwards.
+        bool wasExcluded = _ctx.Notch.ExcludedFromCapture;
         try
         {
             _ctx.Notch.ExcludeFromCapture(true);
@@ -71,7 +73,7 @@ internal sealed class ScreenshotModule : IShammyModule, ITextCommand
         }
         finally
         {
-            _ctx.Notch.ExcludeFromCapture(false);
+            _ctx.Notch.ExcludeFromCapture(wasExcluded);
         }
     }
 

@@ -200,6 +200,8 @@ internal partial class SearchCoordinator
 
     void BeginFreeze()
     {
+        // Stage or a recording may already keep the notch out of captures; leave it that way afterwards.
+        bool wasExcluded = _notch.ExcludedFromCapture;
         try
         {
             _notch.ExcludeFromCapture(true);
@@ -213,7 +215,7 @@ internal partial class SearchCoordinator
         }
         finally
         {
-            _notch.ExcludeFromCapture(false);
+            _notch.ExcludeFromCapture(wasExcluded);
         }
         _ocr = OcrService.RecognizeAsync(_shot);
         _overlay = new SearchOverlay(_shot);
