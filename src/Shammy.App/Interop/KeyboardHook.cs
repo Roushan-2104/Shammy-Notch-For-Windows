@@ -14,6 +14,9 @@ internal sealed class KeyboardHook : IDisposable
     /// <param name="time">The event's timestamp (ms); AltGr shows up as LCtrl and RAlt with the same one.</param>
     public delegate bool KeyFilter(int vk, bool down, uint time);
 
+    // Posted to the hook thread to hook again (see BackAtPc).
+    const uint WM_REHOOK = 0x8001;
+
     readonly KeyFilter _filter;
     readonly Native.LowLevelKeyboardProc _proc;
     readonly Thread _thread;
@@ -28,6 +31,7 @@ internal sealed class KeyboardHook : IDisposable
         _thread = new Thread(Run) { IsBackground = true, Name = "Shammy keyboard hook", Priority = ThreadPriority.AboveNormal };
         _thread.Start();
         _started.Wait(2000);
+        BackAtPc.Happened += Reinstall;
     }
 
     public bool IsInstalled => _hook != IntPtr.Zero;
@@ -35,15 +39,28 @@ internal sealed class KeyboardHook : IDisposable
     void Run()
     {
         _threadId = Native.GetCurrentThreadId();
-        _hook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, _proc, Native.GetModuleHandle(null), 0);
-        if (_hook == IntPtr.Zero) Log.Error($"Keyboard hook failed: {Marshal.GetLastWin32Error()}");
+        Install();
         _started.Set();
 
-        while (Native.GetMessage(out _, IntPtr.Zero, 0, 0) > 0)
+        while (Native.GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
         {
+            if (msg.message == WM_REHOOK) Install();
         }
 
         if (_hook != IntPtr.Zero) Native.UnhookWindowsHookEx(_hook);
+    }
+
+    /// <summary>On the hook thread: (re)places the hook. Windows drops one silently after a slow callback, and may over sleep.</summary>
+    void Install()
+    {
+        if (_hook != IntPtr.Zero) Native.UnhookWindowsHookEx(_hook);
+        _hook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, _proc, Native.GetModuleHandle(null), 0);
+        if (_hook == IntPtr.Zero) Log.Error($"Keyboard hook failed: {Marshal.GetLastWin32Error()}");
+    }
+
+    void Reinstall()
+    {
+        if (_threadId != 0) Native.PostThreadMessage(_threadId, WM_REHOOK, IntPtr.Zero, IntPtr.Zero);
     }
 
     IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
@@ -75,6 +92,7 @@ internal sealed class KeyboardHook : IDisposable
 
     public void Dispose()
     {
+        BackAtPc.Happened -= Reinstall;
         if (_threadId != 0) Native.PostThreadMessage(_threadId, Native.WM_QUIT, IntPtr.Zero, IntPtr.Zero);
     }
 }
