@@ -1,6 +1,6 @@
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Text;
+using Shammy.Interop;
 
 namespace Shammy.Modules.Agents;
 
@@ -82,28 +82,16 @@ internal static class AgentWindows
     {
         if (!IsAlive(hwnd)) return false;
         if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
-        Interop.Native.ForceForeground(hwnd);
+        Native.ForceForeground(hwnd);
         return true;
     }
 
     sealed record Window(IntPtr Handle, int Pid, string Title);
 
-    static List<Window> Windows()
-    {
-        var list = new List<Window>();
-        var title = new StringBuilder(260);
-        EnumWindows((hwnd, _) =>
-        {
-            if (!IsWindowVisible(hwnd) || GetWindow(hwnd, GW_OWNER) != IntPtr.Zero) return true;
-            if ((GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64() & WS_EX_TOOLWINDOW) != 0) return true;
-            title.Clear();
-            if (GetWindowText(hwnd, title, title.Capacity) <= 0) return true;
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            list.Add(new Window(hwnd, (int)pid, title.ToString()));
-            return true;
-        }, IntPtr.Zero);
-        return list;
-    }
+    static List<Window> Windows() => Native.TopWindows()
+        .Where(w => (Native.GetWindowLongPtr(w.Handle, Native.GWL_EXSTYLE).ToInt64() & Native.WS_EX_TOOLWINDOW) == 0)
+        .Select(w => new Window(w.Handle, (int)w.Pid, w.Title))
+        .ToList();
 
     /// <summary>Every process's parent and program name, from one snapshot.</summary>
     static Dictionary<int, (int Parent, string Exe)> Processes()
@@ -125,9 +113,8 @@ internal static class AgentWindows
         return map;
     }
 
-    const int AF_INET = 2, TCP_TABLE_OWNER_PID_CONNECTIONS = 4, SW_RESTORE = 9, GWL_EXSTYLE = -20;
-    const uint TH32CS_SNAPPROCESS = 0x2, GW_OWNER = 4;
-    const long WS_EX_TOOLWINDOW = 0x80;
+    const int AF_INET = 2, TCP_TABLE_OWNER_PID_CONNECTIONS = 4, SW_RESTORE = 9;
+    const uint TH32CS_SNAPPROCESS = 0x2;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct PROCESSENTRY32W
@@ -140,8 +127,6 @@ internal static class AgentWindows
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
     }
 
-    delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
-
     [DllImport("iphlpapi.dll", SetLastError = true)]
     static extern uint GetExtendedTcpTable(IntPtr table, ref int size, bool sort, int family, int tableClass, uint reserved);
 
@@ -149,13 +134,7 @@ internal static class AgentWindows
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32FirstW(IntPtr snapshot, ref PROCESSENTRY32W entry);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32NextW(IntPtr snapshot, ref PROCESSENTRY32W entry);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
-    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
-    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint command);
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
-    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
 }

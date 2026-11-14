@@ -213,4 +213,35 @@ internal static class Native
     /// <summary>Full path, so a stray explorer.exe in the app or current directory is never picked up.</summary>
     public static string ExplorerPath { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
+    // ---- Top-level windows (Settings' open apps, the agents' window finder) ---------------------------
+
+    public readonly record struct TopWindow(IntPtr Handle, uint Pid, string Title);
+
+    /// <summary>The visible top-level windows that have a title and no owner, front to back.</summary>
+    public static List<TopWindow> TopWindows()
+    {
+        var list = new List<TopWindow>();
+        var title = new StringBuilder(260);
+        TopLevel.EnumWindows((hwnd, _) =>
+        {
+            if (!TopLevel.IsWindowVisible(hwnd) || TopLevel.GetWindow(hwnd, TopLevel.GW_OWNER) != IntPtr.Zero) return true;
+            title.Clear();
+            if (TopLevel.GetWindowText(hwnd, title, title.Capacity) <= 0) return true;
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            list.Add(new TopWindow(hwnd, pid, title.ToString()));
+            return true;
+        }, IntPtr.Zero);
+        return list;
+    }
+
+    static class TopLevel
+    {
+        public const uint GW_OWNER = 4;
+        public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
+    }
 }

@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Shammy.Infrastructure;
+using Shammy.Interop;
 
 namespace Shammy.Modules.Quick;
 
@@ -82,7 +83,7 @@ internal sealed class NightLightOverlay : IDisposable
     {
         DestroyAll();
         if (!Register()) return;
-        var hinst = GetModuleHandle(null);
+        var hinst = Native.GetModuleHandle(null);
         foreach (var r in Monitors())
         {
             var hwnd = CreateWindowEx(ExTransparent | ExLayered | ExToolWindow | ExNoActivate | ExTopmost, ClassName, "Shammy night light",
@@ -94,7 +95,7 @@ internal sealed class NightLightOverlay : IDisposable
             }
             SetLayeredWindowAttributes(hwnd, 0, Alpha, LwaAlpha);
             // Screenshots and shared screens show the true colours (Windows 10 2004 and later; ignored before).
-            SetWindowDisplayAffinity(hwnd, WdaExcludeFromCapture);
+            Native.SetWindowDisplayAffinity(hwnd, Native.WDA_EXCLUDEFROMCAPTURE);
             ShowWindow(hwnd, SwShowNoActivate);
             _windows.Add(hwnd);
         }
@@ -103,7 +104,7 @@ internal sealed class NightLightOverlay : IDisposable
     void KeepOnTop()
     {
         foreach (var hwnd in _windows)
-            SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+            Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | SwpNoOwnerZOrder);
     }
 
     void DestroyAll()
@@ -120,7 +121,7 @@ internal sealed class NightLightOverlay : IDisposable
         {
             cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
             lpfnWndProc = Marshal.GetFunctionPointerForDelegate(Proc),
-            hInstance = GetModuleHandle(null),
+            hInstance = Native.GetModuleHandle(null),
             hbrBackground = CreateSolidBrush(Amber),
             lpszClassName = ClassName,
         };
@@ -129,10 +130,10 @@ internal sealed class NightLightOverlay : IDisposable
         return _class != 0;
     }
 
-    static List<RECT> Monitors()
+    static List<Native.RECT> Monitors()
     {
-        var list = new List<RECT>();
-        MonitorEnumProc each = (IntPtr _, IntPtr _, ref RECT r, IntPtr _) =>
+        var list = new List<Native.RECT>();
+        MonitorEnumProc each = (IntPtr _, IntPtr _, ref Native.RECT r, IntPtr _) =>
         {
             list.Add(r);
             return true;
@@ -146,16 +147,9 @@ internal sealed class NightLightOverlay : IDisposable
 
     const uint ExTransparent = 0x20, ExLayered = 0x80000, ExToolWindow = 0x80, ExNoActivate = 0x08000000, ExTopmost = 0x8;
     const uint WsPopup = 0x80000000;
-    const uint LwaAlpha = 0x2, WdaExcludeFromCapture = 0x11;
+    const uint LwaAlpha = 0x2;
     const int SwShowNoActivate = 4;
-    const uint SwpNoSize = 0x1, SwpNoMove = 0x2, SwpNoActivate = 0x10, SwpNoOwnerZOrder = 0x200;
-    static readonly IntPtr HwndTopmost = new(-1);
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct RECT
-    {
-        public int Left, Top, Right, Bottom;
-    }
+    const uint SwpNoOwnerZOrder = 0x200;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct WNDCLASSEX
@@ -174,7 +168,7 @@ internal sealed class NightLightOverlay : IDisposable
         public IntPtr hIconSm;
     }
 
-    delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
+    delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref Native.RECT rect, IntPtr data);
 
     [DllImport("user32.dll")] static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern ushort RegisterClassEx(ref WNDCLASSEX wc);
@@ -186,10 +180,7 @@ internal sealed class NightLightOverlay : IDisposable
     [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int cmd);
     [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint key, byte alpha, uint flags);
-    [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
-    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("gdi32.dll")] static extern IntPtr CreateSolidBrush(uint color);
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string? name);
     delegate IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>Windows' default handling is all these windows need; held here for as long as the class lives.</summary>

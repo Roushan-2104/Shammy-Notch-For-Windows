@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Shammy.Core.Settings;
 using Shammy.Infrastructure;
+using Shammy.Interop;
 
 namespace Shammy.Modules.Settings;
 
@@ -55,13 +56,12 @@ internal static class OpenApps
         uint self = (uint)Environment.ProcessId;
         try
         {
-            EnumWindows((hwnd, _) =>
+            foreach (var window in Native.TopWindows())
             {
+                uint pid = window.Pid;
+                if (pid == 0 || pid == self) continue;
                 try
                 {
-                    if (!IsWindowVisible(hwnd) || GetWindowTextLength(hwnd) == 0 || GetWindow(hwnd, GwOwner) != IntPtr.Zero) return true;
-                    GetWindowThreadProcessId(hwnd, out uint pid);
-                    if (pid == 0 || pid == self) return true;
                     if (!seen.TryGetValue(pid, out var key))
                     {
                         key = HideRules.Key(ProcessName(pid));
@@ -73,8 +73,7 @@ internal static class OpenApps
                 {
                     // A protected process: skip it.
                 }
-                return true;
-            }, IntPtr.Zero);
+            }
         }
         catch (Exception ex)
         {
@@ -97,24 +96,7 @@ internal static class OpenApps
         finally { CloseHandle(handle); }
     }
 
-    const uint GwOwner = 4, QueryLimitedInformation = 0x1000;
-
-    delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    static extern bool IsWindowVisible(IntPtr hwnd);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    static extern int GetWindowTextLength(IntPtr hwnd);
-
-    [DllImport("user32.dll")]
-    static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
-
-    [DllImport("user32.dll")]
-    static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+    const uint QueryLimitedInformation = 0x1000;
 
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);

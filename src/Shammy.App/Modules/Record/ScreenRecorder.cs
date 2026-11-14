@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Shammy.Core.Record;
+using Shammy.Interop;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Graphics.Capture;
@@ -501,8 +502,8 @@ internal sealed class ScreenRecorder : IDisposable
                 if (size.Width <= 0 || size.Height <= 0) return true;
                 if (_options.Item is null && _options.Window == IntPtr.Zero)
                 {
-                    var info = new MonitorInfo { Size = System.Runtime.InteropServices.Marshal.SizeOf<MonitorInfo>() };
-                    return !GetMonitorInfo(_options.Monitor, ref info);
+                    var info = new Native.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.MONITORINFO>() };
+                    return !Native.GetMonitorInfo(_options.Monitor, ref info);
                 }
                 return false;
             }
@@ -511,17 +512,6 @@ internal sealed class ScreenRecorder : IDisposable
                 return true;
             }
         }
-
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-        struct MonitorInfo
-        {
-            public int Size;
-            public int Left, Top, Right, Bottom, WorkLeft, WorkTop, WorkRight, WorkBottom;
-            public uint Flags;
-        }
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
 
         /// <summary>Thirty times a second: the canvas as it is now goes to the encoder. Also watches the limits.</summary>
         void Pace()
