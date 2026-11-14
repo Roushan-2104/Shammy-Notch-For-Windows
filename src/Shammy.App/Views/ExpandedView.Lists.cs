@@ -125,7 +125,7 @@ public partial class ExpandedView
             ShowMenu(row, menu =>
             {
                 menu("Open", () => OpenFile(item.Path));
-                menu("Show in folder", () => Process.Start(Interop.Native.ExplorerPath, $"/select,\"{item.Path}\""));
+                menu("Show in folder", () => ShelfStore.ShowInFolder(item.Path));
                 foreach (var action in ShelfActions.Where(a => a.AppliesTo?.Invoke(item) ?? true)) menu(action.Label, () => action.Run(item));
                 menu("Remove from shelf", () => _s?.Shelf.Remove(item));
             });

@@ -46,7 +46,7 @@ internal sealed class DownloadCard : Grid
         // Bottom: the four actions.
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 12, 0, 0) };
         actions.Children.Add(Action("Open", "", () => Run(() => Open(path))));
-        actions.Children.Add(Action("Show in folder", "", () => Run(() => Process.Start(Interop.Native.ExplorerPath, $"/select,\"{path}\""))));
+        actions.Children.Add(Action("Show in folder", "", () => Run(() => Shammy.Shelf.ShelfStore.ShowInFolder(path))));
         Button? shelve = null;
         shelve = Action("Add to shelf", "", () =>
         {

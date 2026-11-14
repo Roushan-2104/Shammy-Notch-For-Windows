@@ -150,7 +150,7 @@ internal sealed class PhoneTransfer : IDisposable
         _ctx.Post(new Activity($"{_ctx.Name}.received", ActivityKind.Message, 45,
             new MessagePayload("", text), DateTime.UtcNow.AddSeconds(6))
         {
-            Click = () => _ctx.Open(Shammy.Interop.Native.ExplorerPath, $"/select,\"{path}\""),
+            Click = () => Shelf.ShelfStore.ShowInFolder(path),
         });
         _ctx.Info("Received a file from the phone");
     }

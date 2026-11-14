@@ -74,7 +74,7 @@ internal partial class PaletteModule
             return;
         }
         bool ok = showInFolder
-            ? _ctx.Open(Native.ExplorerPath, $"/select,\"{hit.Path}\"")
+            ? Shelf.ShelfStore.ShowInFolder(hit.Path)
             : _ctx.Open(hit.Path);
         _bar.Complete(ok
             ? new CommandResult(hit.IsFolder ? "\uE8B7" : "\uE8A5", showInFolder ? "Showing in folder" : "Opening", name)

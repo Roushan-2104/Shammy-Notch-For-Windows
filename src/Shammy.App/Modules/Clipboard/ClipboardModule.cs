@@ -56,11 +56,13 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
-        _readDelay = OneShot(TimeSpan.FromMilliseconds(60), () => _ = ReadClipboardAsync());
-        _saveDelay = OneShot(TimeSpan.FromSeconds(1), Persist);
 
         _history.Load(ctx.Load<ClipStore>().Items.Where(e => e is { Kind: not ClipKind.Image, Text: not null, Files: not null }));
-        _history.Changed += () => Restart(_saveDelay);
+        _history.Changed += () =>
+        {
+            _saveDelay?.Stop();
+            _saveDelay = UiDelay.After(TimeSpan.FromSeconds(1), Persist, _ctx.Ui);
+        };
         ApplyHistorySettings();
         ctx.Settings.Changed += OnSettingChanged;
         _ = Task.Run(DeleteOldScreenshots);
@@ -111,7 +113,11 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         try
         {
             _listener = new ClipboardListener();
-            _listener.Changed += () => Restart(_readDelay);
+            _listener.Changed += () =>
+            {
+                _readDelay?.Stop();
+                _readDelay = UiDelay.After(TimeSpan.FromMilliseconds(60), () => _ = ReadClipboardAsync(), _ctx.Ui);
+            };
             if (!_listener.IsListening) ctx.Warn("AddClipboardFormatListener failed; clipboard history is off");
         }
         catch (Exception ex)
@@ -525,8 +531,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     {
         if (!c.HasFile) return false;
         CloseCard();
-        _ctx.Open(Shammy.Interop.Native.ExplorerPath, $"/select,\"{c.Path}\"");
-        return true;
+        return Shelf.ShelfStore.ShowInFolder(c.Path!);
     }
 
     /// <summary>"Save as note" on a copied text in the clipboard detail.</summary>
@@ -626,8 +631,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
             _ctx.Warn("Deleting the screenshot failed", ex);
             return false;
         }
-        var shelved = _ctx.Services.Shelf.Items.FirstOrDefault(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase));
-        if (shelved is not null) _ctx.Services.Shelf.Remove(shelved);
+        _ctx.Services.Shelf.Remove(path);
         c.Path = null;
         c.Owned = false;
         CloseCard();
@@ -749,24 +753,6 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     {
         Items = _history.Items.Where(e => e.Kind != ClipKind.Image && (e.Pinned || e.Text.Length <= MaxSavedText)).ToList(),
     });
-
-    DispatcherTimer OneShot(TimeSpan delay, Action run)
-    {
-        DispatcherTimer? timer = null;
-        timer = new DispatcherTimer(delay, DispatcherPriority.Background, (_, _) =>
-        {
-            timer!.Stop();
-            run();
-        }, _ctx.Ui) { IsEnabled = false };
-        return timer;
-    }
-
-    static void Restart(DispatcherTimer? timer)
-    {
-        if (timer is null) return;
-        timer.Stop();
-        timer.Start();
-    }
 
     IReadOnlyList<ClipEntry> Connect.IClipboardLink.Items => _history.Items;
     void Connect.IClipboardLink.CopyBack(ClipEntry entry) => CopyBack(entry);
