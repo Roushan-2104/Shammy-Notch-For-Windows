@@ -3,7 +3,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
   <!-- Release builds record "/_/src/..." instead of the builder's own folder (which contains their
        Windows user name) in the binaries, PDBs, SourceLink data and stack traces. -->

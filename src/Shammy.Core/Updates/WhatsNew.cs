@@ -17,6 +17,12 @@ public static class WhatsNew
 
     public static readonly IReadOnlyDictionary<string, string[]> Notes = new Dictionary<string, string[]>
     {
+        ["1.2.0"] = new[]
+        {
+            "Circle a product: who sells it cheapest",
+            "Your circles remembered, found in your words",
+            "Drag answers anywhere; hold Left Alt to understand",
+        },
         ["1.1.0"] = new[]
         {
             "Circle anything: say what to do, or get the answer",
