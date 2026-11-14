@@ -52,7 +52,9 @@ internal partial class SearchCoordinator
     /// results when no short answer appears in time. <paramref name="label"/> is the moment's quiet top line.
     /// </summary>
     /// <param name="brief">The reply is one short line (a translation): read it however short it is.</param>
-    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null, string? title = null, bool brief = false)
+    /// <param name="rememberAs">The circle memory's kind for this answer, when it answers a circle.</param>
+    async Task AskAsync(int session, string question, Context full, bool spoken, string? label = null, string? title = null, bool brief = false,
+        string rememberAs = Core.CircleMemory.CircleKinds.Question)
     {
         var ai = full with { Query = question, Mode = SearchMode.Ai, Png = null, Page = null };
         // The big line: what was asked about (the circled thing) or the question itself.
@@ -90,6 +92,7 @@ internal partial class SearchCoordinator
         done = done with { Answer = Spoken(answer.Text), SpeakText = Spoken(answer.Text) };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
+        RememberCircle(session, rememberAs, title, Spoken(answer.Text));
         if (spoken) Modules.HostLinks.SayAnyway?.Invoke(Spoken(answer.Text));
     }
 
@@ -179,7 +182,8 @@ internal partial class SearchCoordinator
         if (translated is null)
         {
             Log.Info("Google Translate gave nothing: asking AI Mode instead");
-            await AskAsync(session, $"Translate to {LanguageName(target)}, only the translation: \"{Clip(text, 900)}\"", full, spoken: false, label: label, title: Clip(text, 60), brief: true);
+            await AskAsync(session, $"Translate to {LanguageName(target)}, only the translation: \"{Clip(text, 900)}\"", full, spoken: false, label: label, title: Clip(text, 60), brief: true,
+                rememberAs: Core.CircleMemory.CircleKinds.Translation);
             return;
         }
         string other = target == "hi" ? "en" : "hi";
@@ -202,6 +206,7 @@ internal partial class SearchCoordinator
         done = done with { Answer = translated.Length <= 60 ? null : translated, Body = translated.Length <= 60 ? Clip(text, 120) : null };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
+        RememberCircle(session, Core.CircleMemory.CircleKinds.Translation, Clip(text, 60), translated);
     }
 
     // ---- Pictures -----------------------------------------------------------------------------------------------
@@ -268,6 +273,7 @@ internal partial class SearchCoordinator
         var done = waiting with { Label = "Looks like", Title = FirstPhrase(shortText), Answer = shortText, Actions = actions, SpeakText = shortText, DragPng = png };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
+        RememberCircle(session, Core.CircleMemory.CircleKinds.Picture, done.Title, shortText);
     }
 
     // ---- Shopping ---------------------------------------------------------------------------------------------
@@ -325,6 +331,7 @@ internal partial class SearchCoordinator
         var done = waiting with { Label = "Prices · cheapest first", Answer = null, Rows = rows, Actions = actions };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
+        RememberCircle(session, Core.CircleMemory.CircleKinds.Product, Clip(product, 50), $"Cheapest {cheapest.PriceText} at {cheapest.Store}");
     }
 
     /// <summary>"Free delivery · tomorrow · ★ 4.4 (1.1K)": delivery, fee and rating, as the owner asked for each store.</summary>

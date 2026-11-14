@@ -59,6 +59,7 @@ internal sealed partial class SearchCoordinator
         _whisper = whisper;
         _settings = settings;
         _modules = modules;
+        Modules.HostLinks.ShowRemembered = ShowRemembered;
         _holdTimer = new DispatcherTimer(HoldThreshold, DispatcherPriority.Input, (_, _) => OnHoldElapsed(), notch.Dispatcher) { IsEnabled = false };
 
         keys.Pressed += OnKeyDown;

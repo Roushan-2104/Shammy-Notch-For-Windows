@@ -30,23 +30,32 @@ internal partial class SearchCoordinator
         catch (Exception ex) { Log.Warn("Reading the circle failed", ex); }
         var now = new CircleNow(selection, info, meaning, full);
         _circle = now;
+        BeginCircleMemory(session);
         if (meaning is not null) Log.Info($"Circle understood on this PC: {meaning.Kind}");
 
-        if (CircleIntent.Parse(said) is { } intent)
+        try
         {
-            Log.Info($"Circle with words: {intent.Action}");
-            await DoAsync(session, now, intent, spoken: true);
-            return;
+            if (CircleIntent.Parse(said) is { } intent)
+            {
+                Log.Info($"Circle with words: {intent.Action}");
+                await DoAsync(session, now, intent, spoken: true);
+                return;
+            }
+            // A picture with nothing in it Shammy can read: Lens's short answer.
+            if (meaning is null && selection.Kind == SelectionKind.Image && info.Png is { } png)
+            {
+                await PictureAsync(session, png, selection.Text, full);
+                return;
+            }
+            var moment = await MomentForAsync(session, now);
+            if (moment is null || session != _session) return;
+            ShowMoment(session, moment, full);
+            RememberCircle(session, CircleKindName(now), moment.Title, moment.Answer ?? moment.Body);
         }
-        // A picture with nothing in it Shammy can read: Lens's short answer.
-        if (meaning is null && selection.Kind == SelectionKind.Image && info.Png is { } png)
+        finally
         {
-            await PictureAsync(session, png, selection.Text, full);
-            return;
+            RememberCircleAnyway(session);
         }
-        var moment = await MomentForAsync(session, now);
-        if (moment is null || session != _session) return;
-        ShowMoment(session, moment, full);
     }
 
     /// <summary>The island's card for a silent circle: the answer for a plain thing, else what it is and the choices.</summary>
@@ -199,6 +208,7 @@ internal partial class SearchCoordinator
         if (_notch.AnswerView.CurrentMoment is not { } shown || shown.Title != moment.Title || shown.Label != moment.Label) return;
         _notch.AnswerView.ShowMoment(shown with { Body = line });
         _notch.RefitAnswer();
+        if (_circle is { } now) RememberCircle(session, CircleKindName(now), moment.Title, line);
     }
 
     /// <summary>The "say or type what to do" box: the words pick the action for the same circle.</summary>

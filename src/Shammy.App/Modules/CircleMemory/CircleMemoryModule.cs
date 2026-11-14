@@ -51,6 +51,7 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
 
         _remember = Remember;
         HostLinks.RememberCircle = _remember;
+        HostLinks.OpenCircles = () => !PrivacyState.Presenting && ctx.OpenCard("circles");
         PrivacyState.Changed += OnPrivacy;
 
         ctx.AddPipeCommand("circles-add", PipeAdd);
@@ -159,9 +160,26 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
         }
     }
 
+    // Circles whose picture is still being kept (not yet in the list), by when they were circled, so a later answer for
+    // the same circle updates it rather than adding a second row.
+    readonly Dictionary<DateTime, RememberedCircle> _pending = new();
+
     void Remember(CircleRecord r, string? app)
     {
         if (Skip() is not null) return;
+        // The same circle again (its answer arrived, or a Translate / Ask AI after the choices): one row, the latest answer.
+        if (r.At != default && (_pending.TryGetValue(r.At, out var waiting) ? waiting : Loaded().All.FirstOrDefault(c => c.At == r.At)) is { } same)
+        {
+            if (!string.IsNullOrWhiteSpace(r.Title)) same.Title = Clip(r.Title, 300);
+            if (!string.IsNullOrWhiteSpace(r.Line)) same.Line = Clip(r.Line, 1000);
+            if (!string.IsNullOrWhiteSpace(r.Kind)) same.Kind = r.Kind.Trim();
+            if (!_pending.ContainsKey(r.At))
+            {
+                Save();
+                _card.Refresh();
+            }
+            return;
+        }
         var circle = new RememberedCircle
         {
             Words = Clip(r.Words, 2000),
@@ -178,6 +196,7 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
             return;
         }
         // The picture is shrunk and encrypted off the UI thread; the circle joins the list once it's on disk.
+        _pending[circle.At] = circle;
         _ = Task.Run(() =>
         {
             try
@@ -188,7 +207,11 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
             {
                 Log.Warn("Keeping a circle's picture failed", ex);
             }
-            _ctx.Ui.BeginInvoke(() => Add(circle));
+            _ctx.Ui.BeginInvoke(() =>
+            {
+                _pending.Remove(circle.At);
+                Add(circle);
+            });
         });
     }
 
@@ -383,6 +406,7 @@ internal sealed class CircleMemoryModule : IShammyModule, ITextCommand, ICommand
     {
         PrivacyState.Changed -= OnPrivacy;
         if (HostLinks.RememberCircle == _remember) HostLinks.RememberCircle = null;
+        HostLinks.OpenCircles = null;
         // Pictures dragged out today were copies for the drop; the kept (encrypted) ones stay.
         try
         {

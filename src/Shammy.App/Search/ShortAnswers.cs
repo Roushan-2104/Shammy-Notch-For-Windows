@@ -38,8 +38,9 @@ internal static class ShortAnswers
             var offices = first.GetProperty("PostOffice");
             if (offices.GetArrayLength() == 0) return null;
             var o = offices[0];
-            string Get(string name) => o.TryGetProperty(name, out var v) ? v.GetString() ?? "" : "";
-            var parts = new[] { Get("Name"), Get("District"), Get("State") }.Where(s => s.Length > 0).Distinct();
+            // The service pads some names ("Bangalore "): trimmed, so the same name isn't shown twice.
+            string Get(string name) => o.TryGetProperty(name, out var v) ? (v.GetString() ?? "").Trim() : "";
+            var parts = new[] { Get("Name"), Get("District"), Get("State") }.Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase);
             return string.Join(", ", parts);
         }
         catch (OperationCanceledException) { return null; }

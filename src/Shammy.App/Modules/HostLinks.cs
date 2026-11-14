@@ -190,6 +190,9 @@ internal static class HostLinks
     /// </summary>
     public static Action<string, string, string?>? ShowRemembered { get; set; }
 
+    /// <summary>Opens the Circles card (set by the circle memory); false when it can't (the screen is shared).</summary>
+    public static Func<bool>? OpenCircles { get; set; }
+
     /// <summary>Every module's glance provider, by id ("weather", "calendar"…).</summary>
     public static IReadOnlyDictionary<string, Func<GlanceItem?>>? Glances { get; set; }
 
