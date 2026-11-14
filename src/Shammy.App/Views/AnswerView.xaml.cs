@@ -35,6 +35,12 @@ internal sealed record IslandMoment(string Glyph, string Label, string Title, st
     /// <summary>A speaker button that reads this aloud (Gnani).</summary>
     public string? SpeakText { get; init; }
 
+    /// <summary>What a drag out of the card carries as text (the answer by default).</summary>
+    public string? DragText { get; init; }
+
+    /// <summary>A circled picture: a drag out of the card carries it as a PNG file too.</summary>
+    public byte[]? DragPng { get; init; }
+
     /// <summary>A short list under the title (a price list).</summary>
     public IReadOnlyList<MomentRow>? Rows { get; init; }
 
@@ -55,6 +61,23 @@ public partial class AnswerView : UserControl
     {
         InitializeComponent();
         MomentAskBox.KeyDown += OnAskKey;
+        // Drag the answer anywhere: press on the card and move, and it goes out as text (or the picture as a file).
+        Moment.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            _dragFrom = InButtonOrBox(e.OriginalSource as DependencyObject) ? null : e.GetPosition(this);
+            _dragged = false;
+        };
+        Moment.PreviewMouseMove += (_, e) =>
+        {
+            if (_dragFrom is not { } from || e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _moment is null) return;
+            var d = e.GetPosition(this) - from;
+            if (Math.Abs(d.X) < SystemParameters.MinimumHorizontalDragDistance * 2 && Math.Abs(d.Y) < SystemParameters.MinimumVerticalDragDistance * 2) return;
+            _dragFrom = null;
+            _dragged = true;
+            StartDrag(_moment);
+        };
+        Moment.MouseEnter += (_, _) => MomentGrip.Visibility = _moment is not null && DragTextOf(_moment) is not null ? Visibility.Visible : Visibility.Collapsed;
+        Moment.MouseLeave += (_, _) => MomentGrip.Visibility = Visibility.Collapsed;
         MomentAskBox.TextChanged += (_, _) => MomentAskHint.Visibility = MomentAskBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -330,7 +353,79 @@ public partial class AnswerView : UserControl
     /// <summary>A short word back ("Copied", "Saved to Notes") in the label line, with a check.</summary>
     void Say(string text) => MomentLabel.Text = "✓  " + text;
 
-    void OnMomentExpand(object sender, System.Windows.Input.MouseButtonEventArgs e) => MomentExpandRequested?.Invoke();
+    void OnMomentExpand(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // The end of a drag isn't a click.
+        if (_dragged)
+        {
+            _dragged = false;
+            return;
+        }
+        MomentExpandRequested?.Invoke();
+    }
+
+    Point? _dragFrom;
+    bool _dragged;
+
+    /// <summary>A drag out of the card started or ended (the island stays while it's on).</summary>
+    internal event Action<bool>? Dragging;
+
+    bool InButtonOrBox(DependencyObject? d)
+    {
+        for (; d is not null && d != Moment; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d is System.Windows.Controls.Primitives.ButtonBase or TextBox) return true;
+        return false;
+    }
+
+    /// <summary>The text a drag carries: the answer, else the rows (a price list), else the big line; null while still thinking.</summary>
+    static string? DragTextOf(IslandMoment m)
+    {
+        if (m.DragText is { Length: > 0 } t) return t;
+        if (m.Answer is { Length: > 0 } a && !a.EndsWith('…')) return a;
+        if (m.Rows is { Count: > 0 } rows) return string.Join(Environment.NewLine, rows.Select(r => $"{r.Left}: {r.Right}"));
+        return m.Title.Length > 0 && m.Actions.Count > 0 ? m.Title : null;
+    }
+
+    void StartDrag(IslandMoment m)
+    {
+        var text = DragTextOf(m);
+        if (text is null && m.DragPng is null) return;
+        var data = new DataObject();
+        if (text is not null) data.SetData(DataFormats.UnicodeText, text);
+        if (m.DragPng is { } png)
+        {
+            try
+            {
+                var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Shammy", "circles");
+                System.IO.Directory.CreateDirectory(dir);
+                var file = System.IO.Path.Combine(dir, $"Circle {DateTime.Now:d MMM h.mm tt}.png");
+                System.IO.File.WriteAllBytes(file, png);
+                data.SetData(DataFormats.FileDrop, new[] { file });
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Infrastructure.Log.Warn("Writing a circled picture for a drag failed", ex);
+            }
+        }
+        Dragging?.Invoke(true);
+        try
+        {
+            var done = DragDrop.DoDragDrop(Moment, data, DragDropEffects.Copy);
+            if (done != DragDropEffects.None) Say("Dropped");
+        }
+        catch (Exception ex)
+        {
+            Infrastructure.Log.Warn("Dragging an answer failed", ex);
+        }
+        finally
+        {
+            Dragging?.Invoke(false);
+        }
+    }
+
+    /// <summary>Test pipe: what a drag out of the card would carry ("text | file").</summary>
+    internal string DescribeDragForTest() => _moment is not { } m ? "-"
+        : $"text={(DragTextOf(m) ?? "-").Replace(Environment.NewLine, " / ")} | picture={(m.DragPng is null ? "no" : "yes")}";
 
     /// <summary>Test pipe: what the moment shows (label | title | answer | actions).</summary>
     internal string DescribeMomentForTest() => _moment is not { } m ? "-"

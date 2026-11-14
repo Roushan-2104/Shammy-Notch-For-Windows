@@ -62,6 +62,12 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Top">
                         <DockPanel LastChildFill="True">
+                            <!-- On hover: the answer can be dragged out into any app -->
+                            <Border x:Name="MomentGrip" DockPanel.Dock="Right" Height="22" CornerRadius="11" Background="#338B98FF" Padding="8,0"
+                                    Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False">
+                                <TextBlock Text="⠿  Drag me" FontFamily="{DynamicResource WallFontSemiBold}" FontWeight="SemiBold" FontSize="11"
+                                           Foreground="#FFD3D8FF" VerticalAlignment="Center" />
+                            </Border>
                             <!-- Where a short answer came from ("Google AI Mode", "Google Translate") -->
                             <Border x:Name="MomentSource" DockPanel.Dock="Right" Height="22" CornerRadius="11" Background="#14FFFFFF" Padding="9,0"
                                     Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">

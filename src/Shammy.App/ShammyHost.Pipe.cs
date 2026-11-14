@@ -351,6 +351,7 @@ internal sealed partial class ShammyHost
             case "ask": _ = _search.AskForTestAsync(arg, spoken: false); return "ok";
             case "ask-voice": _ = _search.AskForTestAsync(arg, spoken: true); return "ok";
             case "moment-state": return _notch.AnswerView.DescribeMomentForTest();
+            case "moment-drag": return _notch.AnswerView.DescribeDragForTest();
             case "answer-probe": return Search.HiddenPage.LastProbe;
             // Development aid: "page-text <url>" reads a page's visible text out of sight; "page-text-result" returns it.
             case "page-text":

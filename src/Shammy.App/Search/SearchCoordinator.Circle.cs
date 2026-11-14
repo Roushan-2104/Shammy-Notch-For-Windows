@@ -55,7 +55,12 @@ internal partial class SearchCoordinator
         var m = now.Meaning;
         var text = now.Selection.Text;
         var sends = CircleMoments.Sends(now.Info, Cancel);
-        Views.IslandMoment Ask(Views.IslandMoment moment) => moment with { Ask = words => OnAsk(now, words) };
+        // Every circle's card takes the "type what to do" box; a circled picture also drags out as the picture.
+        Views.IslandMoment Ask(Views.IslandMoment moment) => moment with
+        {
+            Ask = words => OnAsk(now, words),
+            DragPng = now.Selection.Kind == SelectionKind.Image ? now.Info.Png : null,
+        };
 
         if (m is not null && CircleMoments.Shows(m.Kind)) return Ask(CircleMoments.For(m, now.Info, Cancel));
         if (m is not null && PlainMoment(session, now, m, sends) is { } plain) return Ask(plain);

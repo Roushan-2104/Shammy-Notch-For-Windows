@@ -26,7 +26,9 @@ internal partial class SearchCoordinator
     /// </summary>
     static string Spoken(string answer)
     {
-        var text = answer.Replace('\n', ' ').Trim().Trim('"', '“', '”').Trim();
+        // A page can show the same line twice (a heading and its paragraph): once is enough.
+        var lines = answer.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase);
+        var text = string.Join(' ', lines).Trim().Trim('"', '“', '”').Trim();
         int end = 0, sentences = 0;
         for (int i = 0; i < text.Length && sentences < 2; i++)
         {
@@ -259,7 +261,7 @@ internal partial class SearchCoordinator
                 return null;
             }));
         }
-        var done = waiting with { Label = "Looks like", Title = FirstPhrase(shortText), Answer = shortText, Actions = actions, SpeakText = shortText };
+        var done = waiting with { Label = "Looks like", Title = FirstPhrase(shortText), Answer = shortText, Actions = actions, SpeakText = shortText, DragPng = png };
         _notch.AnswerView.ShowMoment(done);
         _notch.RefitAnswer();
     }
