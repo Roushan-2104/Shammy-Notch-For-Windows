@@ -178,6 +178,18 @@ internal static class HostLinks
         return true;
     }
 
+    /// <summary>
+    /// Remembers a circle after its answer showed (set by the circle memory; null while it is off). Does nothing
+    /// while the screen is shared or memory is paused. Never throws.
+    /// </summary>
+    public static Action<CircleMemory.CircleRecord>? RememberCircle { get; set; }
+
+    /// <summary>
+    /// Shows a remembered circle again as the island's answer: its title, a label ("From your circles · yesterday")
+    /// and the answer line (set by the circle flow). When null, the Circles card copies the answer instead.
+    /// </summary>
+    public static Action<string, string, string?>? ShowRemembered { get; set; }
+
     /// <summary>Every module's glance provider, by id ("weather", "calendar"…).</summary>
     public static IReadOnlyDictionary<string, Func<GlanceItem?>>? Glances { get; set; }
 

@@ -160,6 +160,9 @@ public partial class ExpandedView
         catch (Exception ex) { Log.Warn("Opening a shelf item failed", ex); }
     }
 
+    /// <summary>Keeps the notch open while a card's own drag or menu is up, as a shelf drag does; pair true with false.</summary>
+    internal void HoldOpen(bool on) => ShelfDragging?.Invoke(on);
+
     /// <summary>A right-click menu that keeps the notch open while it's up (the pointer leaves the notch to reach it).</summary>
     void ShowMenu(UIElement target, Action<Action<string, Action>> fill)
     {
