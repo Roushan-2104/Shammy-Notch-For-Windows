@@ -78,7 +78,8 @@ internal sealed partial class SearchCoordinator
         };
         notch.InteractiveDeactivated += () =>
         {
-            if (_phase is Phase.Showing or Phase.Typing) Cancel();
+            // Choices too: left open, its 1-4/Enter capture would keep eating those keys system-wide.
+            if (_phase is Phase.Showing or Phase.Typing or Phase.Choices) Cancel();
         };
         notch.SearchBarView.Submitted += text => _ = ProcessTextAsync(text);
         // Palette rows (Modules/Palette): the web row skips commands; rows that acted themselves show a confirmation.
