@@ -218,15 +218,20 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         {
             if (card.IsVisible) seen = true;
             // Replaced by something else while still ringing: come back once the notch is free again.
-            else if (seen && _ringing is not null && _ringCard == card) After(TimeSpan.FromSeconds(4), () =>
-            {
-                if (_ringing is not null && _ringCard == card && !card.IsVisible && !Busy(_ctx.Notch.Mode)) ShowRingCard();
-            });
+            else if (seen && _ringing is not null && _ringCard == card) ComeBack(card);
         };
         // Not interactive: it must not take focus (a game, a call), and an outside click mustn't silence it.
         _ctx.ShowCard(card, AlarmRingView.CardWidth, AlarmRingView.CardHeight, interactive: false,
             breaksFullscreen: _ctx.Settings.AlarmBreaksFullscreen);
     }
+
+    /// <summary>A covered ring card: look again every few seconds while it rings, and come back once the notch is free.</summary>
+    void ComeBack(AlarmRingView card) => After(TimeSpan.FromSeconds(4), () =>
+    {
+        if (_ringing is null || _ringCard != card || card.IsVisible) return;
+        if (Busy(_ctx.Notch.Mode)) ComeBack(card);
+        else ShowRingCard();
+    });
 
     static bool Busy(NotchMode mode) =>
         mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking or NotchMode.Typing or NotchMode.Answer or NotchMode.Result;
