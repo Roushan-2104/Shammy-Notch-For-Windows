@@ -89,6 +89,9 @@ internal sealed class GlobalKeys : IDisposable
     /// <summary>That shortcut was released, which is when Windows switches; compare the layout shortly after.</summary>
     public event Action? LanguageComboEnded;
 
+    /// <summary>A snip hotkey went down (Win+Shift+S or PrtScn: true), or Esc did (false), which drops the snip.</summary>
+    public event Action<bool>? SnipKey;
+
     const int VK_CAPITAL = 0x14, VK_SPACE = 0x20, VK_LMENU = 0xA4;
     bool _capsDown, _altKey, _ctrlKey, _shiftKey, _langCombo, _langComboWin;
 
@@ -134,6 +137,9 @@ internal sealed class GlobalKeys : IDisposable
         // Our own menu mask key (see MaskAltMenu) is not "another key": it must never cancel the hover it serves.
         if (vk == VK_MENU_MASK) return false;
         TrackKeyboardPills(vk, down);
+        const int VK_S = 0x53, VK_SNAPSHOT = 0x2C;
+        if (down && (vk == VK_SNAPSHOT || (vk == VK_S && _winDown && _shiftDown))) Post(() => SnipKey?.Invoke(true));
+        else if (down && vk == VK_ESCAPE) Post(() => SnipKey?.Invoke(false));
         // Any other key while Right Ctrl is down means a shortcut (Ctrl+C), not a hold.
         if (down && vk != VK_RCONTROL && _rightCtrlCandidate) _rightCtrlCandidate = false;
         // Any other key while Left Alt is down means a shortcut (Alt+Tab, Alt+F4, Alt+F): drop the hover, pass it all.

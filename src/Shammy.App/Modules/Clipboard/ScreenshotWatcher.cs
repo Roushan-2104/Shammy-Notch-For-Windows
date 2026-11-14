@@ -6,20 +6,17 @@ namespace Shammy.Modules.ClipboardHistory;
 
 /// <summary>
 /// Notices new screenshots two ways, both event driven: files appearing in the Screenshots folder
-/// (Win+PrtScn, Snipping Tool auto-save) and the snip hotkeys (Win+Shift+S, PrtScn), which arm
-/// <see cref="Snip"/> so the clipboard image that follows is treated as a screenshot.
+/// (Win+PrtScn, Snipping Tool auto-save) and the snip hotkeys (Win+Shift+S, PrtScn, seen by
+/// <see cref="GlobalKeys"/>), which arm <see cref="Snip"/> so the clipboard image that follows is treated as a screenshot.
 /// </summary>
 internal sealed class ScreenshotWatcher : IDisposable
 {
     static readonly Guid ScreenshotsFolderId = new("B7BEDE81-DF94-4682-A7D8-57A52620B86F");
-    const int VK_SHIFT = 0x10, VK_LSHIFT = 0xA0, VK_RSHIFT = 0xA1, VK_LWIN = 0x5B, VK_RWIN = 0x5C;
-    const int VK_S = 0x53, VK_SNAPSHOT = 0x2C, VK_ESCAPE = 0x1B;
 
     readonly Dispatcher _ui;
     readonly FileSystemWatcher? _watcher;
-    readonly KeyboardHook _keys;
+    readonly GlobalKeys? _keys = GlobalKeys.Current;
     readonly Dictionary<string, DateTime> _seen = new(StringComparer.OrdinalIgnoreCase);
-    volatile bool _win, _shift;
 
     public ScreenshotWatcher(Dispatcher ui, Action<string, Exception?> warn)
     {
@@ -46,7 +43,7 @@ internal sealed class ScreenshotWatcher : IDisposable
         {
             warn($"Screenshots folder {Folder} doesn't exist yet; only clipboard snips will be caught", null);
         }
-        _keys = new KeyboardHook(OnKey);
+        if (_keys is not null) _keys.SnipKey += OnSnipKey;
     }
 
     public string Folder { get; }
@@ -79,31 +76,16 @@ internal sealed class ScreenshotWatcher : IDisposable
         });
     }
 
-    /// <summary>Runs on the hook thread for every key: only flips flags, never blocks, never swallows.</summary>
-    bool OnKey(int vk, bool down, uint time)
+    /// <summary>On the UI thread: a snip hotkey arms the snip detector, Esc disarms it.</summary>
+    void OnSnipKey(bool snip)
     {
-        switch (vk)
-        {
-            case VK_LWIN or VK_RWIN:
-                _win = down;
-                break;
-            case VK_SHIFT or VK_LSHIFT or VK_RSHIFT:
-                _shift = down;
-                break;
-            case VK_S when down && _win && _shift:
-            case VK_SNAPSHOT when down:
-                _ui.BeginInvoke(() => Snip.Arm(DateTime.Now));
-                break;
-            case VK_ESCAPE when down:
-                _ui.BeginInvoke(Snip.Disarm);
-                break;
-        }
-        return false;
+        if (snip) Snip.Arm(DateTime.Now);
+        else Snip.Disarm();
     }
 
     public void Dispose()
     {
-        _keys.Dispose();
+        if (_keys is not null) _keys.SnipKey -= OnSnipKey;
         _watcher?.Dispose();
     }
 }
