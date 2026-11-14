@@ -304,7 +304,7 @@ internal sealed class RecordModule : IShammyModule
             {
                 if (!File.Exists(path)) return Gone();
                 CloseResultCard();
-                return _ctx.Open(Interop.Native.ExplorerPath, $"/select,\"{path}\"");
+                return Shelf.ShelfStore.ShowInFolder(path);
             },
             SendToPhone: Connect.Links.Phone is { } phone
                 ? () =>
@@ -388,8 +388,7 @@ internal sealed class RecordModule : IShammyModule
             _ctx.ShowMessage(RecordGlyph, "Couldn’t delete it", error: true);
             return false;
         }
-        var shelved = _ctx.Services.Shelf.Items.FirstOrDefault(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase));
-        if (shelved is not null) _ctx.Services.Shelf.Remove(shelved);
+        _ctx.Services.Shelf.Remove(path);
         CloseResultCard();
         _ctx.ShowMessage("", "Moved to the Recycle Bin", seconds: 2.5);
         return true;

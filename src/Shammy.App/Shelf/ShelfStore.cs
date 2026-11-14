@@ -171,6 +171,27 @@ internal sealed class ShelfStore
         if (Items.Remove(item)) Persist();
     }
 
+    /// <summary>Takes a file that was just deleted off the shelf, if it was on it.</summary>
+    public void Remove(string path)
+    {
+        if (Items.FirstOrDefault(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase)) is { } item) Remove(item);
+    }
+
+    /// <summary>Opens the file's folder in Explorer with the file selected; false when Explorer couldn't start.</summary>
+    public static bool ShowInFolder(string path)
+    {
+        try
+        {
+            using var explorer = System.Diagnostics.Process.Start(Interop.Native.ExplorerPath, $"/select,\"{path}\"");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Showing a file in its folder failed", ex);
+            return false;
+        }
+    }
+
     public void Clear()
     {
         Items.Clear();
