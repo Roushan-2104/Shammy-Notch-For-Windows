@@ -87,8 +87,6 @@ internal static class Tokens
         Pill = Brush("#1E1E23"),
         PillHover = Brush("#26262C"),
         Track = Brush("#2A2A31"),
-        RingTrack = Brush("#2E2F36"),
-        Row = Brush("#1A1A1F"),
         QuietBg = Brush("#29F5F5F7"),
         QuietHover = Brush("#42F5F5F7"),
         Blush = Brush(BlushHex);
