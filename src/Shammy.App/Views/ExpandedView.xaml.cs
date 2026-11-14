@@ -295,9 +295,10 @@ public partial class ExpandedView : UserControl
                 break;
             case ViewKind.Alerts:
                 // "N new" counts what arrived since the view was last open; from now on those count as seen.
+                // (Marked seen before the header is built, or it counts them twice.)
                 _alertsNewAtOpen = _s?.Notifications.UnreadCount ?? 0;
-                content = BuildAlertsDetail();
                 _s?.Notifications.MarkAllSeen();
+                content = BuildAlertsDetail();
                 break;
         }
 
