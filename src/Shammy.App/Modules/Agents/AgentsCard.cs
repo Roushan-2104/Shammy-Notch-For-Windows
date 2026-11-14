@@ -96,21 +96,28 @@ internal sealed class AgentsCard
         return d;
     }
 
-    /// <summary>The list of sessions; the lines with a running time are refreshed once a second while it is on screen.</summary>
-    sealed class Detail : WallDetail
+    /// <summary>
+    /// The list of sessions (the card family's shape, 600 wide): the header counts them, each session is a row; the
+    /// lines with a running time are refreshed once a second while it is on screen.
+    /// </summary>
+    sealed class Detail : CardSheet
     {
         readonly AgentsModule _module;
-        readonly TrackedText _count = CardKit.Poster("0", 72), _under = CardKit.Label("live");
         readonly StackPanel _rows = new();
         readonly List<(string Id, TextBlock State)> _lines = new();
-        string _shown = "";
+        string? _shown;
 
-        public Detail(AgentsModule module) : base(Backdrop, "Claude Code", "", "")
+        public Detail(AgentsModule module) : base("Claude Code", 600)
         {
             _module = module;
-            _under.Margin = new Thickness(0, 8, 0, 0);
-            ArtBottomLeft(_count, _under);
-            Body.Children.Add(Scroll(_rows));
+            Body.Children.Add(new ScrollViewer
+            {
+                Content = _rows,
+                MaxHeight = 5 * 44,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Focusable = false,
+            });
             Show();
             CardKit.TickWhileVisible(this, TimeSpan.FromSeconds(1), Tick);
         }
@@ -119,9 +126,7 @@ internal sealed class AgentsCard
         {
             var sessions = _module.Sessions;
             var (working, waiting, done) = Counts(sessions);
-            _count.Text = (working + waiting).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            TitleText.Text = AgentText.Sessions(sessions.Count);
-            Line.Text = AgentText.Summary(working, waiting, done);
+            Status = $"{AgentText.Sessions(sessions.Count)} · {AgentText.Summary(working, waiting, done)}";
 
             // Rebuild only when the set or a state changed; the clocks just get new text.
             string key = string.Join("|", sessions.Select(s => $"{s.Id}:{s.State}:{s.Failed}:{_module.CanOpen(s.Id)}"));
@@ -130,6 +135,14 @@ internal sealed class AgentsCard
                 _shown = key;
                 _rows.Children.Clear();
                 _lines.Clear();
+                if (sessions.Count == 0)
+                {
+                    var line = Sheet.Meta("", 14);
+                    line.Inlines.Add(CardKit.Run("Nothing running. ", FontWeights.Bold, CardKit.Ink));
+                    line.Inlines.Add(new System.Windows.Documents.Run("Claude Code sessions show up here while they work."));
+                    line.Margin = new Thickness(2, 0, 0, 2);
+                    _rows.Children.Add(line);
+                }
                 foreach (var s in sessions)
                 {
                     string folder = AgentText.Folder(s.Cwd);
@@ -137,7 +150,7 @@ internal sealed class AgentsCard
                     name.TextTrimming = TextTrimming.CharacterEllipsis;
                     name.VerticalAlignment = VerticalAlignment.Center;
                     var state = CardKit.Text("", 12.5, FontWeights.Medium, secondary: s.State != AgentState.Waiting);
-                    var row = ListRow(Bullet(), name, state);
+                    var row = WallDetail.ListRow(WallDetail.Bullet(), name, state);
                     string id = s.Id;
                     if (_module.CanOpen(id))
                     {

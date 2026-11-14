@@ -265,6 +265,28 @@ public class IslandWavesTests
     }
 
     [Fact]
+    public void A_song_under_Album_brings_the_waves_up_but_still_capped()
+    {
+        var normal = new byte[IslandWaves.Width * IslandWaves.Height * 4];
+        var boosted = new byte[normal.Length];
+        IslandWaves.Render(normal, IslandWaves.Width, IslandWaves.Height, Colours, 2.7, 1);
+        IslandWaves.Render(boosted, IslandWaves.Width, IslandWaves.Height, Colours, 2.7, 1, IslandWaves.MaxBoost);
+        double Sum(byte[] px) => Enumerable.Range(0, px.Length / 4).Sum(i => (double)px[i * 4 + 3]);
+        // Clearly stronger (the owner found 1x "too faint to notice")...
+        Assert.True(Sum(boosted) > Sum(normal) * 1.6);
+        // ...still premultiplied, never past the boosted ceiling, and a boost past the maximum changes nothing.
+        int cap = (int)Math.Ceiling(IslandWaves.MaxAlpha * 1.5 * IslandWaves.MaxBoost * 255) + 1;
+        for (int i = 0; i < boosted.Length; i += 4)
+        {
+            Assert.InRange((int)boosted[i + 3], 0, cap);
+            Assert.True(boosted[i] <= boosted[i + 3] && boosted[i + 1] <= boosted[i + 3] && boosted[i + 2] <= boosted[i + 3]);
+        }
+        var over = new byte[normal.Length];
+        IslandWaves.Render(over, IslandWaves.Width, IslandWaves.Height, Colours, 2.7, 1, 9);
+        Assert.Equal(boosted, over);
+    }
+
+    [Fact]
     public void The_upper_edge_stays_quieter_than_the_lower_half()
     {
         var px = Frame(0, 1);

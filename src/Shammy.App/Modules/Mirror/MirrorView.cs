@@ -14,7 +14,7 @@ namespace Shammy.Modules.Mirror;
 /// privacy promise, and Flip and brightness. Owns the camera: a 150 ms check while this view is visible starts it
 /// when the view is really on screen and stops it as soon as the notch fades it, closes it or the PC locks.
 /// </summary>
-internal sealed class MirrorView : WallDetail
+internal sealed class MirrorView : CardSheet
 {
     readonly MirrorModule _module;
     readonly MirrorCamera _camera;
@@ -27,20 +27,26 @@ internal sealed class MirrorView : WallDetail
     readonly Border _liveChip;
     readonly TextBlock _flipText, _levelText;
     readonly ContentControl _flipSlot = new() { Focusable = false };
-    readonly Grid _levelBar = new() { Width = 180, Height = 16, VerticalAlignment = VerticalAlignment.Center };
+    readonly Grid _levelBar = new() { Width = 110, Height = 16, VerticalAlignment = VerticalAlignment.Center };
     bool _starting, _wantRunning;
 
-    public MirrorView(MirrorModule module, Dispatcher ui) : base(Fields.Mirror(), "Mirror · starting", "Mirror")
+    /// <summary>The picture: a rounded glass-edged tile on the left of the card (the camera feed fills it).</summary>
+    readonly Grid _art = new() { Width = 300, Height = 196, ClipToBounds = true };
+    readonly TextBlock _line = Sheet.Meta("", 13);
+
+    public MirrorView(MirrorModule module, Dispatcher ui) : base("Mirror", 640, "starting")
     {
         _module = module;
         _camera = new MirrorCamera(ui);
         _camera.BitmapChanged += bmp => _brush.ImageSource = bmp;
         _brush.RelativeTransform = _flip;
 
-        Line.Text = MeetingHint() ?? "Camera stays on your PC; nothing is recorded";
+        _line.Text = MeetingHint() ?? "Camera stays on your PC; nothing is recorded";
 
         // The art panel: the picture, its live mark, a message when there's no picture.
-        Art.Children.Add(new Border { Background = _brush });
+        _art.Clip = new RectangleGeometry(new Rect(0, 0, 300, 196), 22, 22);
+        _art.Children.Add(new Border { Background = Fields.Mirror() });
+        _art.Children.Add(new Border { Background = _brush });
         _liveChip = new Border
         {
             Background = CardKit.Hex("#A60B0B0D"),
@@ -49,7 +55,7 @@ internal sealed class MirrorView : WallDetail
             Child = CardKit.Row(6, CardKit.Dot(6, CardKit.Alarm), CardKit.Label("Live · not recording", null, 10)),
         };
         Ui.Capsule.SetRound(_liveChip, true);
-        Art.Children.Add(CardKit.At(_liveChip, HorizontalAlignment.Left, VerticalAlignment.Bottom, 14, 0, 0, 14));
+        _art.Children.Add(CardKit.At(_liveChip, HorizontalAlignment.Left, VerticalAlignment.Bottom, 14, 0, 0, 14));
         _messageText = CardKit.Text("", 13, FontWeights.SemiBold);
         _messageText.TextWrapping = TextWrapping.Wrap;
         _messageText.TextTrimming = TextTrimming.None;
@@ -64,7 +70,7 @@ internal sealed class MirrorView : WallDetail
         _message.Children.Add(cam);
         _message.Children.Add(_messageText);
         _message.Children.Add(_settingsButton);
-        Art.Children.Add(_message);
+        _art.Children.Add(_message);
 
         // Controls: Flip, then brightness.
         _flipText = CardKit.Text("", 12, FontWeights.Medium, secondary: true);
@@ -76,11 +82,26 @@ internal sealed class MirrorView : WallDetail
         var minus = CardKit.Quiet("Decrease brightness", CardKit.Icon(CardKit.Paths.Minus, CardKit.Ink, 12, 2.4), () => Step(-10), 28);
         var plus = CardKit.Quiet("Increase brightness", CardKit.Icon(CardKit.Paths.Plus, CardKit.Ink, 12, 2.4), () => Step(10), 28);
         var brightness = CardKit.Label("Brightness", CardKit.Ink2);
-        brightness.Width = 96;
+        brightness.Width = 84;
         _levelBar.Margin = new Thickness(0, 0, 0, 0);
-        var levelRow = CardKit.Row(10, brightness, minus, _levelBar, plus, _levelText);
+        brightness.HorizontalAlignment = HorizontalAlignment.Left;
+        var levelRow = CardKit.Column(8, brightness, CardKit.Row(10, minus, _levelBar, plus, _levelText));
         levelRow.Margin = new Thickness(0, 14, 0, 0);
-        Body.Children.Add(CardKit.Column(0, flipRow, levelRow));
+        _line.TextWrapping = TextWrapping.Wrap;
+        _line.TextTrimming = TextTrimming.None;
+        _line.Margin = new Thickness(0, 0, 0, 16);
+        flipRow.VerticalAlignment = VerticalAlignment.Center;
+        var controls = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(20, 0, 0, 0) };
+        controls.Children.Add(_line);
+        controls.Children.Add(flipRow);
+        controls.Children.Add(levelRow);
+        var layout = new Grid();
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        layout.ColumnDefinitions.Add(new ColumnDefinition());
+        layout.Children.Add(_art);
+        Grid.SetColumn(controls, 1);
+        layout.Children.Add(controls);
+        Body.Children.Add(layout);
 
         ApplyFlip();
         ApplyLevel();
@@ -126,7 +147,7 @@ internal sealed class MirrorView : WallDetail
     {
         if (_starting) return;
         _starting = true;
-        Kicker.Text = "Mirror · starting";
+        Status = "starting";
         ShowMessage(null);
         var problem = await _camera.StartAsync();
         _starting = false;
@@ -176,7 +197,7 @@ internal sealed class MirrorView : WallDetail
     void UpdateStatus()
     {
         bool live = _camera.Running;
-        Kicker.Text = "Mirror · " + (live ? "camera on" : Problem != MirrorProblem.None ? "camera off" : _starting ? "starting" : "paused");
+        Status = (live ? "camera on" : Problem != MirrorProblem.None ? "camera off" : _starting ? "starting" : "paused");
         _liveChip.Visibility = live ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -221,7 +242,7 @@ internal sealed class MirrorView : WallDetail
         _camera.Brightness = 0.6 + level / 100.0 * 0.8;
         _levelText.Text = $"{level}%";
         _levelBar.Children.Clear();
-        _levelBar.Children.Add(CardKit.Progress(level / 100.0, CardKit.Ink, 4));
+        _levelBar.Children.Add(CardKit.Progress(level / 100.0, Ink.Gradient, 5, Sheet.Track));
     }
 
     /// <summary>"A quick look before your 10:30 Standup" when a meeting starts within the hour.</summary>

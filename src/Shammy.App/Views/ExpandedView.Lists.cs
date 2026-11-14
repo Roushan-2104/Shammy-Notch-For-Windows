@@ -22,15 +22,29 @@ public partial class ExpandedView
     // ---- Shelf ----------------------------------------------------------------------------------
 
     StackPanel? _shelfRows;
-    WallDetail? _shelfDetail;
+    CardSheet? _shelfDetail;
+    Button? _shelfClear;
     Point _dragStart;
     ShelfItem? _pressed;
 
-    WallDetail BuildShelfDetail()
+    /// <summary>The list cards (Shelf, Alerts) are 600 wide; their rows cap at about five, then scroll.</summary>
+    const double ListSheetWidth = 600, ListMaxHeight = 5 * 44;
+
+    static ScrollViewer ListScroll(UIElement rows) => new()
     {
-        var d = new WallDetail(Fields.List(), "", "Shelf");
+        Content = rows,
+        MaxHeight = ListMaxHeight,
+        VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        Focusable = false,
+    };
+
+    CardSheet BuildShelfDetail()
+    {
+        var d = new CardSheet("Shelf", ListSheetWidth);
+        _shelfClear = d.Action(Sheet.Cap("Clear", "Clear the shelf", () => _s?.Shelf.Clear()));
         _shelfRows = new StackPanel();
-        d.Body.Children.Add(WallDetail.Scroll(_shelfRows));
+        d.Body.Children.Add(ListScroll(_shelfRows));
         _shelfDetail = d;
         d.Unloaded += (_, _) =>
         {
@@ -53,25 +67,26 @@ public partial class ExpandedView
         if (_s is null || _shelfDetail is not { } d || _shelfRows is null) return;
         var items = _s.Shelf.Items;
         int n = items.Count;
-        d.Kicker.Text = n == 0 ? "Shelf · empty" : $"Shelf · {(n == 1 ? "1 file" : $"{n} files")}";
-        d.Line.Text = n == 0 ? "Drop files on the notch to keep them here" : "Drag in to park files, drag out to drop them anywhere";
-        d.Art.Children.OfType<StackPanel>().ToList().ForEach(s => d.Art.Children.Remove(s));
-        d.ArtBottomLeft(CardKit.Poster(n.ToString(System.Globalization.CultureInfo.InvariantCulture), 96), Spaced(CardKit.Label(n == 1 ? "File" : "Files")));
-        d.Corner = n > 0 ? CardKit.Pill("Clear", "Clear the shelf", () => _s?.Shelf.Clear()) : null;
+        d.Status = n == 0 ? null : n == 1 ? "1 file · drag out to use" : $"{n} files · drag out to use";
+        if (_shelfClear is not null) _shelfClear.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         _shelfRows.Children.Clear();
         if (n == 0)
         {
-            _shelfRows.Children.Add(CardKit.Empty("Nothing on the shelf yet", "Drop files on the notch to park them here"));
+            _shelfRows.Children.Add(EmptyLine("Nothing on the shelf yet.", "Drop files on the notch to park them here."));
             return;
         }
         foreach (var item in items) _shelfRows.Children.Add(ShelfRow(item));
     }
 
-    static FrameworkElement Spaced(FrameworkElement e)
+    /// <summary>An empty list card's one line: a bold start and a quiet rest.</summary>
+    static FrameworkElement EmptyLine(string bold, string rest)
     {
-        e.Margin = new Thickness(0, 8, 0, 0);
-        return e;
+        var line = Sheet.Meta("", 14);
+        line.Inlines.Add(CardKit.Run(bold + " ", FontWeights.Bold, CardKit.Ink));
+        line.Inlines.Add(new System.Windows.Documents.Run(rest));
+        line.Margin = new Thickness(2, 0, 0, 2);
+        return line;
     }
 
     FrameworkElement ShelfRow(ShelfItem item)
@@ -163,13 +178,21 @@ public partial class ExpandedView
     // ---- Alerts ---------------------------------------------------------------------------------
 
     StackPanel? _alertRows;
-    WallDetail? _alertsDetail;
+    CardSheet? _alertsDetail;
+    Button? _alertsClear;
+    TextBlock? _alertsNote;
 
-    WallDetail BuildAlertsDetail()
+    CardSheet BuildAlertsDetail()
     {
-        var d = new WallDetail(Fields.List(), "", "Alerts");
+        var d = new CardSheet("Alerts", ListSheetWidth);
+        _alertsClear = d.Action(Sheet.Cap("Clear all", "Clear all notifications", () => _s?.Notifications.ClearHistory()));
         _alertRows = new StackPanel();
-        d.Body.Children.Add(WallDetail.Scroll(_alertRows));
+        _alertsNote = Sheet.Meta("", 13);
+        _alertsNote.Margin = new Thickness(2, 0, 0, 10);
+        var column = new StackPanel();
+        column.Children.Add(_alertsNote);
+        column.Children.Add(ListScroll(_alertRows));
+        d.Body.Children.Add(column);
         _alertsDetail = d;
         d.Unloaded += (_, _) =>
         {
@@ -188,13 +211,16 @@ public partial class ExpandedView
         if (_s is null || _alertsDetail is not { } d) return;
         var n = _s.Notifications;
         int fresh = _openId == AlertsId ? _alertsNewAtOpen + n.UnreadCount : n.UnreadCount;
-        d.Kicker.Text = n.History.Count == 0 ? "Alerts" : $"Alerts · {fresh} new";
-        d.Line.Text = !n.IsAvailable ? n.Problem ?? "Notifications are starting…"
-            : PrivacyState.Presenting ? "Messages are hidden while you share your screen"
-            : n.History.Count == 0 ? "Nothing waiting" : "Click one to open its app";
-        d.Art.Children.OfType<StackPanel>().ToList().ForEach(s => d.Art.Children.Remove(s));
-        d.ArtBottomLeft(CardKit.Poster(fresh.ToString(System.Globalization.CultureInfo.InvariantCulture), 96), Spaced(CardKit.Label("New")));
-        d.Corner = n.History.Count > 0 ? CardKit.Pill("Clear all", "Clear all notifications", () => _s?.Notifications.ClearHistory()) : null;
+        d.Status = n.History.Count == 0 ? null : $"{fresh} new · click one to open its app";
+        // Only something worth saying gets a line: not available yet, or hidden while sharing the screen.
+        string? note = !n.IsAvailable ? n.Problem ?? "Notifications are starting…"
+            : PrivacyState.Presenting ? "Messages are hidden while you share your screen" : null;
+        if (_alertsNote is not null)
+        {
+            _alertsNote.Text = note ?? "";
+            _alertsNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+        if (_alertsClear is not null) _alertsClear.Visibility = n.History.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>
@@ -210,7 +236,7 @@ public partial class ExpandedView
         if (history.Count == 0)
         {
             // The line above already says why when notifications aren't available.
-            if (_s.Notifications.IsAvailable) _alertRows.Children.Add(CardKit.Empty("All caught up", "New notifications show up here"));
+            if (_s.Notifications.IsAvailable) _alertRows.Children.Add(EmptyLine("All caught up.", "New notifications show up here."));
             return;
         }
         foreach (var n in history) _alertRows.Children.Add(AlertRow(n));

@@ -151,30 +151,31 @@ internal sealed class MusicCard
         return detail.Root;
     }
 
-    /// <summary>One open detail. Its lyrics panel is the module's single instance, moved in on open.</summary>
+    /// <summary>
+    /// One open Music card (the card family's shape, 760 wide): the cover as it is (the island's waves carry its
+    /// colours), the title, artist, timeline and transport with play/pause the one accent, volume, and three lines of
+    /// lyrics beside it. Its lyrics panel is the module's single instance, moved in on open.
+    /// </summary>
     sealed class Detail
     {
+        public const double SheetWidth = 760, CoverSize = 150;
+
         readonly MusicCard _card;
-        readonly TrackedText _poster = CardKit.Poster("", 44), _sub = CardKit.Label("");
-        readonly TextBlock _elapsed = CardKit.Text("", 12, FontWeights.Medium, secondary: true), _left = CardKit.Text("", 12, FontWeights.Medium, secondary: true);
-        readonly CardTrack _scrub = new() { TrackHeight = 4, KnobSize = 10 };
-        readonly CardTrack _volume = new() { TrackHeight = 4, KnobSize = 0 };
-        readonly Grid _timeline = new();
+        readonly TextBlock _title = Sheet.Word("", 26), _artist = Sheet.Meta("", 14);
+        readonly TextBlock _elapsed = Sheet.Num("", 13, CardKit.Ink2), _left = Sheet.Num("", 13, CardKit.Ink2);
+        readonly CardTrack _scrub = new() { TrackHeight = 5, KnobSize = 10, Fill = Ink.Gradient, Track = Sheet.Track };
+        readonly CardTrack _volume = new() { TrackHeight = 4, KnobSize = 0, Fill = CardKit.Ink, Track = Sheet.Track };
+        readonly Grid _timeline = new() { Margin = new Thickness(0, 12, 0, 0) };
         readonly ContentControl _playSlot = new() { Focusable = false };
-        readonly Border _lyricsHost = new();
-        readonly TrackedText _synced = CardKit.Label("Synced", CardKit.Ink2, 10);
+        readonly Border _cover = new() { Width = CoverSize, Height = CoverSize, CornerRadius = new CornerRadius(22), ClipToBounds = true };
+        readonly Border _lyricsHost = new() { Height = CoverSize };
         bool _attached;
 
         public Detail(MusicCard card)
         {
             _card = card;
-            var m = card.Media;
-            Root = new WallDetail(card.Field, "", "", "");
-            _sub.Margin = new Thickness(0, 8, 0, 0);
-            _poster.MaxWidth = 264;
-            // A long song title steps down before it is cut.
-            _poster.MinFontSize = 30;
-            Root.ArtBottomLeft(_poster, _sub);
+            Root = new CardSheet("Music", SheetWidth);
+            _title.Margin = new Thickness(0, 0, 0, 2);
 
             _scrub.Committed += f =>
             {
@@ -185,43 +186,47 @@ internal sealed class MusicCard
             _volume.Width = 72;
             _volume.VerticalAlignment = VerticalAlignment.Center;
 
-            // Scrubber: elapsed, track, remaining.
+            // Timeline: elapsed, track, remaining.
             _timeline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             _timeline.ColumnDefinitions.Add(new ColumnDefinition());
             _timeline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             _scrub.Margin = new Thickness(10, 0, 10, 0);
+            _scrub.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(_scrub, 1);
             Grid.SetColumn(_left, 2);
             _timeline.Children.Add(_elapsed);
             _timeline.Children.Add(_scrub);
             _timeline.Children.Add(_left);
-            _timeline.VerticalAlignment = VerticalAlignment.Top;
 
-            // Transport: prev, play/pause (the primary), next; volume on the right.
-            var prev = CardKit.Quiet("Previous track", CardKit.Glyph(CardKit.Paths.Previous, CardKit.Ink, 13), () => card.Media.Previous(), 36);
-            var next = CardKit.Quiet("Next track", CardKit.Glyph(CardKit.Paths.Next, CardKit.Ink, 13), () => card.Media.Next(), 36);
-            var transport = CardKit.Row(10, prev, _playSlot, next);
-            transport.VerticalAlignment = VerticalAlignment.Center;
-            var volume = CardKit.Row(8, CardKit.Icon(CardKit.Paths.Volume, CardKit.Ink2, 15), _volume);
-            volume.VerticalAlignment = VerticalAlignment.Center;
+            // Transport: prev, play/pause (the one accent), next; volume on the right.
+            var prev = Sheet.Round("Previous track", CardKit.Paths.Previous, () => card.Media.Previous(), 38, iconSize: 13, filled: true);
+            var next = Sheet.Round("Next track", CardKit.Paths.Next, () => card.Media.Next(), 38, iconSize: 13, filled: true);
+            var transport = Sheet.Row(10, prev, _playSlot, next);
+            var volume = Sheet.Row(8, CardKit.Icon(CardKit.Paths.Volume, CardKit.Ink2, 15), _volume);
             volume.ToolTip = "Volume";
-            var controls = new DockPanel { VerticalAlignment = VerticalAlignment.Bottom };
-            DockPanel.SetDock(volume, Dock.Right);
-            controls.Children.Add(volume);
-            controls.Children.Add(transport);
-            Root.Body.Children.Add(_timeline);
-            Root.Body.Children.Add(controls);
+            var controls = Sheet.Spread(transport, volume);
+            controls.Margin = new Thickness(0, 12, 0, 0);
 
-            // Lyrics: the module's own panel, synced and clickable to seek, the full height on the right.
-            var head = new DockPanel();
-            DockPanel.SetDock(_synced, Dock.Right);
-            head.Children.Add(_synced);
-            head.Children.Add(CardKit.Label("Lyrics", CardKit.Ink2));
-            var lyrics = new DockPanel { Width = 232 };
-            DockPanel.SetDock(head, Dock.Top);
-            lyrics.Children.Add(head);
-            lyrics.Children.Add(_lyricsHost);
-            Root.Aside = lyrics;
+            var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            info.Children.Add(_title);
+            info.Children.Add(_artist);
+            info.Children.Add(_timeline);
+            info.Children.Add(controls);
+
+            // Lyrics: the module's own panel (synced, click a line to seek), beside the controls.
+            _lyricsHost.Width = 210;
+
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(_cover);
+            info.Margin = new Thickness(20, 0, 20, 0);
+            Grid.SetColumn(info, 1);
+            row.Children.Add(info);
+            Grid.SetColumn(_lyricsHost, 2);
+            row.Children.Add(_lyricsHost);
+            Root.Body.Children.Add(row);
             Attach();
 
             CardKit.TickWhileVisible(Root, TimeSpan.FromSeconds(1), Tick);
@@ -229,19 +234,28 @@ internal sealed class MusicCard
             Refresh();
         }
 
-        public WallDetail Root { get; }
+        public CardSheet Root { get; }
 
         public void Refresh()
         {
             var m = _card.Media;
-            Root.Field = _card.Field;
-            Root.Kicker.Text = _card.State;
-            Root.TitleText.Text = m.HasSession ? m.Title : "Nothing playing";
-            Root.Line.Text = m.Artist;
-            _poster.Text = m.HasSession ? m.Title : "Music";
-            _sub.Text = m.Artist.Length > 0 ? m.Artist : _card.State;
-            _playSlot.Content = CardKit.Primary(m.IsPlaying ? "Pause" : "Play", CardKit.PlayPause(m.IsPlaying, 16), () => _card.Media.TogglePlayPause(), 46);
-            _timeline.Visibility = MediaTime.HasTimeline(m.Duration) ? Visibility.Visible : Visibility.Hidden;
+            Root.Status = _card.State.ToLowerInvariant();
+            _title.Text = m.HasSession ? m.Title : "Nothing playing";
+            _artist.Text = m.Artist;
+            _artist.Visibility = m.Artist.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (m.Art is { } art)
+            {
+                _cover.Background = new ImageBrush(art) { Stretch = Stretch.UniformToFill };
+                _cover.Child = null;
+            }
+            else
+            {
+                _cover.Background = Ink.Tint;
+                _cover.Child = CardKit.Icon("M9 18V6l10-2v12 M9 18a3 3 0 1 1-6 0a3 3 0 1 1 6 0z M19 16a3 3 0 1 1-6 0a3 3 0 1 1 6 0z", Ink.Soft, 40, 1.8);
+            }
+            _playSlot.Content = Sheet.Round(m.IsPlaying ? "Pause" : "Play", m.IsPlaying ? CardKit.Paths.Pause : CardKit.Paths.Play,
+                () => _card.Media.TogglePlayPause(), 50, accent: true, iconSize: 17, filled: true);
+            _timeline.Visibility = MediaTime.HasTimeline(m.Duration) ? Visibility.Visible : Visibility.Collapsed;
             _scrub.IsHitTestVisible = m.CanSeek;
             _scrub.Cursor = m.CanSeek ? System.Windows.Input.Cursors.Hand : null;
             Tick();
@@ -265,9 +279,7 @@ internal sealed class MusicCard
             if (!_volume.IsDragging) _volume.Value = muted ? 0 : level;
         }
 
-        void OnLyricsChanged() => _synced.Visibility = _card._lyrics.Kind == LyricsKind.Synced ? Visibility.Visible : Visibility.Collapsed;
-
-        /// <summary>Moves the lyrics panel in and listens for lyrics and volume; undone by <see cref="Close"/>.</summary>
+        /// <summary>Moves the lyrics panel in and listens for volume; undone by <see cref="Close"/>.</summary>
         void Attach()
         {
             if (_attached) return;
@@ -275,16 +287,13 @@ internal sealed class MusicCard
             CardKit.Detach(_card._lyrics);
             _card._lyrics.ShowTrack = false;
             _lyricsHost.Child = _card._lyrics;
-            _card._lyrics.LyricsChanged += OnLyricsChanged;
             if (_card._services.Volume is { } v) v.Changed += OnVolume;
-            OnLyricsChanged();
         }
 
         public void Close()
         {
             if (!_attached) return;
             _attached = false;
-            _card._lyrics.LyricsChanged -= OnLyricsChanged;
             if (_card._services.Volume is { } v) v.Changed -= OnVolume;
             // Let the next detail (or nothing) own the panel; it stops ticking once it's off screen.
             if (_lyricsHost.Child == _card._lyrics) _lyricsHost.Child = null;
