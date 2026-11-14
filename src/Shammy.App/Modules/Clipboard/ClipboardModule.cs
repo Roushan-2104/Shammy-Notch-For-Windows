@@ -199,7 +199,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     }
 
     /// <summary>The DWORD behind an opt-out format, or null when it's absent.</summary>
-    static uint? Flag(IDataObject data, string format)
+    internal static uint? Flag(IDataObject data, string format)
     {
         if (!ClipNative.HasFormat(format)) return null;
         try
@@ -716,6 +716,9 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     IReadOnlyList<ClipEntry> Connect.IClipboardLink.Items => _history.Items;
     void Connect.IClipboardLink.CopyBack(ClipEntry entry) => CopyBack(entry);
     bool Connect.IClipboardLink.Clear() => ClearWithUndo() is not null;
+    (DateTime At, bool FromClipboard, int Width, int Height)? Connect.IClipboardLink.LatestScreenshot =>
+        _capture is { } c ? (c.At, c.FromClipboard, c.Width, c.Height) : null;
+    string? Connect.IClipboardLink.LatestScreenshotFile() => _capture is { } c ? EnsureFile(c) : null;
 
     public void Dispose()
     {

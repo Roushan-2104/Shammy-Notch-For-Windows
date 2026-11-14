@@ -23,6 +23,12 @@ internal interface IClipboardLink
 
     /// <summary>Clears the unpinned history (with the usual Undo pill); false when there was nothing to clear.</summary>
     bool Clear();
+
+    /// <summary>The newest screenshot this session (a snip or a file in Screenshots): when, whether it was a clipboard snip, its size.</summary>
+    (DateTime At, bool FromClipboard, int Width, int Height)? LatestScreenshot { get; }
+
+    /// <summary>The newest screenshot as a file (a clipboard-only snip is saved first); null when there is none or it's gone.</summary>
+    string? LatestScreenshotFile();
 }
 
 /// <summary>What the calendar module offers Settings: whether it's connected, how the sync is, connect and disconnect.</summary>

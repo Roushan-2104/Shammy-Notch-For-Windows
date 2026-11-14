@@ -26,6 +26,10 @@ internal static class QrBitmap
                 Margin = margin,
                 // M survives a glare spot on a laptop screen without making the code much denser.
                 ErrorCorrection = ErrorCorrectionLevel.M,
+                // Text with accents, Hindi or emoji goes as UTF-8 bytes. Without an ECI header: phone scanners
+                // recognise UTF-8 by itself, and some older ones choke on the header.
+                CharacterSet = text.Any(c => c > 127) ? "UTF-8" : null,
+                DisableECI = true,
             },
             Renderer = new PixelDataRenderer
             {

@@ -56,7 +56,7 @@ internal sealed class ScreenshotWatcher : IDisposable
     /// <summary>A new image file appeared in the Screenshots folder (raised on the UI thread, once per path).</summary>
     public event Action<string>? FileArrived;
 
-    static string ResolveFolder()
+    internal static string ResolveFolder()
     {
         var known = ClipNative.KnownFolder(ScreenshotsFolderId);
         if (!string.IsNullOrEmpty(known)) return known;

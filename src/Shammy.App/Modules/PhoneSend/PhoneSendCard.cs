@@ -29,6 +29,19 @@ internal sealed class PhoneSendCard : Grid
     IDisposable? _frames;
 
     public PhoneSendCard(string url, string fileName, long size)
+        : this(url, fileName, ByteSize.Format(size), "Scan with your phone on the same Wi-Fi", MaskToken(url),
+            "QR code: scan it with your phone's camera to download")
+    {
+    }
+
+    /// <summary>
+    /// A card whose QR code carries the thing itself (a link the phone opens, or short text it shows): no server, so
+    /// no progress either. <paramref name="footer"/> is the quiet last line (the link's address, or nothing).
+    /// </summary>
+    public static PhoneSendCard ForQr(string payload, string title, string subtitle, string hint, string footer, string qrName) =>
+        new(payload, title, subtitle, hint, footer, qrName);
+
+    PhoneSendCard(string qrPayload, string fileName, string subtitle, string hint, string footer, string qrName)
     {
         Width = CardWidth;
         Height = CardHeight;
@@ -38,7 +51,7 @@ internal sealed class PhoneSendCard : Grid
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Tile + 20) });
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Children.Add(BuildTile(url));
+        Children.Add(BuildTile(qrPayload, qrName));
 
         var right = new Grid { Margin = new Thickness(0, 18, 18, 18) };
         SetColumn(right, 2);
@@ -65,7 +78,7 @@ internal sealed class PhoneSendCard : Grid
         SetRow(name, 1);
         right.Children.Add(name);
 
-        var sizeText = WallParts.Text(ByteSize.Format(size), 12.5, FontWeights.Normal, "WallText2");
+        var sizeText = WallParts.Text(subtitle, 12.5, FontWeights.Normal, "WallText2");
         sizeText.Margin = new Thickness(0, 3, 0, 0);
         SetRow(sizeText, 2);
         right.Children.Add(sizeText);
@@ -81,12 +94,14 @@ internal sealed class PhoneSendCard : Grid
         SetRow(status, 5);
         right.Children.Add(status);
 
-        _hint = WallParts.Text("Scan with your phone on the same Wi-Fi", 12, FontWeights.Normal, "WallText2");
+        _hint = WallParts.Text(hint, 12, FontWeights.Normal, "WallText2");
         _hint.TextWrapping = TextWrapping.Wrap;
         // The token is the only thing that lets someone in, so the card shows just the address;
         // the QR code carries the full link.
-        _url = WallParts.Text(MaskToken(url), 11, FontWeights.Normal, "WallText2");
+        _url = WallParts.Text(footer, 11, FontWeights.Normal, "WallText2");
         _url.Margin = new Thickness(0, 4, 0, 0);
+        _url.TextTrimming = TextTrimming.CharacterEllipsis;
+        if (footer.Length == 0) _url.Visibility = Visibility.Collapsed;
         _waiting = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
         _waiting.Children.Add(_hint);
         _waiting.Children.Add(_url);
@@ -174,7 +189,7 @@ internal sealed class PhoneSendCard : Grid
     internal static string MaskToken(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? $"{uri.Scheme}://{uri.Authority}/••••" : "";
 
-    static UIElement BuildTile(string url)
+    static UIElement BuildTile(string url, string name)
     {
         var fg = InvertedQr ? Colors.White : Colors.Black;
         var tileColor = InvertedQr ? Color.FromRgb(0x1C, 0x1C, 0x1E) : Colors.White;
@@ -185,7 +200,7 @@ internal sealed class PhoneSendCard : Grid
             SnapsToDevicePixels = true,
         };
         RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
-        System.Windows.Automation.AutomationProperties.SetName(image, "QR code: scan it with your phone's camera to download");
+        System.Windows.Automation.AutomationProperties.SetName(image, name);
         return new Border
         {
             Width = Tile,

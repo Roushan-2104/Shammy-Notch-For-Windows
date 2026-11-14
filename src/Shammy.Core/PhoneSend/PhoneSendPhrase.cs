@@ -17,7 +17,13 @@ public static class PhoneSendPhrase
         "recent file", "the recent file",
     };
 
-    static readonly HashSet<string> Filler = new(StringComparer.OrdinalIgnoreCase) { "the", "my", "file", "dot", "a" };
+    /// <summary>Words that name nothing in particular: "send this to my phone" asks what to send.</summary>
+    static readonly HashSet<string> AskWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "it", "this", "that", "this one", "that one", "something", "anything", "stuff", "things",
+    };
+
+    static readonly HashSet<string> Filler =new(StringComparer.OrdinalIgnoreCase) { "the", "my", "file", "dot", "a" };
 
     /// <summary>
     /// True if the text is a send-to-phone command. <paramref name="query"/> is the file the user named,
@@ -32,6 +38,20 @@ public static class PhoneSendPhrase
         var q = m.Groups["q"].Success ? m.Groups["q"].Value.Trim().Trim('"', '\'', '“', '”') : "";
         query = q.Length == 0 || MostRecentWords.Contains(q) ? null : q;
         return true;
+    }
+
+    /// <summary>
+    /// True for a send-to-phone command that names nothing ("send to phone", "send this to my phone"): the choice
+    /// sheet asks what to send. "send the latest file to my phone" still means the newest shelf file, and a named file
+    /// is looked up on the shelf, so both are false.
+    /// </summary>
+    public static bool AsksWhat(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var m = Pattern.Match(text.Trim().TrimEnd('.', '!', '?').Trim());
+        if (!m.Success) return false;
+        var q = m.Groups["q"].Success ? m.Groups["q"].Value.Trim().Trim('"', '\'', '“', '”') : "";
+        return q.Length == 0 || AskWords.Contains(q);
     }
 
     /// <summary>
