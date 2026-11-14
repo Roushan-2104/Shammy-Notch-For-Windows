@@ -59,12 +59,15 @@ public class DictationHindiTests
     [Theory]
     [InlineData("kal milte hain")]
     [InlineData("send the hindustan times link")]
+    [InlineData("films in Hindi are longer than this")]
+    [InlineData("ye Hindi mein bhi chalega kya")]
     [InlineData("")]
     public void Other_words_stay_roman(string heard) => Assert.False(DictationText.AsksForHindi(heard));
 
     [Theory]
     [InlineData("in Hindi kal milte hain", "kal milte hain")]
     [InlineData("kal milte hain, in hindi", "kal milte hain")]
+    [InlineData("kal milte hain in Hindi.", "kal milte hain")]
     [InlineData("Hindi mein kal milte hain", "kal milte hain")]
     [InlineData("इन हिंदी कल मिलते हैं", "कल मिलते हैं")]
     [InlineData("कल मिलते हैं हिंदी में", "कल मिलते हैं")]

@@ -16,9 +16,15 @@ public static class DictationText
     const string NotLetterBefore = @"(?<![\p{L}\p{M}\p{N}'’])", NotLetterAfter = @"(?![\p{L}\p{M}\p{N}'’])";
     const string HindiWord = "(?:hindi|हिंदी|हिन्दी)";
 
-    /// <summary>"in Hindi" or "Hindi mein", in Roman letters or in Devanagari, with the commas around it.</summary>
+    const string HindiAsk = "(?:(?:in|इन)\\s+" + HindiWord + "|" + HindiWord + @"\s+(?:mein|mei|me|main|mai|में|मे|मैं))";
+
+    /// <summary>
+    /// "in Hindi" or "Hindi mein", in Roman letters or in Devanagari, said first or last (with the commas around it).
+    /// shortcut: in the middle it's part of the sentence ("films in Hindi are…"); last, it can't be told apart.
+    /// </summary>
     static readonly Regex HindiTrigger = new(
-        @"[,;]?\s*" + NotLetterBefore + "(?:(?:in|इन)\\s+" + HindiWord + "|" + HindiWord + @"\s+(?:mein|mei|me|main|mai|में|मे|मैं))" + NotLetterAfter + @"\s*[,;]?",
+        @"^\s*" + HindiAsk + NotLetterAfter + @"\s*[,;:]?" + "|" +
+        @"[,;]?\s*" + NotLetterBefore + HindiAsk + NotLetterAfter + @"[\s,;.!?।]*$",
         Opts);
 
     static readonly Regex Filler = new(NotLetterBefore + @"(?:u+m+|u+h+|er|erm|h+m+)" + NotLetterAfter + @"[,.]?", Opts);

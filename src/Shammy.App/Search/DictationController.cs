@@ -220,7 +220,7 @@ internal sealed class DictationController
 
     // ---- Recording -------------------------------------------------------------------------------------------
 
-    /// <summary>Starts listening for the app in front; false when it can't (no microphone, Shammy itself in front).</summary>
+    /// <summary>Starts dictating into the app in front (the microphone opens with the island); false when Shammy itself is in front.</summary>
     bool Start(string howToFinish, bool byCtrlWin, FocusProbe.Focus? focus = null, bool latched = false)
     {
         if (_phase != Phase.Idle) return false;
@@ -229,11 +229,6 @@ internal sealed class DictationController
         // Dictation types into other apps; Shammy's own boxes have the talk key.
         if (ShammyInFront()) return false;
         _target = Native.GetForegroundWindow();
-        if (!_mic.Start(out var micError))
-        {
-            ShowMessage("Microphone unavailable", (micError ?? "The microphone didn’t start") + " · nothing was recorded");
-            return false;
-        }
         _session++;
         _phase = Phase.Recording;
         _byCtrlWin = byCtrlWin;
@@ -285,6 +280,13 @@ internal sealed class DictationController
         long now = _clock.ElapsedMilliseconds;
         if (!_shown && now >= ShowAfterMs)
         {
+            // The microphone opens with the island, so a quick Ctrl+Win+D never lights Windows' mic indicator.
+            if (!_mic.Start(out var micError))
+            {
+                Cancel();
+                ShowMessage("Microphone unavailable", (micError ?? "The microphone didn’t start") + " · nothing was recorded");
+                return;
+            }
             _shown = true;
             Show(_card!, DictationCard.LiveWidth, DictationCard.LiveHeight, stays: null);
         }
@@ -324,10 +326,12 @@ internal sealed class DictationController
             if (session == _session) _pacer.Answered();
         }
         if (session != _session || _phase != Phase.Recording || string.IsNullOrWhiteSpace(reply.Text)) return;
-        if (!_hindi && DictationText.AsksForHindi(reply.Text))
+        // Only a hint while talking: "… in Hindi" may turn out to be mid-sentence. The final words decide.
+        bool asks = DictationText.AsksForHindi(reply.Text);
+        if (asks != _hindi)
         {
-            _hindi = true;
-            _card?.SetScript(devanagari: true);
+            _hindi = asks;
+            _card?.SetScript(devanagari: asks);
         }
         _live = DictationText.Live(reply.Text);
         _card?.SetWords(_live, PrivacyState.Presenting);
@@ -381,7 +385,7 @@ internal sealed class DictationController
         {
             reply = await dictate(heard, false, false, ct);
             if (session != _session) return;
-            hindi = reply.Text is not null && (_hindi || DictationText.AsksForHindi(reply.Text));
+            hindi = DictationText.AsksForHindi(reply.Text);
             if (hindi)
             {
                 // "in Hindi": the same audio once more, written in Devanagari. If that fails, Roman it is.
