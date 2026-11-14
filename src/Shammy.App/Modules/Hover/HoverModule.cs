@@ -159,12 +159,14 @@ internal sealed class HoverModule : IShammyModule
         Rect rect = Rect.Empty;
         try
         {
-            var read = await HoverReader.ReadAsync(p.X, p.Y);
+            _english ??= new EnglishCheck();
+            var english = _english;
+            var read = await HoverReader.ReadAsync(p.X, p.Y,
+                r => HoverSense.Pick(r.Words, p.X - r.Left, p.Y - r.Top, DateTime.Now, english.IsEnglish) is not null);
             if (session != _session) return;
             if (read is not null)
             {
-                _english ??= new EnglishCheck();
-                target = HoverSense.Pick(read.Words, p.X - read.Left, p.Y - read.Top, DateTime.Now, _english.IsEnglish);
+                target = HoverSense.Pick(read.Words, p.X - read.Left, p.Y - read.Top, DateTime.Now, english.IsEnglish);
                 if (target is not null)
                 {
                     var b = target.Bounds;
@@ -237,10 +239,11 @@ internal sealed class HoverModule : IShammyModule
             || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
             return "error: hover-show <x> <y>";
         if (!_ctx.Settings.HoverToUnderstand) return "off: Hover to understand is switched off in Settings";
-        var read = WaitPumping(HoverReader.ReadAsync(x, y), TimeSpan.FromSeconds(10));
+        using var english = new EnglishCheck();
+        var read = WaitPumping(HoverReader.ReadAsync(x, y,
+            r => HoverSense.Pick(r.Words, x - r.Left, y - r.Top, DateTime.Now, english.IsEnglish) is not null), TimeSpan.FromSeconds(10));
         if (read is null) return "none: OCR unavailable";
         if (read.Words.Count == 0) return "none: no words there";
-        using var english = new EnglishCheck();
         var target = HoverSense.Pick(read.Words, x - read.Left, y - read.Top, DateTime.Now, english.IsEnglish);
         if (target is null) return $"none: nothing to answer ({read.Words.Count} words read)";
         _lastKind = target.Kind;

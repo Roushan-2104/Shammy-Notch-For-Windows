@@ -19,7 +19,8 @@ internal static class HoverReader
     const int StripWidth = 360, StripHeight = 80;
 
     /// <summary>The words around (<paramref name="x"/>, <paramref name="y"/>), or null when OCR isn't available or the copy failed.</summary>
-    public static async Task<HoverRead?> ReadAsync(int x, int y)
+    /// <param name="useful">Whether a read has something to answer; an enlarged read that hasn't is read again as it is.</param>
+    public static async Task<HoverRead?> ReadAsync(int x, int y, Func<HoverRead, bool>? useful = null)
     {
         if (!OcrService.IsAvailable) return null;
         var monitor = Native.MonitorFromPoint(new Native.POINT(x, y), Native.MONITOR_DEFAULTTONEAREST);
@@ -33,17 +34,14 @@ internal static class HoverReader
         var pixels = Copy(left, top, w, h);
         if (pixels is null) return null;
         // Small screen text reads far better at twice the size; a high-DPI screen's text is big enough already. Large
-        // text at twice the size is too big for OCR, though (it reads nothing), so a miss is read again as it is.
-        int factor = scale < 1.4 ? 2 : 1;
-        var words = await Recognize(factor == 2 ? Double(pixels, w, h) : pixels, w * factor, h * factor, left, top, w, h);
-        if (words.Count == 0 && factor == 2)
-        {
-            words = await Recognize(pixels, w, h, left, top, w, h);
-            factor = 1;
-        }
-        if (factor == 1) return new HoverRead(words, left, top);
-        var back = words.Select(o => o with { Bounds = new Box(o.Bounds.X / factor, o.Bounds.Y / factor, o.Bounds.W / factor, o.Bounds.H / factor) }).ToList();
-        return new HoverRead(back, left, top);
+        // text at twice the size is too big for OCR, though: it reads nothing or a garbled word. So an enlarged read
+        // with nothing to answer is read again as it is, and the better of the two is kept.
+        if (scale >= 1.4) return new HoverRead(await Recognize(pixels, w, h, left, top, w, h), left, top);
+        var doubled = await Recognize(Double(pixels, w, h), w * 2, h * 2, left, top, w, h);
+        var first = new HoverRead(doubled.Select(o => o with { Bounds = new Box(o.Bounds.X / 2, o.Bounds.Y / 2, o.Bounds.W / 2, o.Bounds.H / 2) }).ToList(), left, top);
+        if (first.Words.Count > 0 && (useful is null || useful(first))) return first;
+        var plain = new HoverRead(await Recognize(pixels, w, h, left, top, w, h), left, top);
+        return first.Words.Count == 0 || useful is null || useful(plain) ? plain : first;
     }
 
     static Task<IReadOnlyList<OcrWord>> Recognize(byte[] pixels, int sw, int sh, int left, int top, int w, int h)
