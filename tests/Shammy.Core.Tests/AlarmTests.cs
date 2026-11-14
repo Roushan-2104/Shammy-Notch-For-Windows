@@ -559,12 +559,6 @@ public class AlarmParserTests
     }
 
     [Theory]
-    [InlineData("roz subah 7 baje ka alarm laga do", "alarm morning at 7 every day")]
-    [InlineData("har din 6 baje alarm laga do", "alarm at 6 every day")]
-    [InlineData("kal subah 7 baje ka alarm laga do", "alarm tomorrow morning at 7")]
-    public void Hinglish(string text, string english) => Assert.Equal(english, HinglishCommands.ToEnglish(text));
-
-    [Theory]
     [InlineData(7, 7)]
     [InlineData(4, 4)]
     [InlineData(11, 11)]

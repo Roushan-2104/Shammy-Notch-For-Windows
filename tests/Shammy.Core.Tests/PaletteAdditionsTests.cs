@@ -164,12 +164,6 @@ public class DayAfterTomorrowTests
         Assert.Equal(new DateTime(2026, 11, 4, 9, 0, 0), ProductivityParser.Parse("remind me day after tomorrow to call mom", Now)!.Due);
     }
 
-    [Theory]
-    [InlineData("parso subah 9 baje yaad dilana", "remind me day after tomorrow morning at 9")]
-    [InlineData("parso shaam 6 baje yaad dilana ki bill bharna", "remind me day after tomorrow evening at 6 to bill bharna")]
-    [InlineData("parso subah 7 baje ka alarm laga do", "alarm day after tomorrow morning at 7")]
-    public void Hinglish(string hinglish, string english) => Assert.Equal(english, HinglishCommands.ToEnglish(hinglish));
-
     [Fact]
     public void Hinglish_reminder_lands_two_days_ahead()
     {

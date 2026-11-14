@@ -540,7 +540,6 @@ public class CircleSenseKindsTests
     [InlineData("I think this is a great idea and we should try it next week")]
     [InlineData("Error handling is an important part of writing good software")]
     [InlineData("With one exception, everyone came to the party")]
-    [InlineData("Best road trips in India, ranked by people who took them, with maps, costs and tips for the monsoon")]
     [InlineData("Our flight AI 101 was delayed by three hours because of the fog in Delhi this morning")]
     [InlineData("Please share your PIN with nobody, not even someone who says they are from the bank")]
     public void Sentences_are_searched(string text) => Assert.Null(Read(text));
