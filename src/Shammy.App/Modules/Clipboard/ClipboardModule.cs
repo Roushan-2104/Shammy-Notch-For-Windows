@@ -32,6 +32,8 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     const string PreviewId = "clipboard.preview", ScreenshotId = "clipboard.screenshot";
     const int MaxSavedText = 20_000;
     const int MaxHistoryText = 1_000_000;
+    /// <summary>How wide a screenshot's preview is kept (the card shows it at about 200).</summary>
+    const int PreviewWidth = 900;
     // Unpinned history is forgotten after a day (settings: ClipboardRetentionHours) so old passwords and tokens
     // don't pile up.
     TimeSpan KeepFor => TimeSpan.FromHours(_ctx.Settings.ClipboardRetentionHours);
@@ -224,7 +226,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     {
         bool screenshot = _screens?.Snip.IsScreenshot(now, ownerProcess) ?? SnipDetector.IsSnippingProcess(ownerProcess);
         if (screenshot) OnClipboardCapture(image, now);
-        else ShowPreview($"Image · {ClipText.Dimensions(image.PixelWidth, image.PixelHeight)}", image);
+        else ShowPreview($"Image · {ClipText.Dimensions(image.PixelWidth, image.PixelHeight)}", ClipImages.Shrink(image, ClipImages.ThumbWidth));
 
         try
         {
@@ -244,7 +246,12 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
             var entry = ClipEntry.FromImage(hash, image.PixelWidth, image.PixelHeight, now, clip);
             entry.Source = ClipCardText.SourceName(ownerProcess);
             Remember(entry);
-            if (_capture is { } c && ReferenceEquals(c.Full, image)) c.Png ??= clip.Png;
+            if (_capture is { } c && ReferenceEquals(c.Full, image))
+            {
+                // The PNG is the snip at full resolution: the raw pixels needn't stay in memory all day.
+                c.Png ??= clip.Png;
+                c.Full = null;
+            }
         }
         catch (Exception ex)
         {
@@ -348,7 +355,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     {
         // The Snipping Tool also auto-saves; if its file already arrived, this is the same capture.
         if (_capture is { FromClipboard: false } c && SnipDetector.IsSameCapture(c.At, now)) return;
-        ShowCapture(new Capture(image, image.PixelWidth, image.PixelHeight, now) { Full = image });
+        ShowCapture(new Capture(ClipImages.Shrink(image, PreviewWidth), image.PixelWidth, image.PixelHeight, now) { Full = image, FromClipboard = true });
     }
 
     async Task OnScreenshotFileAsync(string path, bool simulated)
@@ -368,7 +375,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         {
             try
             {
-                loaded = await Task.Run(() => ClipImages.LoadFile(path, 900));
+                loaded = await Task.Run(() => ClipImages.LoadFile(path, PreviewWidth));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException
                                            or ArgumentException or ExternalException or InvalidOperationException)
@@ -417,7 +424,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
         if (c.HasFile) return c.Path;
         // The screenshot's own file was moved or deleted and only the small preview is left: say so rather
         // than quietly handing out a low-resolution copy as if it were the screenshot.
-        if (c.Full is null && c.Path is not null)
+        if (c.Full is null && c.Png is null && c.Path is not null)
         {
             _ctx.ShowMessage("", "That screenshot's file is gone", error: true);
             return null;
@@ -472,6 +479,10 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
             if (c.Full is not null)
             {
                 image = c.Full;
+            }
+            else if (c.Png is not null)
+            {
+                image = ClipImages.Decode(c.Png);
             }
             else if (c.HasFile && c.Path is { } file)
             {

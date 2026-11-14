@@ -55,6 +55,16 @@ internal static class ClipImages
         return ms.ToArray();
     }
 
+    /// <summary>A small frozen copy at most <paramref name="width"/> wide that doesn't keep the big one alive.</summary>
+    public static BitmapSource Shrink(BitmapSource image, int width)
+    {
+        if (image.PixelWidth <= width) return image;
+        double scale = (double)width / image.PixelWidth;
+        var small = new WriteableBitmap(new TransformedBitmap(image, new ScaleTransform(scale, scale)));
+        small.Freeze();
+        return small;
+    }
+
     /// <summary>Decode encoded bytes, optionally down-scaled to <paramref name="width"/> pixels wide.</summary>
     public static BitmapSource Decode(byte[] bytes, int width = 0)
     {

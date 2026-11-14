@@ -18,11 +18,14 @@ internal sealed class Capture
         At = at;
     }
 
-    /// <summary>A down-scaled copy for files; the image itself for clipboard snips.</summary>
+    /// <summary>A down-scaled copy.</summary>
     public BitmapSource Preview { get; }
 
-    /// <summary>Full-resolution pixels, only for clipboard snips (files are re-read when needed).</summary>
-    public BitmapSource? Full { get; init; }
+    /// <summary>
+    /// Full-resolution pixels of a clipboard snip until its PNG is ready (files are re-read when needed); then only
+    /// the PNG stays, since raw pixels are 33 MB for a 4K snip.
+    /// </summary>
+    public BitmapSource? Full { get; set; }
 
     public byte[]? Png { get; set; }
     public string? Path { get; set; }
@@ -30,7 +33,7 @@ internal sealed class Capture
     /// <summary>Shammy wrote this file itself, so it may delete it. Files in the user's Screenshots folder are never deleted.</summary>
     public bool Owned { get; set; }
 
-    public bool FromClipboard => Full is not null;
+    public bool FromClipboard { get; init; }
     public int Width { get; }
     public int Height { get; }
     public DateTime At { get; }

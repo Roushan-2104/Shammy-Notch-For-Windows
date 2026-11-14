@@ -109,7 +109,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
             };
             _transfer = transfer;
             // Its card took the notch from the sheet or a QR code.
-            _sheet = null;
+            DropSheet();
             _qrCard = null;
             return null;
         }
@@ -207,7 +207,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
         };
         _qrCard = card;
         _qrKind = kind;
-        _sheet = null;
+        DropSheet();
         _ctx.ShowCard(card, PhoneSendCard.CardWidth, PhoneSendCard.CardHeight, interactive: true);
         _ctx.Info($"Showing a {kind} QR code for the phone");
         return "qr " + kind;
@@ -232,6 +232,14 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
             if (ReferenceEquals(_sheet, sheet) && sheet.Parent is not null)
                 ctx.ShowCard(sheet, PhoneChoiceSheet.SheetWidth, sheet.FitHeight, interactive: true);
         };
+        // Gone from view and closed (a click elsewhere, a pick, another card; not just covered by search for a moment):
+        // its rows hold the copy too, and the notch keeps a closed card until the next one replaces it.
+        sheet.IsVisibleChanged += (_, _) =>
+        {
+            if (sheet.IsVisible || ReferenceEquals(ctx.Notch.OpenCardContent, sheet)) return;
+            if (ReferenceEquals(_sheet, sheet)) DropSheet();
+            sheet.Show(null, Array.Empty<PhoneChoiceSheet.Row>());
+        };
         _sheet = sheet;
         ShowMain();
         ctx.ShowCard(sheet, PhoneChoiceSheet.SheetWidth, sheet.Fit(), interactive: true);
@@ -247,7 +255,14 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
     void CloseSheet()
     {
         if (_sheet is { Parent: not null }) _ctx?.CloseCard();
+        DropSheet();
+    }
+
+    /// <summary>The sheet is done: let go of what it offered (a copied picture can be tens of MB).</summary>
+    void DropSheet()
+    {
         _sheet = null;
+        _snapshot = null;
     }
 
     /// <summary>The sheet's rows for a snapshot, in the order <see cref="PhoneChoices.Build"/> chose.</summary>
