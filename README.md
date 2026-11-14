@@ -13,11 +13,12 @@
 
 <p align="center">
   <b><a href="#install">Install</a></b> ·
+  <b><a href="#circle-to-search">Circle to search</a></b> ·
   <a href="#the-floating-island">Island</a> ·
-  <a href="#circle-to-search">Circle</a> ·
   <a href="#one-calm-screen">Open</a> ·
   <a href="#the-dial">Dial</a> ·
   <a href="#stage">Stage</a> ·
+  <a href="#every-card">Cards</a> ·
   <a href="#everything-else">Everything else</a> ·
   <a href="#say-it-or-type-it">Commands</a> ·
   <a href="#privacy">Privacy</a>
@@ -25,9 +26,71 @@
 
 ---
 
+**Circle anything on your screen and the answer lands right where you are.** A time in another zone becomes your time, a Japanese message becomes English, an error explains itself, a flight number tracks itself, a question you ask out loud is answered out loud. No new tab, no copy-paste, no paid AI.
+
 Shammy turns the top of your Windows screen into a **floating island**: a pill of dark glass that glows softly with whatever is happening, opens into one calm screen when you need it, and blooms into a dial under your pointer when you hold the middle mouse button. It plays your music, keeps your calls, timers and meetings in view, reads your one-time codes, runs your laptop, and becomes a teleprompter under your camera when you present.
 
 It's light (about **90 MB** while idle), it never needs a paid AI, and it stays out of your way.
+
+<br>
+
+<a name="circle-to-search"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/circle-to-search-dark.svg"><img src="docs/images/type/circle-to-search-light.svg" alt="Circle to search" width="100%"></picture></p>
+
+<p align="center">
+  <img src="docs/images/circle.gif" alt="A date is circled in liquid light; the answer flies into the island as a drop and becomes a reminder" width="800">
+</p>
+
+<p align="center"><b>Circle anything on your screen. The answer lands in the island, not in a new tab.</b></p>
+
+Press <kbd>Copilot</kbd> (or hold <kbd>Right Ctrl</kbd>) and the screen holds still. Circle a word, a number, a paragraph, an error, a picture. Your circle is drawn in **liquid light**, and the answer leaves it as a drop and **flies into the island**. You never leave what you were doing.
+
+<p align="center">
+  <img src="docs/images/circle-answers.png" alt="Island answers: a time in your zone, a Japanese sentence translated, a flight to track, an error explained, a UPI ID, a question answered, a PIN code's town, and Japanese text with its choices" width="100%">
+</p>
+
+### 🎙️ Say what you want, while you circle
+
+Talk as you draw, or type into the island afterwards. Shammy does exactly that, nothing more:
+
+| Say or type | What happens |
+|---|---|
+| *"translate"* · *"in Hindi"* · *"matlab"* | The translation, right in the island |
+| *"explain"* · *"kya hai"* · *"fix this"* | Google AI Mode explains it in two sentences |
+| *"what time"* · *"convert"* | Your local time, rupees, metric |
+| *"search"* · *"google it"* | The full results, as you'd expect |
+| *"copy"* · *"track"* · *"call"* · *"remind me"* | Just that, in one go |
+| *any question*, like *"is this vegan?"* | Asked about what you circled, answered in the island |
+
+### ⚡ Plain things are answered instantly, on your PC
+
+No Google, no waiting. Shammy reads it on your own PC and hands you the next step:
+
+| You circle | The island shows |
+|---|---|
+| 🕒 `3 PM PST` | **4:30 AM**, your time, tomorrow · **Remind me** |
+| ✈️ `6E 2134` | IndiGo flight · **Track flight** |
+| 📦 a tracking number or a PNR | the courier or Indian Railways · **Track** |
+| 💸 `name@okhdfcbank` | UPI ID, with its app · **Copy**, **Open a pay app** |
+| 🏦 an IFSC code | the bank and the branch |
+| 📮 a PIN code | the town and state · **Maps** |
+| 🚗 `MH 12 AB 1234` | the state it's registered in |
+| 🧮 `₹1,200 + 18% GST` | **₹1,416** |
+| 📞 📧 🔗 📅 📍 🎨 | phone (**Call**, **WhatsApp**), email, link, date (**Remind me**, **Calendar**), address (**Maps**), colour (**hex**, **RGB**) |
+
+### 💬 Everything else gets the right choices
+
+- **Foreign text** (Japanese, Hindi, Spanish, French, Hinglish and more) is spotted on your PC and offers **Translate** first.
+- **An error message or code** offers **Explain**: what went wrong and how to fix it, in plain words.
+- **A name or a term** gets a short fact from Wikipedia.
+- **A picture** gets Google Lens's own short answer first (what it is, in a line), with the full Lens results one tap away.
+- **Any other text** offers **Ask AI**, **Search**, **Copy** and **Translate**, with **Search** always there.
+
+### 🧠 Ask anything, hear the answer
+
+Hold <kbd>Right Alt</kbd> and ask *"why is the sky blue"*, or tap it and type. A short answer from **Google AI Mode** appears in the island in a few seconds, with **Full answer**, **Open in ChatGPT**, **Copy** and **Search** under it. Ask out loud and **Shammy says the answer back** in whole sentences, in your Gnani voice. Start with *"search …"* when you'd rather have the results page.
+
+A circled answer can be **sent anywhere** in one tap: **Notes**, the **Shelf**, your **phone**, or **Stage**. No paid AI, no account: it uses Google's own free AI Mode, Lens and Translate.
 
 <br>
 
@@ -42,6 +105,7 @@ The notch no longer hangs from the edge of your screen. It **floats** a few pixe
 
 - **Light like water.** Soft waves drift inside the glass in the colours of what you're playing, and dissolve before they reach the edges. When nothing is happening they hold still and cost nothing.
 - **One liquid surface.** When there's something to press, a round button beads out of the island's end through a smooth, water-drop neck. It isn't stuck on; it flows out of the same glass.
+- **Your song's colours, clearly.** While music plays under the Album palette, the waves come up in the cover's colours, and settle back when it stops.
 - **A rim that breathes.** A thin line of light along the bottom edge tells you the state without opening anything: **red** while your mic is live, **green** before a meeting, **blue** in focus, your **song's colour** with music.
 - **Fake glass, real calm.** The frosted look is a tiny pre-blurred copy of your wallpaper (about 26 KB), made once and remade only when your wallpaper changes. No live blur, no busy graphics card.
 
@@ -50,32 +114,6 @@ The notch no longer hangs from the edge of your screen. It **floats** a few pixe
 </p>
 
 <p align="center"><sub><b>Six palettes.</b> <b>Album</b> (the default) takes its colours from the cover of what's playing. Pick another in Settings › Notch.</sub></p>
-
-<br>
-
-<a name="circle-to-search"></a>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/circle-to-search-dark.svg"><img src="docs/images/type/circle-to-search-light.svg" alt="Circle to search" width="100%"></picture></p>
-
-<p align="center">
-  <img src="docs/images/circle.gif" alt="A date is circled in liquid light; the answer flies into the island as a drop and becomes a reminder" width="800">
-</p>
-
-Press <kbd>Copilot</kbd> (or hold <kbd>Right Ctrl</kbd>) and the screen holds still. Circle anything. Your circle is drawn in **liquid light** in the island's own colours, and the answer leaves the circle as a drop and **flies into the island**.
-
-Most of the time Shammy **understands what you circled on your PC, instantly, without asking Google**:
-
-| You circle | The island offers |
-|---|---|
-| 📞 a phone number | **Call**, **WhatsApp**, Copy |
-| ✉️ an email address | **Write**, Copy |
-| 🔗 a link, even without `https://` | **Open**, Copy |
-| 📅 a date or a time, with its title | **Remind me**, **Calendar**, Copy |
-| 📍 an address | **Maps**, Copy |
-| 🧮 a sum like `18% of 2400` | the answer, Copy |
-| 🎨 a colour, or a swatch of one | its **hex** and **RGB** |
-| 📖 a name or a term | a short fact from Wikipedia |
-
-Every answer is a small **moment in the island**, not a big window. Click it for the full Google results. From there, **send it anywhere** in one tap: save it to **Notes**, put it on the **Shelf**, send it to your **phone**, or read it on **Stage**. Anything else (a picture, a paragraph, a question you say while circling) goes to Google AI Mode, Web or Lens, right in the island.
 
 <br>
 
@@ -147,10 +185,21 @@ Say **"stage"**, **"stage from clipboard"**, or pick Stage on the dial.
 
 <br>
 
+<a name="every-card"></a>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/every-card-dark.svg"><img src="docs/images/type/every-card-light.svg" alt="Every card, one family" width="100%"></picture></p>
+
+<p align="center">
+  <img src="docs/images/cards.png" alt="Redesigned cards: Alarms with light times and day dots, a Focus timer ring, the Music card with its cover, and Snippets with today's values" width="100%">
+</p>
+
+Open any card (Alarms, Timer, Clipboard, Notes, Weather, System, Health, Calendar, Laptop, Volume, Music, Settings and the rest) and **the island shapes itself around it**. A short list makes a short island; an empty card is one line. Every card has one header (Back, the pet's eyes, its name, a short status), light numbers and bold words on glass, and colour only from the island's palette, so under **Album** your cards take the colours of the song you're playing.
+
+<br>
+
 <a name="light-by-design"></a>
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/light-by-design-dark.svg"><img src="docs/images/type/light-by-design-light.svg" alt="Light by design" width="100%"></picture></p>
 
-Shammy 1.0 is built to be forgotten about:
+Shammy is built to be forgotten about:
 
 | | Before | Now |
 |---|---|---|
@@ -166,32 +215,13 @@ Shammy 1.0 is built to be forgotten about:
 <a name="everything-else"></a>
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/type/everything-else-dark.svg"><img src="docs/images/type/everything-else-light.svg" alt="Everything else" width="100%"></picture></p>
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### 💻 Your laptop, in one card
-Wi-Fi, Bluetooth, power mode, keep awake, mute mic, **Quiet** (Shammy holds its pop-ups for an hour), its own **night light** (a warm tint, remembered across restarts), storage, lock, sleep, and restart or shut down (they ask first). Say *"turn off wifi"*, *"performance mode"*, *"night light on"* or *"quiet for an hour"*.
-
-</td>
-<td width="50%"><img src="docs/images/laptop.png" alt="The Laptop card"></td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/images/settings.png" alt="Settings with search"></td>
-<td width="50%" valign="top">
-
-### ⚙️ Settings you can search
-Eleven clear tabs (General, Notch, Wheel, Pet, Voice & search, Notifications, Routines, Clipboard, Connections, Units & language, Advanced) and a search box that finds any setting. The palette finds Shammy's settings too, and flips switches right in the list.
-
-</td>
-</tr>
-</table>
-
 | | |
 |---|---|
 | 🗣️ **Talk to it** | Hold <kbd>Right Alt</kbd> and say it your way, in English or Hinglish: *"screenshot le lo"*, *"gaana band karo"*, *"battery kitni hai"*. Two things at once work too: *"take a screenshot and send it to my phone"*. Not sure what you meant? It offers **Did you mean** choices instead of guessing. |
 | ⌨️ **Type anything** | Tap <kbd>Right Alt</kbd> for the palette: apps, files, settings, music and commands rank as you type. |
-| ⭕ **Circle to search** | Circle anything on screen: numbers, dates, links, sums and colours are understood on your PC; the rest Google answers in the island. [More](#circle-to-search) |
+| ⭕ **Circle to search** | Circle anything and say or type what to do: times, flights, UPI IDs, PIN codes and more are answered on your PC; translations, explanations and questions come from Google AI Mode, in the island. [More](#circle-to-search) |
+| 💻 **Your laptop, in one card** | Wi-Fi, Bluetooth, power mode, keep awake, mute mic, **Quiet** (pop-ups held for an hour), **night light**, lock, sleep, and restart or shut down (they ask first). Say *"turn off wifi"*, *"performance mode"* or *"quiet for an hour"*. |
+| ⚙️ **Settings you can search** | Eleven tabs and a search box that finds any setting; the palette flips switches right in the list. |
 | 🔢 **Codes at a glance** | A one-time code in a message shows big in the island with a **Copy** button. Copied privately (not in clipboard history), cleared after a minute, hidden while you share your screen, never logged. |
 | 🌅 **Morning brief** | The first unlock of a morning shows the weather, meetings, reminders and a low battery in one line, said aloud with your Gnani key. *"Good morning"* asks again. |
 | 🎯 **Focus in one click** | From the dial or the island. It pauses Windows' focus with you, and when it ends tells you what waited: *3 messages waited · WhatsApp, Gmail*. |
@@ -259,6 +289,8 @@ Something of yours under the island? Click the **small tab under it** and it sli
 | `remind me at 6pm to call mom` · `set an alarm for 7 am` · `kal subah 7 baje ka alarm laga do` · `note: buy milk` | Reminders, alarms and notes |
 | `5 ft in cm` · `100 usd to inr` · `1.2 lakh in dollars` · `5pm ist in pst` · `time in tokyo` | Instant answers |
 | `translate good morning to hindi` | Google Translate, in the island |
+| `why is the sky blue` · `capital of japan` · `search best pizza near me` | A short answer from Google AI Mode in the island (said aloud when you asked by voice) · *"search …"* opens the results |
+| While circling: `translate` · `explain` · `what time` · `copy` · `track` | Done to what you circled ([more](#circle-to-search)) |
 | `calendar` · `what's next` | Your next meeting · the Calendar card |
 | `open spotify` · `open github.com` · `open downloads` | App, site or folder launcher |
 | `record my screen` · `live captions` · `captions off` | Recording · captions for what your PC plays |
@@ -272,7 +304,11 @@ Something of yours under the island? Click the **small tab under it** and it sli
 - **Your voice:** with your Gnani key, a command's recording goes to Gnani while you hold the talk key; the key is encrypted on your PC. Without a key or offline, it's heard on your PC by the small offline model. Text on screen is read with Windows' own OCR.
 - **What leaves your PC:**
   - searches go to Google only when you ask; the island shows "Sent to Google" whenever an image goes to Lens;
-  - a circled phone number, email, link, date, address, sum or colour is read on your PC and goes nowhere; a circled name or term (one to four words) is looked up on Wikipedia for its short fact, and only those words are sent;
+  - a circled phone number, email, link, date, address, sum, colour, time zone, flight, tracking number, PNR, UPI ID or vehicle number is read on your PC and goes nowhere; a circled name or term (one to four words) is looked up on Wikipedia for its short fact, and only those words are sent;
+  - a question, an "explain" or a translation goes to Google (AI Mode or Translate) only when you ask, with only those words; a picture goes to Lens only when you circle it; the answer is read from Google's page out of sight and shown in the island;
+  - for an IFSC or PIN code, only the code is sent to a free public lookup (Razorpay's IFSC service, India Post) to show the branch or the town;
+  - **Open in ChatGPT** opens chatgpt.com in your browser only when you tap it;
+  - a spoken answer goes to Gnani to be voiced, only when you asked by voice and a key is saved;
   - "weather in &lt;city&gt;" sends only that city name to Open-Meteo (no account, no key);
   - the calendar is read only from Google, at the secret address you pasted.
 - **Captions, recordings and Stage:** captions come from Windows' Live Captions on your PC; recordings go only to your Videos folder; Stage and its ring light are hidden from screen shares and recordings.
