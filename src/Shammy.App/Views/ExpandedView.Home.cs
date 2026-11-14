@@ -359,15 +359,16 @@ public partial class ExpandedView
 
         var pos = CardKit.Text("", 11, FontWeights.Medium, secondary: true);
         var dur = CardKit.Text("", 11, FontWeights.Medium, secondary: true);
-        var fill = new ColumnDefinition { Width = new GridLength(0, GridUnitType.Star) };
-        var rest = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
-        var bar = new Grid { Height = 3, Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-        bar.ColumnDefinitions.Add(fill);
-        bar.ColumnDefinitions.Add(rest);
-        var track = new Border { CornerRadius = new CornerRadius(1.5), Background = CardKit.Hex("#33FFFFFF") };
-        Grid.SetColumnSpan(track, 2);
-        bar.Children.Add(track);
-        bar.Children.Add(new Border { CornerRadius = new CornerRadius(1.5), Background = CardKit.Ink });
+        // Drag or click anywhere on the line to move through the song (it takes its own clicks, so the
+        // moment doesn't open the Music card underneath). A player that can't seek leaves it as a plain line.
+        var bar = new CardTrack { TrackHeight = 3, KnobSize = 9, Track = CardKit.Hex("#33FFFFFF"), Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetName(bar, "Song position");
+        bar.Committed += f =>
+        {
+            var media = _s?.Media;
+            if (media is { CanSeek: true } && Core.Cards.MediaTime.HasTimeline(media.Duration))
+                media.Seek(TimeSpan.FromSeconds(f * media.Duration.TotalSeconds));
+        };
         var time = new Grid();
         time.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         time.ColumnDefinitions.Add(new ColumnDefinition());
@@ -420,9 +421,9 @@ public partial class ExpandedView
             if (!timed) return;
             pos.Text = Core.Cards.MediaTime.Clock(at);
             dur.Text = Core.Cards.MediaTime.Clock(length);
-            double f = Math.Clamp(at.TotalSeconds / length.TotalSeconds, 0, 1);
-            fill.Width = new GridLength(f, GridUnitType.Star);
-            rest.Width = new GridLength(1 - f, GridUnitType.Star);
+            bar.Value = Math.Clamp(at.TotalSeconds / length.TotalSeconds, 0, 1);
+            bar.IsHitTestVisible = media.CanSeek;
+            bar.Cursor = media.CanSeek ? Cursors.Hand : null;
         };
         return root;
     }
