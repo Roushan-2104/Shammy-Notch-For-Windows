@@ -20,8 +20,11 @@ internal sealed class ScreenShot
     public BitmapSource Crop(Box region)
     {
         var r = region.Clamp(Width, Height);
-        var rect = new System.Windows.Int32Rect((int)r.X, (int)r.Y, Math.Max(1, (int)r.W), Math.Max(1, (int)r.H));
-        var crop = new CroppedBitmap(Image, rect);
+        int w = Math.Max(1, (int)r.W), h = Math.Max(1, (int)r.H);
+        // A copy of just the region: a CroppedBitmap would keep the whole frozen frame (8-33 MB) alive with it.
+        var pixels = new byte[w * h * 4];
+        Image.CopyPixels(new System.Windows.Int32Rect((int)r.X, (int)r.Y, w, h), pixels, w * 4, 0);
+        var crop = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, w * 4);
         crop.Freeze();
         return crop;
     }

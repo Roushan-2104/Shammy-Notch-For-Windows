@@ -149,6 +149,7 @@ internal sealed partial class SearchCoordinator
         _factLookup?.Cancel();
         _factLookup = null;
         _momentFull = null;
+        _circle = null;
         _shot = null;
         _ocr = null;
         _ctx = null;
