@@ -197,7 +197,12 @@ public partial class ExpandedView : UserControl
     {
         _s = services;
         services.Shelf.Items.CollectionChanged += (_, _) => RefreshShelf();
-        services.Notifications.History.CollectionChanged += (_, _) => Refresh();
+        services.Notifications.History.CollectionChanged += (_, _) =>
+        {
+            Refresh();
+            // A dismiss, Clear all or a new message changes the open Alerts list itself, not just its header.
+            RebuildAlertRows();
+        };
         // A call starting or ending hides or reveals the alerts' text in place, even with the view open.
         PrivacyState.Changed += _ => Dispatcher.BeginInvoke(RebuildAlertRows);
         services.Media.Changed += () => Dispatcher.BeginInvoke(() =>
