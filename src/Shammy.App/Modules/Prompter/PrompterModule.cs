@@ -57,6 +57,7 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
     bool _viewInteractive;
     // The copied text the user said "Keep my script" or "Not now" to (a fingerprint, not the words).
     string? _declinedKey;
+    bool _offersOff;
     bool _showInCaptures;
     // The screen freeze for circle-to-search also switches capture hiding; this puts it back while we are open.
     readonly DispatcherTimer _keepHidden = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
@@ -165,6 +166,11 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
         // What the script sheet shows: "sheet=pick|type|offer|none …", the script's length, the recent count and
         // whether the clipboard now would be offered.
         ctx.AddPipeCommand("stage-empty-state", _ => SheetState());
+        ctx.AddPipeCommand("stage-offers", arg =>
+        {
+            _offersOff = arg.Trim().Equals("off", StringComparison.OrdinalIgnoreCase);
+            return $"offers={(_offersOff ? "off" : "on")}";
+        });
         // The "Script" chip (N) on Stage: the choices over the script; opens Stage on them if it was closed.
         ctx.AddPipeCommand("stage-change", _ =>
         {
@@ -391,7 +397,8 @@ internal sealed class PrompterModule : IShammyModule, Connect.IStageLink, IStage
     /// </summary>
     void Open()
     {
-        var copied = ClipboardText.TryGet();
+        // Test runs can turn the question off ("stage-offers off"), so they never depend on the real clipboard.
+        var copied = _offersOff ? null : ClipboardText.TryGet();
         if (StageScripts.ShouldOffer(copied, _data.Script, _declinedKey)) ShowSheet(s => s.ShowOffer(copied!));
         else if (_data.Script.Length == 0) ShowSheet(s => s.ShowPick());
         else ShowStage();

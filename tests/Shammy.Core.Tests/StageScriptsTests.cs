@@ -25,6 +25,21 @@ public class StageScriptsTests
     [InlineData(@"C:\Users\me\My Documents\talk.txt")]
     public void Words_links_and_paths_are_not_offered(string? text) => Assert.False(StageScripts.LooksLikeScript(text));
 
+    [Theory]
+    [InlineData("int ans = INT_MAX; for (int i = 0; i < n; i++) { ans = min(ans, a[i]); }")]
+    [InlineData("const items = props.items ?? [];\nreturn items.map(x => x.id);")]
+    [InlineData("public void Run()\n{\n    Console.WriteLine(\"hi there friend\");\n}")]
+    public void Copied_code_is_not_offered_as_a_script(string text)
+    {
+        Assert.True(StageScripts.LooksLikeCode(text));
+        Assert.False(StageScripts.LooksLikeScript(text));
+    }
+
+    [Theory]
+    [InlineData("So here is the one thing nobody tells you about editing (and it matters).")]
+    [InlineData("Good morning everyone! Today: three ideas, one story, and a question for you.")]
+    public void Prose_with_a_little_punctuation_is_not_code(string text) => Assert.False(StageScripts.LooksLikeCode(text));
+
     [Fact]
     public void Two_long_words_are_not_a_script() => Assert.False(StageScripts.LooksLikeScript("Extraordinarily wonderful"));
 

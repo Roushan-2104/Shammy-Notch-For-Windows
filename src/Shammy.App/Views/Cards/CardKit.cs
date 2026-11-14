@@ -633,7 +633,9 @@ internal sealed class CardTrack : FrameworkElement
         dc.DrawRoundedRectangle(Track, null, new Rect(0, y, w, TrackHeight), rad, rad);
         double x = w * _value;
         if (x > 0) dc.DrawRoundedRectangle(Fill, null, new Rect(0, y, Math.Max(TrackHeight, x), TrackHeight), rad, rad);
-        var knob = new Point(Math.Clamp(x, Math.Max(KnobSize, 6) / 2, w - Math.Max(KnobSize, 6) / 2), h / 2);
+        // A track narrower than its knob (mid-animation, a squeezed layout) centres the knob instead of throwing.
+        double half = Math.Max(KnobSize, 6) / 2;
+        var knob = new Point(w <= 2 * half ? w / 2 : Math.Clamp(x, half, w - half), h / 2);
         if (KnobSize > 0)
         {
             if (KnobHalo != Brushes.Transparent) dc.DrawEllipse(KnobHalo, null, knob, KnobSize / 2 + 3, KnobSize / 2 + 3);

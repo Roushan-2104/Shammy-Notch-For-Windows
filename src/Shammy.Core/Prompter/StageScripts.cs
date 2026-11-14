@@ -41,7 +41,28 @@ public static class StageScripts
         var t = (text ?? "").Trim();
         if (t.Length < MinOfferChars) return false;
         if (IsLoneLink(t)) return false;
+        if (LooksLikeCode(t)) return false;
         return PrompterText.Words(t) >= 3;
+    }
+
+    /// <summary>
+    /// Code rather than something to read aloud: many code symbols for its length, or most lines ending in ";", "{"
+    /// or "}". A copied snippet shouldn't be offered as a teleprompter script.
+    /// </summary>
+    public static bool LooksLikeCode(string? text)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Length == 0) return false;
+        int visible = 0, symbols = 0;
+        foreach (char c in t)
+        {
+            if (char.IsWhiteSpace(c)) continue;
+            visible++;
+            if ("{}[]();=<>|&$#_\\*".IndexOf(c) >= 0) symbols++;
+        }
+        if (visible > 0 && symbols >= 3 && (double)symbols / visible > 0.08) return true;
+        var lines = t.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        return lines.Count >= 2 && lines.Count(l => l.EndsWith(';') || l.EndsWith('{') || l.EndsWith('}')) * 2 >= lines.Count;
     }
 
     /// <summary>Whether dragged text is worth reading: any words at all, but not a link or a path on its own.</summary>
