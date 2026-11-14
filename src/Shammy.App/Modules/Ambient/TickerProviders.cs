@@ -24,9 +24,41 @@ internal sealed class CricketProvider(Func<string?> team) : ITickerProvider
 
     public async Task<IReadOnlyList<TickerItem>> RefreshAsync(HttpClient http, CancellationToken ct)
     {
-        var xml = await AmbientNet.GetAsync(http, CricketFeed.Url, ct: ct).ConfigureAwait(false);
-        if (!xml.Contains("<rss", StringComparison.OrdinalIgnoreCase)) throw new HttpRequestException("cricket feed returned something other than RSS");
+        var xml = await CricketRss.GetAsync(http, ct).ConfigureAwait(false);
         return CricketFeed.Items(CricketFeed.Parse(xml), team());
+    }
+}
+
+/// <summary>
+/// ESPNcricinfo's RSS, shared by the live score and the ticker (both read it every 30 s during a match): a fetch
+/// under way, or one finished less than <see cref="Fresh"/> ago, is reused instead of asking again.
+/// </summary>
+internal static class CricketRss
+{
+    static readonly TimeSpan Fresh = TimeSpan.FromSeconds(25);
+    static readonly object Gate = new();
+    static Task<string>? _last;
+    static DateTime _lastUtc;
+
+    public static Task<string> GetAsync(HttpClient http, CancellationToken ct)
+    {
+        lock (Gate)
+        {
+            if (_last is not { } last || last.IsFaulted || last.IsCanceled || (last.IsCompleted && DateTime.UtcNow - _lastUtc >= Fresh))
+            {
+                _lastUtc = DateTime.UtcNow;
+                _last = last = FetchAsync(http);
+            }
+            // One caller giving up doesn't cancel the fetch the other is waiting on.
+            return last.WaitAsync(ct);
+        }
+    }
+
+    static async Task<string> FetchAsync(HttpClient http)
+    {
+        var xml = await AmbientNet.GetAsync(http, CricketFeed.Url).ConfigureAwait(false);
+        if (!xml.Contains("<rss", StringComparison.OrdinalIgnoreCase)) throw new HttpRequestException("the cricket feed returned something other than RSS");
+        return xml;
     }
 }
 

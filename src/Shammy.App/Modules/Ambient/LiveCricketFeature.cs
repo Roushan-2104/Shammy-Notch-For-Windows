@@ -235,12 +235,8 @@ internal sealed class LiveCricketFeature : IDisposable
         Schedule(_failures > 0 ? RefreshSchedule.AfterFailure(_failures, normal) : normal);
     }
 
-    static async Task<IReadOnlyList<CricketFeedItem>> FetchAsync(HttpClient http, CancellationToken ct)
-    {
-        var xml = await AmbientNet.GetAsync(http, CricketFeed.Url, ct: ct).ConfigureAwait(false);
-        if (!xml.Contains("<rss", StringComparison.OrdinalIgnoreCase)) throw new HttpRequestException("the cricket feed returned something other than RSS");
-        return CricketLive.ParseItems(xml);
-    }
+    static async Task<IReadOnlyList<CricketFeedItem>> FetchAsync(HttpClient http, CancellationToken ct) =>
+        CricketLive.ParseItems(await CricketRss.GetAsync(http, ct).ConfigureAwait(false));
 
     /// <summary>One poll's matches: follow India's, and react if something just happened.</summary>
     void Take(IReadOnlyList<CricketFeedItem> items)
