@@ -356,11 +356,16 @@ public static partial class CircleSense
         DateTime? date = null;
         bool dayKnown = false;
 
-        // The time first, so "18:30" is never read as part of a date.
+        // The time first, so "18:30" is never read as part of a date. A range ("6:30 – 8:00 PM") starts at its first time.
         (int H, int M)? clock = null;
         var times = TimeRx.Matches(rest);
-        if (times.Count > 1) return null;
-        if (times.Count == 1)
+        if (TimeRangeRx.Match(rest) is { Success: true } range && RangeStart(range) is { } start)
+        {
+            clock = start;
+            rest = Cut(rest, range);
+        }
+        else if (times.Count > 1) return null;
+        else if (times.Count == 1)
         {
             var t = times[0];
             int h, m;
@@ -467,6 +472,30 @@ public static partial class CircleSense
     }
 
     static int MonthOf(string word) => Months[word[..3]];
+
+    // "6:30 – 8:00 PM", "6–8 PM", "18:00-20:00": two times joined by a dash or "to".
+    static readonly Regex TimeRangeRx = new(
+        @"(?<![\d:.])(\d{1,2})(?:[:.](\d{2}))?\s*(?:([ap])\.?\s?m\.?)?\s*(?:[–—-]|to)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(?:([ap])\.?\s?m\.?)?(?![\w:])",
+        Opt, Budget);
+
+    /// <summary>The start of a time range, borrowing AM/PM from the end when only it says ("6–8 PM" starts at 6 PM); null when it isn't one.</summary>
+    static (int H, int M)? RangeStart(Match r)
+    {
+        bool firstSaid = r.Groups[3].Success, endSaid = r.Groups[6].Success;
+        int h = Int(r, 1), m = r.Groups[2].Success ? Int(r, 2) : 0, endH = Int(r, 4);
+        if (m > 59 || (r.Groups[5].Success && Int(r, 5) > 59)) return null;
+        if (!firstSaid && !endSaid)
+        {
+            // Without AM/PM only clock times with minutes are a range ("18:00-20:00"); "21-25" is not.
+            if (!r.Groups[2].Success || !r.Groups[5].Success || h > 23 || endH > 23) return null;
+            return (h, m);
+        }
+        if (h is < 1 or > 12 || (endSaid && endH is < 1 or > 12)) return null;
+        bool pm = char.ToLowerInvariant((firstSaid ? r.Groups[3] : r.Groups[6]).Value[0]) == 'p';
+        // "11–1 PM" starts before noon.
+        if (!firstSaid && h % 12 > endH % 12) pm = !pm;
+        return (h % 12 + (pm ? 12 : 0), m);
+    }
 
     static int Int(Match m, int group) => int.Parse(m.Groups[group].Value, CultureInfo.InvariantCulture);
 

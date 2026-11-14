@@ -103,12 +103,22 @@ public class CircleSenseTests
     [InlineData("6:30 PM", 2026, 11, 13, 18, 30, true)]
     [InlineData("9 AM", 2026, 11, 14, 9, 0, true)]
     [InlineData("5th Jan", 2027, 1, 5, 0, 0, false)]
+    [InlineData("Fri 21 Nov, 6:30 – 8:00 PM", 2026, 11, 21, 18, 30, true)]
+    [InlineData("Sat 21 Nov 6–8 PM", 2026, 11, 21, 18, 0, true)]
     public void Reads_dates_and_times(string text, int y, int mo, int d, int h, int mi, bool hasTime)
     {
         var m = Read(text);
         Assert.Equal(CircleKind.When, m?.Kind);
         Assert.Equal(new DateTime(y, mo, d, h, mi, 0), m!.At);
         Assert.Equal(hasTime, m.HasTime);
+    }
+
+    [Fact]
+    public void A_time_range_leaves_no_title()
+    {
+        Assert.Null(Read("Fri 21 Nov, 6:30 – 8:00 PM")!.Title);
+        Assert.Equal("Standup", Read("Standup Sat 21 Nov 11–1 PM")!.Title);
+        Assert.Equal(new DateTime(2026, 11, 21, 11, 0, 0), Read("Standup Sat 21 Nov 11–1 PM")!.At);
     }
 
     [Fact]
