@@ -1,7 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using Shammy.Core.Guide;
+using Shammy.Views.Cards;
 using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Guide;
@@ -10,13 +13,17 @@ namespace Shammy.Modules.Guide;
 internal enum GuideFilter { All, New, Untried, Off }
 
 /// <summary>
-/// The guide (the same 892×232 frame as Settings): groups on the left; on the right a finder that takes everyday
-/// words, the "right now" suggestions, and a scrolling list with one row per feature: its name, one line, the
-/// words that start it, Try it, and its switch. All it knows comes from <see cref="FeatureGuide"/>; what it does
-/// goes through the <see cref="Host"/> it is given.
+/// The guide (the card family's shape, 720 wide): the header says how many things Shammy does and how many are
+/// not tried yet; under it a full-width finder that takes everyday words, one sideways-scrolling row of capsules
+/// (Everything, the New / Not tried / Off filters and the groups, each with its count), and the features as glass
+/// tiles in two columns: the name (a dot when not tried yet), one line, the words that start it, Try and its
+/// switch. About four rows show, then the tiles scroll; the "right now" suggestions sit in a slim line under them.
+/// All it knows comes from <see cref="FeatureGuide"/>; what it does goes through the <see cref="Host"/> it is given.
 /// </summary>
-internal sealed class GuideView : Grid
+internal sealed class GuideView : CardSheet
 {
+    public const double SheetWidth = 720;
+
     /// <summary>What the view needs from the module.</summary>
     internal sealed record Host(
         Func<string?> Version,
@@ -26,110 +33,70 @@ internal sealed class GuideView : Grid
         Func<GuideFeature, string> Try,
         Func<(string Moment, IReadOnlyList<GuideSuggestion> Suggestions)> Suggest);
 
-    static readonly Brush Mint = ScreenKit.B("#7DE3C3"), MintInk = ScreenKit.B("#06261C");
     static readonly FontFamily Mono = new("Cascadia Mono, Consolas");
+    const double TileGap = 10, TileHeight = 92;
 
     readonly Host _host;
-    readonly StackPanel _groups = new(), _rows = new();
-    readonly WrapPanel _now = new() { VerticalAlignment = VerticalAlignment.Center };
-    readonly TextBlock _status = ScreenKit.Text("", 12, Weight.Regular, ScreenKit.Fg2);
+    readonly StackPanel _chips = new() { Orientation = Orientation.Horizontal };
+    readonly ScrollViewer _chipScroll;
+    readonly Grid _tiles = new();
+    readonly StackPanel _now = new() { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 10, 0, 0) };
+    readonly TextBlock _status = new();
     readonly TextBox _find;
     readonly ScrollViewer _scroll;
-    Segmented _filters = null!;
     int _group = -1;
     GuideFilter _filter;
 
-    public GuideView(Host host, string query, GuideFilter filter)
+    public GuideView(Host host, string query, GuideFilter filter) : base("Guide", SheetWidth)
     {
         _host = host;
         _filter = filter;
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(188) });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
-        ColumnDefinitions.Add(new ColumnDefinition());
-        Children.Add(_groups);
-
-        var right = new Grid();
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(30) });
-        right.RowDefinitions.Add(new RowDefinition());
-        SetColumn(right, 2);
-        Children.Add(right);
 
         _find = new TextBox
         {
             Style = Application.Current?.TryFindResource("BareTextBox") as Style,
             Text = query,
             MaxLength = 80,
-            FontSize = 13,
-            FontFamily = ScreenKit.Font(Weight.Medium).Family,
-            Foreground = ScreenKit.Fg,
-            CaretBrush = ScreenKit.Fg,
-            VerticalContentAlignment = VerticalAlignment.Center,
         };
         System.Windows.Automation.AutomationProperties.SetName(_find, "Find a feature in your own words");
-        var hint = ScreenKit.Text("Say what you want, in your own words", 13, Weight.Regular, ScreenKit.Fg2);
-        hint.IsHitTestVisible = false;
-        hint.VerticalAlignment = VerticalAlignment.Center;
-        hint.Visibility = query.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        _find.TextChanged += (_, _) =>
+        var field = Sheet.Field(_find, "Say what you want, in your own words", CardKit.Paths.Search, 38);
+        _find.TextChanged += (_, _) => BuildList();
+
+        _chipScroll = new ScrollViewer
         {
-            hint.Visibility = _find.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-            BuildList();
+            Content = _chips,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Focusable = false,
+            Margin = new Thickness(0, 10, 0, 0),
+            Padding = new Thickness(0, 1, 0, 1),
         };
-        var field = new Border
+        // A wheel over the capsules moves them sideways; the right edge fades while more are hidden there.
+        _chipScroll.PreviewMouseWheel += (_, e) =>
         {
-            Width = 300,
-            Height = 30,
-            CornerRadius = new CornerRadius(8),
-            Background = ScreenKit.Ground,
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(10, 0, 10, 0),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Child = new Grid { Children = { hint, _find } },
+            if (_chipScroll.ScrollableWidth <= 0) return;
+            _chipScroll.ScrollToHorizontalOffset(_chipScroll.HorizontalOffset - e.Delta / 2.0);
+            e.Handled = true;
         };
-        right.Children.Add(field);
+        _chipScroll.ScrollChanged += (_, _) => Fade();
 
-        var labels = new[] { "All", "New", "Not tried", "Off" };
-        _filters = new Segmented(labels, (int)_filter, i =>
-        {
-            _filter = (GuideFilter)i;
-            BuildList();
-        }, minWidth: 54, height: 26) { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        right.Children.Add(_filters);
-
-        var strip = new Grid();
-        strip.ColumnDefinitions.Add(new ColumnDefinition());
-        strip.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        strip.Children.Add(_now);
-        _status.VerticalAlignment = VerticalAlignment.Center;
-        _status.Margin = new Thickness(12, 0, 2, 0);
-        SetColumn(_status, 1);
-        strip.Children.Add(_status);
-        SetRow(strip, 1);
-        right.Children.Add(strip);
-
+        _tiles.ColumnDefinitions.Add(new ColumnDefinition());
+        _tiles.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(TileGap) });
+        _tiles.ColumnDefinitions.Add(new ColumnDefinition());
+        // About four rows show (the fourth peeks), then the tiles scroll.
         _scroll = new ScrollViewer
         {
-            Content = _rows,
+            Content = _tiles,
+            MaxHeight = 3.4 * TileHeight + 3 * TileGap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Focusable = false,
-            Padding = new Thickness(16, 2, 16, 6),
+            Margin = new Thickness(0, 10, 0, 0),
         };
-        var panel = new Border
-        {
-            CornerRadius = new CornerRadius(16),
-            Background = ScreenKit.Tile,
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(1),
-            Child = _scroll,
-            ClipToBounds = true,
-        };
-        SetRow(panel, 2);
-        right.Children.Add(panel);
 
-        BuildGroups();
+        Body.Children.Add(new StackPanel { Children = { field, _chipScroll, _scroll, _now } });
+
+        BuildChips();
         BuildNow();
         BuildList();
     }
@@ -141,20 +108,25 @@ internal sealed class GuideView : Grid
     {
         _group = -1;
         _filter = filter;
-        _filters.Index = (int)filter;
-        BuildGroups();
+        BuildChips();
         if (_find.Text == query) BuildList();
         else _find.Text = query;
         _scroll.ScrollToTop();
+        _chipScroll.ScrollToLeftEnd();
     }
 
     public void Refresh()
     {
         BuildNow();
+        BuildChips();
         BuildList();
     }
 
-    public void Say(string text) => _status.Text = text;
+    public void Say(string text)
+    {
+        _status.Text = text;
+        Header();
+    }
 
     /// <summary>The features on show right now, in order.</summary>
     public IReadOnlyList<GuideFeature> Shown()
@@ -166,7 +138,7 @@ internal sealed class GuideView : Grid
         {
             GuideFilter.New => among.Where(f => FeatureGuide.IsNew(f, version)),
             GuideFilter.Untried => among.Where(f => Untried(f)),
-            GuideFilter.Off => among.Where(f => f.Switch != GuideSwitch.None && !_host.IsOn(f)),
+            GuideFilter.Off => among.Where(f => IsOff(f)),
             _ => among,
         };
         return FeatureFinder.Find(_find.Text, among.ToList()).Select(m => m.Feature).ToList();
@@ -175,61 +147,160 @@ internal sealed class GuideView : Grid
     /// <summary>Only things you start yourself can be "not tried": the keys and the passive features never nag.</summary>
     bool Untried(GuideFeature f) => f.Try.Length > 0 && !_host.Used(f.Id);
 
+    bool IsOff(GuideFeature f) => f.Switch != GuideSwitch.None && !_host.IsOn(f);
+
     public string Describe() =>
         $"group={(_group < 0 ? "all" : FeatureGuide.Groups[_group])} filter={_filter} query=\"{_find.Text}\" rows={Shown().Count} " +
         $"first={Shown().FirstOrDefault()?.Id ?? "-"} now=\"{string.Join(",", _now.Children.OfType<Pressable>().Select(p => p.Tag))}\" status=\"{_status.Text}\"";
 
-    void BuildGroups()
+    // ---- The header ------------------------------------------------------------------------------
+
+    /// <summary>"Guide · 51 things · 18 not tried yet" (the count in light numbers), or what just happened.</summary>
+    void Header()
     {
-        _groups.Children.Clear();
-        for (int g = -1; g < FeatureGuide.Groups.Count; g++)
+        var t = TitleText;
+        t.Inlines.Clear();
+        t.Inlines.Add(new System.Windows.Documents.Run("Guide"));
+        var quiet = CardKit.Face(FontWeights.Medium);
+        System.Windows.Documents.Run Quiet(string s)
+        {
+            var r = CardKit.Run(s, FontWeights.Medium, CardKit.Ink2);
+            r.FontFamily = quiet;
+            r.FontSize = 13;
+            return r;
+        }
+        if (_status.Tag is string said)
+        {
+            t.Inlines.Add(Quiet("  ·  " + said));
+            return;
+        }
+        int untried = FeatureGuide.All.Count(Untried);
+        t.Inlines.Add(Quiet($"  ·  {FeatureGuide.All.Count} things  ·  "));
+        var number = new System.Windows.Documents.Run(untried.ToString())
+        {
+            FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont"),
+            FontWeight = FontWeights.Light,
+            FontSize = 15,
+            Foreground = Ink.Soft,
+        };
+        t.Inlines.Add(number);
+        t.Inlines.Add(Quiet(" not tried yet"));
+    }
+
+    // ---- The capsule row -------------------------------------------------------------------------
+
+    /// <summary>Everything, the three filters, then the groups: one row, the chosen ones in the accent tint.</summary>
+    void BuildChips()
+    {
+        _chips.Children.Clear();
+        string version = _host.Version() ?? "";
+        _chips.Children.Add(Capsule("Everything", FeatureGuide.All.Count, _group < 0 && _filter == GuideFilter.All, "Everything, every feature", () =>
+        {
+            _group = -1;
+            _filter = GuideFilter.All;
+        }));
+        (GuideFilter Filter, string Name, int Count)[] filters =
+        {
+            (GuideFilter.New, "New", FeatureGuide.All.Count(f => FeatureGuide.IsNew(f, version))),
+            (GuideFilter.Untried, "Not tried", FeatureGuide.All.Count(Untried)),
+            (GuideFilter.Off, "Off", FeatureGuide.All.Count(IsOff)),
+        };
+        foreach (var (f, name, count) in filters)
+        {
+            var filter = f;
+            _chips.Children.Add(Capsule(name, count, _filter == filter, $"Filter: {name}", () => _filter = _filter == filter ? GuideFilter.All : filter));
+        }
+        var rule = new Border { Width = 1, Height = 18, Background = Sheet.GlassEdge, Margin = new Thickness(4, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
+        _chips.Children.Add(rule);
+        for (int g = 0; g < FeatureGuide.Groups.Count; g++)
         {
             int group = g;
-            bool on = group == _group;
-            string name = group < 0 ? "Everything" : FeatureGuide.Groups[group];
-            int count = group < 0 ? FeatureGuide.All.Count : FeatureGuide.All.Count(f => f.Group == group);
-            var text = ScreenKit.Text(name, 13, Weight.SemiBold, on ? ScreenKit.Fg : ScreenKit.Fg2);
-            var number = ScreenKit.Text(count.ToString(), 12, Weight.Regular, ScreenKit.Fg2);
-            number.HorizontalAlignment = HorizontalAlignment.Right;
-            var bar = new Border
-            {
-                Width = 3,
-                Height = 14,
-                CornerRadius = new CornerRadius(2),
-                Background = on ? ScreenKit.Accent : Brushes.Transparent,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(-12, 0, 0, 0),
-            };
-            var row = new Pressable(on ? ScreenKit.Tile : Brushes.Transparent, ScreenKit.Tile)
-            {
-                Height = 28,
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16, 0, 12, 0),
-                Margin = new Thickness(0, 0, 0, 2),
-                Child = new Grid { Children = { bar, text, number } },
-                PressScale = 0.98,
-            };
-            System.Windows.Automation.AutomationProperties.SetName(row, $"{name}, {count} features");
-            row.Click += () =>
-            {
-                _group = group;
-                BuildGroups();
-                BuildList();
-                _scroll.ScrollToTop();
-            };
-            _groups.Children.Add(row);
+            string name = FeatureGuide.Groups[g];
+            int count = FeatureGuide.All.Count(f => f.Group == group);
+            _chips.Children.Add(Capsule(name, count, _group == group, $"{name}, {count} features", () => _group = _group == group ? -1 : group));
         }
+        Dispatcher.BeginInvoke(Fade, System.Windows.Threading.DispatcherPriority.Loaded);
     }
+
+    /// <summary>A capsule with its count in light numbers; <paramref name="on"/> wears the accent tint.</summary>
+    Button Capsule(string name, int count, bool on, string spoken, Action pick)
+    {
+        var label = CardKit.Text(name, 13, FontWeights.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        var number = Sheet.Num(count.ToString(), 13, CardKit.Ink2);
+        number.Margin = new Thickness(6, 0, 0, 0);
+        var face = new Border
+        {
+            Height = 32,
+            CornerRadius = new CornerRadius(16),
+            Background = on ? Ink.Tint : Sheet.CapFill,
+            BorderBrush = on ? Ink.TintEdge : Brushes.Transparent,
+            BorderThickness = new Thickness(on ? 1 : 0),
+            Padding = new Thickness(13, 0, 13, 0),
+            Child = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { label, number } },
+            SnapsToDevicePixels = true,
+        };
+        var button = new Button { Content = face, Template = Bare, Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 6, 0), ToolTip = spoken };
+        System.Windows.Automation.AutomationProperties.SetName(button, spoken);
+        System.Windows.Automation.AutomationProperties.SetItemStatus(button, on ? "Chosen" : "");
+        Ui.FocusKit.Button(button);
+        Ui.Press.Attach(button);
+        if (!on)
+        {
+            button.MouseEnter += (_, _) => face.Background = Sheet.CapHover;
+            button.MouseLeave += (_, _) => face.Background = Sheet.CapFill;
+        }
+        button.Click += (_, e) =>
+        {
+            e.Handled = true;
+            pick();
+            double offset = _chipScroll.HorizontalOffset;
+            BuildChips();
+            _chipScroll.ScrollToHorizontalOffset(offset);
+            BuildList();
+            _scroll.ScrollToTop();
+        };
+        return button;
+    }
+
+    /// <summary>The capsule row fades at the right edge while more capsules are hidden there.</summary>
+    void Fade()
+    {
+        bool more = _chipScroll.ScrollableWidth > 0.5 && _chipScroll.HorizontalOffset < _chipScroll.ScrollableWidth - 0.5;
+        if (!more)
+        {
+            _chipScroll.OpacityMask = null;
+            return;
+        }
+        if (_chipScroll.OpacityMask is LinearGradientBrush) return;
+        _chipScroll.OpacityMask = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(1, 0),
+            GradientStops = { new GradientStop(Colors.Black, 0), new GradientStop(Colors.Black, 0.86), new GradientStop(Colors.Transparent, 1) },
+        };
+    }
+
+    static readonly ControlTemplate Bare = MakeBare();
+
+    static ControlTemplate MakeBare()
+    {
+        var t = new ControlTemplate(typeof(System.Windows.Controls.Primitives.ButtonBase)) { VisualTree = new FrameworkElementFactory(typeof(ContentPresenter)) };
+        t.Seal();
+        return t;
+    }
+
+    // ---- Right now -------------------------------------------------------------------------------
 
     /// <summary>"Something is playing · Live captions · Volume mixer": a click finds that feature.</summary>
     void BuildNow()
     {
         _now.Children.Clear();
         var (moment, suggestions) = _host.Suggest();
+        _now.Visibility = suggestions.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         if (suggestions.Count == 0) return;
-        var label = ScreenKit.Text(moment, 12, Weight.Regular, ScreenKit.Fg2);
-        label.VerticalAlignment = VerticalAlignment.Center;
-        label.Margin = new Thickness(2, 0, 8, 0);
+        var label = Sheet.Meta(moment, 12);
+        label.Margin = new Thickness(0, 0, 8, 0);
         _now.Children.Add(label);
         foreach (var s in suggestions)
         {
@@ -242,105 +313,128 @@ internal sealed class GuideView : Grid
         }
     }
 
+    // ---- The tiles -------------------------------------------------------------------------------
+
     void BuildList()
     {
-        _rows.Children.Clear();
+        _tiles.Children.Clear();
+        _tiles.RowDefinitions.Clear();
         var shown = Shown();
         string version = _host.Version() ?? "";
         if (shown.Count == 0)
         {
-            var none = ScreenKit.Text(_filter == GuideFilter.Untried && _find.Text.Length == 0 ? "You have tried everything here." : "Nothing matches. Try another word, or the All filter.",
-                13, Weight.Regular, ScreenKit.Fg2);
-            none.Margin = new Thickness(0, 22, 0, 0);
-            none.HorizontalAlignment = HorizontalAlignment.Center;
-            _rows.Children.Add(none);
+            var none = Sheet.Meta(_filter == GuideFilter.Untried && _find.Text.Length == 0 ? "You have tried everything here." : "Nothing matches. Try another word, or Everything.", 13);
+            none.Margin = new Thickness(4, 2, 0, 2);
+            Grid.SetColumnSpan(none, 3);
+            _tiles.Children.Add(none);
         }
-        for (int i = 0; i < shown.Count; i++) _rows.Children.Add(Row(shown[i], version, last: i == shown.Count - 1));
+        for (int i = 0; i < shown.Count; i++)
+        {
+            int row = i / 2;
+            if (i % 2 == 0)
+            {
+                if (row > 0) _tiles.RowDefinitions.Add(new RowDefinition { Height = new GridLength(TileGap) });
+                _tiles.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+            var tile = Tile(shown[i], version);
+            Grid.SetRow(tile, row * 2);
+            Grid.SetColumn(tile, i % 2 == 0 ? 0 : 2);
+            _tiles.Children.Add(tile);
+        }
         int on = FeatureGuide.All.Count(f => f.Switch == GuideSwitch.None || _host.IsOn(f));
         if (_status.Text.Length == 0 || _status.Tag is null)
         {
             _status.Text = $"{FeatureGuide.All.Count} features · {on} on · {FeatureGuide.All.Count(Untried)} not tried";
             _status.Tag = null;
         }
+        Header();
     }
 
-    Border Row(GuideFeature f, string version, bool last)
+    /// <summary>One feature: the name (a dot when not tried yet, "New" when new), one quiet line, the words that start it, Try and its switch.</summary>
+    Border Tile(GuideFeature f, string version)
     {
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(52) });
-
-        var name = new StackPanel { Orientation = Orientation.Horizontal };
-        name.Children.Add(ScreenKit.Text(f.Name, 14, Weight.SemiBold));
-        if (FeatureGuide.IsNew(f, version)) name.Children.Add(Badge("NEW", Mint, MintInk, null));
-        if (Untried(f)) name.Children.Add(Badge("NOT TRIED YET", Brushes.Transparent, ScreenKit.Fg2, ScreenKit.Hairline));
-
-        var line = ScreenKit.Text(f.Line, 12, Weight.Regular, ScreenKit.Fg2);
-        line.TextWrapping = TextWrapping.Wrap;
-        var say = new StackPanel { Orientation = Orientation.Horizontal };
-        var sayLabel = ScreenKit.Label(PhraseLabel(f.Phrase), ScreenKit.Fg2, 9.5);
-        sayLabel.VerticalAlignment = VerticalAlignment.Center;
-        sayLabel.Margin = new Thickness(0, 0, 7, 0);
-        say.Children.Add(sayLabel);
-        say.Children.Add(new TextBlock { Text = f.Phrase, FontFamily = Mono, FontSize = 11.5, Foreground = ScreenKit.Fg, VerticalAlignment = VerticalAlignment.Center });
-        var phrase = new Border
+        var top = new Grid();
+        top.ColumnDefinitions.Add(new ColumnDefinition());
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var name = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        name.Children.Add(Sheet.Word(f.Name, 14));
+        if (Untried(f))
         {
-            Background = ScreenKit.Ground,
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(7, 2, 7, 3),
-            Margin = new Thickness(0, 4, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Child = say,
-        };
-        var words = ScreenKit.Column(1, name, line, phrase);
-        // A switch that turns off more than its name says, says so.
-        if (f.Also.Length > 0 && f.Switch != GuideSwitch.None)
-        {
-            var also = ScreenKit.Text(f.Also, 11.5, Weight.Regular, ScreenKit.Fg2);
-            also.TextWrapping = TextWrapping.Wrap;
-            also.FontStyle = FontStyles.Italic;
-            also.Margin = new Thickness(0, 3, 0, 0);
-            words.Children.Add(also);
+            var dot = new Ellipse { Width = 7, Height = 7, Fill = CardKit.Accent, Margin = new Thickness(7, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Not tried yet" };
+            System.Windows.Automation.AutomationProperties.SetName(dot, "Not tried yet");
+            name.Children.Add(dot);
         }
-        words.VerticalAlignment = VerticalAlignment.Center;
-        grid.Children.Add(words);
-
-        if (f.Try.Length > 0)
+        if (FeatureGuide.IsNew(f, version))
         {
-            var go = ScreenKit.Secondary("Try it", () =>
-            {
-                Announce(_host.Try(f));
-                BuildNow();
-                BuildList();
-            }, 28, 14, 12.5);
-            go.VerticalAlignment = VerticalAlignment.Center;
-            go.Margin = new Thickness(14, 0, 0, 0);
-            System.Windows.Automation.AutomationProperties.SetName(go, "Try " + f.Name);
-            SetColumn(go, 1);
-            grid.Children.Add(go);
+            var fresh = Sheet.Chip("New", quiet: true, height: 18);
+            fresh.Margin = new Thickness(8, 0, 0, 0);
+            name.Children.Add(fresh);
         }
+        top.Children.Add(name);
         if (f.Switch != GuideSwitch.None)
         {
             var toggle = new ToggleSwitch(_host.IsOn(f), on =>
             {
                 Announce(_host.SetOn(f, on));
                 BuildNow();
+                double offset = _chipScroll.HorizontalOffset;
+                BuildChips();
+                _chipScroll.ScrollToHorizontalOffset(offset);
             }, f.Name)
-            { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-            SetColumn(toggle, 2);
-            grid.Children.Add(toggle);
+            { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(10, -4, 0, -4) };
+            Grid.SetColumn(toggle, 1);
+            top.Children.Add(toggle);
         }
-        return new Border
+
+        var line = Sheet.Meta(f.Line, 12);
+        line.ToolTip = f.Line;
+        line.Margin = new Thickness(0, 4, 0, 0);
+        var words = new StackPanel();
+        words.Children.Add(top);
+        words.Children.Add(line);
+        // A switch that turns off more than its name says, says so.
+        if (f.Also.Length > 0 && f.Switch != GuideSwitch.None)
         {
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(0, 0, 0, last ? 0 : 1),
-            Padding = new Thickness(0, 9, 0, 9),
-            Child = grid,
-            Tag = f.Id,
-        };
+            var also = Sheet.Meta(f.Also, 11.5);
+            also.TextTrimming = TextTrimming.None;
+            also.TextWrapping = TextWrapping.Wrap;
+            also.FontStyle = FontStyles.Italic;
+            also.Margin = new Thickness(0, 3, 0, 0);
+            words.Children.Add(also);
+        }
+
+        var foot = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+        foot.ColumnDefinitions.Add(new ColumnDefinition());
+        foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var phrase = Sheet.Chip(f.Phrase, font: Mono);
+        phrase.HorizontalAlignment = HorizontalAlignment.Left;
+        phrase.ToolTip = PhraseLabel(f.Phrase) + ": " + f.Phrase;
+        if (phrase.Child is TextBlock pt)
+        {
+            pt.FontWeight = FontWeights.Normal;
+            pt.TextTrimming = TextTrimming.CharacterEllipsis;
+        }
+        foot.Children.Add(phrase);
+        if (f.Try.Length > 0)
+        {
+            var go = Sheet.Cap("Try", "Try " + f.Name, () =>
+            {
+                Announce(_host.Try(f));
+                BuildNow();
+                BuildList();
+            }, height: 26);
+            go.Margin = new Thickness(10, 0, 0, 0);
+            go.ToolTip = "Try it";
+            Grid.SetColumn(go, 1);
+            foot.Children.Add(go);
+        }
+        words.Children.Add(foot);
+
+        var tile = Sheet.Tile(words, new Thickness(14, 11, 12, 11), 18);
+        tile.MinHeight = TileHeight;
+        tile.Tag = f.Id;
+        tile.VerticalAlignment = VerticalAlignment.Stretch;
+        return tile;
     }
 
     static readonly string[] Gestures = { "hold ", "hover", "rest the", "scroll ", "drag ", "tap ", "copy anything", "the tab", "a message", "Copilot" };
@@ -356,17 +450,6 @@ internal sealed class GuideView : Grid
     {
         _status.Text = text;
         _status.Tag = text;
+        Header();
     }
-
-    static Border Badge(string text, Brush fill, Brush ink, Brush? ring) => new()
-    {
-        Background = fill,
-        BorderBrush = ring ?? Brushes.Transparent,
-        BorderThickness = new Thickness(ring is null ? 0 : 1),
-        CornerRadius = new CornerRadius(5),
-        Padding = new Thickness(5, 0, 5, 1),
-        Margin = new Thickness(8, 1, 0, 0),
-        VerticalAlignment = VerticalAlignment.Center,
-        Child = ScreenKit.Label(text, ink, 9),
-    };
 }

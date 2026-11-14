@@ -49,15 +49,7 @@ internal partial class SettingsView
         foreach (var app in _s.MutedNotificationApps.ToList())
         {
             var name = AppName(app);
-            var initial = new Border
-            {
-                Width = 26,
-                Height = 26,
-                CornerRadius = new CornerRadius(7),
-                Background = ScreenKit.Hairline,
-                Child = ScreenKit.Text(name[..1].ToUpperInvariant(), 12, Weight.Bold),
-            };
-            ((TextBlock)initial.Child).HorizontalAlignment = HorizontalAlignment.Center;
+            var initial = Initial(name);
             var unmute = ScreenKit.Secondary("Unmute", () =>
             {
                 _changing = true;

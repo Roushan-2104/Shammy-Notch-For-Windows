@@ -13,32 +13,33 @@ using Shammy.Views.Screens;
 namespace Shammy.Modules.Mixer;
 
 /// <summary>
-/// The Volume view: under the notch's own Back and "Volume" title, a list with "Everything" (the output's
-/// volume) first and then a row for each app that is playing, each with its icon, name, slider and level. The
-/// output switcher sits on the title's line, at the right. Clicking an icon mutes just that row; dragging a
-/// slider sets its level (and unmutes it, as turning something up should).
+/// The Volume card (the card family's shape, 600 wide, as tall as what is playing): the header holds the output
+/// sound plays through as a capsule with a chevron (it opens the list of outputs under the header). "Everything"
+/// (the output's volume) is a glass tile with an accent round icon, a palette slider and its level in light
+/// numbers; under it a row for each app that is playing, each with its round icon, name, slider and level. With
+/// nothing playing only Everything shows. Clicking an icon mutes just that row; dragging a slider sets its level
+/// (and unmutes it, as turning something up should).
 ///
 /// It looks at the sound once a second, and only while it is on screen: when the notch hides it the timer
 /// stops, the audio worker ends and every row the user had touched is forgotten.
 /// </summary>
-internal sealed class MixerView : Grid
+internal sealed class MixerView : CardSheet
 {
-    /// <summary>The notch's Back and title row above this view; the output switcher is lifted into it.</summary>
-    const double HeaderBand = 44;
+    public const double SheetWidth = 600;
+
+    /// <summary>Chevron down, stroked.</summary>
+    const string Chevron = "M6 9l6 6 6-6";
 
     readonly MixerModule _module;
     readonly MixerBoard _board = new();
     readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
+    readonly ContentControl _hero = new() { Focusable = false };
+    readonly Border _heroTile;
     readonly StackPanel _list = new();
     readonly Dictionary<string, MixerRowView> _views = new(StringComparer.Ordinal);
-    readonly ContentControl _outputSlot = new()
-    {
-        Focusable = false,
-        HorizontalAlignment = HorizontalAlignment.Right,
-        VerticalAlignment = VerticalAlignment.Top,
-        Margin = new Thickness(0, -HeaderBand, 0, 0),
-    };
-    readonly TextBlock _note = CardKit.Text("", 12.5, FontWeights.Medium, secondary: true);
+    readonly ContentControl _outputSlot = new() { Focusable = false };
+    readonly WrapPanel _picker = new() { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 12) };
+    readonly TextBlock _note = Sheet.Meta("", 13);
     IMixerSource? _source;
     AudioOutputs? _outputs;
     IReadOnlyList<MixerOutput> _shown = Array.Empty<MixerOutput>();
@@ -46,23 +47,28 @@ internal sealed class MixerView : Grid
     bool _on, _reading;
     int _run, _changes;
 
-    public MixerView(MixerModule module)
+    public MixerView(MixerModule module) : base("Volume", SheetWidth)
     {
         _module = module;
-        _note.Margin = new Thickness(14, 13, 14, 13);
-        _note.Visibility = Visibility.Collapsed;
-        var panel = new Border
-        {
-            Background = CardKit.Surface,
-            BorderBrush = CardKit.Hairline,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius),
-            Child = WallDetail.Scroll(CardKit.Column(0, _list, _note)),
-        };
-        Children.Add(panel);
+        BodyGap = 12;
         AutomationProperties.SetName(_outputSlot, "Sound output");
-        SetZIndex(_outputSlot, 1);
-        Children.Add(_outputSlot);
+        Action(_outputSlot);
+
+        _note.Visibility = Visibility.Collapsed;
+        _note.Margin = new Thickness(4, 0, 0, 0);
+        _heroTile = Sheet.Tile(_hero, new Thickness(16, 10, 16, 10));
+        _heroTile.Visibility = Visibility.Collapsed;
+        _list.Margin = new Thickness(0, 4, 0, 0);
+        // About four apps show; more scroll.
+        var apps = new ScrollViewer
+        {
+            Content = _list,
+            MaxHeight = 4 * MixerRowView.RowHeight,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Focusable = false,
+        };
+        Body.Children.Add(new StackPanel { Children = { _picker, _heroTile, apps, _note } });
 
         _timer.Tick += (_, _) => Look();
         IsVisibleChanged += (_, _) =>
@@ -90,6 +96,7 @@ internal sealed class MixerView : Grid
         _run++;
         _reading = false;
         _list.Children.Clear();
+        _hero.Content = null;
         _views.Clear();
         _source = _module.Source;
         _source.Start();
@@ -113,6 +120,7 @@ internal sealed class MixerView : Grid
         _on = false;
         _run++;
         _timer.Stop();
+        _picker.Visibility = Visibility.Collapsed;
         if (_module.Volume is { } volume)
         {
             volume.Changed -= OnMasterChanged;
@@ -176,27 +184,39 @@ internal sealed class MixerView : Grid
 
         foreach (var gone in _views.Keys.Where(key => _rows.All(r => r.Key != key)).ToList())
         {
-            _list.Children.Remove(_views[gone]);
+            var view = _views[gone];
+            if (ReferenceEquals(_hero.Content, view)) _hero.Content = null;
+            else _list.Children.Remove(view);
             _views.Remove(gone);
         }
-        for (int i = 0; i < _rows.Count; i++)
+        int at = 0;
+        foreach (var row in _rows)
         {
-            var row = _rows[i];
-            if (!_views.TryGetValue(row.Key, out var view)) _views[row.Key] = view = new MixerRowView(this, _module);
-            if (i >= _list.Children.Count || !ReferenceEquals(_list.Children[i], view))
+            bool hero = row.Kind == MixerRowKind.Everything;
+            if (!_views.TryGetValue(row.Key, out var view)) _views[row.Key] = view = new MixerRowView(this, _module, hero);
+            if (hero)
             {
-                _list.Children.Remove(view);
-                _list.Children.Insert(i, view);
+                if (!ReferenceEquals(_hero.Content, view)) _hero.Content = view;
             }
-            view.Show(row, first: i == 0);
+            else
+            {
+                if (at >= _list.Children.Count || !ReferenceEquals(_list.Children[at], view))
+                {
+                    _list.Children.Remove(view);
+                    _list.Children.Insert(at, view);
+                }
+                at++;
+            }
+            view.Show(row);
         }
+        _heroTile.Visibility = _hero.Content is null ? Visibility.Collapsed : Visibility.Visible;
 
-        string? note = reading is null ? "No speakers or headphones found"
-            : _rows.All(r => r.Kind == MixerRowKind.Everything) ? "No apps are making sound right now"
-            : null;
+        // With nothing playing only Everything shows (a short island); no output at all is one line.
+        string? note = reading is null ? "No speakers or headphones found" : null;
         _note.Text = note ?? "";
         _note.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
         _outputSlot.Visibility = reading is null ? Visibility.Collapsed : Visibility.Visible;
+        if (reading is null) _picker.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>A slider moved (or the pipe set a level).</summary>
@@ -232,7 +252,7 @@ internal sealed class MixerView : Grid
         if (!_on || !_views.TryGetValue(MixerBoard.EverythingKey, out var view)) return;
         var row = new MixerRow(MixerBoard.EverythingKey, MixerNames.Everything, MixerBoard.Percent(level), muted, MixerRowKind.Everything);
         _rows = _rows.Select(r => r.Key == row.Key ? row : r).ToList();
-        view.Show(row, first: true);
+        view.Show(row);
     }
 
     void OnIconLoaded(string path, ImageSource icon)
@@ -259,13 +279,52 @@ internal sealed class MixerView : Grid
         if (listed.Count > 0) _module.LastOutputs = shown;
         if (_outputSlot.Content is not null && shown.SequenceEqual(_shown)) return;
         _shown = shown;
+        _picker.Children.Clear();
         if (shown.Count == 0)
         {
             _outputSlot.Content = null;
+            _picker.Visibility = Visibility.Collapsed;
             return;
         }
-        int current = shown.ToList().FindIndex(o => o.Current);
-        _outputSlot.Content = new Segmented(shown.Select(o => o.Label).ToList(), current, i => Switch(shown[i]), minWidth: 56, height: 26, fontSize: 12);
+        var current = shown.FirstOrDefault(o => o.Current);
+        _outputSlot.Content = OutputCapsule(current?.Label ?? "Output");
+        // The outputs, under the header while the capsule is open: the current one in the accent tint.
+        foreach (var output in shown)
+        {
+            var pick = output;
+            var cap = Sheet.Cap(output.Label, $"Play through {output.Label}", () =>
+            {
+                _picker.Visibility = Visibility.Collapsed;
+                if (!pick.Current) Switch(pick);
+            }, output.Current ? CardKit.Paths.Check : null);
+            if (output.Current && cap.Content is Border face)
+            {
+                face.Background = Ink.Tint;
+                face.BorderBrush = Ink.TintEdge;
+                face.BorderThickness = new Thickness(1);
+            }
+            cap.Margin = new Thickness(0, 0, 6, 6);
+            _picker.Children.Add(cap);
+        }
+    }
+
+    /// <summary>The header's output capsule: a speaker, the output's name and a chevron; it opens the list.</summary>
+    Button OutputCapsule(string label)
+    {
+        var b = Sheet.Cap(label, $"Sound output: {label}. Choose another", () =>
+        {
+            _picker.Visibility = _picker.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        }, CardKit.Paths.Volume);
+        if (b.Content is Border { Child: StackPanel row } && row.Children.OfType<TextBlock>().FirstOrDefault() is { } text)
+        {
+            text.MaxWidth = 170;
+            text.TextTrimming = TextTrimming.CharacterEllipsis;
+            var chevron = CardKit.Icon(Chevron, CardKit.Ink2, 13, 2.4);
+            chevron.Margin = new Thickness(6, 1, 0, 0);
+            chevron.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(chevron);
+        }
+        return b;
     }
 
     void Switch(MixerOutput output)
@@ -285,41 +344,44 @@ internal sealed class MixerView : Grid
     }
 }
 
-/// <summary>One row: icon (click to mute), name, slider, level.</summary>
+/// <summary>
+/// One row: a round icon (click to mute), the name in bold, a palette slider and the level in light numbers.
+/// Everything's row (the hero) has the accent icon and its level in the soft accent.
+/// </summary>
 internal sealed class MixerRowView : Grid
 {
-    public const double RowHeight = 44, IconSize = 26;
+    public const double RowHeight = 44, IconSize = 30;
 
-    static readonly Brush MutedFill = CardKit.Hex("#55565F");
+    static readonly Brush MutedFill = CardKit.Hex("#55565F"), Glass = Ui.Tokens.Brush("#1FFFFFFF");
 
     readonly MixerView _owner;
     readonly MixerModule _module;
-    readonly Border _rule = CardKit.Rule();
+    readonly bool _heroRow;
     readonly Pressable _icon;
-    readonly TextBlock _name = CardKit.Text("", 13, FontWeights.SemiBold);
-    readonly TextBlock _level = CardKit.Text("", 12, FontWeights.Medium, secondary: true);
-    readonly CardTrack _track = new() { TrackHeight = 5, KnobSize = 0 };
+    readonly TextBlock _name = Sheet.Word("", 14);
+    readonly TextBlock _level;
+    readonly CardTrack _track = new() { TrackHeight = 6, KnobSize = 16, Track = Sheet.Track };
     MixerRow _row = new("", "", 0, false, MixerRowKind.App);
     bool _shownOnce;
 
-    public MixerRowView(MixerView owner, MixerModule module)
+    public MixerRowView(MixerView owner, MixerModule module, bool hero)
     {
         _owner = owner;
         _module = module;
-        Height = RowHeight;
-        _rule.VerticalAlignment = VerticalAlignment.Top;
-        Children.Add(_rule);
+        _heroRow = hero;
+        Height = hero ? 40 : RowHeight;
+        Margin = hero ? new Thickness(0) : new Thickness(16, 0, 16, 0);
+        _level = Sheet.Num("", hero ? 26 : 20, hero ? Ink.Soft : CardKit.Ink);
+        _level.TextTrimming = TextTrimming.None;
 
-        var cells = new Grid { Margin = new Thickness(14, 0, 14, 0) };
-        foreach (double width in new[] { IconSize, 10, 150, 10, 0, 10, 44 })
-            cells.ColumnDefinitions.Add(new ColumnDefinition { Width = width > 0 ? new GridLength(width) : new GridLength(1, GridUnitType.Star) });
-        Children.Add(cells);
+        foreach (double width in new[] { IconSize, 14, 110, 14, 0, 14, 48 })
+            ColumnDefinitions.Add(new ColumnDefinition { Width = width > 0 ? new GridLength(width) : new GridLength(1, GridUnitType.Star) });
 
         _icon = new Pressable(Brushes.Transparent, Brushes.Transparent)
         {
             Width = IconSize,
             Height = IconSize,
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(IconSize / 2),
             VerticalAlignment = VerticalAlignment.Center,
             PressScale = 0.9,
         };
@@ -331,10 +393,10 @@ internal sealed class MixerRowView : Grid
             Paint();
             _owner.Settled();
         };
-        cells.Children.Add(_icon);
+        Children.Add(_icon);
 
         SetColumn(_name, 2);
-        cells.Children.Add(_name);
+        Children.Add(_name);
 
         _track.VerticalAlignment = VerticalAlignment.Center;
         _track.Changed += value =>
@@ -348,21 +410,19 @@ internal sealed class MixerRowView : Grid
         };
         _track.Committed += _ => _owner.Settled();
         SetColumn(_track, 4);
-        cells.Children.Add(_track);
+        Children.Add(_track);
 
         _level.HorizontalAlignment = HorizontalAlignment.Right;
-        _level.TextTrimming = TextTrimming.None;
         SetColumn(_level, 6);
-        cells.Children.Add(_level);
+        Children.Add(_level);
     }
 
-    public void Show(MixerRow row, bool first)
+    public void Show(MixerRow row)
     {
         bool newIcon = !_shownOnce || row.Kind != _row.Kind || row.IconPath != _row.IconPath || (row.IconPath is null && row.Name != _row.Name);
         // While the pointer holds the slider, the level is the pointer's.
         _row = _track.IsDragging ? row with { Percent = _row.Percent, Muted = _row.Muted } : row;
         _shownOnce = true;
-        _rule.Visibility = first ? Visibility.Collapsed : Visibility.Visible;
         _name.Text = row.Name;
         if (newIcon) _icon.Child = Icon(row);
         Paint();
@@ -382,7 +442,7 @@ internal sealed class MixerRowView : Grid
         _icon.Opacity = _row.Muted ? 0.45 : 1;
         AutomationProperties.SetName(_track, _row.Name + " volume");
 
-        var fill = _row.Muted ? MutedFill : CardKit.Ink;
+        Brush fill = _row.Muted ? MutedFill : Ink.Gradient;
         if (!ReferenceEquals(_track.Fill, fill))
         {
             _track.Fill = fill;
@@ -390,7 +450,18 @@ internal sealed class MixerRowView : Grid
         }
         // Ignored while dragging: the track shows where the pointer is.
         _track.Value = _row.Percent / 100.0;
-        _level.Text = _row.Muted ? "Muted" : _row.Percent.ToString(CultureInfo.InvariantCulture);
+        if (_row.Muted)
+        {
+            _level.Text = "Muted";
+            _level.FontSize = 13;
+            _level.Foreground = CardKit.Ink2;
+        }
+        else
+        {
+            _level.Text = _row.Percent.ToString(CultureInfo.InvariantCulture);
+            _level.FontSize = _heroRow ? 26 : 20;
+            _level.Foreground = _heroRow ? Ink.Soft : CardKit.Ink;
+        }
     }
 
     UIElement Icon(MixerRow row)
@@ -398,29 +469,30 @@ internal sealed class MixerRowView : Grid
         switch (row.Kind)
         {
             case MixerRowKind.Everything:
-                return Badge(CardKit.Ink, CardKit.Icon(CardKit.Paths.Volume, CardKit.OnAccent, 15, 2.2));
+                return Badge(CardKit.Accent, CardKit.Icon(CardKit.Paths.Volume, CardKit.OnAccent, 15, 2.2));
             case MixerRowKind.SystemSounds:
-                return Badge(CardKit.PillBg, CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink2, 14, 2));
+                return Badge(Glass, CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink, 14, 2));
         }
         if (row.IconPath is { } path && _module.Icons.Get(path, iconOnly: true) is { } icon) return Picture(icon);
-        // Until the icon arrives, and for apps whose exe can't be read: the name's first letter.
-        var letter = CardKit.Text(row.Name.Length > 0 ? row.Name[..1].ToUpperInvariant() : "?", 12, FontWeights.Bold, secondary: true);
+        // Until the icon arrives, and for apps whose exe can't be read: the name's first letter in a glass circle.
+        var letter = CardKit.Text(row.Name.Length > 0 ? row.Name[..1].ToUpperInvariant() : "?", 13, FontWeights.ExtraBold);
         letter.HorizontalAlignment = HorizontalAlignment.Center;
-        return Badge(CardKit.PillBg, letter);
+        return Badge(Glass, letter);
     }
 
     static Border Badge(Brush background, FrameworkElement content)
     {
         content.HorizontalAlignment = HorizontalAlignment.Center;
         content.VerticalAlignment = VerticalAlignment.Center;
-        return new Border { Width = IconSize, Height = IconSize, CornerRadius = new CornerRadius(8), Background = background, Child = content };
+        return new Border { Width = IconSize, Height = IconSize, CornerRadius = new CornerRadius(IconSize / 2), Background = background, Child = content };
     }
 
-    static Image Picture(ImageSource icon)
+    /// <summary>The app's real icon, in a glass circle.</summary>
+    static Border Picture(ImageSource icon)
     {
-        var image = new Image { Source = icon, Width = IconSize, Height = IconSize, Stretch = Stretch.Uniform };
+        var image = new Image { Source = icon, Width = 20, Height = 20, Stretch = Stretch.Uniform };
         RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
-        return image;
+        return Badge(Glass, image);
     }
 }
 

@@ -5,28 +5,33 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Shammy.Core.Palette;
 using Shammy.Infrastructure;
+using Shammy.Views.Cards;
 using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Settings;
 
 /// <summary>
-/// The Settings screen (the designed detail, 892×232 inside the notch's card frame): eleven tabs on the left, a
-/// scrolling panel of standard rows on the right (switches, segments, sliders, steppers, menus), and above it a
-/// search box (filters the rows of every tab at once), the status line ("Saved · Hover speed Quick") and Done.
-/// Every control writes straight to <see cref="AppSettings"/> through <see cref="SettingsCatalog"/> (saved at once);
-/// changes made elsewhere (the pipe, the tray, the palette) show up while it's open. Accent only on the active
-/// tab's bar and Done.
+/// The Settings card (the card family's shape, 760 wide, as tall as the tab up to a cap): the header holds the
+/// status line ("Saved · Hover speed Quick") and a "Find a setting" box (filters the rows of every tab at once);
+/// under it a slim rail of the eleven tabs as text capsules (the chosen one lifted glass) and, on the right, the
+/// tab's standard rows (switches, segments, sliders, steppers, menus), scrolling when the tab is tall. Every
+/// control writes straight to <see cref="AppSettings"/> through <see cref="SettingsCatalog"/> (saved at once);
+/// changes made elsewhere (the pipe, the tray, the palette) show up while it's open.
 /// </summary>
-internal sealed partial class SettingsView : Grid
+internal sealed partial class SettingsView : CardSheet
 {
+    public const double SheetWidth = 760, RailWidth = 170, PanelMaxHeight = 420;
+
+    static readonly Brush RailLifted = Ui.Tokens.Brush("#1AFFFFFF"), RailHover = Ui.Tokens.Brush("#0FFFFFFF"),
+        GlassWell = Ui.Tokens.Brush("#12FFFFFF");
+
     readonly Action<bool> _setPet;
     readonly AppSettings _s;
     readonly Func<IReadOnlyList<string>> _modules;
-    readonly Action _done;
     readonly StackPanel _tabs = new();
     readonly StackPanel _rows = new();
     readonly ScrollViewer _scroll;
-    readonly TextBlock _status = ScreenKit.Text("Saved automatically", 13, Weight.Regular, ScreenKit.Fg2);
+    readonly TextBlock _status = Sheet.Meta("Saved automatically", 13);
     readonly TextBox _searchBox;
     readonly DispatcherTimer _searchTimer;
     readonly Canvas _overlay = new();
@@ -35,52 +40,34 @@ internal sealed partial class SettingsView : Grid
     string _query = "", _subsection = "";
     bool _changing, _hooked, _rebuildQueued, _searching;
 
+    /// <param name="done">Kept for callers; the card's own Back goes home now.</param>
     /// <param name="setPet">Shows or hides the pet on the notch (and saves it).</param>
     public SettingsView(AppSettings settings, Func<IReadOnlyList<string>> modules, Action done, Action<bool> setPet, string? tab = null)
+        : base("Settings", SheetWidth)
     {
         _setPet = setPet;
         _s = settings;
         _modules = modules;
-        _done = done;
         if (tab is not null && SettingsCatalog.Sections.Contains(tab)) _tab = tab;
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(188) });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
-        ColumnDefinitions.Add(new ColumnDefinition());
 
-        // Eleven tabs fit the card's height; the list still scrolls if a larger notch size needs it.
-        Children.Add(new ScrollViewer
-        {
-            Content = _tabs,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Focusable = false,
-        });
-
-        var right = new Grid();
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(8) });
-        right.RowDefinitions.Add(new RowDefinition());
-        SetColumn(right, 2);
-        Children.Add(right);
-
-        var header = new Grid();
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        // The header: what was just saved, then the search box.
+        _status.MaxWidth = 280;
+        _status.Margin = new Thickness(0, 0, 4, 0);
+        Action(_status);
         _searchBox = NameBox("");
         _searchBox.MaxLength = 40;
         System.Windows.Automation.AutomationProperties.SetName(_searchBox, "Search settings");
-        var search = SearchField(_searchBox, 230);
-        header.Children.Add(search);
-        _status.Margin = new Thickness(14, 0, 12, 0);
-        _status.VerticalAlignment = VerticalAlignment.Center;
-        SetColumn(_status, 1);
-        header.Children.Add(_status);
-        var done2 = ScreenKit.Primary("Done", done, 32, 13);
-        done2.HorizontalAlignment = HorizontalAlignment.Right;
-        SetColumn(done2, 2);
-        header.Children.Add(done2);
-        right.Children.Add(header);
+        var search = Sheet.Field(_searchBox, "Find a setting", CardKit.Paths.Search, 34);
+        search.Width = 200;
+        search.MouseLeftButtonDown += (_, _) => _searchBox.Focus();
+        Action(search);
+
+        var body = new Grid();
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailWidth) });
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
+        body.ColumnDefinitions.Add(new ColumnDefinition());
+        _tabs.VerticalAlignment = VerticalAlignment.Top;
+        body.Children.Add(_tabs);
 
         _searchTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(140), DispatcherPriority.Input, (_, _) =>
         {
@@ -107,29 +94,23 @@ internal sealed partial class SettingsView : Grid
             }
         };
 
+        // The tab's rows, straight on the island's glass; a tall tab scrolls.
         _scroll = new ScrollViewer
         {
             Content = _rows,
+            MaxHeight = PanelMaxHeight,
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalAlignment = VerticalAlignment.Top,
             Focusable = false,
-            Padding = new Thickness(18, 4, 18, 8),
+            Padding = new Thickness(4, 0, 4, 0),
         };
         _scroll.ScrollChanged += (_, _) => CloseMenu();
-        var panel = new Border
-        {
-            CornerRadius = new CornerRadius(16),
-            Background = ScreenKit.Tile,
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(1),
-            Child = _scroll,
-            ClipToBounds = true,
-        };
-        SetRow(panel, 2);
-        right.Children.Add(panel);
+        SetColumn(_scroll, 2);
+        body.Children.Add(_scroll);
+        Body.Children.Add(body);
 
         // Menus float over everything here; a click anywhere else closes them.
-        SetColumnSpan(_overlay, 3);
         _overlay.MouseLeftButtonDown += (_, e) =>
         {
             if (e.OriginalSource == _overlay) CloseMenu();
@@ -159,13 +140,22 @@ internal sealed partial class SettingsView : Grid
         if (on)
         {
             _s.Changed += OnSettingChanged;
+            Theme.PaletteTheme.Changed += OnPaletteChanged;
         }
         else
         {
             _s.Changed -= OnSettingChanged;
+            Theme.PaletteTheme.Changed -= OnPaletteChanged;
             _searchTimer.Stop();
             CloseMenu();
         }
+    }
+
+    /// <summary>A new song under Album: the Album pill shows its colours.</summary>
+    void OnPaletteChanged()
+    {
+        if (Dispatcher.CheckAccess()) PaintAlbumPill();
+        else Dispatcher.BeginInvoke(PaintAlbumPill);
     }
 
     /// <summary>A change from somewhere else (the pipe, a voice command) rebuilds the panel; our own don't.</summary>
@@ -204,43 +194,9 @@ internal sealed partial class SettingsView : Grid
         BuildPanel();
     }
 
-    /// <summary>The search box: a magnifier, the text, and a quiet "Search settings" while it's empty.</summary>
-    static Border SearchField(TextBox box, double width)
-    {
-        var hint = ScreenKit.Text("Search settings", 13, Weight.Regular, ScreenKit.Fg2);
-        hint.IsHitTestVisible = false;
-        hint.VerticalAlignment = VerticalAlignment.Center;
-        box.TextChanged += (_, _) => hint.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        var glass = ScreenKit.Icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 20 20", ScreenKit.Fg2, 13, 2.2);
-        glass.VerticalAlignment = VerticalAlignment.Center;
-        glass.Margin = new Thickness(0, 0, 8, 0);
-        var text = new Grid { Children = { hint, box } };
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.Children.Add(glass);
-        SetColumn(text, 1);
-        grid.Children.Add(text);
-        var field = new Border
-        {
-            Width = width,
-            Height = 30,
-            CornerRadius = new CornerRadius(8),
-            Background = ScreenKit.Ground,
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(9, 0, 9, 0),
-            Child = grid,
-            Cursor = Cursors.IBeam,
-        };
-        field.MouseLeftButtonDown += (_, _) => box.Focus();
-        box.GotKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Fg;
-        box.LostKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Hairline;
-        return field;
-    }
-
     // ---- Tabs ------------------------------------------------------------------------------------
 
+    /// <summary>The rail: the eleven tabs as text capsules, the chosen one lifted glass (none while searching).</summary>
     void BuildTabs()
     {
         _tabs.Children.Clear();
@@ -250,25 +206,17 @@ internal sealed partial class SettingsView : Grid
             bool on = name == _tab && _query.Length == 0;
             var text = ScreenKit.Text(name, 13, Weight.SemiBold, on ? ScreenKit.Fg : ScreenKit.Fg2);
             text.VerticalAlignment = VerticalAlignment.Center;
-            var bar = new Border
+            text.TextTrimming = TextTrimming.CharacterEllipsis;
+            var tab = new Pressable(on ? RailLifted : Brushes.Transparent, on ? RailLifted : RailHover)
             {
-                Width = 3,
-                Height = 14,
-                CornerRadius = new CornerRadius(2),
-                Background = on ? ScreenKit.Accent : Brushes.Transparent,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(-12, 0, 0, 0),
-            };
-            var grid = new Grid { Children = { bar, text } };
-            var tab = new Pressable(on ? ScreenKit.Tile : Brushes.Transparent, ScreenKit.Tile)
-            {
-                Height = 24,
-                CornerRadius = new CornerRadius(7),
-                Padding = new Thickness(16, 0, 12, 0),
-                Margin = new Thickness(0, 0, 0, 1),
-                Child = grid,
+                Height = 30,
+                CornerRadius = new CornerRadius(15),
+                Padding = new Thickness(12, 0, 12, 0),
+                Margin = new Thickness(0, 0, 0, 2),
+                Child = text,
                 PressScale = 0.98,
             };
+            System.Windows.Automation.AutomationProperties.SetName(tab, name);
             tab.MouseEnter += (_, _) => text.Foreground = ScreenKit.Fg;
             tab.MouseLeave += (_, _) => text.Foreground = name == _tab && _query.Length == 0 ? ScreenKit.Fg : ScreenKit.Fg2;
             tab.Click += () => ShowTab(name);
@@ -431,6 +379,27 @@ internal sealed partial class SettingsView : Grid
 
     Border Row(string title, string hint, FrameworkElement? control, FrameworkElement? lead = null, string words = "") =>
         Row(title, hint, control, out _, lead, words);
+
+    /// <summary>A row with its control under the title (the palette pills), then the hint; searched like any row.</summary>
+    Border StackedRow(string title, string hint, FrameworkElement control, out TextBlock hintText, string words = "")
+    {
+        hintText = ScreenKit.Text(hint, 12, Weight.Regular, ScreenKit.Fg2);
+        hintText.TextWrapping = TextWrapping.Wrap;
+        hintText.TextTrimming = TextTrimming.None;
+        control.HorizontalAlignment = HorizontalAlignment.Left;
+        control.Margin = new Thickness(0, 8, 0, 6);
+        var row = new Border
+        {
+            BorderBrush = ScreenKit.Hairline,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(0, 9, 0, 10),
+            Child = new StackPanel { Children = { ScreenKit.Text(title, 14, Weight.SemiBold), control, hintText } },
+            Tag = title,
+        };
+        _words[row] = $"{title} {hint} {_subsection} {words}";
+        _rows.Children.Add(row);
+        return row;
+    }
 
     Border SwitchRow(string title, string hint, string setting, string saidOn, string saidOff, string words = "")
     {

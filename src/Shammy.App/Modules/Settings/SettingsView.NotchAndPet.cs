@@ -176,7 +176,8 @@ internal partial class SettingsView
     }
 
     /// <summary>
-    /// The island's palette: one small swatch per palette (its three colours side by side). Its first colour is the
+    /// The island's palette: one colour pill per palette (its three colours as a gradient), the chosen one ringed
+    /// in the accent. Album shows the colours it is using now (the song's while one plays). Its first colour is the
     /// accent too, so this replaces the old accent swatches.
     /// </summary>
     void PalettePicker()
@@ -186,58 +187,79 @@ internal partial class SettingsView
         static string Hint(IslandPalette p) => p.Id == IslandPalettes.Album
             ? "Album · the colours of the song playing (Monsoon’s when nothing plays)"
             : $"{p.Name} · the island’s waves, buttons and highlights";
-        var swatches = new StackPanel { Orientation = Orientation.Horizontal };
+        var pills = new StackPanel { Orientation = Orientation.Horizontal };
+        var rings = new List<(string Id, Border Ring)>();
+        _albumPill = null;
         foreach (var palette in IslandPalettes.All)
         {
-            var stripes = new System.Windows.Controls.Primitives.UniformGrid { Rows = 1, Columns = 3 };
-            foreach (var c in palette.Colours) stripes.Children.Add(new Border { Background = Ui.Tokens.Frozen(Theme.PaletteTheme.ToColor(c)) });
-            var chip = new Border
-            {
-                Width = 26,
-                Height = 16,
-                Child = stripes,
-                Clip = new RectangleGeometry(new Rect(0, 0, 26, 16), 8, 8),
-            };
-            UIElement face = chip;
+            var fill = new Border { Width = 46, Height = 28, CornerRadius = new CornerRadius(14), Background = Pill(palette.Colours) };
+            UIElement face = fill;
             if (palette.Id == IslandPalettes.Album)
             {
-                // Album shows its stand-in colours under a small note, so it reads as "from the music".
-                var note = ScreenKit.Text("♪", 11, Weight.Bold);
+                _albumPill = fill;
+                // Album wears a small note, so it reads as "from the music".
+                var note = ScreenKit.Text("♪", 12, Weight.Bold);
                 note.HorizontalAlignment = HorizontalAlignment.Center;
                 note.VerticalAlignment = VerticalAlignment.Center;
                 note.Foreground = Brushes.White;
-                face = new Grid { Children = { chip, note } };
+                face = new Grid { Children = { fill, note } };
             }
+            // The chosen pill: a thin gap in the island's dark, then the accent ring.
             var ring = new Border
             {
-                Width = 34,
-                Height = 24,
-                CornerRadius = new CornerRadius(12),
-                BorderThickness = new Thickness(2),
-                BorderBrush = palette.Id == current ? ScreenKit.Fg : Brushes.Transparent,
+                Width = 54,
+                Height = 36,
+                CornerRadius = new CornerRadius(18),
+                BorderThickness = new Thickness(1.5),
+                BorderBrush = palette.Id == current ? Views.Cards.CardKit.Accent : Brushes.Transparent,
+                Padding = new Thickness(2.5),
                 Child = face,
             };
-            var swatch = new Pressable(Brushes.Transparent, Brushes.Transparent)
+            rings.Add((palette.Id, ring));
+            var pill = new Pressable(Brushes.Transparent, Brushes.Transparent)
             {
-                Width = 34,
-                Height = 24,
-                CornerRadius = new CornerRadius(12),
+                Width = 54,
+                Height = 36,
+                CornerRadius = new CornerRadius(18),
                 Child = ring,
                 ToolTip = Hint(palette),
-                Margin = new Thickness(swatches.Children.Count > 0 ? 4 : 0, 0, 0, 0),
+                Margin = new Thickness(pills.Children.Count > 0 ? 4 : 0, 0, 0, 0),
+                PressScale = 0.96,
             };
-            System.Windows.Automation.AutomationProperties.SetName(swatch, $"Palette {palette.Name}");
-            swatch.Click += () =>
+            System.Windows.Automation.AutomationProperties.SetName(pill, $"Palette {palette.Name}");
+            pill.Click += () =>
             {
-                foreach (Pressable p in swatches.Children) ((Border)p.Child).BorderBrush = Brushes.Transparent;
-                ring.BorderBrush = ScreenKit.Fg;
+                foreach (var (id, r) in rings) r.BorderBrush = id == palette.Id ? Views.Cards.CardKit.Accent : Brushes.Transparent;
                 hint.Text = Hint(palette);
                 Set(nameof(AppSettings.Palette), palette.Id, $"Palette · {palette.Name}");
                 Theme.PaletteTheme.Choose(palette.Id);
+                PaintAlbumPill();
             };
-            swatches.Children.Add(swatch);
+            pills.Children.Add(pill);
         }
-        Row("Palette", Hint(IslandPalettes.Find(current)), swatches, out hint, words: "color colour theme accent palette album waves");
+        PaintAlbumPill();
+        StackedRow("Palette", Hint(IslandPalettes.Find(current)), pills, out hint, words: "color colour theme accent palette album waves");
+    }
+
+    /// <summary>The Album pill, while the Notch tab shows it.</summary>
+    Border? _albumPill;
+
+    /// <summary>Album's pill: the colours in use while Album is chosen (the song's), else its stand-in colours.</summary>
+    void PaintAlbumPill()
+    {
+        if (_albumPill is null) return;
+        var colours = Theme.PaletteTheme.Chosen == IslandPalettes.Album ? Theme.PaletteTheme.Colours : IslandPalettes.Find(IslandPalettes.Album).Colours;
+        _albumPill.Background = Pill(colours);
+    }
+
+    /// <summary>A palette's three colours as one left-to-right gradient.</summary>
+    static Brush Pill(IReadOnlyList<Core.Music.Rgb> colours)
+    {
+        var brush = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
+        for (int i = 0; i < colours.Count; i++)
+            brush.GradientStops.Add(new GradientStop(Theme.PaletteTheme.ToColor(colours[i]), colours.Count == 1 ? 0 : (double)i / (colours.Count - 1)));
+        brush.Freeze();
+        return brush;
     }
 
     /// <summary>The apps the notch stays away from, with one to add from what is running now.</summary>
@@ -246,15 +268,7 @@ internal partial class SettingsView
         Section("Hide while using", "The notch stays away while these apps are in front.");
         foreach (var app in _s.HiddenApps.ToList())
         {
-            var initial = new Border
-            {
-                Width = 26,
-                Height = 26,
-                CornerRadius = new CornerRadius(7),
-                Background = ScreenKit.Hairline,
-                Child = ScreenKit.Text(app[..1].ToUpperInvariant(), 12, Weight.Bold),
-            };
-            ((TextBlock)initial.Child).HorizontalAlignment = HorizontalAlignment.Center;
+            var initial = Initial(app);
             var remove = ScreenKit.Secondary("Remove", () =>
             {
                 Set(nameof(AppSettings.HiddenApps), _s.HiddenApps.Where(a => a != app).ToList(), $"The notch shows in {app} again");
@@ -372,22 +386,34 @@ internal partial class SettingsView
         VerticalContentAlignment = VerticalAlignment.Center,
     };
 
-    /// <summary>A text box in the wall's black well, with a white ring while typing.</summary>
-    static Border Field(TextBox box, double width)
+    /// <summary>A text box in a glass capsule, with a white ring while typing.</summary>
+    static Border Field(Control box, double width) => GlassField(box, width);
+
+    /// <summary>A glass capsule (30 high) around a text or password box, with a white ring while typing.</summary>
+    static Border GlassField(Control box, double width)
     {
         var field = new Border
         {
             Width = width,
             Height = 30,
-            CornerRadius = new CornerRadius(8),
-            Background = ScreenKit.Ground,
-            BorderBrush = ScreenKit.Hairline,
+            CornerRadius = new CornerRadius(15),
+            Background = GlassWell,
+            BorderBrush = Views.Cards.Sheet.GlassEdge,
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(9, 0, 9, 0),
+            Padding = new Thickness(12, 0, 12, 0),
             Child = box,
         };
         box.GotKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Fg;
-        box.LostKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Hairline;
+        box.LostKeyboardFocus += (_, _) => field.BorderBrush = Views.Cards.Sheet.GlassEdge;
         return field;
+    }
+
+    /// <summary>An app's first letter in a glass circle (hidden apps, muted notifications).</summary>
+    static Border Initial(string name)
+    {
+        var letter = ScreenKit.Text(name.Length > 0 ? name[..1].ToUpperInvariant() : "?", 12, Weight.Bold);
+        letter.HorizontalAlignment = HorizontalAlignment.Center;
+        letter.VerticalAlignment = VerticalAlignment.Center;
+        return new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = Views.Cards.Sheet.CapFill, Child = letter };
     }
 }

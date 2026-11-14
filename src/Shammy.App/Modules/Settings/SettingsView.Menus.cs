@@ -34,12 +34,12 @@ internal partial class SettingsView
         chevron.Margin = new Thickness(8, 0, 0, 0);
         SetColumn(chevron, 1);
         grid.Children.Add(chevron);
-        var button = new Pressable(ScreenKit.Ground, ScreenKit.Ground, ScreenKit.Hairline, ScreenKit.HairlineStrong)
+        var button = new Pressable(Views.Cards.Sheet.CapFill, Views.Cards.Sheet.CapHover, Views.Cards.Sheet.GlassEdge, ScreenKit.HairlineStrong)
         {
             Width = width,
             Height = 30,
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10, 0, 10, 0),
+            CornerRadius = new CornerRadius(15),
+            Padding = new Thickness(12, 0, 10, 0),
             Child = grid,
             PressScale = 0.99,
         };
@@ -80,7 +80,7 @@ internal partial class SettingsView
                 SetColumn(tick, 1);
                 row.Children.Add(tick);
             }
-            var opt = new Pressable(Brushes.Transparent, ScreenKit.Hairline) { Height = 30, CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 0, 10, 0), Child = row, PressScale = 1 };
+            var opt = new Pressable(Brushes.Transparent, Views.Cards.Sheet.CapFill) { Height = 30, CornerRadius = new CornerRadius(15), Padding = new Thickness(10, 0, 10, 0), Child = row, PressScale = 1 };
             opt.Click += () =>
             {
                 CloseMenu();
@@ -92,7 +92,7 @@ internal partial class SettingsView
         {
             Width = owner.ActualWidth,
             Padding = new Thickness(4),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = new CornerRadius(17),
             Background = ScreenKit.TileHover,
             BorderBrush = ScreenKit.HairlineHover,
             BorderThickness = new Thickness(1),

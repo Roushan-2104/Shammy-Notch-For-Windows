@@ -155,8 +155,7 @@ internal sealed class GuideModule : IShammyModule
             IsOn,
             SetOn,
             Try,
-            Suggest), _query, _filter)
-        { Height = 276 };
+            Suggest), _query, _filter);
         // The next plain open starts clean.
         _query = "";
         _filter = GuideFilter.All;

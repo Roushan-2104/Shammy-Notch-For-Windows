@@ -87,9 +87,8 @@ internal sealed class SettingsModule : IShammyModule
 
     FrameworkElement BuildDetail()
     {
+        // A card sheet: the island takes its width and the height of the tab (capped; tall tabs scroll).
         _view = new SettingsView(_ctx.Settings, () => _ctx.ModuleNames, () => _ctx.OpenCard("home"), _ctx.Notch.SetPetEnabled);
-        // Settings.dc.html is 924×320: under the notch's Back + title row, the view gets the taller area.
-        _view.Height = 276;
         return _view;
     }
 

@@ -1,82 +1,87 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Shammy.Core.Quick;
 using Shammy.Views.Cards;
 using Shammy.Views.Screens;
-using Path = System.Windows.Shapes.Path;
 
 namespace Shammy.Modules.Quick;
 
 /// <summary>
-/// The Laptop view in the open notch: two rows of tiles under the notch's own Back and title row, the laptop's
-/// controls in one place. Wi-Fi, Bluetooth, the power mode, keep-awake, the microphone and quiet on top; night
-/// light, storage, lock, sleep and a wide restart / shut down below (that last one always asks which, and needs a
-/// second click). Each tile is an icon, a name and a small line with its state; a switched-on tile wears the
-/// accent colour. Nothing here animates or ticks: the module says when something changed.
+/// The Laptop card (the card family's shape, 640 wide): the header holds Lock, Sleep and Power capsules (Power asks
+/// first: its first click swaps it for Restart and Shut down in red, one of which has to be clicked within six
+/// seconds). Under it, one row of seven round toggles: Wi-Fi, Bluetooth, the power mode, keep-awake, the microphone,
+/// Shammy's quiet and night light, each a 54 px circle (the accent when on, glass when off) with its name and a
+/// quiet state line. Keep awake's 30m / 1h / 2h / 4h choice shows under the row once it has been tapped. Nothing
+/// here animates or ticks: the module says when something changed.
 /// </summary>
-internal sealed class QuickView : Grid
+internal sealed class QuickView : CardSheet
 {
-    const double Gap = 8, ViewHeight = 204;
-    const int Columns = 6;
+    public const double SheetWidth = 640;
 
     readonly QuickModule _module;
-    readonly QuickTile _awake, _mic, _wifi, _bluetooth, _power, _quiet, _night, _storage, _off;
+    readonly RoundToggle _awake, _mic, _wifi, _bluetooth, _power, _quiet, _night;
     readonly Segmented _lengths;
-    readonly FrameworkElement _offChoice;
-    readonly Pressable _restart, _shutDown;
+    readonly FrameworkElement _lengthRow;
+    readonly Button _powerCap;
+    readonly FrameworkElement _restart, _shutDown;
     readonly ConfirmStep _offStep;
+    string _storage = "…", _offLine = "Asks first";
+    bool _lengthsAsked;
 
-    public QuickView(QuickModule module)
+    public QuickView(QuickModule module) : base("Laptop", SheetWidth)
     {
         _module = module;
-        Width = WallDetail.W;
-        Height = ViewHeight;
-        for (int c = 0; c < Columns * 2 - 1; c++)
-            ColumnDefinitions.Add(new ColumnDefinition { Width = c % 2 == 1 ? new GridLength(Gap) : new GridLength(1, GridUnitType.Star) });
-        for (int r = 0; r < 3; r++)
-            RowDefinitions.Add(new RowDefinition { Height = r == 1 ? new GridLength(Gap) : new GridLength(1, GridUnitType.Star) });
 
-        _awake = new QuickTile(Icons.Cup, "Keep awake", "Off", module.ToggleKeepAwake);
+        // The header: Lock, Sleep, Power. Power's first click only offers restart and shut down (in red, like the
+        // Health card's "Sure?"); one of them has to be clicked within six seconds to happen.
+        Action(Sheet.Cap("Lock", "Lock this PC", () => module.Lock(), Icons.Lock));
+        Action(Sheet.Cap("Sleep", "Put the PC to sleep", () => module.Sleep(), Icons.Moon));
+        _offStep = new ConfirmStep(Dispatcher, ShowOff);
+        _powerCap = Action(Sheet.Cap("Power", "Restart or shut down. Asks first", () => _offStep.Arm("off"), Icons.Power));
+        _restart = Action(Armed("Restart", () => { _offStep.Disarm(); module.PowerOff(restart: true); }));
+        _shutDown = Action(Armed("Shut down", () => { _offStep.Disarm(); module.PowerOff(restart: false); }));
+        _restart.Visibility = _shutDown.Visibility = Visibility.Collapsed;
+
+        _wifi = new RoundToggle(Icons.Wifi, "Wi-Fi", "Checking…", module.ToggleWifi);
+        _bluetooth = new RoundToggle(Icons.Bluetooth, "Bluetooth", "Checking…", module.ToggleBluetooth);
+        _power = new RoundToggle(Icons.Bolt, "Power mode", "Checking…", module.CyclePowerMode);
+        _awake = new RoundToggle(Icons.Cup, "Keep awake", "Off", () =>
+        {
+            _lengthsAsked = true;
+            module.ToggleKeepAwake();
+            ShowLengths();
+        });
+        _mic = new RoundToggle(Icons.Mic, "Mute mic", "Mic is live", module.ToggleMic);
+        // Shammy's own quiet: an hour of held pop-ups, a second tap ends it.
+        _quiet = new RoundToggle(Icons.BellOff, "Quiet", "Off", module.ToggleQuiet) { ToolTip = "Shammy holds its pop-ups for an hour" };
+        // Shammy's own warm tint over every screen.
+        _night = new RoundToggle(Icons.Sun, "Night light", "Off", module.ToggleNightLight) { ToolTip = "A warm tint over every screen" };
+
+        var row = new UniformGrid { Rows = 1, Columns = 7, Margin = new Thickness(0, 4, 0, 0) };
+        foreach (var t in new[] { _wifi, _bluetooth, _power, _awake, _mic, _quiet, _night }) row.Children.Add(t);
+
         _lengths = new Segmented(KeepAwakeClock.Choices.Select(m => m < 60 ? $"{m}m" : $"{m / 60}h").ToList(), Choice(module.Pick),
-            i => module.PickLength(KeepAwakeClock.Choices[i]), minWidth: 22, height: 22, fontSize: 10.5, sidePadding: 5)
+            i => module.PickLength(KeepAwakeClock.Choices[i]), minWidth: 44, height: 28, fontSize: 13)
         {
             ToolTip = "How long to keep awake",
+            VerticalAlignment = VerticalAlignment.Center,
         };
-        // A click on the control's own edge is not a click on the tile.
-        _lengths.MouseLeftButtonDown += (_, e) => e.Handled = true;
-        _awake.Corner = _lengths;
-        _wifi = new QuickTile(Icons.Wifi, "Wi-Fi", "Checking…", module.ToggleWifi);
-        _bluetooth = new QuickTile(Icons.Bluetooth, "Bluetooth", "Checking…", module.ToggleBluetooth);
-        _power = new QuickTile(Icons.Bolt, "Power mode", "Checking…", module.CyclePowerMode);
-        _mic = new QuickTile(Icons.Mic, "Mute mic", "Mic is live", module.ToggleMic);
-        // Shammy's own quiet: an hour of held pop-ups, a second tap ends it.
-        _quiet = new QuickTile(Icons.BellOff, "Quiet", "Off", module.ToggleQuiet) { ToolTip = "Shammy holds its pop-ups for an hour" };
-        Place(_wifi, 0, 0);
-        Place(_bluetooth, 0, 1);
-        Place(_power, 0, 2);
-        Place(_awake, 0, 3);
-        Place(_mic, 0, 4);
-        Place(_quiet, 0, 5);
+        var lengthLabel = Sheet.Meta("Keep awake for", 13);
+        lengthLabel.Margin = new Thickness(0, 0, 10, 0);
+        _lengthRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 14, 0, 0),
+            Children = { lengthLabel, _lengths },
+            Visibility = Visibility.Collapsed,
+        };
 
-        // Shammy's own warm tint over every screen.
-        _night = new QuickTile(Icons.Sun, "Night light", "Off", module.ToggleNightLight) { ToolTip = "A warm tint over every screen" };
-        Place(_night, 1, 0);
-        _storage = new QuickTile(Icons.Drive, "Storage", "…", module.OpenStorage);
-        Place(_storage, 1, 1);
-        Place(new QuickTile(Icons.Lock, "Lock", "Lock this PC", () => module.Lock()), 1, 2);
-        Place(new QuickTile(Icons.Moon, "Sleep", "Put the PC to sleep", () => module.Sleep()), 1, 3);
-        // Restart and shut down: the first click only offers the two (in red, like the Health card's "Sure?");
-        // one of them has to be clicked within six seconds to happen.
-        _offStep = new ConfirmStep(Dispatcher, ShowOff);
-        _restart = ScreenKit.Secondary("Restart", () => { _offStep.Disarm(); module.PowerOff(restart: true); }, height: 24, fontSize: 11.5);
-        _shutDown = ScreenKit.Secondary("Shut down", () => { _offStep.Disarm(); module.PowerOff(restart: false); }, height: 24, fontSize: 11.5);
-        _offChoice = ScreenKit.Row(6, _restart, _shutDown);
-        _offChoice.MouseLeftButtonDown += (_, e) => e.Handled = true;
-        _offChoice.Visibility = Visibility.Collapsed;
-        _off = new QuickTile(Icons.Power, "Restart or shut down", "Asks first", () => _offStep.Arm("off"));
-        _off.Corner = _offChoice;
-        Place(_off, 1, 4, span: 2);
+        Body.Children.Add(new StackPanel { Children = { row, _lengthRow } });
 
         Loaded += (_, _) =>
         {
@@ -93,27 +98,36 @@ internal sealed class QuickView : Grid
         Refresh();
     }
 
+    /// <summary>A capsule in the armed red (restart, shut down): red words and a red edge on the glass.</summary>
+    static Button Armed(string text, Action onClick)
+    {
+        var b = Sheet.Cap(text, text, onClick);
+        if (b.Content is Border face)
+        {
+            face.BorderBrush = CardKit.Alarm;
+            face.BorderThickness = new Thickness(1.5);
+            if (face.Child is Panel p)
+                foreach (var t in p.Children.OfType<TextBlock>()) t.Foreground = CardKit.Alarm;
+        }
+        return b;
+    }
+
     void ShowOff()
     {
         bool armed = _offStep.Is("off");
-        _offChoice.Visibility = armed ? Visibility.Visible : Visibility.Collapsed;
-        _off.Line = armed ? "Pick one" : "Asks first";
-        ConfirmStep.Look(_restart, armed);
-        ConfirmStep.Look(_shutDown, armed);
+        _powerCap.Visibility = armed ? Visibility.Collapsed : Visibility.Visible;
+        _restart.Visibility = _shutDown.Visibility = armed ? Visibility.Visible : Visibility.Collapsed;
+        _offLine = armed ? "Pick one" : "Asks first";
+        Status = armed ? "restart or shut down?" : null;
     }
 
     /// <summary>Test hook: the first click on restart / shut down (it only offers the two).</summary>
     internal void ClickOffForTest() => _offStep.Arm("off");
 
-    internal bool OffChoiceShown => _offChoice.Visibility == Visibility.Visible;
+    internal bool OffChoiceShown => _restart.Visibility == Visibility.Visible;
 
-    void Place(QuickTile tile, int row, int column, int span = 1)
-    {
-        SetRow(tile, row * 2);
-        SetColumn(tile, column * 2);
-        if (span > 1) SetColumnSpan(tile, span * 2 - 1);
-        Children.Add(tile);
-    }
+    /// <summary>Keep awake's lengths show once it has been tapped here (and stay while the card is open).</summary>
+    void ShowLengths() => _lengthRow.Visibility = _lengthsAsked ? Visibility.Visible : Visibility.Collapsed;
 
     static int Choice(int minutes)
     {
@@ -130,6 +144,7 @@ internal sealed class QuickView : Grid
         // While it runs the chosen segment is the running length (none for one asked for by voice, like 45 min).
         int index = Choice(on ? _module.StartedMinutes : _module.Pick);
         if (_lengths.Index != index) _lengths.Index = index;
+        ShowLengths();
 
         // Until the first read the radios are unknown, not missing.
         bool read = _module.SwitchesRead;
@@ -138,7 +153,8 @@ internal sealed class QuickView : Grid
         _bluetooth.Line = !read ? "Checking…" : _module.BluetoothOn switch { true => "On", false => "Off", null => "Not found" };
         _bluetooth.On = _module.BluetoothOn == true;
         _power.Line = _module.PowerModeNow is { } mode ? PowerMode.Name(mode) : read ? "Open settings" : "Checking…";
-        _storage.Line = _module.StorageLine();
+        // Storage lives on the Health card now; the test pipe still reads it here.
+        _storage = _module.StorageLine();
 
         _quiet.On = _module.QuietOn;
         _quiet.Line = _module.QuietOn ? KeepAwakeText.TileLine(true, _module.QuietMinutesLeft) : "Tap for 1 h";
@@ -147,18 +163,15 @@ internal sealed class QuickView : Grid
 
         bool? muted = _module.MicMuted;
         _mic.Line = KeepAwakeText.MicLine(muted);
-        // Red is for meaning only: a muted microphone.
-        _mic.IconBrush = muted == true ? CardKit.Alarm : ScreenKit.Fg;
-
-        // The accent may have changed since the tiles were drawn.
-        foreach (var tile in Children.OfType<QuickTile>()) tile.Retint();
+        // "Mute mic" is on while the microphone is muted.
+        _mic.On = muted == true;
     }
 
     /// <summary>What the tiles say right now, for the test pipe.</summary>
     public string Describe() =>
         $"awake=\"{_awake.Line}\"{(_awake.On ? " (on)" : "")} length={_lengths.Index} mic=\"{_mic.Line}\" " +
         $"wifi=\"{_wifi.Line}\" bluetooth=\"{_bluetooth.Line}\" power=\"{_power.Line}\" quiet=\"{_quiet.Line}\" night=\"{_night.Line}\" " +
-        $"storage=\"{_storage.Line}\" off=\"{_off.Line}\"";
+        $"storage=\"{_storage}\" off=\"{_offLine}\"";
 
     /// <summary>The mockup's icons (24×24, stroked).</summary>
     static class Icons
@@ -172,7 +185,6 @@ internal sealed class QuickView : Grid
         public const string Wifi = "M2.5 9a14 14 0 0 1 19 0 M5.5 12.5a9.5 9.5 0 0 1 13 0 M8.8 16a5 5 0 0 1 6.4 0 M12 19.5h.01";
         public const string Bluetooth = "M7 7l10 10-5 4V3l5 4L7 17";
         public const string Bolt = "M13 3L5 13.5h6L10 21l8-10.5h-6z";
-        public const string Drive = "M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z M8 15h.01 M12 15h4";
         public const string Power = "M12 3v8 M6.5 6.5a7.8 7.8 0 1 0 11 0";
     }
 
@@ -188,143 +200,110 @@ internal sealed class QuickView : Grid
         CardKit.Name(tile, "Laptop. Wi-Fi, Bluetooth, power mode, quiet, night light, lock, sleep and more");
         return tile;
     }
-}
 
-/// <summary>
-/// One Laptop control: the icon top-left, the name and its state line at the foot, on the wall's tile surface with
-/// its hover and press. <see cref="On"/> is the switched-on state, tinted with the accent the user picked (about
-/// 14 % over the tile, a 40 % ring).
-/// </summary>
-internal sealed class QuickTile : Pressable
-{
-    const double FillShare = 0.14, FillHoverShare = 0.20, RingShare = 0.40, RingHoverShare = 0.55;
-
-    readonly Path _icon;
-    readonly TextBlock _line;
-    readonly Grid _grid = new();
-    readonly string _name;
-    Brush _iconBrush = ScreenKit.Fg;
-    bool _on;
-
-    public QuickTile(string icon, string name, string line, Action click)
-        : base(ScreenKit.Tile, ScreenKit.TileHover, ScreenKit.Hairline, ScreenKit.HairlineHover)
+    /// <summary>
+    /// One Laptop control: a 54 px circle with the icon (the accent with a dark icon when on, glass when off), the
+    /// bold name under it and a quiet state line.
+    /// </summary>
+    sealed class RoundToggle : Button
     {
-        _name = name;
-        CornerRadius = new CornerRadius(Ui.Tokens.DetailRadius);
-        Padding = new Thickness(12, 11, 12, 11);
-        PressScale = 0.98;
+        const double Size = 54;
+        static readonly Brush GlassFill = Ui.Tokens.Brush("#14FFFFFF"), GlassHover = Ui.Tokens.Brush("#21FFFFFF"), GlassEdge = Ui.Tokens.Brush("#1AFFFFFF");
 
-        _icon = new Path
+        readonly Border _circle;
+        readonly System.Windows.Shapes.Path _icon;
+        readonly TextBlock _line;
+        readonly string _name;
+        bool _on;
+
+        public RoundToggle(string icon, string name, string line, Action click)
         {
-            Data = Geometry.Parse(icon),
-            Stroke = _iconBrush,
-            StrokeThickness = 2,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-        };
-        var canvas = new Canvas { Width = 24, Height = 24 };
-        canvas.Children.Add(_icon);
-        _grid.Children.Add(new Viewbox
-        {
-            Width = 18,
-            Height = 18,
-            Child = canvas,
-            IsHitTestVisible = false,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 2, 0, 0),
-        });
-
-        _line = ScreenKit.Text(line, 11.5, Weight.Medium, ScreenKit.Fg2);
-        _line.Margin = new Thickness(0, 1, 0, 0);
-        _line.TextTrimming = TextTrimming.CharacterEllipsis;
-        var title = ScreenKit.Text(name, 13, Weight.SemiBold);
-        title.TextTrimming = TextTrimming.CharacterEllipsis;
-        var words = ScreenKit.Column(0, title, _line);
-        words.VerticalAlignment = VerticalAlignment.Bottom;
-        words.IsHitTestVisible = false;
-        _grid.Children.Add(words);
-        Child = _grid;
-
-        Click += click;
-        // After the kit's own hover paint, so the switched-on tint wins.
-        MouseEnter += (_, _) => Tint();
-        MouseLeave += (_, _) => Tint();
-        Say();
-    }
-
-    /// <summary>A control in the tile's top-right corner (keep-awake's lengths); its clicks stay its own.</summary>
-    public FrameworkElement Corner
-    {
-        set
-        {
-            value.HorizontalAlignment = HorizontalAlignment.Right;
-            value.VerticalAlignment = VerticalAlignment.Top;
-            _grid.Children.Add(value);
-        }
-    }
-
-    public string Line
-    {
-        get => _line.Text;
-        set
-        {
-            if (_line.Text == value) return;
-            _line.Text = value;
+            _name = name;
+            var glyph = CardKit.Icon(icon, CardKit.Ink, 22, 2);
+            _icon = (System.Windows.Shapes.Path)((Canvas)((Viewbox)glyph).Child).Children[0];
+            glyph.HorizontalAlignment = HorizontalAlignment.Center;
+            glyph.VerticalAlignment = VerticalAlignment.Center;
+            _circle = new Border
+            {
+                Width = Size,
+                Height = Size,
+                CornerRadius = new CornerRadius(Size / 2),
+                BorderThickness = new Thickness(1),
+                Child = glyph,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                SnapsToDevicePixels = true,
+            };
+            var title = Sheet.Word(name, 12);
+            title.HorizontalAlignment = HorizontalAlignment.Center;
+            title.Margin = new Thickness(0, 7, 0, 0);
+            _line = Sheet.Meta(line, 11);
+            _line.HorizontalAlignment = HorizontalAlignment.Center;
+            _line.Margin = new Thickness(0, 1, 0, 0);
+            Content = new StackPanel { Children = { _circle, title, _line }, Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Center };
+            Template = Bare;
+            Cursor = Cursors.Hand;
+            Focusable = true;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            Padding = new Thickness(2, 0, 2, 0);
+            Ui.FocusKit.Button(this);
+            Ui.Press.Attach(this);
+            MouseEnter += (_, _) => Paint();
+            MouseLeave += (_, _) => Paint();
+            Click += (_, e) =>
+            {
+                click();
+                e.Handled = true;
+            };
+            Paint();
             Say();
         }
-    }
 
-    public bool On
-    {
-        get => _on;
-        set
+        static readonly ControlTemplate Bare = MakeBare();
+
+        static ControlTemplate MakeBare()
         {
-            if (_on == value) return;
-            _on = value;
-            Tint();
+            var t = new ControlTemplate(typeof(ButtonBase)) { VisualTree = new FrameworkElementFactory(typeof(ContentPresenter)) };
+            t.Seal();
+            return t;
         }
-    }
 
-    public Brush IconBrush
-    {
-        set
+        public string Line
         {
-            if (ReferenceEquals(_iconBrush, value)) return;
-            _iconBrush = value;
-            Tint();
+            get => _line.Text;
+            set
+            {
+                if (_line.Text == value) return;
+                _line.Text = value;
+                Say();
+            }
         }
-    }
 
-    /// <summary>Paints again with the accent as it is now (the user may have picked another).</summary>
-    public void Retint()
-    {
-        if (_on) Tint();
-    }
+        public bool On
+        {
+            get => _on;
+            set
+            {
+                if (_on == value) return;
+                _on = value;
+                Paint();
+                Say();
+            }
+        }
 
-    void Tint()
-    {
-        Paint();
-        if (_on)
+        void Paint()
         {
             bool hover = IsMouseOver;
-            Background = Mix(hover ? FillHoverShare : FillShare);
-            BorderBrush = Mix(hover ? RingHoverShare : RingShare);
+            // The accent brushes are live (a new accent repaints a circle already on screen).
+            _circle.Background = _on ? (hover ? CardKit.AccentHover : CardKit.Accent) : hover ? GlassHover : GlassFill;
+            _circle.BorderBrush = _on ? Brushes.Transparent : GlassEdge;
+            _icon.Stroke = _on ? CardKit.OnAccent : CardKit.Ink;
         }
-        _icon.Stroke = _on ? ScreenKit.Accent : _iconBrush;
-    }
 
-    /// <summary>The accent laid over the tile's own colour at that share, as one solid colour.</summary>
-    static SolidColorBrush Mix(double share)
-    {
-        var a = ScreenKit.Accent.Color;
-        var t = ScreenKit.Tile.Color;
-        byte Blend(byte under, byte over) => (byte)Math.Round(under + (over - under) * share);
-        var brush = new SolidColorBrush(Color.FromRgb(Blend(t.R, a.R), Blend(t.G, a.G), Blend(t.B, a.B)));
-        brush.Freeze();
-        return brush;
+        void Say()
+        {
+            AutomationProperties.SetName(this, $"{_name}. {_line.Text}");
+            AutomationProperties.SetItemStatus(this, _on ? "On" : "Off");
+            ToolTip ??= _name;
+        }
     }
-
-    void Say() => CardKit.Name(this, $"{_name}. {_line.Text}");
 }

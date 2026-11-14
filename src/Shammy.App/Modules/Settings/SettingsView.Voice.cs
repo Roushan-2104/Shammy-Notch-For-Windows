@@ -107,19 +107,7 @@ internal partial class SettingsView
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = "Paste your key",
             };
-            var field = new Border
-            {
-                Width = 190,
-                Height = 30,
-                CornerRadius = new CornerRadius(8),
-                Background = ScreenKit.Ground,
-                BorderBrush = ScreenKit.Hairline,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(9, 0, 9, 0),
-                Child = box,
-            };
-            box.GotKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Fg;
-            box.LostKeyboardFocus += (_, _) => field.BorderBrush = ScreenKit.Hairline;
+            var field = GlassField(box, 190);
             void SaveKey()
             {
                 if (box.Password.Trim().Length == 0) return;

@@ -82,10 +82,12 @@ internal partial class SettingsView
         {
             Width = 40,
             Height = 40,
-            CornerRadius = new CornerRadius(10),
-            Background = new LinearGradientBrush(ScreenKit.C("#17383A"), ScreenKit.C("#10211F"), 60),
+            CornerRadius = new CornerRadius(14),
+            Background = Views.Cards.Sheet.GlassFill,
+            BorderBrush = Views.Cards.Sheet.GlassEdge,
+            BorderThickness = new Thickness(1),
             Child = ScreenKit.Column(0,
-                Center(ScreenKit.Label(now.ToString("MMM", CultureInfo.InvariantCulture), ScreenKit.B("#BFE3DC"), 9)),
+                Center(ScreenKit.Label(now.ToString("MMM", CultureInfo.InvariantCulture), Views.Cards.Ink.Soft, 9)),
                 Center(ScreenKit.Display(now.Day.ToString(CultureInfo.InvariantCulture), 16, Weight.ExtraBold, 0))),
         };
         ((FrameworkElement)tile.Child).VerticalAlignment = VerticalAlignment.Center;
