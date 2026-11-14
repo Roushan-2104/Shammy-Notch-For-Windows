@@ -205,7 +205,8 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         });
         ShowRingCard();
         HostLinks.Say?.Invoke(Shammy.Core.OnlineVoice.SpokenPhrases.Alarm(AlarmText.Time(a), a.Label));
-        _ctx.Info($"Alarm ringing: {AlarmText.Time(a)} {a.Label}");
+        // The label is the user's own words: keep it out of the log.
+        _ctx.Info($"Alarm ringing: {AlarmText.Time(a)}");
     }
 
     void ShowRingCard()

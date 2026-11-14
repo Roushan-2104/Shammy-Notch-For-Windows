@@ -102,8 +102,8 @@ internal sealed class PriceWatchModule : IShammyModule
             var now = DateTime.UtcNow;
             foreach (var item in _items.Where(i => force || now - i.LastCheckUtc >= Every).ToList())
             {
-                // Never while presenting or on a call: it waits for the next hourly look.
-                if (PrivacyState.Presenting) break;
+                // Never while presenting or on a call (quiet mode): it waits for the next hourly look.
+                if (PrivacyState.Presenting || QuietState.IsQuiet) break;
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
                 var text = await HiddenPageReader(item.Product, cts.Token);
                 item.LastCheckUtc = DateTime.UtcNow;
