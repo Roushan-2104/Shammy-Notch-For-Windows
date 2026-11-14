@@ -288,6 +288,13 @@ public partial class ExpandedView : UserControl
                 break;
         }
 
+        if (content is CardSheet sheet)
+        {
+            ShowSheet(sheet);
+            return true;
+        }
+        SheetMode(false);
+
         bool wall = content is WallDetail;
         DetailContent.Content = content;
         DetailLine.Visibility = wall ? Visibility.Visible : Visibility.Collapsed;
@@ -313,6 +320,53 @@ public partial class ExpandedView : UserControl
         return true;
     }
 
+    CardSheet? _sheet;
+
+    /// <summary>
+    /// A card in the family's shape: the notch's top bar goes (the sheet has its own header) and the island takes
+    /// the sheet's size, following it as its content grows or shrinks.
+    /// </summary>
+    void ShowSheet(CardSheet sheet)
+    {
+        SheetMode(true);
+        _sheet = sheet;
+        sheet.BackRequested = () => GoHome(animate: true);
+        sheet.FitChanged += () =>
+        {
+            if (ReferenceEquals(_sheet, sheet) && _openId is not null) SetBodySize(sheet.Width, sheet.FitHeight);
+        };
+        DetailLine.Visibility = Visibility.Collapsed;
+        DetailHeader.Visibility = Visibility.Collapsed;
+        DetailContent.Margin = new Thickness(0);
+        DetailContent.Width = sheet.Width;
+        DetailContent.Content = sheet;
+        DetailFrame.Clip = null;
+        DetailFrame.Width = sheet.Width;
+        DetailFrame.Height = double.NaN;
+        double h = sheet.Fit();
+        StopHome();
+        HomePanel.Visibility = Visibility.Collapsed;
+        DetailFrame.Visibility = Visibility.Visible;
+        RefreshSentence();
+        SetBodySize(sheet.Width, h);
+        if (IsVisible) AnimateIn(DetailFrame);
+        ViewChanged?.Invoke();
+    }
+
+    /// <summary>Sheet mode hides the top bar and drops the body's margins (the sheet pads itself); off restores them.</summary>
+    void SheetMode(bool on)
+    {
+        if (!on) _sheet = null;
+        TopBar.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        TopRow.Height = new GridLength(on ? 0 : 36);
+        Body.Margin = on ? new Thickness(0) : new Thickness(20, 12, 20, 14);
+        DetailFrame.Margin = on ? new Thickness(0) : new Thickness(0, 12, 0, 0);
+        if (!on) DetailFrame.Width = WallDetail.W;
+    }
+
+    /// <summary>Whether a card sheet is open (the island is the card's own size, with no top bar).</summary>
+    internal bool SheetOpen => _sheet is not null && _openId is not null;
+
     /// <summary>Back on a Wall detail's art panel, top-left, over the artwork.</summary>
     void AddBack(WallDetail detail)
     {
@@ -332,6 +386,7 @@ public partial class ExpandedView : UserControl
         DetailContent.Content = null;
         DetailFrame.Visibility = Visibility.Collapsed;
         DetailFrame.Clip = null;
+        SheetMode(false);
         HomePanel.Visibility = Visibility.Visible;
         RefreshHome();
         if (animate && wasOpen && IsVisible) AnimateIn(HomePanel);

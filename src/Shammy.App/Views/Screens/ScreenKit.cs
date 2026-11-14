@@ -156,10 +156,10 @@ internal static class ScreenKit
         return p;
     }
 
-    /// <summary>A quiet secondary button: notch-black with a hairline ring that brightens on hover; a pill unless given a radius.</summary>
+    /// <summary>A quiet secondary button: a glass capsule (the card family's) that brightens on hover; a pill unless given a radius.</summary>
     public static Pressable Secondary(string text, Action click, double height = 30, double radius = -1, double fontSize = 12, Brush? background = null)
     {
-        var p = new Pressable(background ?? Ground, TileHover, Hairline, HairlineStrong)
+        var p = new Pressable(background ?? Views.Cards.Sheet.CapFill, Views.Cards.Sheet.CapHover)
         {
             Height = height,
             CornerRadius = new CornerRadius(radius < 0 ? height / 2 : radius),
@@ -171,10 +171,10 @@ internal static class ScreenKit
         return p;
     }
 
-    /// <summary>A 32 px round icon button on the tile colour (Back, the snoozed pill's "turn off").</summary>
+    /// <summary>A 32 px round glass icon button (Back, the snoozed pill's "turn off").</summary>
     public static Pressable Round(string icon, Action click, double size = 32, double iconSize = 14, Brush? background = null, string? tip = null)
     {
-        var p = new Pressable(background ?? Tile, TileHover, Hairline, HairlineHover)
+        var p = new Pressable(background ?? Views.Cards.Sheet.CapFill, Views.Cards.Sheet.CapHover)
         {
             Width = size,
             Height = size,
@@ -386,20 +386,21 @@ internal class Pressable : Border
     protected override AutomationPeer OnCreateAutomationPeer() => new Ui.InvokePeer(this, Invoke);
 }
 
-/// <summary>The design's 38×22 switch: grey track and knob off; white track, dark knob slid right on.</summary>
+/// <summary>The card family's 42×26 switch: a faint glass track and white knob off; the palette's accent, dark knob slid right on.</summary>
 internal sealed class ToggleSwitch : Pressable
 {
-    readonly Ellipse _knob = new() { Width = 16, Height = 16, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+    readonly Ellipse _knob = new() { Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+    static readonly SolidColorBrush OffTrack = Ui.Tokens.Brush("#29FFFFFF"), OffHover = Ui.Tokens.Brush("#38FFFFFF");
     readonly TranslateTransform _slide = new();
     bool _on;
 
     public event Action<bool>? Toggled;
 
-    public ToggleSwitch(bool on, Action<bool>? toggled = null, string? tip = null) : base(ScreenKit.Hairline, ScreenKit.HairlineHover)
+    public ToggleSwitch(bool on, Action<bool>? toggled = null, string? tip = null) : base(OffTrack, OffHover)
     {
-        Width = 38;
-        Height = 22;
-        CornerRadius = new CornerRadius(11);
+        Width = 42;
+        Height = 26;
+        CornerRadius = new CornerRadius(13);
         PressScale = 1;
         ToolTip = tip;
         _knob.Margin = new Thickness(3, 0, 0, 0);
@@ -435,8 +436,8 @@ internal sealed class ToggleSwitch : Pressable
 
     void Apply(bool animate)
     {
-        Fill = _on ? ScreenKit.Fg : null;
-        _knob.Fill = _on ? ScreenKit.Ground : ScreenKit.Fg2;
+        Fill = _on ? ScreenKit.Accent : null;
+        _knob.Fill = _on ? ScreenKit.OnAccent : ScreenKit.Fg;
         Paint();
         double x = _on ? 16 : 0;
         if (!animate || ScreenKit.ReducedMotion)
@@ -453,9 +454,10 @@ internal sealed class ToggleSwitch : Pressable
     }
 }
 
-/// <summary>A segmented choice: black well with a hairline, the chosen segment a raised grey with white text.</summary>
+/// <summary>A segmented choice (the card family's): a glass capsule well, the chosen segment a lifted glass capsule with white text.</summary>
 internal sealed class Segmented : Border
 {
+    static readonly SolidColorBrush WellFill = Ui.Tokens.Brush("#0FFFFFFF"), WellEdge = Ui.Tokens.Brush("#17FFFFFF"), Lifted = Ui.Tokens.Brush("#24FFFFFF");
     readonly List<(Pressable Button, TextBlock Text)> _items = new();
     readonly Action<int> _chosen;
     int _index;
@@ -465,10 +467,10 @@ internal sealed class Segmented : Border
     {
         _chosen = chosen;
         _index = index;
-        Background = ScreenKit.Ground;
-        BorderBrush = ScreenKit.Hairline;
+        Background = WellFill;
+        BorderBrush = WellEdge;
         BorderThickness = new Thickness(1);
-        CornerRadius = new CornerRadius(height > 28 ? 12 : 10);
+        CornerRadius = new CornerRadius(height / 2 + 2);
         Padding = new Thickness(2);
         var grid = new Grid();
         for (int i = 0; i < labels.Count; i++)
@@ -488,7 +490,7 @@ internal sealed class Segmented : Border
             {
                 Height = height,
                 MinWidth = minWidth,
-                CornerRadius = new CornerRadius(height > 28 ? 9 : 7),
+                CornerRadius = new CornerRadius(height / 2),
                 Padding = new Thickness(sidePadding, 0, sidePadding, 0),
                 Child = content,
                 PressScale = 0.97,
@@ -526,7 +528,7 @@ internal sealed class Segmented : Border
         {
             var (button, text) = _items[i];
             bool on = i == _index;
-            button.Fill = on ? ScreenKit.Hairline : Brushes.Transparent;
+            button.Fill = on ? Lifted : Brushes.Transparent;
             button.Paint();
             text.Foreground = on || button.IsMouseOver ? ScreenKit.Fg : ScreenKit.Fg2;
         }
@@ -554,10 +556,10 @@ internal sealed class Stepper : Border
         _format = format ?? (v => v.ToString(CultureInfo.InvariantCulture));
         _v = value;
         if (changed is not null) Changed += changed;
-        Background = ScreenKit.Ground;
-        BorderBrush = ScreenKit.Hairline;
+        Background = Views.Cards.Sheet.CapFill;
+        BorderBrush = Views.Cards.Sheet.GlassEdge;
         BorderThickness = new Thickness(1);
-        CornerRadius = new CornerRadius(8);
+        CornerRadius = new CornerRadius(height / 2);
         Height = height;
         _value = ScreenKit.Text(_format(value), fontSize, Weight.Bold);
         _value.MinWidth = valueWidth;
@@ -651,20 +653,20 @@ internal sealed class DayToggle : Pressable
 
     void PaintDay()
     {
-        Fill = _on ? ScreenKit.Fg : null;
+        Fill = _on ? Views.Cards.Ink.Tint : null;
         Paint();
-        if (_on) BorderBrush = ScreenKit.Fg;
+        if (_on) BorderBrush = Views.Cards.Ink.TintEdge;
         var (family, weight) = ScreenKit.Font(_on ? Weight.Bold : Weight.SemiBold);
         _letter.FontFamily = family;
         _letter.FontWeight = weight;
-        _letter.Foreground = _on ? ScreenKit.Ground : IsMouseOver ? ScreenKit.Fg : ScreenKit.Fg2;
+        _letter.Foreground = _on ? Views.Cards.Ink.Soft : IsMouseOver ? ScreenKit.Fg : ScreenKit.Fg2;
     }
 }
 
-/// <summary>A thin slider: grey track, white fill and knob; drag or click anywhere on it, wheel nudges.</summary>
+/// <summary>A slim slider (the card family's): a faint track filled with the palette's gradient, a white knob; drag or click anywhere on it, wheel nudges.</summary>
 internal sealed class SlimSlider : Grid
 {
-    readonly Border _fill = new() { Height = 4, CornerRadius = new CornerRadius(2), Background = ScreenKit.Fg, HorizontalAlignment = HorizontalAlignment.Left };
+    readonly Border _fill = new() { Height = 6, CornerRadius = new CornerRadius(3), Background = Views.Cards.Ink.Gradient, HorizontalAlignment = HorizontalAlignment.Left };
     readonly Ellipse _knob = new() { Width = 14, Height = 14, Fill = ScreenKit.Fg, HorizontalAlignment = HorizontalAlignment.Left };
     readonly int _min, _max, _step;
     int _v;
@@ -684,7 +686,7 @@ internal sealed class SlimSlider : Grid
         Height = 22;
         Background = Brushes.Transparent;
         Cursor = Cursors.Hand;
-        Children.Add(new Border { Height = 4, CornerRadius = new CornerRadius(2), Background = ScreenKit.Hairline });
+        Children.Add(new Border { Height = 6, CornerRadius = new CornerRadius(3), Background = Views.Cards.Sheet.Track });
         Children.Add(_fill);
         Children.Add(_knob);
         SizeChanged += (_, _) => Layout();

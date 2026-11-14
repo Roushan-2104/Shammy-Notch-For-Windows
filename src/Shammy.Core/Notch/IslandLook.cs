@@ -97,6 +97,9 @@ public static class IslandWaves
     /// <summary>The strongest any band gets (the owner found brighter glows "too much").</summary>
     public const double MaxAlpha = 0.26;
 
+    /// <summary>How much stronger the waves get while a song plays under Album (the owner found 1× "too faint to notice").</summary>
+    public const double MaxBoost = 1.8;
+
     static readonly (double Centre, double Amp, double Freq, double Speed, double Sigma, double Phase, double Gain)[] Bands =
     {
         (0.62, 0.13, 0.85, 0.21, 0.17, 0.0, 1.0),
@@ -114,12 +117,16 @@ public static class IslandWaves
     /// <summary>
     /// Renders the bands at time <paramref name="t"/> (seconds) in <paramref name="colours"/> (three; fewer repeat)
     /// into <paramref name="pbgra"/> (w×h×4, premultiplied). <paramref name="strength"/> 0..1 scales them all; 0 clears.
+    /// <paramref name="boost"/> (1..<see cref="MaxBoost"/>) makes them stronger and wider, for a song playing under the
+    /// Album palette, so its colours are actually seen.
     /// </summary>
-    public static void Render(Span<byte> pbgra, int w, int h, IReadOnlyList<Rgb> colours, double t, double strength)
+    public static void Render(Span<byte> pbgra, int w, int h, IReadOnlyList<Rgb> colours, double t, double strength, double boost = 1)
     {
         if (pbgra.Length < w * h * 4) throw new ArgumentException("Buffer too small", nameof(pbgra));
         pbgra[..(w * h * 4)].Clear();
         strength = Math.Clamp(strength, 0, 1);
+        boost = Math.Clamp(boost, 1, MaxBoost);
+        double widen = 1 + 0.3 * (boost - 1);
         if (strength <= 0 || colours.Count == 0 || w <= 0 || h <= 0) return;
 
         for (int y = 0; y < h; y++)
@@ -143,9 +150,9 @@ public static class IslandWaves
                                     + band.Amp * 0.55 * Math.Sin(2 * Math.PI * band.Freq * 2.1 * fx - band.Phase * 0.7 - phase * 0.6 + i)
                                     + 0.035 * Math.Sin(2 * Math.PI * 2.3 * fx - t * 0.5 + i);
                     // The ribbon swells and thins along its length, like light on moving water.
-                    double sigma = band.Sigma * (1.15 + 0.4 * Math.Sin(2 * Math.PI * 0.8 * fx - phase * 0.5 + i * 1.7));
+                    double sigma = widen * band.Sigma * (1.15 + 0.4 * Math.Sin(2 * Math.PI * 0.8 * fx - phase * 0.5 + i * 1.7));
                     double d = (fy - centre) / sigma;
-                    double alpha = Math.Exp(-d * d) * band.Gain * MaxAlpha * strength * ends;
+                    double alpha = Math.Exp(-d * d) * band.Gain * MaxAlpha * boost * strength * ends;
                     if (alpha < 1e-4) continue;
                     var c = colours[i % colours.Count];
                     // "Over" in premultiplied space, so overlapping bands mix instead of adding up past the cap.
@@ -155,7 +162,7 @@ public static class IslandWaves
                     a = alpha + a * (1 - alpha);
                 }
                 // Where ribbons cross they never add up past a soft ceiling: the light stays quiet.
-                double cap = MaxAlpha * 1.5 * strength;
+                double cap = MaxAlpha * 1.5 * boost * strength;
                 if (a > cap)
                 {
                     double f = cap / a;

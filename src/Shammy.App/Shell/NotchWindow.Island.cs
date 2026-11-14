@@ -42,6 +42,9 @@ public partial class NotchWindow
     DispatcherTimer _ambientTick = null!, _ambientSlow = null!;
     readonly System.Diagnostics.Stopwatch _ambientClock = new();
     double _waveTime, _breathTime;
+
+    /// <summary>The waves' boost (1 = normal, up to IslandWaves.MaxBoost while a song plays under Album) and where it is heading.</summary>
+    double _waveBoost = 1, _boostTarget = 1;
     IslandLookPlan _plan;
     RimState _rimState;
     bool _transparency = true, _batterySaver, _busy;
@@ -104,6 +107,8 @@ public partial class NotchWindow
         }
         bool meeting = _restView.Mood.Meeting is not null;
         _rimState = RimLight.Pick(music, focus, micLive, meeting);
+        // A song playing under Album: its colours come up clearly in the waves (and settle back when it stops).
+        _boostTarget = music && Theme.PaletteTheme.FromAlbum ? IslandWaves.MaxBoost : 1;
         bool shown = _mode != NotchMode.Hidden && !_tucked;
         bool listening = _mode is NotchMode.Listening or NotchMode.Circling or NotchMode.Thinking;
         // A paused song stays among the activities; it isn't something happening.
@@ -123,6 +128,12 @@ public partial class NotchWindow
         {
             _ambientTick.Stop();
         }
+        // Still waves (Calm, Battery Saver) jump straight to the new strength.
+        if (!_ambientTick.IsEnabled && _waveBoost != _boostTarget)
+        {
+            _waveBoost = _boostTarget;
+            RenderWaves();
+        }
         ApplyLook();
     }
 
@@ -141,7 +152,9 @@ public partial class NotchWindow
         if (_waves is null) return;
         var glass = _plan.Glass ? _glass.Image : null;
         bool open = _spec.H > 80;
-        double waves = _plan.Waves ? (open ? 0.7 : 1) : 0;
+        // An open slab shows the waves softer (0.7), except while a song's colours are up (towards full).
+        double lift = (_waveBoost - 1) / (IslandWaves.MaxBoost - 1);
+        double waves = _plan.Waves ? (open ? 0.7 + 0.3 * lift : 1) : 0;
         var fill = glass is null ? PlainIsland : _glass.Average;
         if (_islandFill.Color != fill) _islandFill.Color = fill;
         var rect = new Rect(0, -_gap, WindowWidth, GlassHeight);
@@ -158,6 +171,14 @@ public partial class NotchWindow
     {
         double dt = Math.Min(0.2, _ambientClock.Elapsed.TotalSeconds);
         _ambientClock.Restart();
+        if (_waveBoost != _boostTarget)
+        {
+            // About a second to come up or settle back.
+            double step = dt * (IslandWaves.MaxBoost - 1) / 0.9;
+            _waveBoost = _waveBoost < _boostTarget ? Math.Min(_boostTarget, _waveBoost + step) : Math.Max(_boostTarget, _waveBoost - step);
+            ApplyLook();
+            if (!_plan.AnimateWaves) RenderWaves();
+        }
         if (_plan.AnimateWaves)
         {
             _waveTime += dt;
@@ -173,7 +194,7 @@ public partial class NotchWindow
     /// <summary>One frame of the waves into the tiny bitmap; WPF redraws the island with it (scaled up, soft).</summary>
     void RenderWaves()
     {
-        IslandWaves.Render(_wavePx, IslandWaves.Width, IslandWaves.Height, Theme.PaletteTheme.Colours, _waveTime, 1);
+        IslandWaves.Render(_wavePx, IslandWaves.Width, IslandWaves.Height, Theme.PaletteTheme.Colours, _waveTime, 1, _waveBoost);
         _waves.WritePixels(new Int32Rect(0, 0, IslandWaves.Width, IslandWaves.Height), _wavePx, IslandWaves.Width * 4, 0);
     }
 
@@ -315,5 +336,5 @@ public partial class NotchWindow
     internal string DescribeIsland() =>
         $"gap={_gap * _scale:0.##} glass={(Shape.Glass is not null ? "on" : "off")} {_glass.Describe()} transparency={_transparency} batterySaver={_batterySaver} " +
         $"highContrast={SystemParameters.HighContrast} busy={_busy} waves={(_plan.Waves ? (_plan.AnimateWaves ? "moving" : "still") : "off")} " +
-        $"ticking={_ambientTick.IsEnabled} {Edge.Describe()} state={_rimState} {Theme.PaletteTheme.Describe()} bounds={IslandBounds.Screen}";
+        $"ticking={_ambientTick.IsEnabled} waveBoost={_waveBoost:0.##} wavesOpacity={Shape.WavesOpacity:0.##} {Edge.Describe()} state={_rimState} {Theme.PaletteTheme.Describe()} bounds={IslandBounds.Screen}";
 }

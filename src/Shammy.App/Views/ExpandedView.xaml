@@ -13,12 +13,12 @@
 
     <Grid x:Name="Body" Margin="20,12,20,14">
         <Grid.RowDefinitions>
-            <RowDefinition Height="36" />
+            <RowDefinition x:Name="TopRow" Height="36" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Top row: the pet's eyes (home), the right-now sentence, search, the guide -->
-        <Grid>
+        <!-- Top row: the pet's eyes (home), the right-now sentence, search, the guide (hidden while a card sheet is open) -->
+        <Grid x:Name="TopBar">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

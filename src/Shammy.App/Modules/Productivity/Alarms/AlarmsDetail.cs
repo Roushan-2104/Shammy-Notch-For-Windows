@@ -3,85 +3,66 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Shammy.Core.Productivity;
+using Shammy.Views.Cards;
 using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Productivity.Alarms;
 
 /// <summary>
-/// The Alarms screen (the designed detail, 892×232 inside the notch's card frame): a header line with when the
-/// next alarm rings and "Add alarm" (the one accent), the list (time, label, repeat text, M–S day toggles, an
-/// on/off switch; click a time to edit it), and a side panel with the snooze length, gentle wake and breaking
-/// through fullscreen. "Add alarm" and editing swap the list for an inline editor: time, label, days.
+/// The Alarms card (the card family's shape, 560 wide, as tall as its list): the header says when the next alarm
+/// rings and holds "Add" (the one accent) and ⋯ (snooze length, breaking through fullscreen, gentle wake). Each
+/// alarm is a glass row: its time in light numbers (the next one in the accent), its name and M–S days, an on/off
+/// switch; click the time or name to edit it. "Add" and editing swap the list for an inline editor.
 /// </summary>
-internal sealed class AlarmsDetail : Grid
+internal sealed class AlarmsDetail : CardSheet
 {
-    readonly IAlarmHost _host;
-    readonly TextBlock _next = ScreenKit.Text("", 13, Weight.Regular, ScreenKit.Fg2);
-    readonly Border _listPanel;
-    readonly ContentControl _side = new();
-    readonly Pressable _add;
-    Editor? _editor;
+    public const double SheetWidth = 560;
 
-    public AlarmsDetail(IAlarmHost host)
+    readonly IAlarmHost _host;
+    readonly ContentControl _content = new() { Focusable = false };
+    readonly Button _add, _more;
+    Editor? _editor;
+    bool _options;
+
+    public AlarmsDetail(IAlarmHost host) : base("Alarms", SheetWidth)
     {
         _host = host;
-        RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
-        RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
-        RowDefinitions.Add(new RowDefinition());
-
-        var header = new Grid();
-        header.Children.Add(_next);
-        _add = ScreenKit.Primary("Add alarm", () => OpenEditor(null), 32, 13, ScreenKit.Paths.Plus, 14);
-        _add.HorizontalAlignment = HorizontalAlignment.Right;
-        _add.Padding = new Thickness(10, 0, 14, 0);
-        header.Children.Add(_add);
-        Children.Add(header);
-
-        var body = new Grid();
-        body.ColumnDefinitions.Add(new ColumnDefinition());
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
-        SetRow(body, 2);
-        Children.Add(body);
-
-        _listPanel = Panel();
-        _listPanel.ClipToBounds = true;
-        body.Children.Add(_listPanel);
-        var side = Panel();
-        side.Padding = new Thickness(14);
-        side.Child = _side;
-        SetColumn(side, 2);
-        body.Children.Add(side);
-
+        _more = Action(Sheet.Round("Alarm options", Dots, ToggleOptions, 34, iconSize: 18));
+        _add = Action(Sheet.Cap("Add", "Add alarm", () => OpenEditor(null), CardKit.Paths.Plus, accent: true));
+        Body.Children.Add(_content);
         // "in 8 h 12 m" only has to be right while it's looked at.
-        Views.Cards.CardKit.TickWhileVisible(this, TimeSpan.FromSeconds(30), RefreshNext);
+        CardKit.TickWhileVisible(this, TimeSpan.FromSeconds(30), RefreshNext);
         Refresh();
     }
 
-    static Border Panel() => new()
-    {
-        CornerRadius = new CornerRadius(16),
-        Background = ScreenKit.Tile,
-        BorderBrush = ScreenKit.Hairline,
-        BorderThickness = new Thickness(1),
-    };
+    /// <summary>Three dots (⋯) as strokes.</summary>
+    const string Dots = "M5 12h.01 M12 12h.01 M19 12h.01";
 
     /// <summary>Rebuilds after any change (from here, a command, the pipe or a ringing alarm). An open editor stays.</summary>
     public void Refresh()
     {
         RefreshNext();
-        if (_editor is null) _listPanel.Child = List();
-        _side.Content = Side();
+        if (_editor is not null) return;
+        _content.Content = _options ? Options() : List();
     }
 
     void RefreshNext()
     {
         var now = DateTime.Now;
         var next = _host.Alarms.Select(_host.UpcomingLocal).Where(t => t is not null).Min();
-        _next.Text = _editor is not null ? (_editor.IsNew ? "New alarm" : "Edit alarm")
-            : next is { } n ? AlarmText.NextLine(now, n)
-            : _host.Alarms.Count == 0 ? "No alarms yet" : "No alarms on";
-        _add.Visibility = _editor is null ? Visibility.Visible : Visibility.Collapsed;
+        TitleText.Text = _editor is not null ? (_editor.IsNew ? "New alarm" : "Edit alarm") : _options ? "Alarm options" : "Alarms";
+        Status = _editor is not null || _options ? null
+            : next is { } n ? "next " + AlarmText.Short(n - now)
+            : _host.Alarms.Count == 0 ? null : "none on";
+        _add.Visibility = _editor is null && !_options ? Visibility.Visible : Visibility.Collapsed;
+        _more.Visibility = _editor is null ? Visibility.Visible : Visibility.Collapsed;
+        _more.ToolTip = _options ? "Back to alarms" : "Alarm options";
+    }
+
+    void ToggleOptions()
+    {
+        _options = !_options;
+        Refresh();
     }
 
     // ---- The list ----------------------------------------------------------------------------------
@@ -91,124 +72,140 @@ internal sealed class AlarmsDetail : Grid
         var alarms = _host.Alarms.OrderBy(a => a.Hour * 60 + a.Minute).ThenBy(a => a.Label, StringComparer.OrdinalIgnoreCase).ToList();
         if (alarms.Count == 0)
         {
-            var empty = ScreenKit.Column(6,
-                ScreenKit.Text("No alarms yet", 16, Weight.Bold),
-                ScreenKit.Para("Add one here, or just say “wake me up at 6:30 every weekday”.", 13));
-            empty.Margin = new Thickness(20, 0, 20, 0);
-            empty.VerticalAlignment = VerticalAlignment.Center;
-            return empty;
+            var bell = new Border
+            {
+                Width = 38,
+                Height = 38,
+                CornerRadius = new CornerRadius(19),
+                Background = Ink.Tint,
+                Child = CardKit.Icon(CardKit.Paths.Bell, Ink.Soft, 18, 2),
+            };
+            var line = Sheet.Meta("", 14);
+            line.Inlines.Add(CardKit.Run("No alarms yet. ", FontWeights.Bold, CardKit.Ink));
+            line.Inlines.Add(new System.Windows.Documents.Run("Say “wake me up at 6:30 every weekday”."));
+            line.Margin = new Thickness(12, 0, 0, 0);
+            return Sheet.Row(0, bell, line);
         }
-        var rows = new StackPanel();
         var now = DateTime.Now;
-        for (int i = 0; i < alarms.Count; i++) rows.Children.Add(Row(alarms[i], now, last: i == alarms.Count - 1 && alarms.Count > 3));
+        var next = alarms.Where(a => _host.UpcomingLocal(a) is not null).MinBy(a => _host.UpcomingLocal(a));
+        var rows = new StackPanel();
+        foreach (var a in alarms)
+        {
+            var row = Row(a, ReferenceEquals(a, next));
+            if (rows.Children.Count > 0) row.Margin = new Thickness(0, 8, 0, 0);
+            rows.Children.Add(row);
+        }
+        // Four rows show; more scroll.
         return new ScrollViewer
         {
             Content = rows,
+            MaxHeight = 4 * 66 + 3 * 8,
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Focusable = false,
         };
     }
 
-    FrameworkElement Row(Alarm a, DateTime now, bool last)
+    FrameworkElement Row(Alarm a, bool next)
     {
-        var ink = a.Enabled ? ScreenKit.Fg : ScreenKit.Fg2;
-        var grid = new Grid { Height = 58, Margin = new Thickness(16, 0, 16, 0) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(118) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
-
-        // Time and label are one click target: it opens the editor.
         var (time, suffix) = ClockPreference.Parts(a.Hour, a.Minute);
-        var big = ScreenKit.Display(time, 26, Weight.ExtraBold, -0.03, ink);
-        var am = ScreenKit.Text(suffix, 12, Weight.Bold, ink);
-        am.VerticalAlignment = VerticalAlignment.Bottom;
-        am.Margin = new Thickness(4, 0, 0, 6);
+        var big = Sheet.Num(time, 36, next && a.Enabled ? Ink.Soft : CardKit.Ink);
         var timeRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         timeRow.Children.Add(big);
-        if (suffix.Length > 0) timeRow.Children.Add(am);
-
-        var name = ScreenKit.Text(a.Label.Length > 0 ? a.Label : "Alarm", 14, Weight.SemiBold, ink);
-        var repeat = ScreenKit.Text(RepeatLine(a, now), 12, Weight.Regular, a.MissedUtc is not null ? ScreenKit.B(NotchPalette.Alarm) : ScreenKit.Fg2);
-        var words = ScreenKit.Column(2, name, repeat);
-        words.VerticalAlignment = VerticalAlignment.Center;
-
-        var open = new Pressable(Brushes.Transparent, Brushes.Transparent) { PressScale = 0.99, ToolTip = "Edit" };
-        var openGrid = new Grid();
-        openGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(118) });
-        openGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        openGrid.ColumnDefinitions.Add(new ColumnDefinition());
-        openGrid.Children.Add(timeRow);
-        SetColumn(words, 2);
-        openGrid.Children.Add(words);
-        open.Child = openGrid;
-        open.Click += () => OpenEditor(a);
-        SetColumnSpan(open, 3);
-        grid.Children.Add(open);
-
-        var days = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var (day, letter, dayName) in AlarmText.Week)
+        if (suffix.Length > 0)
         {
-            var toggle = new DayToggle(letter, (a.Days & day) != 0, on => _host.SetDays(a, on ? a.Days | day : a.Days & ~day),
-                $"Repeat on {dayName}") { Margin = new Thickness(days.Children.Count > 0 ? 3 : 0, 0, 0, 0) };
-            days.Children.Add(toggle);
+            var am = Sheet.Num(suffix, 15, big.Foreground);
+            am.VerticalAlignment = VerticalAlignment.Bottom;
+            am.Margin = new Thickness(4, 0, 0, 5);
+            timeRow.Children.Add(am);
         }
-        SetColumn(days, 4);
-        grid.Children.Add(days);
+
+        var name = Sheet.Word(a.Label.Length > 0 ? a.Label : "Alarm", 14);
+        var under = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 0) };
+        if (Note(a) is { } note)
+        {
+            var t = Sheet.Meta(note, 12);
+            if (a.MissedUtc is not null) t.Foreground = Ink.Soft;
+            under.Children.Add(t);
+        }
+        else
+        {
+            foreach (var (day, letter, dayName) in AlarmText.Week)
+            {
+                var toggle = new DayToggle(letter, (a.Days & day) != 0, on => _host.SetDays(a, on ? a.Days | day : a.Days & ~day),
+                    $"Repeat on {dayName}", 20) { Margin = new Thickness(under.Children.Count > 0 ? 3 : 0, 0, 0, 0) };
+                under.Children.Add(toggle);
+            }
+        }
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
+        words.Children.Add(name);
+        words.Children.Add(under);
+
+        // The time opens the editor (and so does the name).
+        var open = new Pressable(Brushes.Transparent, Brushes.Transparent) { PressScale = 0.98, ToolTip = "Edit", Child = timeRow, Width = 132 };
+        System.Windows.Automation.AutomationProperties.SetName(open, $"Edit the {AlarmText.Time(a)} alarm");
+        open.Click += () => OpenEditor(a);
+        name.Cursor = Cursors.Hand;
+        name.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            OpenEditor(a);
+        };
 
         var toggleOn = new ToggleSwitch(a.Enabled, on => _host.SetEnabled(a, on), a.Enabled ? "Turn off" : "Turn on")
         {
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
         };
-        SetColumn(toggleOn, 6);
+        var grid = new Grid { MinHeight = 44 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(open);
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
+        Grid.SetColumn(toggleOn, 2);
         grid.Children.Add(toggleOn);
-
-        return new Border
-        {
-            BorderBrush = ScreenKit.Hairline,
-            BorderThickness = new Thickness(0, 0, 0, last ? 0 : 1),
-            Child = grid,
-        };
+        var tile = Sheet.Tile(grid, new Thickness(16, 10, 14, 10));
+        if (!a.Enabled) tile.Opacity = 0.6;
+        return tile;
     }
 
-    string RepeatLine(Alarm a, DateTime now)
+    /// <summary>A one-off, snoozed or missed alarm says so instead of showing the days.</summary>
+    string? Note(Alarm a)
     {
-        var repeat = AlarmText.Repeat(a, now, _host.UpcomingLocal(a));
-        if (a.MissedUtc is not null) return "Missed · " + repeat;
-        if (a.IsSnoozed && a.SnoozedUntilUtc is { } s) return $"Snoozed till {ClockPreference.Format(s.ToLocalTime())} · {repeat}";
-        if (!a.Enabled) return "Off · " + repeat;
-        return repeat;
+        var now = DateTime.Now;
+        if (a.MissedUtc is not null) return "Missed · " + AlarmText.Repeat(a, now, _host.UpcomingLocal(a));
+        if (a.IsSnoozed && a.SnoozedUntilUtc is { } s) return $"Snoozed till {ClockPreference.Format(s.ToLocalTime())}";
+        if (a.Days == AlarmDays.None) return AlarmText.Repeat(a, now, _host.UpcomingLocal(a));
+        return null;
     }
 
-    // ---- Side panel ----------------------------------------------------------------------------------
+    // ---- Options (behind ⋯) --------------------------------------------------------------------------
 
-    FrameworkElement Side()
+    FrameworkElement Options()
     {
         int[] lengths = { 5, 10, 15 };
         int at = Array.IndexOf(lengths, _host.DefaultSnoozeMinutes);
-        var snooze = new Segmented(lengths.Select(m => $"{m} min").ToList(), at, i => _host.SetSnoozeMinutes(lengths[i]), stretch: true);
-        var gentle = SwitchRow("Gentle wake", " · fade in 30 s", _host.GentleWake, on => _host.GentleWake = on,
-            "Gentle wake: the sound swells over 30 seconds");
-        var breaks = SwitchRow("Break through fullscreen", "", _host.BreaksFullscreen, on => _host.BreaksFullscreen = on,
-            "Ring over games, videos and slides");
-
-        return ScreenKit.Column(12, ScreenKit.Column(6, ScreenKit.Label("Snooze length"), snooze), breaks, gentle);
+        var snooze = new Segmented(lengths.Select(m => $"{m} min").ToList(), at, i => _host.SetSnoozeMinutes(lengths[i]), minWidth: 60, height: 28, fontSize: 13);
+        var breaks = new ToggleSwitch(_host.BreaksFullscreen, on => _host.BreaksFullscreen = on, "Ring over games, videos and slides");
+        var gentle = new ToggleSwitch(_host.GentleWake, on => _host.GentleWake = on, "Gentle wake: the sound swells over 30 seconds");
+        var col = new StackPanel();
+        col.Children.Add(OptionRow("Snooze", "", snooze));
+        col.Children.Add(OptionRow("Break through full screen", "", breaks));
+        var last = OptionRow("Gentle wake", "fades in over 30 s", gentle);
+        last.Margin = new Thickness(2, 0, 0, 0);
+        col.Children.Add(last);
+        return col;
     }
 
-    static FrameworkElement SwitchRow(string title, string aside, bool on, Action<bool> set, string tip)
+    static FrameworkElement OptionRow(string title, string aside, FrameworkElement control)
     {
-        var grid = new Grid();
-        var text = ScreenKit.Text(title, 13, Weight.SemiBold);
-        if (aside.Length > 0) text.Inlines.Add(new System.Windows.Documents.Run(aside) { Foreground = ScreenKit.Fg2, FontFamily = ScreenKit.Font(Weight.Medium).Family, FontWeight = FontWeights.Medium });
-        grid.Children.Add(text);
-        var toggle = new ToggleSwitch(on, set, tip) { HorizontalAlignment = HorizontalAlignment.Right };
-        grid.Children.Add(toggle);
-        return grid;
+        var words = Sheet.Row(6, Sheet.Word(title, 14));
+        if (aside.Length > 0) words.Children.Add(Sheet.Meta("· " + aside));
+        control.VerticalAlignment = VerticalAlignment.Center;
+        var row = Sheet.Spread(words, control);
+        row.Margin = new Thickness(2, 0, 0, 12);
+        return row;
     }
 
     // ---- The editor ----------------------------------------------------------------------------------
@@ -220,7 +217,7 @@ internal sealed class AlarmsDetail : Grid
             _host.Delete(a);
             Close();
         });
-        _listPanel.Child = _editor;
+        _content.Content = _editor;
         ScreenKit.Rise(_editor, 0, 6);
         RefreshNext();
     }
@@ -259,9 +256,9 @@ internal sealed class AlarmsDetail : Grid
             int hour = alarm?.Hour ?? 7, minute = alarm?.Minute ?? 0;
             if (alarm is null && now.Hour is >= 4 and < 10) (hour, minute) = (now.AddHours(1).Hour, 0);
             _days = alarm?.Days ?? AlarmDays.None;
-            Margin = new Thickness(16, 12, 16, 12);
+            Margin = new Thickness(0);
             RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             int shown = _h12 ? (hour % 12 == 0 ? 12 : hour % 12) : hour;
@@ -301,19 +298,19 @@ internal sealed class AlarmsDetail : Grid
             SyncPlaceholder();
             var labelBox = new Border
             {
-                Width = 210,
-                Height = 34,
-                CornerRadius = new CornerRadius(8),
-                Background = ScreenKit.Ground,
-                BorderBrush = ScreenKit.Hairline,
+                Width = 190,
+                Height = 36,
+                CornerRadius = new CornerRadius(18),
+                Background = Sheet.CapFill,
+                BorderBrush = Sheet.GlassEdge,
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(10, 0, 10, 0),
-                Margin = new Thickness(24, 0, 0, 0),
+                Padding = new Thickness(14, 0, 14, 0),
+                Margin = new Thickness(18, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Grid { Children = { placeholder, _label } },
             };
             _label.GotKeyboardFocus += (_, _) => labelBox.BorderBrush = ScreenKit.Fg;
-            _label.LostKeyboardFocus += (_, _) => labelBox.BorderBrush = ScreenKit.Hairline;
+            _label.LostKeyboardFocus += (_, _) => labelBox.BorderBrush = Sheet.GlassEdge;
             _label.KeyDown += (_, e) =>
             {
                 if (e.Key != Key.Enter) return;
@@ -328,7 +325,7 @@ internal sealed class AlarmsDetail : Grid
 
             var repeatText = ScreenKit.Text(AlarmText.Repeat(_days), 12, Weight.Regular, ScreenKit.Fg2);
             repeatText.Margin = new Thickness(12, 0, 0, 0);
-            var days = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            var days = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 14, 0, 14) };
             days.Children.Add(new ScreenKitLabelHolder(ScreenKit.Label("Repeat")) { Margin = new Thickness(0, 0, 12, 0) });
             foreach (var (day, letter, dayName) in AlarmText.Week)
             {
@@ -350,8 +347,8 @@ internal sealed class AlarmsDetail : Grid
                 buttons.Children.Add(del);
             }
             var right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            right.Children.Add(ScreenKit.Secondary("Cancel", cancel, 32, 16, 13));
-            var saveButton = ScreenKit.Primary(alarm is null ? "Add" : "Save", () => Commit(save), 32, 13, null, 20);
+            right.Children.Add(ScreenKit.Secondary("Cancel", cancel, 34, -1, 13));
+            var saveButton = ScreenKit.Primary(alarm is null ? "Add" : "Save", () => Commit(save), 34, 13, null, 20);
             saveButton.Margin = new Thickness(8, 0, 0, 0);
             right.Children.Add(saveButton);
             buttons.Children.Add(right);
