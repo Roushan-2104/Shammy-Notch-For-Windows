@@ -10,7 +10,7 @@ public static class NotificationText
     /// <summary>The pop-up's second line while private.</summary>
     public const string PopupHidden = "Message hidden while you share your screen";
 
-    /// <summary>The pop-up's second line with "always hide message text" on.</summary>
+    /// <summary>The pop-up's (and a Notifications-tab row's) second line with "always hide message text" on.</summary>
     public const string PopupAlwaysHidden = "Message hidden";
 
     /// <summary>A Notifications-tab row's second line while private.</summary>
@@ -20,10 +20,14 @@ public static class NotificationText
     /// A Notifications-tab row: the bold first line and the "App · body" line under it. Multi-line bodies
     /// are joined into one line, since the row has room for one.
     /// </summary>
-    public static (string Title, string Detail) ForList(string appName, string title, string body, bool presenting)
+    /// <param name="alwaysHide">The user's setting to hide message text even when nobody can see the screen.</param>
+    public static (string Title, string Detail) ForList(string appName, string title, string body, bool presenting, bool alwaysHide = false)
     {
-        if (presenting)
-            return string.IsNullOrWhiteSpace(body) ? (appName, ListHidden) : (title, $"{appName} · {ListHidden}");
+        if (presenting || alwaysHide)
+        {
+            var hidden = presenting ? ListHidden : PopupAlwaysHidden;
+            return string.IsNullOrWhiteSpace(body) ? (appName, hidden) : (title, $"{appName} · {hidden}");
+        }
         var flat = string.Join(" ", (body ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         return (title, flat.Length > 0 ? $"{appName} · {flat}" : appName);
     }

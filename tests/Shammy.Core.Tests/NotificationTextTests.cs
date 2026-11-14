@@ -28,6 +28,13 @@ public class NotificationTextTests
     }
 
     [Fact]
+    public void List_rows_hide_the_message_with_the_always_hide_setting()
+    {
+        Assert.Equal(("Riya", $"WhatsApp · {NotificationText.PopupAlwaysHidden}"), NotificationText.ForList("WhatsApp", "Riya", "the door code is 4471", false, alwaysHide: true));
+        Assert.Equal(("Bank", NotificationText.PopupAlwaysHidden), NotificationText.ForList("Bank", "Your OTP is 4471", "", false, alwaysHide: true));
+    }
+
+    [Fact]
     public void List_rows_flatten_multi_line_bodies_and_skip_empty_ones()
     {
         Assert.Equal(("Mail", "Outlook · line one line two"), NotificationText.ForList("Outlook", "Mail", "line one\n\n line two ", false));

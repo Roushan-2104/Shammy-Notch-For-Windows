@@ -228,7 +228,7 @@ public partial class ExpandedView
 
     /// <summary>
     /// Rebuild the alert rows so their text (and "5m" ages) is read again: whether the text shows depends on
-    /// <see cref="PrivacyState"/>, which isn't something a row can watch.
+    /// <see cref="PrivacyState"/> and the "always hide message text" setting, which a row doesn't watch.
     /// </summary>
     void RebuildAlertRows()
     {
@@ -255,17 +255,18 @@ public partial class ExpandedView
             RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
             icon.Children.Add(img);
         }
+        var (title, detail) = n.ListText(AlwaysHideText);
         var text = new TextBlock { FontFamily = CardKit.Font, FontSize = 13.5, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
-        text.Inlines.Add(CardKit.Run(n.ListTitle, FontWeights.SemiBold, CardKit.Ink));
-        if (n.ListDetail.Length > 0)
-            text.Inlines.Add(CardKit.Run("  " + n.ListDetail, FontWeights.Medium, CardKit.Ink2));
+        text.Inlines.Add(CardKit.Run(title, FontWeights.SemiBold, CardKit.Ink));
+        if (detail.Length > 0)
+            text.Inlines.Add(CardKit.Run("  " + detail, FontWeights.Medium, CardKit.Ink2));
         var time = CardKit.Text(n.TimeText, 12, FontWeights.Medium, secondary: true);
         var dismiss = CardKit.CloseButton(() => _s?.Notifications.History.Remove(n), "Dismiss");
         dismiss.Visibility = Visibility.Hidden;
         dismiss.Margin = new Thickness(10, 0, 0, 0);
         var row = WallDetail.ListRow(icon, text, CardKit.Row(0, time, dismiss), 36);
         row.Cursor = Cursors.Hand;
-        CardKit.Name(row, $"{n.ListTitle}, {n.ListDetail}, {n.TimeText}. Open");
+        CardKit.Name(row, $"{title}, {detail}, {n.TimeText}. Open");
         row.MouseEnter += (_, _) => dismiss.Visibility = Visibility.Visible;
         row.MouseLeave += (_, _) => dismiss.Visibility = Visibility.Hidden;
         row.MouseLeftButtonUp += (_, e) =>
@@ -288,7 +289,10 @@ public partial class ExpandedView
 
     /// <summary>What the Alerts view lists right now, rows separated by " || " (test pipe; replies are one line).</summary>
     internal string DescribeAlertRows() => _s is null ? "" : string.Join(" || ",
-        _s.Notifications.History.Select(n => $"{n.ListTitle} | {n.ListDetail} | {n.TimeText}"));
+        _s.Notifications.History.Select(n => (Text: n.ListText(AlwaysHideText), n.TimeText)).Select(r => $"{r.Text.Title} | {r.Text.Detail} | {r.TimeText}"));
+
+    /// <summary>The user's "Always hide message text" setting: the rows show who, never what.</summary>
+    bool AlwaysHideText => _s?.Settings.AlwaysHideNotificationText == true;
 
     // ---- Now playing (no music module) ----------------------------------------------------------
 

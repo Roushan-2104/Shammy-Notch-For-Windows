@@ -206,6 +206,7 @@ public partial class ExpandedView : UserControl
         });
         services.Settings.Changed += name =>
         {
+            if (name is nameof(AppSettings.AlwaysHideNotificationText) or "") Dispatcher.BeginInvoke(RebuildAlertRows);
             if (name is not (nameof(AppSettings.NowLineEnabled) or nameof(AppSettings.CatTheme) or "")) return;
             Dispatcher.BeginInvoke(() =>
             {

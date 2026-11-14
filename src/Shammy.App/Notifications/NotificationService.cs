@@ -19,10 +19,14 @@ internal sealed class ShammyNotification
     public required string Body { get; init; }
     public required DateTimeOffset Time { get; init; }
 
-    // The Notifications tab's two lines, read when a row is built; the tab rebuilds its rows when
-    // PrivacyState flips, so a call hides them and its end reveals them without reopening.
-    public string ListTitle => Shammy.Core.Notifications.NotificationText.ForList(AppName, Title, Body, PrivacyState.Presenting).Title;
-    public string ListDetail => Shammy.Core.Notifications.NotificationText.ForList(AppName, Title, Body, PrivacyState.Presenting).Detail;
+    // The Notifications tab's two lines, read when a row is built; the tab rebuilds its rows when PrivacyState
+    // or the "always hide message text" setting flips, so a call hides them and its end reveals them without reopening.
+    public (string Title, string Detail) ListText(bool alwaysHide) =>
+        Shammy.Core.Notifications.NotificationText.ForList(AppName, Title, Body, PrivacyState.Presenting, alwaysHide);
+
+    // The same lines for the pop-up's copy, which is already hidden as the setting says (ShammyHost.Private).
+    public string ListTitle => ListText(false).Title;
+    public string ListDetail => ListText(false).Detail;
 
     public string TimeText
     {
