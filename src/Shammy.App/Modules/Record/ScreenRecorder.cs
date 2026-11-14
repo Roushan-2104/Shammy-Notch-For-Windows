@@ -571,8 +571,8 @@ internal sealed class ScreenRecorder : IDisposable
             }
             catch (Exception ex)
             {
+                // Not a failure by itself: what was recorded so far is still saved if the encoder finishes the file.
                 _warn("The recording's pacing stopped", ex);
-                _failure ??= RecordFailure.Unknown;
                 _ = StopAsync(RecordStop.Failed);
             }
             finally
@@ -638,8 +638,8 @@ internal sealed class ScreenRecorder : IDisposable
             catch (Exception ex)
             {
                 _warn("Handing the encoder a sample failed", ex);
-                _failure ??= RecordFailure.Unknown;
-                // No sample ends that stream; the other follows once the stop below is under way.
+                // No sample ends that stream; the other follows once the stop below is under way. The file
+                // is still kept if the encoder closes it and something was written (checked when finishing).
                 args.Request.Sample = null;
                 _ = StopAsync(RecordStop.Failed);
             }
