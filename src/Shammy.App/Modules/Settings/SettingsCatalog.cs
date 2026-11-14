@@ -99,6 +99,8 @@ internal static class SettingsCatalog
         ("OnlineVoiceSpeaks", Voice, "Shammy speaks", 1, "Timers, alarms and reminders said aloud with a Gnani key."),
         ("OnlineVoiceListens", Voice, "Voice commands online", 1, "Your voice goes to Gnani while you hold the talk key."),
         ("OnlineVoiceName", Voice, "Online voice", 1, "Who speaks, with a Gnani key."),
+        ("DictationKey", Voice, "Dictation key", 1, "Hold it, talk, let go: the words are typed where the cursor is."),
+        ("DictationCleanup", Voice, "Dictation clean-up", 1, "Punctuation and capitals, without the ums. Never reworded."),
         // Notifications
         ("ShowNotifications", Notifications, "Show notifications in the notch", 1, "Windows still keeps them in the Action Center."),
         ("NotificationPopupSeconds", Notifications, "Show for (s)", 1, "How long a notification stays before it tucks away."),

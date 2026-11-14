@@ -49,7 +49,24 @@ internal partial class SettingsView
             words: "google ai web palette enter");
         SwitchRow("Hover to understand", "Hold Left Alt and point at words: a bubble translates, converts or explains them. Read on this PC; a translation or a meaning sends only those words to Google.",
             nameof(AppSettings.HoverToUnderstand), "Hold Left Alt to understand", "Left Alt holds do nothing", words: "alt translate meaning convert bubble define");
+        Dictation();
         OnlineVoice();
+    }
+
+    /// <summary>Dictation: which key, how much clean-up, and how Hindi is written.</summary>
+    void Dictation()
+    {
+        Section("Dictation", "Talk, and the words are typed where the cursor is. Uses your Gnani key, below.");
+        var keys = Shammy.Core.Dictation.DictationKeys.All;
+        int chosen = Math.Max(0, keys.ToList().FindIndex(k => k.Key == _s.DictationKey));
+        Row("Dictation key", "Hold it, talk, let go: the words are typed into the app you’re in.", Dropdown(keys.Select(k => k.Label).ToList(), chosen, 210, i =>
+            Set(nameof(AppSettings.DictationKey), keys[i].Key, keys[i].Key == Shammy.Core.Dictation.DictationKey.Off ? "Dictation off" : "Dictation · " + keys[i].Label)),
+            words: "dictate dictation type speak ctrl win right alt double tap");
+        Row("Clean-up", "Light adds punctuation and capitals and drops the ums. Never reworded.",
+            new Segmented(new[] { "Light", "Off" }, _s.DictationCleanup ? 0 : 1, i =>
+                Set(nameof(AppSettings.DictationCleanup), i == 0, i == 0 ? "Light clean-up" : "Dictation types words as heard")),
+            words: "dictation punctuation capitals filler um");
+        Row("Hindi", "Roman · say “in Hindi” for Devanagari", null, words: "dictation hinglish devanagari roman");
     }
 
     /// <summary>

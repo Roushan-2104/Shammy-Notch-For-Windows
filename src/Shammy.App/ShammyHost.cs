@@ -246,6 +246,7 @@ internal sealed partial class ShammyHost : IDisposable
         Safe("keyboard pills", () => _keyboardPills = new KeyboardIndicators(_keys, _ui, Post));
         _search = new SearchCoordinator(_notch, _keys, _whisper, _settings, _modules);
         _modules.SearchImage = png => _search.SearchImageAsync(png);
+        Safe("dictation", () => _ = new DictationController(_notch, _keys, _search, _settings, _modules));
         // What the designed screens borrow from the host (the tour opens the palette, Settings asks about voice).
         Modules.HostLinks.OpenPalette = _search.OpenTyping;
         Modules.HostLinks.RunText = text => _ = _search.SearchTextAsync(text);

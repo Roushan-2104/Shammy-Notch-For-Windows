@@ -88,6 +88,12 @@ internal sealed class MicRecorder
         Volatile.Write(ref _level, Math.Min(1, rms * 6));
     }
 
+    /// <summary>What has been recorded so far, while recording goes on (dictation's live words).</summary>
+    public float[] Snapshot()
+    {
+        lock (_gate) return _samples.ToArray();
+    }
+
     public float[] Stop()
     {
         var wave = _wave;

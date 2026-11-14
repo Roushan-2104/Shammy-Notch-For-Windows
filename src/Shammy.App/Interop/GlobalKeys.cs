@@ -12,10 +12,13 @@ internal enum HotKey
     Look,
 }
 
+/// <summary>What the talk key (Right Alt) just did.</summary>
+internal enum TalkEdge { Down, Up, Abort }
+
 /// <summary>
 /// Routes the global keys Shammy cares about: Right Alt (talk), the Copilot key or a lone Right Ctrl (look),
-/// a lone Left Alt held (hover to understand), the volume keys (so Windows' own volume flyout never appears)
-/// and Escape while a search is open. Everything else passes through.
+/// a lone Left Alt held (hover to understand), Ctrl + Win held (dictation), the volume keys (so Windows' own volume
+/// flyout never appears) and Escape while a search is open. Everything else passes through.
 /// </summary>
 internal sealed class GlobalKeys : IDisposable
 {
@@ -80,6 +83,74 @@ internal sealed class GlobalKeys : IDisposable
     /// <summary>+1 volume up, -1 volume down, 0 mute toggle.</summary>
     public event Action<int>? VolumeKey;
 
+    // ---- Dictation ----------------------------------------------------------------------------------------------
+
+    /// <summary>Hold Ctrl + Win to dictate (Settings › Voice › Dictation key). Off: those keys are never looked at.</summary>
+    public volatile bool DictationCtrlWin;
+
+    /// <summary>Ctrl + Win are both down with nothing else pressed: dictate.</summary>
+    public event Action? DictatePressed;
+
+    /// <summary>Ctrl or Win was let go: type what was said.</summary>
+    public event Action? DictateReleased;
+
+    /// <summary>Another key went down (Ctrl+Win+D is a shortcut), or the PC locked: drop the dictation, keep nothing.</summary>
+    public event Action? DictateAborted;
+
+    /// <summary>
+    /// Asked on the UI thread before a Right Alt press, release or abort reaches <see cref="Pressed"/>,
+    /// <see cref="Released"/> or <see cref="Aborted"/>: true means dictation took it (a smart or double-tapped Right Alt).
+    /// </summary>
+    public Func<TalkEdge, bool>? TalkTaken { get; set; }
+
+    readonly Shammy.Core.Dictation.CtrlWinGesture _ctrlWin = new();
+
+    void PostTalk(TalkEdge edge) => Post(() =>
+    {
+        if (TalkTaken?.Invoke(edge) == true) return;
+        if (edge == TalkEdge.Down) Pressed?.Invoke(HotKey.Talk);
+        else if (edge == TalkEdge.Up) Released?.Invoke(HotKey.Talk);
+        else Aborted?.Invoke(HotKey.Talk);
+    });
+
+    /// <summary>Feeds the Ctrl + Win gesture; nothing is ever swallowed for it.</summary>
+    void TrackCtrlWin(int vk, bool down)
+    {
+        if (!DictationCtrlWin)
+        {
+            if (_ctrlWin.Active) Post(() => DictateAborted?.Invoke());
+            _ctrlWin.Reset();
+            return;
+        }
+        var key = vk switch
+        {
+            VK_LCONTROL => Shammy.Core.Dictation.GestureKey.LeftCtrl,
+            VK_RCONTROL => Shammy.Core.Dictation.GestureKey.RightCtrl,
+            VK_LWIN => Shammy.Core.Dictation.GestureKey.LeftWin,
+            VK_RWIN => Shammy.Core.Dictation.GestureKey.RightWin,
+            _ => Shammy.Core.Dictation.GestureKey.Other,
+        };
+        switch (_ctrlWin.Key(key, down))
+        {
+            case Shammy.Core.Dictation.GestureStep.Start:
+                // Win then Right Ctrl held still isn't "look".
+                _rightCtrlCandidate = false;
+                Post(() =>
+                {
+                    // Without a key in between, letting go of Win would open Start.
+                    MaskAltMenu();
+                    DictatePressed?.Invoke();
+                });
+                break;
+            case Shammy.Core.Dictation.GestureStep.Stop:
+                Post(() => DictateReleased?.Invoke());
+                break;
+            case Shammy.Core.Dictation.GestureStep.Cancel:
+                Post(() => DictateAborted?.Invoke());
+                break;
+        }
+    }
+
     /// <summary>Caps Lock went down (once per press, not per auto-repeat); its new state isn't known yet.</summary>
     public event Action? CapsLockPressed;
 
@@ -137,6 +208,7 @@ internal sealed class GlobalKeys : IDisposable
         // Our own menu mask key (see MaskAltMenu) is not "another key": it must never cancel the hover it serves.
         if (vk == VK_MENU_MASK) return false;
         TrackKeyboardPills(vk, down);
+        TrackCtrlWin(vk, down);
         const int VK_S = 0x53, VK_SNAPSHOT = 0x2C;
         if (down && (vk == VK_SNAPSHOT || (vk == VK_S && _winDown && _shiftDown))) Post(() => SnipKey?.Invoke(true));
         else if (down && vk == VK_ESCAPE) Post(() => SnipKey?.Invoke(false));
@@ -150,7 +222,7 @@ internal sealed class GlobalKeys : IDisposable
         {
             _altGrTalk = false;
             _talkHeld = false;
-            Post(() => Aborted?.Invoke(HotKey.Talk));
+            PostTalk(TalkEdge.Abort);
         }
 
         switch (vk)
@@ -169,7 +241,7 @@ internal sealed class GlobalKeys : IDisposable
                     _altGr = true;
                     _altGrTalk = true;
                     _talkHeld = true;
-                    Post(() => Pressed?.Invoke(HotKey.Talk));
+                    PostTalk(TalkEdge.Down);
                 }
                 else if (!down)
                 {
@@ -178,7 +250,7 @@ internal sealed class GlobalKeys : IDisposable
                     {
                         _altGrTalk = false;
                         _talkHeld = false;
-                        Post(() => Released?.Invoke(HotKey.Talk));
+                        PostTalk(TalkEdge.Up);
                     }
                 }
                 return false;
@@ -187,12 +259,12 @@ internal sealed class GlobalKeys : IDisposable
                 if (down && !_talkHeld)
                 {
                     _talkHeld = true;
-                    Post(() => Pressed?.Invoke(HotKey.Talk));
+                    PostTalk(TalkEdge.Down);
                 }
                 else if (!down && _talkHeld)
                 {
                     _talkHeld = false;
-                    Post(() => Released?.Invoke(HotKey.Talk));
+                    PostTalk(TalkEdge.Up);
                 }
                 return true;
 
@@ -226,7 +298,7 @@ internal sealed class GlobalKeys : IDisposable
 
             // Never swallowed: Right Ctrl is still Ctrl for every shortcut.
             case VK_RCONTROL:
-                if (down && !_rightCtrlCandidate && !_rightCtrlLook && !_lookHeld)
+                if (down && !_rightCtrlCandidate && !_rightCtrlLook && !_lookHeld && !_ctrlWin.Active)
                 {
                     _rightCtrlCandidate = true;
                     Post(() =>
@@ -363,7 +435,7 @@ internal sealed class GlobalKeys : IDisposable
         HoverPressed?.Invoke();
     }
 
-    /// <summary>One press of an unassigned key while Alt is down, so the Alt release isn't read as "open the menu".</summary>
+    /// <summary>One press of an unassigned key while Alt (or Win) is down, so its release isn't read as "open the menu" (or Start).</summary>
     static void MaskAltMenu()
     {
         const uint KEYEVENTF_KEYUP = 0x2;
@@ -403,7 +475,7 @@ internal sealed class GlobalKeys : IDisposable
         if (_talkHeld)
         {
             _talkHeld = false;
-            Post(() => Aborted?.Invoke(HotKey.Talk));
+            PostTalk(TalkEdge.Abort);
         }
         if (_lookHeld)
         {
@@ -411,6 +483,8 @@ internal sealed class GlobalKeys : IDisposable
             Post(() => Aborted?.Invoke(HotKey.Look));
         }
         CancelHover();
+        if (_ctrlWin.Active) Post(() => DictateAborted?.Invoke());
+        _ctrlWin.Reset();
     }
 
     void Post(Action action) => _ui.BeginInvoke(action);

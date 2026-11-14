@@ -237,6 +237,14 @@ internal sealed class AppSettings
     /// <summary>The Gnani voice that speaks (see GnaniVoices); the Hinglish one by default.</summary>
     public string OnlineVoiceName { get; set; } = Shammy.Core.OnlineVoice.GnaniVoices.Default;
 
+    // ---- Dictation ----------------------------------------------------------------------------------
+
+    /// <summary>The key that types what you say into the app with the cursor (Gnani, with the same key and switch).</summary>
+    public Shammy.Core.Dictation.DictationKey DictationKey { get; set; } = Shammy.Core.Dictation.DictationKey.CtrlWin;
+
+    /// <summary>Light clean-up of dictated words (punctuation, capitals, no "um"); off types them as heard.</summary>
+    public bool DictationCleanup { get; set; } = true;
+
     // ---- Claude Code (coding agents) ----------------------------------------------------------------
 
     /// <summary>
@@ -287,6 +295,7 @@ internal sealed class AppSettings
         if (!Enum.IsDefined(PetKind)) PetKind = PetKind.Eyes;
         PetName = PetLooks.Name(PetName);
         if (!Enum.IsDefined(Motion)) Motion = Shammy.Core.Settings.MotionStyle.Lively;
+        if (!Enum.IsDefined(DictationKey)) DictationKey = Shammy.Core.Dictation.DictationKey.CtrlWin;
         if (!Enum.IsDefined(NotchSize)) NotchSize = Shammy.Core.Settings.NotchSize.Normal;
         if (!Enum.IsDefined(Accent)) Accent = Shammy.Core.Settings.AccentColor.Orange;
         Palette = IslandPalettes.Migrate(Palette, Accent);

@@ -67,6 +67,13 @@ internal static class HostLinks
     public static Func<bool>? OnlineListening { get; set; }
 
     /// <summary>
+    /// Dictation: the recording (16 kHz mono) as text, in Roman letters or (devanagari) in Devanagari. A partial
+    /// ask is for the live words: quiet on failure, and it never counts towards pausing online listening. Set by the
+    /// online voice module; null while that feature is off. Throws only when the token is cancelled.
+    /// </summary>
+    public static Func<float[], bool, bool, CancellationToken, Task<DictateReply>>? OnlineDictate { get; set; }
+
+    /// <summary>
     /// Every live activity, most important first (the call's mic, a running clock…). Set by the host; null in tests,
     /// and then the island's home works the call out from quiet mode instead.
     /// </summary>
@@ -107,3 +114,6 @@ internal static class HostLinks
 
 /// <summary>One "Did you mean" chip: what it is, a glyph, and what picking it does.</summary>
 internal sealed record Choice(string Title, string Detail, string Glyph, Action Run);
+
+/// <summary>What dictation got back: the words, or why not (and whether trying the same audio again could help).</summary>
+internal sealed record DictateReply(string? Text, string? Problem = null, bool CanRetry = false);

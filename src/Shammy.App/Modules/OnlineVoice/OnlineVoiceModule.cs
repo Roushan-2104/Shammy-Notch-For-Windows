@@ -94,6 +94,7 @@ internal sealed class OnlineVoiceModule : IShammyModule
         HostLinks.SayAnyway = text => _ctx.Ui.BeginInvoke(() => Speak(text, test: true, asked: true));
         HostLinks.OnlineTranscribe = TranscribeAsync;
         HostLinks.OnlineListening = ListeningOnline;
+        HostLinks.OnlineDictate = DictateAsync;
         OnlineVoiceLink.Current = this;
         QuietState.Changed += OnQuietChanged;
 
@@ -158,6 +159,7 @@ internal sealed class OnlineVoiceModule : IShammyModule
         HostLinks.SayAnyway = null;
         HostLinks.OnlineTranscribe = null;
         HostLinks.OnlineListening = null;
+        HostLinks.OnlineDictate = null;
         _player.Dispose();
     }
 
@@ -469,6 +471,64 @@ internal sealed class OnlineVoiceModule : IShammyModule
             _listenGate.Failed(DateTime.UtcNow);
             _lastListen = "failed: " + ex.GetType().Name;
             return null;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="HostLinks.OnlineDictate"/>: dictation's words, under the same key and switch as listening online.
+    /// Unlike the talk key there is nothing on this PC to fall back to, so it says why instead of returning null; and
+    /// it never pauses online listening (a run of partial asks failing mustn't switch the talk key to the local voice).
+    /// </summary>
+    async Task<DictateReply> DictateAsync(float[] samples, bool devanagari, bool partial, CancellationToken ct)
+    {
+        if (!partial && _fakeStt is { } fake)
+        {
+            _fakeStt = null;
+            _lastListen = "fake (dictation)";
+            return new DictateReply(fake);
+        }
+        if (_store.Key is not { Length: > 0 } key) return new DictateReply(null, "Add a Gnani key in Settings › Voice");
+        if (!_ctx.Settings.OnlineVoiceListens) return new DictateReply(null, "Turn on Voice commands online in Settings › Voice");
+        if (!GnaniClient.NetworkUp()) return new DictateReply(null, "No internet connection", CanRetry: true);
+
+        var sw = Stopwatch.StartNew();
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        limit.CancelAfter(partial ? GnaniApi.SttTimeout : GnaniApi.SttDictationTimeout);
+        try
+        {
+            var wav = await Task.Run(() => SttAudio.ToWav(samples, MicRecorder.SampleRate), limit.Token);
+            var options = devanagari
+                ? new SttOptions(Format: GnaniApi.SttDevanagariFormat, LanguageCode: GnaniApi.SttHindiLanguages)
+                : new SttOptions(LanguageCode: _listenNeedsLanguage ? GnaniApi.SttAutoLanguage : null);
+            var reply = await _client.TranscribeAsync(GnaniApi.Stt(options, key, wav.Length), wav, limit.Token);
+            if (reply.Ok)
+            {
+                // Counts only: the log isn't a transcript archive.
+                if (!partial)
+                    _lastListen = string.Create(Inv, $"dictated {reply.Transcript!.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} words in {sw.ElapsedMilliseconds} ms{(devanagari ? " (Devanagari)" : "")}");
+                return new DictateReply(reply.Transcript);
+            }
+            var error = reply.Error ?? GnaniReplies.Unreachable;
+            if (!partial)
+            {
+                _ctx.Warn($"Dictation failed: {error.Short}{(error.Message.Length > 0 ? " · " + error.Message : "")}");
+                _lastListen = "dictation failed: " + error.Short;
+            }
+            return new DictateReply(null, GnaniReplies.Friendly(error), CanRetry: true);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            if (!partial) _lastListen = "dictation failed: " + GnaniReplies.TimedOut.Short;
+            return new DictateReply(null, GnaniReplies.Friendly(GnaniReplies.TimedOut), CanRetry: true);
+        }
+        catch (Exception ex)
+        {
+            if (!partial) _ctx.Warn("Dictation failed", ex);
+            return new DictateReply(null, "Couldn’t reach Gnani", CanRetry: true);
         }
     }
 

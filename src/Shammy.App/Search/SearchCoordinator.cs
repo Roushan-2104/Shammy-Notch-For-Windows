@@ -64,11 +64,7 @@ internal sealed partial class SearchCoordinator
 
         keys.Pressed += OnKeyDown;
         keys.Released += OnKeyUp;
-        keys.Aborted += key =>
-        {
-            // AltGr was used to type a character: quietly undo the listening it had started.
-            if (key == _key && _phase is Phase.Pending or Phase.Holding) Cancel();
-        };
+        keys.Aborted += OnKeyAborted;
         keys.EscapePressed += Cancel;
         keys.ChoiceKey += n =>
         {
@@ -118,6 +114,15 @@ internal sealed partial class SearchCoordinator
     }
 
     public bool IsActive => _phase != Phase.Idle;
+
+    /// <summary>The talk key is down but not yet held long enough to listen: letting go now is a tap (type).</summary>
+    public bool IsTalkPending => _phase == Phase.Pending && _key == HotKey.Talk;
+
+    public void OnKeyAborted(HotKey key)
+    {
+        // AltGr was used to type a character: quietly undo the listening it had started.
+        if (key == _key && _phase is Phase.Pending or Phase.Holding) Cancel();
+    }
 
     // ---- Teardown ------------------------------------------------------------------------------
 
