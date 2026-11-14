@@ -37,6 +37,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
     public void Start(ModuleContext ctx)
     {
         _ctx = ctx;
+        _ = Task.Run(SweepTemp);
         // A folder on the shelf goes as a zip, like a folder dropped on "Send to phone".
         ctx.AddShelfAction(new ShelfAction("Send to phone", item => _ = SendDroppedAsync(new[] { item.Path })));
         Connect.Links.Phone = this;
@@ -104,6 +105,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
             transfer.Ended += () =>
             {
                 if (ReferenceEquals(_transfer, transfer)) _transfer = null;
+                DeleteIfTemp(path);
             };
             _transfer = transfer;
             // Its card took the notch from the sheet or a QR code.
@@ -113,6 +115,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
         }
         catch (PhoneSendException ex)
         {
+            DeleteIfTemp(path);
             return ex.Message;
         }
     }
@@ -408,25 +411,47 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
 
     // ---- Temp files ------------------------------------------------------------------------------
 
+    static string TempDir => Path.Combine(Path.GetTempPath(), "Shammy", "phone-send");
+
     static string TempFolder()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "Shammy", "phone-send");
-        Directory.CreateDirectory(dir);
-        return dir;
+        Directory.CreateDirectory(TempDir);
+        return TempDir;
     }
 
-    /// <summary>Writes a file for the phone in Shammy's temp folder (clearing out ones older than a day); null on failure.</summary>
+    /// <summary>A zip or copied text/image made for one transfer goes when it ends; the user's own files never do.</summary>
+    void DeleteIfTemp(string path)
+    {
+        if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(path)), TempDir, StringComparison.OrdinalIgnoreCase)) return;
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _ctx?.Warn("Deleting a file made for the phone failed", ex); }
+    }
+
+    /// <summary>At start: files a crash or a locked delete left behind, once older than a day.</summary>
+    static void SweepTemp()
+    {
+        try
+        {
+            if (!Directory.Exists(TempDir)) return;
+            var cutoff = DateTime.Now - TempKeep;
+            foreach (var old in new DirectoryInfo(TempDir).EnumerateFiles().Where(f => f.LastWriteTime < cutoff))
+            {
+                try { old.Delete(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* still in use; next time */ }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Infrastructure.Log.Warn("Tidying files made for the phone failed", ex);
+        }
+    }
+
+    /// <summary>Writes a file for the phone in Shammy's temp folder; null on failure.</summary>
     string? WriteTemp(string stem, string extension, byte[] bytes)
     {
         try
         {
             var dir = TempFolder();
-            var cutoff = DateTime.Now - TempKeep;
-            foreach (var old in new DirectoryInfo(dir).EnumerateFiles().Where(f => f.LastWriteTime < cutoff))
-            {
-                try { old.Delete(); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* still in use; next time */ }
-            }
             var path = Shammy.Core.DropActions.DropPlan.Unique(dir, stem, extension, File.Exists);
             File.WriteAllBytes(path, bytes);
             return path;
