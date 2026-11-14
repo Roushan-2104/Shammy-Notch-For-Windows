@@ -156,6 +156,9 @@ internal sealed class AppSettings
     /// <summary>Hold the middle mouse button for the wheel: eight actions around the pointer.</summary>
     public bool WheelEnabled { get; set; } = true;
 
+    /// <summary>Hold Left Alt and point: a bubble translates, converts or explains the words under the pointer.</summary>
+    public bool HoverToUnderstand { get; set; } = true;
+
     // "DockEnabled" (the dock, since removed) may still be in older settings.json files: unknown names are ignored on load.
 
     /// <summary>One line at the top of the open notch with what matters right now (a meeting soon, Claude waiting…).</summary>

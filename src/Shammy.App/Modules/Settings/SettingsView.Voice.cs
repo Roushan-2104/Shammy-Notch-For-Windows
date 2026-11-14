@@ -47,6 +47,8 @@ internal partial class SettingsView
             new Segmented(new[] { "AI Mode", "Web" }, Array.IndexOf(modes, _s.DefaultSearchMode), i =>
                 Set(nameof(AppSettings.DefaultSearchMode), modes[i], $"Enter now searches with {(i == 0 ? "AI Mode" : "Web")}")),
             words: "google ai web palette enter");
+        SwitchRow("Hover to understand", "Hold Left Alt and point at words: a bubble translates, converts or explains them. Read on this PC; a translation or a meaning sends only those words to Google.",
+            nameof(AppSettings.HoverToUnderstand), "Hold Left Alt to understand", "Left Alt holds do nothing", words: "alt translate meaning convert bubble define");
         OnlineVoice();
     }
 

@@ -14,8 +14,8 @@ internal enum HotKey
 
 /// <summary>
 /// Routes the global keys Shammy cares about: Right Alt (talk), the Copilot key or a lone Right Ctrl (look),
-/// the volume keys (so Windows' own volume flyout never appears) and Escape while a search is open.
-/// Everything else passes through.
+/// a lone Left Alt held (hover to understand), the volume keys (so Windows' own volume flyout never appears)
+/// and Escape while a search is open. Everything else passes through.
 /// </summary>
 internal sealed class GlobalKeys : IDisposable
 {
@@ -44,8 +44,13 @@ internal sealed class GlobalKeys : IDisposable
     {
         _ui = ui;
         _rightCtrlTimer = new DispatcherTimer(RightCtrlHold, DispatcherPriority.Input, (_, _) => OnRightCtrlHeld(), ui) { IsEnabled = false };
+        _leftAltTimer = new DispatcherTimer(LeftAltHold, DispatcherPriority.Input, (_, _) => OnLeftAltHeld(), ui) { IsEnabled = false };
         _hook = new KeyboardHook(Filter);
+        Current = this;
     }
+
+    /// <summary>The running instance, for modules that listen to a key of their own (hover to understand).</summary>
+    public static GlobalKeys? Current { get; private set; }
 
     public bool IsInstalled => _hook.IsInstalled;
 
@@ -125,9 +130,13 @@ internal sealed class GlobalKeys : IDisposable
 
     bool Filter(int vk, bool down, uint time)
     {
+        // Our own menu mask key (see MaskAltMenu) is not "another key": it must never cancel the hover it serves.
+        if (vk == VK_MENU_MASK) return false;
         TrackKeyboardPills(vk, down);
         // Any other key while Right Ctrl is down means a shortcut (Ctrl+C), not a hold.
         if (down && vk != VK_RCONTROL && _rightCtrlCandidate) _rightCtrlCandidate = false;
+        // Any other key while Left Alt is down means a shortcut (Alt+Tab, Alt+F4, Alt+F): drop the hover, pass it all.
+        if (down && vk != VK_LMENU && (_leftAltCandidate || _hoverHeld)) CancelHover();
         // Any other key while AltGr is down means a character (AltGr+4 = ₹), not talking. AltGr's own
         // auto-repeat resends the fake LCtrl, which doesn't count.
         if (down && _altGr && _altGrTalk && vk is not (VK_RMENU or VK_LCONTROL))
@@ -179,6 +188,11 @@ internal sealed class GlobalKeys : IDisposable
                     Post(() => Released?.Invoke(HotKey.Talk));
                 }
                 return true;
+
+            // Never swallowed: a tap still opens the app's menu, and every Alt shortcut works as before.
+            case VK_LMENU:
+                TrackLeftAlt(down);
+                return false;
 
             case VK_LWIN or VK_RWIN:
                 _winDown = down;
@@ -265,6 +279,96 @@ internal sealed class GlobalKeys : IDisposable
         StartLook();
     }
 
+    // ---- Left Alt held: hover to understand ------------------------------------------------------------------------
+    //
+    // A lone Left Alt held for half a second starts a hover; letting go ends it. Left Alt is never swallowed, so a
+    // quick tap still reaches the app (its menu bar) and Alt+Tab, Alt+F4 and Alt+letter work exactly as before: any
+    // other key while Alt is down cancels the hover. Once a hover starts, one unassigned key (vkE8) is sent so that
+    // releasing Alt doesn't open the app's menu bar afterwards (the same trick AutoHotkey's menu mask key uses).
+
+    const int VK_MENU_MASK = 0xE8;
+    static readonly TimeSpan LeftAltHold = TimeSpan.FromMilliseconds(500);
+
+    readonly DispatcherTimer _leftAltTimer;
+    volatile bool _leftAltDown, _leftAltCandidate, _hoverHeld;
+
+    /// <summary>Hover to understand is on (Settings). Off: Left Alt holds are ignored entirely.</summary>
+    public volatile bool HoverEnabled;
+
+    /// <summary>Asked on the UI thread when a hold is about to start a hover (e.g. not over a fullscreen game); null = always.</summary>
+    public Func<bool>? HoverAllowed { get; set; }
+
+    /// <summary>Left Alt has been held on its own for half a second: point at something.</summary>
+    public event Action? HoverPressed;
+
+    /// <summary>Left Alt was let go, or another key turned the hold into a shortcut: the bubble goes.</summary>
+    public event Action? HoverReleased;
+
+    /// <summary>Whether a hover is running (Left Alt held past the wait, nothing else pressed).</summary>
+    public bool HoverHeld => _hoverHeld;
+
+    void TrackLeftAlt(bool down)
+    {
+        if (down)
+        {
+            if (_leftAltDown) return; // auto-repeat
+            _leftAltDown = true;
+            // Alt with Ctrl, Shift or Win already down is a shortcut (Ctrl+Alt+Del, Alt+Shift), never a hover.
+            if (!HoverEnabled || _ctrlKey || _shiftKey || _winDown) return;
+            _leftAltCandidate = true;
+            Post(() =>
+            {
+                _leftAltTimer.Stop();
+                _leftAltTimer.Start();
+            });
+        }
+        else
+        {
+            _leftAltDown = false;
+            CancelHover();
+        }
+    }
+
+    void CancelHover()
+    {
+        _leftAltCandidate = false;
+        if (!_hoverHeld) return;
+        _hoverHeld = false;
+        Post(() => HoverReleased?.Invoke());
+    }
+
+    void OnLeftAltHeld()
+    {
+        _leftAltTimer.Stop();
+        // Alt+click and Alt+drag are shortcuts too, and the keyboard hook can't see the mouse.
+        bool mouse = Native.GetAsyncKeyState(VK_LBUTTON) < 0 || Native.GetAsyncKeyState(VK_RBUTTON) < 0 || Native.GetAsyncKeyState(VK_MBUTTON) < 0;
+        if (!_leftAltCandidate || mouse || !HoverEnabled || _hoverHeld) return;
+        if (HoverAllowed is { } allowed && !allowed()) return;
+        _leftAltCandidate = false;
+        _hoverHeld = true;
+        // Let go in the moment between the check and now: no hover after all.
+        if (!_leftAltDown)
+        {
+            _hoverHeld = false;
+            return;
+        }
+        MaskAltMenu();
+        HoverPressed?.Invoke();
+    }
+
+    /// <summary>One press of an unassigned key while Alt is down, so the Alt release isn't read as "open the menu".</summary>
+    static void MaskAltMenu()
+    {
+        const uint KEYEVENTF_KEYUP = 0x2;
+        keybd_event(VK_MENU_MASK, 0, 0, UIntPtr.Zero);
+        keybd_event(VK_MENU_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+    // ---- Look --------------------------------------------------------------------------------------------------------
+
     void StartLook()
     {
         if (_lookHeld) return;
@@ -284,6 +388,8 @@ internal sealed class GlobalKeys : IDisposable
     public void Dispose()
     {
         _rightCtrlTimer.Stop();
+        _leftAltTimer.Stop();
+        if (Current == this) Current = null;
         _hook.Dispose();
     }
 }

@@ -95,6 +95,7 @@ internal static class SettingsCatalog
         ("MicrophoneDeviceId", Voice, "Microphone", 1, "Used when you hold Right Alt."),
         ("VoiceMode", Voice, "Offline backup", 1, "English, used only when there’s no internet."),
         ("DefaultSearchMode", Voice, "Default search", 1, "What Enter does when you type in the palette."),
+        ("HoverToUnderstand", Voice, "Hover to understand", 1, "Hold Left Alt and point: translate, convert or explain the words."),
         ("OnlineVoiceSpeaks", Voice, "Shammy speaks", 1, "Timers, alarms and reminders said aloud with a Gnani key."),
         ("OnlineVoiceListens", Voice, "Voice commands online", 1, "Your voice goes to Gnani while you hold the talk key."),
         ("OnlineVoiceName", Voice, "Online voice", 1, "Who speaks, with a Gnani key."),
