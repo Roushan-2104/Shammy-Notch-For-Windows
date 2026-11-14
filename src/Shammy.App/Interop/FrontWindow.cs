@@ -76,11 +76,11 @@ internal static class FrontWindow
         return process;
     }
 
-    /// <summary>A process's exe name without ".exe" ("chrome"), or null when it can't be opened (a protected process, or it closed).</summary>
+    /// <summary>A process's exe name without ".exe" ("chrome"), or null when it closed.</summary>
     public static string? ProcessName(uint pid)
     {
         var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        if (h == IntPtr.Zero) return null;
+        if (h == IntPtr.Zero) return NameFromProcessList(pid);
         try
         {
             var sb = new StringBuilder(1024);
@@ -90,6 +90,23 @@ internal static class FrontWindow
         finally
         {
             CloseHandle(h);
+        }
+    }
+
+    /// <summary>
+    /// A process that won't be opened (an anti-cheat game, a protected one) still has its name in the process list.
+    /// Slower, so only for those, and only once per window in front.
+    /// </summary>
+    static string? NameFromProcessList(uint pid)
+    {
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+            return p.ProcessName;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return null; // it closed as we looked
         }
     }
 
