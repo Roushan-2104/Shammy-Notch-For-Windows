@@ -118,6 +118,35 @@ internal sealed partial class ShammyHost
                 var at = root.PointToScreen(new System.Windows.Point(0, 0));
                 return $"ok {(int)Math.Round(at.X)} {(int)Math.Round(at.Y)} {w} {h}";
             }
+            case "render-el":
+            {
+                // Test: renders the first element of a type on its own ("render-el LyricsPanel C:\x.png") and says its size.
+                var bits = arg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                if (bits.Length < 2) return "error: usage render-el <TypeName> <path>";
+                System.Windows.FrameworkElement? found = null;
+                void Seek(System.Windows.DependencyObject d)
+                {
+                    if (found is not null) return;
+                    if (d is System.Windows.FrameworkElement fe && fe.GetType().Name == bits[0]) { found = fe; return; }
+                    for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(d); i++) Seek(System.Windows.Media.VisualTreeHelper.GetChild(d, i));
+                }
+                Seek(_notch);
+                if (found is null) return "error: none found";
+                var dpiEl = System.Windows.Media.VisualTreeHelper.GetDpi(found);
+                int ew = Math.Max(1, (int)Math.Ceiling(found.ActualWidth * dpiEl.DpiScaleX)), eh = Math.Max(1, (int)Math.Ceiling(found.ActualHeight * dpiEl.DpiScaleY));
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap(ew, eh, dpiEl.PixelsPerInchX, dpiEl.PixelsPerInchY, System.Windows.Media.PixelFormats.Pbgra32);
+                var dv = new System.Windows.Media.DrawingVisual();
+                using (var dc = dv.RenderOpen())
+                {
+                    dc.DrawRectangle(System.Windows.Media.Brushes.Black, null, new System.Windows.Rect(0, 0, found.ActualWidth, found.ActualHeight));
+                    dc.DrawRectangle(new System.Windows.Media.VisualBrush(found), null, new System.Windows.Rect(0, 0, found.ActualWidth, found.ActualHeight));
+                }
+                bmp.Render(dv);
+                var pngEnc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                pngEnc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using (var fs = System.IO.File.Create(bits[1])) pngEnc.Save(fs);
+                return $"ok {found.ActualWidth:0}x{found.ActualHeight:0} opacity={found.Opacity:0.00} visible={found.IsVisible}";
+            }
             case "paint-probe":
             {
                 // Test: renders the island with one layer hidden at a time and reads one screen pixel, to find which

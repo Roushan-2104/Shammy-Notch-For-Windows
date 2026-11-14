@@ -172,6 +172,8 @@ internal sealed class MusicCard
             Root = new WallDetail(card.Field, "", "", "");
             _sub.Margin = new Thickness(0, 8, 0, 0);
             _poster.MaxWidth = 264;
+            // A long song title steps down before it is cut.
+            _poster.MinFontSize = 30;
             Root.ArtBottomLeft(_poster, _sub);
 
             _scrub.Committed += f =>

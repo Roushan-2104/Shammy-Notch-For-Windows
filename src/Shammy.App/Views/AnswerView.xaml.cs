@@ -72,10 +72,21 @@ public partial class AnswerView : UserControl
         Glyph.Foreground = (System.Windows.Media.Brush)Application.Current.Resources[r.IsError ? "WallRed" : "WallText"];
         GlyphOrb.Visibility = Visibility.Visible;
         Result.Text = r.Title;
-        WallParts.Face(Result, FontWeights.Bold);
-        Result.FontWeight = FontWeights.Bold;
-        Result.FontSize = 19;
-        Result.LineHeight = 24;
+        if (!r.IsError && Shammy.Core.Search.AnswerText.IsValue(r.Title))
+        {
+            // A value (100%, 9:45 AM, 152.4 cm, ₹9,425) is a number: light, in the display face, like the home's numbers.
+            Result.FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont");
+            Result.FontWeight = FontWeights.Light;
+            Result.FontSize = FitSize(r.Title, 30, 22);
+            Result.LineHeight = Result.FontSize + 4;
+        }
+        else
+        {
+            WallParts.Face(Result, FontWeights.Bold);
+            Result.FontWeight = FontWeights.Bold;
+            Result.FontSize = 19;
+            Result.LineHeight = 24;
+        }
         Expression.Text = r.Detail ?? "";
         Expression.Visibility = string.IsNullOrEmpty(r.Detail) ? Visibility.Collapsed : Visibility.Visible;
         // An answer worth keeping (a converted amount, a time elsewhere) gets Copy and Save as note; the rest need none.

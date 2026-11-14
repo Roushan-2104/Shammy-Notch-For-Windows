@@ -197,6 +197,8 @@ public class GuidePhrasesTests
     [InlineData("how to stop my pc sleeping", "quick")]
     [InlineData("is there a way to read my speech on camera", "teleprompter")]
     [InlineData("can shammy remind me to drink water", "water")]
+    [InlineData("how do I use the dial", "wheel")]
+    [InlineData("how do i turn the dial", "wheel")]
     public void A_question_about_something_it_does_opens_that_feature(string said, string id) => Assert.Equal(id, GuidePhrases.Parse(said)?.Feature?.Id);
 
     [Theory]

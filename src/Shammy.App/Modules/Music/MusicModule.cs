@@ -505,7 +505,7 @@ internal sealed class MusicModule : IShammyModule
         catch (Exception) { volume = "?"; }
         var glow = _glow is { } c ? $"last #{c.R:X2}{c.G:X2}{c.B:X2}" : "none";
         return $"track={(m.HasSession ? NowPlaying() : "-")} playing={m.IsPlaying} glow={glow} glowSetting={_settings.AlbumGlow} " +
-               $"lyrics={_panel.Kind} lines={_panel.LineCount} index={_panel.CurrentIndex} ticking={_panel.IsTicking} tabVisible={_panel.IsVisible} " +
+               $"lyrics={_panel.Kind} lines={_panel.LineCount} index={_panel.CurrentIndex} ticking={_panel.IsTicking} tabVisible={_panel.IsVisible} layout=[{_panel.DescribeLayout()}] " +
                $"volume={volume} lastPlayed={_lastPlayed?.VideoId ?? "-"} ytmApp={_player.Describe()} heardSongs={_history.Songs.Count} rememberSongs={_settings.RememberSongs}";
     }
 

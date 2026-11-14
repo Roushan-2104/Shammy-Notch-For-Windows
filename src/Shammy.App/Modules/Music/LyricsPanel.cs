@@ -55,19 +55,30 @@ internal sealed class LyricsPanel : Grid
         };
         Children.Add(_track);
 
-        // Fade lines out towards the top and bottom edges instead of hard-clipping them.
-        var fade = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        // Fade lines out towards the top and bottom edges instead of hard-clipping them. The fade is laid out in the
+        // viewport's own pixels: a mask relative to the bounding box would stretch over the whole (taller, scrolled)
+        // list of lines and could hide the very lines in view.
+        var fade = new LinearGradientBrush { MappingMode = BrushMappingMode.Absolute, StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
         fade.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
         fade.GradientStops.Add(new GradientStop(Colors.Black, 0.22));
         fade.GradientStops.Add(new GradientStop(Colors.Black, 0.78));
         fade.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
-        fade.Freeze();
 
         _lines = new StackPanel { RenderTransform = _scroll, VerticalAlignment = VerticalAlignment.Top };
         _lines.SizeChanged += (_, _) => MeasureLines();
         _viewport = new Grid { ClipToBounds = true, OpacityMask = fade, Background = Brushes.Transparent };
-        _viewport.Children.Add(_lines);
-        _viewport.SizeChanged += (_, _) => Sync(snap: true);
+        // The lines sit on a canvas, not straight in the grid: a grid clips a child taller than its cell to the cell's
+        // height in the child's own coordinates, before the scroll moves it, so only the first few lines could ever
+        // show and the rest scrolled into blank space. The viewport's own clip still keeps them inside.
+        var sheet = new Canvas();
+        sheet.Children.Add(_lines);
+        _viewport.Children.Add(sheet);
+        _viewport.SizeChanged += (_, e) =>
+        {
+            _lines.Width = e.NewSize.Width;
+            fade.EndPoint = new Point(0, Math.Max(1, e.NewSize.Height));
+            Sync(snap: true);
+        };
         SetRow(_viewport, 1);
         Children.Add(_viewport);
 
@@ -139,6 +150,9 @@ internal sealed class LyricsPanel : Grid
     public int CurrentIndex => _lyrics.Kind == LyricsKind.Synced ? Lrc.IndexAt(_lyrics.Lines, _media.Position + Lead) : -1;
     public string CurrentLine => CurrentIndex >= 0 && CurrentIndex < _lyrics.Lines.Count ? _lyrics.Lines[CurrentIndex].Text : "";
     public bool IsTicking => _ticking is not null;
+
+    /// <summary>Test: where the lines sit ("music-state" shows it).</summary>
+    public string DescribeLayout() => $"panel={ActualWidth:0}x{ActualHeight:0} viewport={_viewport.ActualWidth:0}x{_viewport.ActualHeight:0} lines={_lines.ActualWidth:0}x{_lines.ActualHeight:0} y={_scroll.Y:0} centers={_centers.Length} first={(_lines.Children.Count > 0 ? ((FrameworkElement)_lines.Children[0]).Opacity : -1):0.00} hidden={_hidden.Visibility} vpOpacity={_viewport.Opacity:0.00} status={_status.Visibility}";
 
     /// <summary>The track line above the lyrics; the music card's detail already shows the title, so it hides it.</summary>
     public bool ShowTrack

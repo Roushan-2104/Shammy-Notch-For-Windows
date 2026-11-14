@@ -69,6 +69,12 @@ internal sealed class TrackedText : FrameworkElement
     public static readonly DependencyProperty TabularDigitsProperty = DependencyProperty.Register(nameof(TabularDigits), typeof(bool), typeof(TrackedText),
         new FrameworkPropertyMetadata(false, Layout, (d, _) => ((TrackedText)d)._dirty = true));
 
+    /// <summary>When the text is too wide, it first shrinks towards this size (0: never), and only then gets an ellipsis.</summary>
+    public static readonly DependencyProperty MinFontSizeProperty = DependencyProperty.Register(nameof(MinFontSize), typeof(double), typeof(TrackedText),
+        new FrameworkPropertyMetadata(0.0, Layout, (d, _) => ((TrackedText)d)._dirty = true));
+
+    public double MinFontSize { get => (double)GetValue(MinFontSizeProperty); set => SetValue(MinFontSizeProperty, value); }
+
     public double LineFactor { get => (double)GetValue(LineFactorProperty); set => SetValue(LineFactorProperty, value); }
     public bool TabularDigits { get => (bool)GetValue(TabularDigitsProperty); set => SetValue(TabularDigitsProperty, value); }
 
@@ -135,27 +141,42 @@ internal sealed class TrackedText : FrameworkElement
             return;
         }
 
-        double track = Tracking * size;
+        double track = 0;
         var indices = new List<ushort>(text.Length + 1);
         var advances = new List<double>(text.Length + 1);
         var offsets = new List<Point>(text.Length + 1);
-        double digit = 0;
-        if (TabularDigits)
-            foreach (char d in "0123456789")
-                if (glyphs.CharacterToGlyphMap.TryGetValue(d, out var dg)) digit = Math.Max(digit, glyphs.AdvanceWidths[dg] * size);
         double width = 0;
-        foreach (char c in text)
+        void Lay()
         {
-            ushort g = glyphs.CharacterToGlyphMap[c];
-            indices.Add(g);
-            double own = glyphs.AdvanceWidths[g] * size;
-            bool cell = digit > 0 && c is >= '0' and <= '9';
-            offsets.Add(new Point(cell ? (digit - own) / 2 : 0, 0));
-            double a = (cell ? digit : own) + track;
-            advances.Add(a);
-            width += a;
+            track = Tracking * size;
+            indices.Clear();
+            advances.Clear();
+            offsets.Clear();
+            double digit = 0;
+            if (TabularDigits)
+                foreach (char d in "0123456789")
+                    if (glyphs.CharacterToGlyphMap.TryGetValue(d, out var dg)) digit = Math.Max(digit, glyphs.AdvanceWidths[dg] * size);
+            width = 0;
+            foreach (char c in text)
+            {
+                ushort g = glyphs.CharacterToGlyphMap[c];
+                indices.Add(g);
+                double own = glyphs.AdvanceWidths[g] * size;
+                bool cell = digit > 0 && c is >= '0' and <= '9';
+                offsets.Add(new Point(cell ? (digit - own) / 2 : 0, 0));
+                double a = (cell ? digit : own) + track;
+                advances.Add(a);
+                width += a;
+            }
+            width -= track; // no tracking after the last letter, so the label's box ends where its ink does
         }
-        width -= track; // no tracking after the last letter, so the label's box ends where its ink does
+        Lay();
+        // Too wide: step down towards MinFontSize first, and only then cut with an ellipsis.
+        if (width > maxWidth && MinFontSize > 0 && MinFontSize < size)
+        {
+            size = Math.Max(MinFontSize, Math.Floor(size * maxWidth / width));
+            Lay();
+        }
 
         if (width > maxWidth && glyphs.CharacterToGlyphMap.TryGetValue('…', out var ellipsis))
         {
