@@ -27,8 +27,7 @@ internal sealed class TrayIcon : IDisposable
     const string OldGuideItem = "What Shammy can do";
 
     public TrayIcon(AppSettings settings, Action onQuit, Action<bool> onReplaceVolumeChanged, Action<bool> onVisualizerChanged,
-        Action onPlacementChanged, Action onVoiceLanguageChanged, Func<bool> hinglishAvailable, Action onVoiceModeChanged,
-        Action onNotificationSettingsChanged,
+        Action onPlacementChanged, Action onVoiceLanguageChanged,
         IReadOnlyList<Modules.ModuleTrayItem> moduleItems, UpdateService updates, Action onRestartForUpdate)
     {
         _settings = settings;

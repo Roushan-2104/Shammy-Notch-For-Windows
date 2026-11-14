@@ -45,12 +45,6 @@ internal sealed class AppSettings
     /// </summary>
     public string VoiceMode { get; set; } = EnglishVoice;
 
-    /// <summary>The voice model this PC was matched to, e.g. "large-v3-turbo@1" (GPU 1) or "small" (CPU).</summary>
-    public string? VoiceEngine { get; set; }
-
-    /// <summary>Set while the one-time hardware probe runs; left set means it crashed, so skip the GPUs.</summary>
-    public bool VoiceProbeStarted { get; set; }
-
     public List<string> Shelf { get; set; } = new();
 
     /// <summary>

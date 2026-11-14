@@ -281,7 +281,6 @@ internal sealed partial class ShammyHost : IDisposable
         _modules.PipeCommands["v2-typing"] = _ => _notch.DescribeTyping();
         // The command confirmation on screen and what its Copy button would copy ("search 5 ft in cm", then this).
         _modules.PipeCommands["answer-state"] = _ => $"mode={_notch.Mode} {_notch.AnswerView.Describe()} result={_notch.ResultView.CurrentUrl?.Host ?? "-"}";
-        NotchSound.Enabled = _settings.NotchSounds;
         _modules.TrayItems.Add(new Modules.ModuleTrayItem("Notch sounds (ping and chime)", null, () => _settings.NotchSounds, on =>
         {
             _settings.NotchSounds = on;
@@ -333,13 +332,6 @@ internal sealed partial class ShammyHost : IDisposable
             {
                 _whisper.Language = _settings.VoiceLanguage;
                 _ = Task.Run(_whisper.ResetProcessors);
-            },
-            () => false,
-            () => { },
-            () =>
-            {
-                if (_settings.ShowNotifications) _ = StartNotificationsAsync();
-                else _activities.Remove("notification");
             },
             _modules.TrayItems, _updates, RestartForUpdate));
         if (CommandServer.IsEnabled)

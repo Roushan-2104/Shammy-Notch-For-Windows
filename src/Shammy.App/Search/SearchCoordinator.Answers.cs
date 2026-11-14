@@ -15,9 +15,6 @@ internal partial class SearchCoordinator
 {
     CancellationTokenSource? _answerRead;
 
-    /// <summary>The page behind the moment is already loaded: "Full answer" shows it without searching again.</summary>
-    bool _momentLoaded;
-
     const string AskGlyph = "";
 
     /// <summary>
@@ -118,7 +115,7 @@ internal partial class SearchCoordinator
         {
             new("Full answer", () =>
             {
-                _ = ShowResultAsync(ai, navigate: !_momentLoaded);
+                _ = ShowResultAsync(ai);
                 return null;
             }),
             new("Open in ChatGPT", () =>
@@ -131,7 +128,7 @@ internal partial class SearchCoordinator
             list.Add(new("Copy", () => Modules.SelectionTools.ClipboardText.TrySet(answer) ? "Copied" : "Clipboard is busy"));
         list.Add(new("Search", () =>
         {
-            _ = ShowResultAsync(ai with { Mode = SearchMode.Web }, navigate: true);
+            _ = ShowResultAsync(ai with { Mode = SearchMode.Web });
             return null;
         }));
         return list;

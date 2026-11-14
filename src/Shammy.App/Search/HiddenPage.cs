@@ -141,27 +141,6 @@ internal static class HiddenPage
         core.NavigateWithWebResourceRequest(request);
     }
 
-    /// <summary>Lens's short answer for a picture (the same upload the results card's Lens makes), or null.</summary>
-    public static Task<ShortAnswer?> ReadLensAsync(IntPtr parent, byte[] png, TimeSpan limit, CancellationToken ct) =>
-        ReadAsync(parent, core =>
-        {
-            string boundary = "----ShammyLens" + Guid.NewGuid().ToString("N");
-            var body = new MemoryStream();
-            void Write(string s)
-            {
-                var bytes = System.Text.Encoding.UTF8.GetBytes(s);
-                body.Write(bytes, 0, bytes.Length);
-            }
-            Write($"--{boundary}\r\nContent-Disposition: form-data; name=\"encoded_image\"; filename=\"shammy.png\"\r\nContent-Type: image/png\r\n\r\n");
-            body.Write(png, 0, png.Length);
-            Write($"\r\n--{boundary}--\r\n");
-            body.Position = 0;
-            long stamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var request = core.Environment.CreateWebResourceRequest($"https://lens.google.com/v3/upload?hl=en&re=df&stcs={stamp}&ep=gsbubb", "POST", body,
-                $"Content-Type: multipart/form-data; boundary={boundary}");
-            core.NavigateWithWebResourceRequest(request);
-        }, limit, ct);
-
     static async Task<ShortAnswer?> ReadAsync(IntPtr parent, Action<CoreWebView2> open, TimeSpan limit, CancellationToken ct,
         string probeScript = Probe, int steadyPolls = -1)
     {

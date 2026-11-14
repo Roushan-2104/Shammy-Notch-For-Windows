@@ -637,26 +637,6 @@ public partial class NotchWindow : Window
         if (!Root.IsMouseOver) _hoverOut.Start();
     }
 
-    /// <summary>
-    /// The browser engine only starts once its control is visible, so warm it up inside the result
-    /// layer while that layer is clipped away by the small notch shape (nothing shows, nothing is clickable).
-    /// </summary>
-    internal async Task WarmUpResultsAsync()
-    {
-        if (_result.Active) return;
-        Result.IsHitTestVisible = false;
-        Result.Visibility = Visibility.Visible;
-        try
-        {
-            await Result.EnsureReadyAsync();
-        }
-        finally
-        {
-            Result.IsHitTestVisible = true;
-            if (!_result.Active) Result.Visibility = Visibility.Collapsed;
-        }
-    }
-
     /// <summary>Show module content in the notch at the given size (see ModuleContext.ShowCard).</summary>
     internal void ShowCard(FrameworkElement content, double width, double height, bool interactive, bool breaksFullscreen = false)
     {

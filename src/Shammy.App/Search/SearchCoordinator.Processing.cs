@@ -206,7 +206,6 @@ internal partial class SearchCoordinator
     {
         _phase = Phase.Showing;
         _momentFull = full;
-        _momentLoaded = false;
         _keys.InterceptEscape = true;
         void Land()
         {
@@ -227,7 +226,7 @@ internal partial class SearchCoordinator
     {
         if (_phase != Phase.Showing || _momentFull is not { } full) return;
         _momentFull = null;
-        _ = ShowResultAsync(full, navigate: !_momentLoaded);
+        _ = ShowResultAsync(full);
     }
 
     internal void ExpandMomentForTest() => ExpandMoment();
@@ -456,7 +455,7 @@ internal partial class SearchCoordinator
         _notch.SetInteractive(true);
     }
 
-    async Task ShowResultAsync(Context ctx, bool navigate = true)
+    async Task ShowResultAsync(Context ctx)
     {
         int session = _session;
         _answerRead?.Cancel();
@@ -477,7 +476,6 @@ internal partial class SearchCoordinator
         _notch.SetSearchMode(NotchMode.Result);
         _notch.SetInteractive(true);
         Log.Info($"Search [{ctx.Mode}] {ctx.Query.Length} chars");
-        if (!navigate) return;
         try
         {
             await NavigateAsync(ctx);
