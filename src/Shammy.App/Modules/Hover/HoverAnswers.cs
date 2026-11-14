@@ -20,15 +20,10 @@ internal sealed class HoverAnswers
     static readonly TimeSpan RatesWait = TimeSpan.FromSeconds(3);
 
     readonly ModuleContext _ctx;
-    readonly ExchangeRates _rates;
     // Online answers by kind and words; a null value means "asked, and there was nothing to show".
     readonly Dictionary<string, HoverBubble?> _cache = new(StringComparer.Ordinal);
 
-    public HoverAnswers(ModuleContext ctx)
-    {
-        _ctx = ctx;
-        _rates = new ExchangeRates(ctx);
-    }
+    public HoverAnswers(ModuleContext ctx) => _ctx = ctx;
 
     public int CacheCount => _cache.Count;
 
@@ -57,7 +52,8 @@ internal sealed class HoverAnswers
                 case HoverKind.Price when t.Money is { } money:
                 {
                     var to = Currency.DefaultTarget(money.Code);
-                    var pending = _rates.GetAsync();
+                    if (ExchangeRates.Shared is not { } rates) return null;
+                    var pending = rates.GetAsync();
                     if (!patient && await Task.WhenAny(pending, Task.Delay(RatesWait, ct)) != pending) return null;
                     var table = await pending;
                     if (table is null || !Currency.TryConvert(money.Amount, money.Code, to, table.Rates, out var value)) return null;

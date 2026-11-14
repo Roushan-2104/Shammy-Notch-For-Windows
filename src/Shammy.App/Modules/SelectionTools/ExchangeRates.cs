@@ -25,7 +25,17 @@ internal sealed class ExchangeRates
     string _lastError = "";
     Task<RateTable?>? _fetch;
 
-    public ExchangeRates(ModuleContext ctx) => _ctx = ctx;
+    /// <summary>
+    /// The one set of rates, made by Selection tools (its store keeps the saved copy). Hover's prices use it too,
+    /// rather than fetching and saving a second copy.
+    /// </summary>
+    public static ExchangeRates? Shared { get; private set; }
+
+    public ExchangeRates(ModuleContext ctx)
+    {
+        _ctx = ctx;
+        Shared ??= this;
+    }
 
     /// <summary>What's stored in %LOCALAPPDATA%\Shammy\modules\selection.json.</summary>
     public sealed class Saved
