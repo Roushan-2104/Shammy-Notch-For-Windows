@@ -329,46 +329,64 @@ internal static class BluetoothRadio
         }
     }
 
-    static Radio? _radio;
-    static Task<Radio?>? _finding;
-
     /// <summary>
     /// The state without waiting, once the radio has been found (reading <c>State</c> is a cheap property);
-    /// null before that or without a radio. Finding it the first time takes ~230 ms, so that runs on a
-    /// worker thread (<see cref="Prefetch"/>), never on a keystroke.
+    /// null before that or without a radio. Finding it is slow (see <see cref="Radios"/>), so that runs
+    /// ahead (<see cref="Prefetch"/>), never on a keystroke.
     /// </summary>
     public static bool? Cached
     {
         get
         {
-            try { return _radio is { } r ? r.State == RadioState.On : null; }
+            try { return Radios.Cached(RadioKind.Bluetooth) is { } r ? r.State == RadioState.On : null; }
             catch (Exception) { return null; }
         }
     }
 
     public static void Prefetch() => _ = FindAsync();
 
-    static Task<Radio?> FindAsync()
+    static Task<Radio?> FindAsync() => Radios.FindAsync(RadioKind.Bluetooth);
+}
+
+/// <summary>
+/// Finds the Wi-Fi and Bluetooth radios (the switches in Quick Settings) for the palette and the Laptop card.
+/// The first look takes ~230 ms, so it runs on a worker thread, one look at a time; radios found are kept.
+/// </summary>
+internal static class Radios
+{
+    static readonly Dictionary<RadioKind, Radio> Found = new();
+    static Task? _finding;
+
+    public static Radio? Cached(RadioKind kind)
     {
-        if (_radio is not null) return Task.FromResult<Radio?>(_radio);
-        return _finding ??= Task.Run(async () =>
+        lock (Found) return Found.GetValueOrDefault(kind);
+    }
+
+    public static async Task<Radio?> FindAsync(RadioKind kind)
+    {
+        if (Cached(kind) is { } known) return known;
+        Task finding;
+        lock (Found) finding = _finding ??= Task.Run(LookAsync);
+        await finding.ConfigureAwait(false);
+        return Cached(kind);
+    }
+
+    static async Task LookAsync()
+    {
+        try
         {
-            try
-            {
-                if (await Radio.RequestAccessAsync() != RadioAccessStatus.Allowed) return null;
-                var radios = await Radio.GetRadiosAsync();
-                return _radio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
-            }
-            catch (Exception ex)
-            {
-                Infrastructure.Log.Warn("Finding the Bluetooth radio failed", ex);
-                return null;
-            }
-            finally
-            {
-                // Without a radio (or access), try again next time the palette opens.
-                _finding = null;
-            }
-        });
+            if (await Radio.RequestAccessAsync() != RadioAccessStatus.Allowed) return;
+            foreach (var radio in await Radio.GetRadiosAsync())
+                lock (Found) Found.TryAdd(radio.Kind, radio);
+        }
+        catch (Exception ex)
+        {
+            Infrastructure.Log.Warn("Finding the radios failed", ex);
+        }
+        finally
+        {
+            // Without a radio (or access), the next ask looks again.
+            lock (Found) _finding = null;
+        }
     }
 }

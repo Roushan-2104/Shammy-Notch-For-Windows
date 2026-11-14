@@ -14,22 +14,12 @@ internal static class LaptopSwitches
 {
     // ---- Wi-Fi --------------------------------------------------------------------------------------
 
-    static Radio? _wifi;
-
-    static async Task<Radio?> WifiAsync()
-    {
-        if (_wifi is not null) return _wifi;
-        if (await Radio.RequestAccessAsync() != RadioAccessStatus.Allowed) return null;
-        var radios = await Radio.GetRadiosAsync();
-        return _wifi = radios.FirstOrDefault(r => r.Kind == RadioKind.WiFi);
-    }
-
     /// <summary>True/false for on/off; null without a Wi-Fi radio.</summary>
     public static async Task<bool?> WifiAsync(bool? set)
     {
         try
         {
-            if (await WifiAsync() is not { } radio) return null;
+            if (await Palette.Radios.FindAsync(RadioKind.WiFi) is not { } radio) return null;
             if (set is { } on && (radio.State == RadioState.On) != on)
                 if (await radio.SetStateAsync(on ? RadioState.On : RadioState.Off) != RadioAccessStatus.Allowed) return radio.State == RadioState.On;
             return radio.State == RadioState.On;
