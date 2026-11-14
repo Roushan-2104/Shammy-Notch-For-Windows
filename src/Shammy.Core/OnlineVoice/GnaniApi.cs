@@ -85,6 +85,15 @@ public static class GnaniApi
 
     public const string SttFormat = "transliterate";
 
+    /// <summary>
+    /// Dictation "in Hindi": Hindi in Devanagari with English words left in Latin letters. Unlike "transliterate",
+    /// it needs a language, so it goes with <see cref="SttHindiLanguages"/>.
+    /// </summary>
+    public const string SttDevanagariFormat = "codemix";
+
+    /// <summary>Hints for dictation in Devanagari (Hindi with English mixed in); the service treats them as hints.</summary>
+    public const string SttHindiLanguages = "hi-IN,en-IN";
+
     /// <summary>What the service treats a missing language as; sent only if it ever insists on one.</summary>
     public const string SttAutoLanguage = "indic-auto";
 
@@ -99,6 +108,9 @@ public static class GnaniApi
 
     public static readonly TimeSpan TtsTimeout = TimeSpan.FromSeconds(6);
     public static readonly TimeSpan SttTimeout = TimeSpan.FromSeconds(4);
+
+    /// <summary>Dictation can run to the full 29 s and nothing else will take over, so its final answer may take longer.</summary>
+    public static readonly TimeSpan SttDictationTimeout = TimeSpan.FromSeconds(8);
 
     static readonly JsonWriterOptions Json = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
