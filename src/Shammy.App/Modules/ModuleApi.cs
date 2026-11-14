@@ -237,12 +237,6 @@ internal sealed class ModuleContext
     /// </summary>
     public bool OpenCard(string cardId, bool hold = true) => Notch.OpenView(cardId, hold);
 
-    /// <summary>Older modules only: a chip that shows a panel (about 436×150) in the 924×248 view area. Use <see cref="AddCard"/>.</summary>
-    public void AddTab(string glyph, string tooltip, FrameworkElement panel) => Notch.ExpandedView.AddTab(glyph, tooltip, panel);
-
-    /// <summary>Older modules only: open the notch on a panel added with <see cref="AddTab"/>. Cards use <see cref="OpenCard"/>.</summary>
-    public void OpenTab(FrameworkElement panel, bool hold = true) => Notch.OpenTab(panel, hold);
-
     // ---- Cards, glow, input ----------------------------------------------------------------------
 
     /// <summary>

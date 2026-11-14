@@ -29,7 +29,6 @@ The whole API is in [`ModuleApi.cs`](ModuleApi.cs); read it first.
 | The card's relevance changed | `ctx.CardsChanged()` (cheap; call it whenever `IsRelevant` may have flipped) |
 | Open your card from a command or a pill | `ctx.OpenCard("<card id>")`: opens its detail in place once the command's confirmation has closed, held until the pointer has visited and left (or 8 s) |
 | A line in the resting notch's rotating glance and the hover peek | `ctx.AddGlance("<id>", () => GlanceItem?)`: ~18 characters, an accent from `NotchPalette`, a priority, an optional click, and `StartsAt` for events (the pet uses it for "meeting soon"); return null when there's nothing to say. Providers are asked often, so keep them cheap and pick rotating text by the clock |
-| Older modules only | `ctx.AddTab` / `ctx.OpenTab` (a ~436×150 panel). Don't use them for new features: use a card |
 | A bigger popup (QR code, picker) | `ctx.ShowCard(element, width, height, interactive)` / `ctx.CloseCard()` |
 | Show over a fullscreen app (only for things the user asked to be interrupted for, like alarms) | `BreaksFullscreen = true` on the `Activity`, or `ctx.ShowCard(..., breaksFullscreen: true)`; it never takes focus there |
 | Act on a circle before it becomes a search | `ctx.AddSelectionHandler(ISelectionHandler)` (return null to pass) |

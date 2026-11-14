@@ -14,7 +14,7 @@ namespace Shammy.Views;
 /// The open island (layout "Now + moment row"): a top bar of the pet's eyes (home), the right-now sentence, the
 /// search pill and the guide's "?"; under it the home — one big now moment, three numbers and six moment-aware
 /// tools (see ExpandedView.Home.cs and ExpandedView.Tools.cs) — or one view opened in place: a card's detail, the
-/// Shelf, Alerts, or an older module's tab, with its title and Back. The island grows to fit (see <see cref="HeightChanged"/>).
+/// Shelf or Alerts, with its title and Back. The island grows to fit (see <see cref="HeightChanged"/>).
 /// </summary>
 public partial class ExpandedView : UserControl
 {
@@ -28,12 +28,11 @@ public partial class ExpandedView : UserControl
     /// <summary>The Back + title row above a detail that isn't a Wall detail.</summary>
     const double HeaderBand = 44;
 
-    const string ShelfId = "shelf", AlertsId = "alerts", TabPrefix = "tab:";
+    const string ShelfId = "shelf", AlertsId = "alerts";
 
     ShammyServices? _s;
 
     readonly List<NotchCard> _cards = new();
-    readonly List<(string Id, string Label, FrameworkElement Panel)> _tabs = new();
     string? _openId;
     int _alertsNewAtOpen;
 
@@ -231,28 +230,13 @@ public partial class ExpandedView : UserControl
     internal void ShowAlerts() => OpenView(AlertsId);
     internal void ShowHome() => GoHome(animate: IsVisible);
 
-    /// <summary>
-    /// An older module's tab, opened by the module (ModuleContext.OpenTab). Once the module has registered a
-    /// card with the tab's title, the card has taken the tab's place, so its detail opens instead.
-    /// </summary>
-    internal void ShowTab(FrameworkElement panel)
-    {
-        foreach (var (id, label, p) in _tabs)
-        {
-            if (p != panel) continue;
-            var card = _cards.FirstOrDefault(c => string.Equals(c.Title, label, StringComparison.OrdinalIgnoreCase));
-            OpenView(card?.Id ?? id);
-            return;
-        }
-    }
-
     /// <summary>Whether <paramref name="query"/> (a view id or a title) names something that can open.</summary>
     internal bool CanOpen(string query) => Resolve(query) is not null || IsHome(query);
 
     static bool IsHome(string query) => string.Equals(query.Trim(), "home", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Open a view in place by id ("music", "shelf", "alerts", "tab:weather") or title ("Weather", "Alerts");
+    /// Open a view in place by id ("music", "shelf", "alerts") or title ("Weather", "Alerts");
     /// "home" goes back to the home. Returns false for an unknown name.
     /// </summary>
     internal bool OpenView(string query)
@@ -268,8 +252,6 @@ public partial class ExpandedView : UserControl
         if (_openId == AlertsId && view.Id != AlertsId) _s?.Notifications.MarkAllSeen();
         _openId = view.Id;
         DetailContent.Content = null;
-        LegacyHost.Visibility = Visibility.Collapsed;
-        foreach (UIElement child in LegacyHost.Children) child.Visibility = Visibility.Collapsed;
 
         FrameworkElement? content = null;
         bool ownsHeader = false;
@@ -285,10 +267,6 @@ public partial class ExpandedView : UserControl
                     Log.Warn($"Building the {view.Card!.Id} card's detail failed", ex);
                 }
                 ownsHeader = view.Card!.OwnsHeader;
-                break;
-            case ViewKind.Tab:
-                view.Panel!.Visibility = Visibility.Visible;
-                LegacyHost.Visibility = Visibility.Visible;
                 break;
             case ViewKind.Shelf:
                 content = BuildShelfDetail();
@@ -409,9 +387,9 @@ public partial class ExpandedView : UserControl
         if (wasOpen) ViewChanged?.Invoke();
     }
 
-    enum ViewKind { Card, Tab, Shelf, Alerts }
+    enum ViewKind { Card, Shelf, Alerts }
 
-    sealed record View(string Id, string Title, ViewKind Kind, NotchCard? Card = null, FrameworkElement? Panel = null);
+    sealed record View(string Id, string Title, ViewKind Kind, NotchCard? Card = null);
 
     View? Resolve(string query)
     {
@@ -423,13 +401,8 @@ public partial class ExpandedView : UserControl
             if (Is(c.Id)) return CardView(c);
         if (Is(ShelfId)) return new View(ShelfId, "Shelf", ViewKind.Shelf);
         if (Is(AlertsId) || Is("notifications")) return new View(AlertsId, "Alerts", ViewKind.Alerts);
-        foreach (var (id, label, panel) in _tabs)
-            if (Is(id)) return new View(id, label, ViewKind.Tab, Panel: panel);
-        // By title: a card first (a card may have taken an older tab's place), then a tab's label.
         foreach (var c in _cards)
             if (Is(c.Title)) return CardView(c);
-        foreach (var (id, label, panel) in _tabs)
-            if (Is(label)) return new View(id, label, ViewKind.Tab, Panel: panel);
         return null;
     }
 
@@ -460,15 +433,6 @@ public partial class ExpandedView : UserControl
     internal string CardIdsForTest() => string.Join(",", _cards.Select(c => c.Id));
 
     // ---- Registration -------------------------------------------------------------------------
-
-    /// <summary>Add an older module's tab: a panel opened by its id or label under a Back + title row.</summary>
-    internal void AddTab(string glyph, string tooltip, FrameworkElement panel)
-    {
-        string id = TabPrefix + tooltip.ToLowerInvariant();
-        panel.Visibility = Visibility.Collapsed;
-        LegacyHost.Children.Add(panel);
-        _tabs.Add((id, tooltip, panel));
-    }
 
     /// <summary>The cards registered so far, by Order.</summary>
     internal IReadOnlyList<NotchCard> Cards => _cards.OrderBy(c => c.Order).ToList();

@@ -568,22 +568,8 @@ public partial class NotchWindow : Window
         Open(() => { if (shelf) Expanded.ShowShelf(); else Expanded.ShowHome(); }, hold);
 
     /// <summary>
-    /// Open a module's tab. While a search or command card is showing, the tab opens as soon as that
-    /// card closes, so a command can confirm first and then show its tab.
-    /// </summary>
-    internal void OpenTab(FrameworkElement panel, bool hold)
-    {
-        if (_searchMode is not null)
-        {
-            _pendingOpen = () => OpenTab(panel, hold);
-            return;
-        }
-        Open(() => Expanded.ShowTab(panel), hold);
-    }
-
-    /// <summary>
     /// Open the notch on a view by id or chip label (see ExpandedView.OpenView); false if there's no such view.
-    /// Like <see cref="OpenTab"/>, a view asked for while a search or command card shows opens once that card closes.
+    /// While a search or command card shows, the view opens once that card closes, so a command can confirm first.
     /// </summary>
     internal bool OpenView(string idOrLabel, bool hold = true)
     {
