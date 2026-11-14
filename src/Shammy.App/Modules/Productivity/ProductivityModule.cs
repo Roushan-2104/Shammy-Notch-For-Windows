@@ -59,6 +59,7 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
         _store.Reminders ??= new();
         _store.Notes ??= new();
         _store.Alarms ??= new();
+        _store.TimerLengths ??= new();
         // Fired reminders stay listed for a week, then quietly go.
         _store.Reminders.RemoveAll(r => r.FiredAt is { } fired && fired < DateTime.Now.AddDays(-7)
                                         || r.DoneAt is { } done && done < DateTime.Now.AddDays(-7));
@@ -516,6 +517,14 @@ internal sealed class ProductivityModule : IShammyModule, ITextCommand, ICommand
     }
 
     void ITimerCardHost.QuickStart(TimeSpan duration) => StartTimer(duration, "");
+
+    IReadOnlyDictionary<int, int> ITimerCardHost.TimerLengths => _store.TimerLengths;
+
+    void ITimerCardHost.CountTimerLength(int minutes)
+    {
+        _store.TimerLengths[minutes] = _store.TimerLengths.GetValueOrDefault(minutes) + 1;
+        Save();
+    }
 
     void UpdateCard()
     {

@@ -10,6 +10,9 @@ internal sealed class ProductivityStore
 
     /// <summary>Real alarms with their ringing state (see <see cref="Shammy.Core.Productivity.AlarmSchedule"/>).</summary>
     public List<Shammy.Core.Productivity.Alarm> Alarms { get; set; } = new();
+
+    /// <summary>How many times each quick-start length (minutes) was used, so the timer card can tint the favourite.</summary>
+    public Dictionary<int, int> TimerLengths { get; set; } = new();
 }
 
 internal sealed class ReminderItem

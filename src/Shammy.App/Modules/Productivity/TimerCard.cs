@@ -17,6 +17,10 @@ internal interface ITimerCardHost
     void Stop(RunningClock clock);
     void Extend(RunningClock clock, TimeSpan more);
     void QuickStart(TimeSpan duration);
+
+    /// <summary>How often each quick-start length was used (kept in the productivity store).</summary>
+    IReadOnlyDictionary<int, int> TimerLengths { get; }
+    void CountTimerLength(int minutes);
 }
 
 /// <summary>
@@ -131,7 +135,7 @@ internal sealed class TimerCard
     /// <summary>Redraws the visible parts; cheap no-op while nothing is on screen.</summary>
     public void Refresh()
     {
-        QuickUse.Notice(_host.Clocks, Chips);
+        QuickUse.Notice(_host, Chips);
         _detail?.Refresh();
         if (!_tile.IsVisible && _buttonsKey.Length > 0) return;
         var now = DateTime.UtcNow;
@@ -481,7 +485,7 @@ internal sealed class TimerCard
         /// <summary>The round quick starts: 1, 5, 10, 25 and 45 minutes, the one used most in the soft accent.</summary>
         FrameworkElement QuickChips()
         {
-            int favourite = QuickUse.Favourite(Chips);
+            int favourite = QuickUse.Favourite(_card._host, Chips);
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 0, 0, 0) };
             foreach (var m in Chips)
             {
@@ -523,60 +527,26 @@ internal sealed class TimerCard
 
     /// <summary>
     /// How often each quick-start length was used (a chip, or a timer of that length started any other way), so the
-    /// chip used most can wear the accent. Kept in a small file next to the settings; 25 (a focus block) until then.
+    /// chip used most can wear the accent. Kept in the productivity store; 25 (a focus block) until then.
     /// </summary>
     static class QuickUse
     {
-        static readonly string Store = System.IO.Path.Combine(Infrastructure.Paths.Root, "timer-lengths.json");
         static readonly HashSet<int> Seen = new();
-        static Dictionary<int, int>? _counts;
 
-        static Dictionary<int, int> Counts
+        public static int Favourite(ITimerCardHost host, int[] lengths)
         {
-            get
-            {
-                if (_counts is not null) return _counts;
-                try
-                {
-                    _counts = System.IO.File.Exists(Store)
-                        ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, int>>(System.IO.File.ReadAllText(Store)) ?? new()
-                        : new();
-                }
-                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
-                {
-                    _counts = new();
-                }
-                return _counts;
-            }
-        }
-
-        public static int Favourite(int[] lengths)
-        {
-            var best = lengths.Select(m => (Minutes: m, Uses: Counts.GetValueOrDefault(m))).OrderByDescending(x => x.Uses).First();
+            var best = lengths.Select(m => (Minutes: m, Uses: host.TimerLengths.GetValueOrDefault(m))).OrderByDescending(x => x.Uses).First();
             return best.Uses > 0 ? best.Minutes : 25;
         }
 
-        static void Count(int minutes)
-        {
-            Counts[minutes] = Counts.GetValueOrDefault(minutes) + 1;
-            try
-            {
-                System.IO.File.WriteAllText(Store, System.Text.Json.JsonSerializer.Serialize(Counts));
-            }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-            {
-                // Only a hint for which chip is tinted; nothing to do.
-            }
-        }
-
         /// <summary>Counts each new plain timer of a chip's length once (from a chip, by voice or typed).</summary>
-        public static void Notice(IEnumerable<RunningClock> clocks, int[] lengths)
+        public static void Notice(ITimerCardHost host, int[] lengths)
         {
-            foreach (var c in clocks)
+            foreach (var c in host.Clocks)
             {
                 if (!Seen.Add(c.Id) || c.Kind != ClockKind.Timer) continue;
                 int minutes = (int)Math.Round(c.Total.TotalMinutes);
-                if (Math.Abs(c.Total.TotalMinutes - minutes) < 0.01 && lengths.Contains(minutes)) Count(minutes);
+                if (Math.Abs(c.Total.TotalMinutes - minutes) < 0.01 && lengths.Contains(minutes)) host.CountTimerLength(minutes);
             }
         }
     }
