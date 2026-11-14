@@ -9,6 +9,7 @@ using Shammy.Core.Productivity;
 using Shammy.Infrastructure;
 using Shammy.Views;
 using Shammy.Views.Cards;
+using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Productivity;
 
@@ -20,9 +21,9 @@ internal sealed record NoteLine(string Id, string Text, bool Done, DateTime? Due
 
 /// <summary>
 /// The Notes card on the Focus Wall: a tile whose big number is how many things are left; focused, the first one
-/// (with its reminder time) and a tick to mark it done (the primary control). The detail is Wall's list: every
-/// note and reminder as a hairline row — click to tick off, × to delete, right-click to copy — today's calendar
-/// events read-only on top, and a box in the corner to add a note. While the screen is shared, only counts show.
+/// (with its reminder time) and a tick to mark it done (the primary control). The detail is a card sheet
+/// (<see cref="Detail"/>): an add box, today's calendar events read-only on top, then every note and reminder as a
+/// row with a round check and a due chip. While the screen is shared, only counts show.
 /// </summary>
 internal sealed class NotesCard
 {
@@ -147,28 +148,36 @@ internal sealed class NotesCard
 
     // ---- Detail ----------------------------------------------------------------------------------
 
-    public FrameworkElement BuildDetail() => new Detail(this).Root;
+    public FrameworkElement BuildDetail() => new Detail(this);
 
-    sealed class Detail
+    /// <summary>
+    /// The opened Notes card (the card family's shape, 600 wide, as tall as its list): the header shows the day's
+    /// progress as a small palette ring and "3 of 12 done today"; under it a full-width add box (Enter saves), then
+    /// today's calendar events (read-only, Join where there's a call link) and every note and reminder as a row: a
+    /// round check (the accent when done), the text in bold and a due chip (the accent tint when due today or
+    /// overdue). Click a row to tick it off, × on hover to delete, right-click to copy. About four and a half rows
+    /// show; more scroll. While the screen is shared, only the counts show.
+    /// </summary>
+    sealed class Detail : CardSheet
     {
+        const double SheetWidth = 600, RowHeight = 41;
+
         readonly NotesCard _card;
         readonly StackPanel _rows = new();
-        readonly TrackedText _count = CardKit.Poster("", 96), _countLabel = CardKit.Label("To do");
-        readonly TextBox _input;
+        readonly ContentControl _list = new() { Focusable = false };
+        readonly ArcRing _ring = new(28, 0) { Thickness = 4 };
+        readonly TextBlock _progress = Sheet.Meta("");
+        readonly TextBox _input = new();
 
-        public Detail(NotesCard card)
+        public Detail(NotesCard card) : base("Notes", SheetWidth)
         {
             _card = card;
-            Root = new WallDetail(Fields.List(), "", "Notes");
-            _countLabel.Margin = new Thickness(0, 8, 0, 0);
-            Root.ArtBottomLeft(_count, _countLabel);
-            Root.Body.Children.Add(WallDetail.Scroll(_rows));
+            BodyGap = 12;
+            Action(_ring);
+            Action(_progress);
 
-            // The add box in the corner: Enter saves.
-            _input = new TextBox { Style = Ui.Tokens.StyleRes("BareTextBox"), FontSize = 13, FontFamily = CardKit.Face(FontWeights.Medium), Foreground = CardKit.Ink, CaretBrush = CardKit.Accent };
-            var hint = CardKit.Text("Add a note", 13, FontWeights.Medium, secondary: true);
-            hint.IsHitTestVisible = false;
-            _input.TextChanged += (_, _) => hint.Visibility = _input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            // The add box: Enter saves.
+            System.Windows.Automation.AutomationProperties.SetName(_input, "Add a note");
             _input.KeyDown += (_, e) =>
             {
                 if (e.Key != Key.Enter) return;
@@ -177,89 +186,136 @@ internal sealed class NotesCard
                 _card._add(text);
                 _input.Clear();
                 e.Handled = true;
-                Root.Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
+                Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
             };
-            var plus = CardKit.Icon(CardKit.Paths.Plus, CardKit.Ink2, 14, 2.2);
-            plus.Margin = new Thickness(0, 0, 8, 0);
-            var row = new DockPanel();
-            DockPanel.SetDock(plus, Dock.Left);
-            row.Children.Add(plus);
-            row.Children.Add(new Grid { Children = { hint, _input } });
-            var box = new Border
-            {
-                Width = 220,
-                Height = 32,
-                CornerRadius = new CornerRadius(10),
-                Background = CardKit.PillBg,
-                BorderBrush = CardKit.Hairline,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(11, 0, 11, 0),
-                Child = row,
-                Cursor = Cursors.IBeam,
-            };
-            box.MouseLeftButtonUp += (_, _) => _input.Focus();
-            Root.Corner = box;
+            var field = Sheet.Field(_input, "Add a note, or say “note buy oat milk”", CardKit.Paths.Plus);
+            field.MouseLeftButtonUp += (_, _) => _input.Focus();
 
-            Action<bool> privacy = _ => Root.Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
-            Root.Loaded += (_, _) => PrivacyState.Changed += privacy;
-            Root.Unloaded += (_, _) => PrivacyState.Changed -= privacy;
+            var body = new StackPanel();
+            body.Children.Add(field);
+            _list.Margin = new Thickness(0, 8, 0, 0);
+            body.Children.Add(_list);
+            Body.Children.Add(body);
+
+            Action<bool> privacy = _ => Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
+            Loaded += (_, _) => PrivacyState.Changed += privacy;
+            Unloaded += (_, _) => PrivacyState.Changed -= privacy;
             Refresh();
         }
-
-        public WallDetail Root { get; }
 
         public void Refresh()
         {
             var store = _card._store();
             var now = DateTime.Now;
             var lines = Lines(store);
-            int open = lines.Count(l => !l.Done);
             var (doneToday, total) = Progress(store, now);
-            Root.Kicker.Text = $"Notes · {open} to do";
-            Root.Line.Text = total == 0 ? "Hold Right Alt and say “remind me…”, or add one here" : $"{doneToday} of {total} done today · click one to tick it off";
-            _count.Text = open.ToString(Inv);
-            _countLabel.Text = open == 0 ? "All done" : "To do";
+
+            // "3 of 12 done today", the done count in light numbers, beside a ring of the same.
+            _ring.Visibility = _progress.Visibility = total == 0 ? Visibility.Collapsed : Visibility.Visible;
+            _ring.Fraction = total == 0 ? 0 : (double)doneToday / total;
+            _progress.Inlines.Clear();
+            _progress.Inlines.Add(new System.Windows.Documents.Run(doneToday.ToString(Inv))
+            {
+                FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont"),
+                FontWeight = FontWeights.Light,
+                FontSize = 18,
+                Foreground = Ink.Soft,
+            });
+            _progress.Inlines.Add(new System.Windows.Documents.Run($" of {total} done today"));
+
             _rows.Children.Clear();
             if (Private)
             {
-                _rows.Children.Add(CardKit.Empty(PrivacyText.Hidden));
+                _list.Content = Line(PrivacyText.Hidden);
                 return;
             }
             // Today's calendar first (read-only, Join where there's a call link), then notes and reminders.
-            foreach (var e in _card.Today(now, 3)) _rows.Children.Add(EventRow(e, now));
-            foreach (var line in lines) _rows.Children.Add(Item(line, now));
-            if (_rows.Children.Count == 0) _rows.Children.Add(CardKit.Empty("Nothing to do yet", "Notes and reminders you add show up here"));
+            foreach (var e in _card.Today(now, 3)) _rows.Children.Add(EventRow(e, now, _rows.Children.Count == 0));
+            foreach (var line in lines) _rows.Children.Add(Item(line, now, _rows.Children.Count == 0));
+            if (_rows.Children.Count == 0)
+            {
+                _list.Content = Line("Nothing to do yet. Notes and reminders you add show up here.");
+                return;
+            }
+            _list.Content = new ScrollViewer
+            {
+                Content = _rows,
+                MaxHeight = RowHeight * 4.5,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Focusable = false,
+            };
         }
 
-        FrameworkElement EventRow(Shammy.Core.Calendar.CalendarOccurrence e, DateTime now)
+        static TextBlock Line(string text)
         {
-            var meta = CardKit.Text(DayLinks.EventMeta(e, now), 12, FontWeights.Medium, secondary: true);
-            UIElement right = meta;
+            var t = Sheet.Meta(text, 13);
+            t.Margin = new Thickness(4, 4, 0, 0);
+            return t;
+        }
+
+        /// <summary>A list row: a hairline above every row but the first.</summary>
+        static Border Frame(UIElement child, bool first) => new()
+        {
+            Child = child,
+            Padding = new Thickness(4, 8, 4, 8),
+            MinHeight = RowHeight,
+            Background = Brushes.Transparent,
+            BorderBrush = Sheet.RowLine,
+            BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0),
+        };
+
+        static Grid Columns(UIElement lead, UIElement text, UIElement right)
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.Children.Add(lead);
+            Grid.SetColumn(text, 1);
+            grid.Children.Add(text);
+            Grid.SetColumn(right, 2);
+            grid.Children.Add(right);
+            return grid;
+        }
+
+        FrameworkElement EventRow(Shammy.Core.Calendar.CalendarOccurrence e, DateTime now, bool first)
+        {
+            var bell = new Border { Width = 22, Height = 22, Child = CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink2, 15, 2), VerticalAlignment = VerticalAlignment.Center };
+            var title = Sheet.Word(e.Title, 14);
+            title.Margin = new Thickness(12, 0, 12, 0);
+            var right = Sheet.Row(0, Sheet.Chip(DayLinks.EventMeta(e, now), quiet: true));
             if (e.HasLink && _card.Join is { } join)
             {
-                var b = CardKit.Pill("Join", $"Join {e.Title}", () => join(e), 24, 11);
-                b.Margin = new Thickness(10, 0, 0, 0);
-                right = CardKit.Row(0, meta, b);
+                var b = Sheet.Cap("Join", $"Join {e.Title}", () => join(e), height: 26);
+                b.Margin = new Thickness(8, 0, 0, 0);
+                right.Children.Add(b);
             }
-            var row = WallDetail.ListRow(CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink2, 14), CardKit.Text(e.Title, 13.5, FontWeights.SemiBold), right);
+            right.VerticalAlignment = VerticalAlignment.Center;
+            var row = Frame(Columns(bell, title, right), first);
             row.ToolTip = $"{e.Title} · {Shammy.Core.Calendar.CalendarText.Range(e.Start, e.End)}";
             CardKit.Name(row, $"{e.Title}, {DayLinks.EventMeta(e, now)}, from your calendar");
             return row;
         }
 
-        FrameworkElement Item(NoteLine line, DateTime now)
+        FrameworkElement Item(NoteLine line, DateTime now, bool first)
         {
-            var text = CardKit.Text(line.Text, 13.5, FontWeights.SemiBold);
-            if (line.Done)
+            var text = Sheet.Word(line.Text, 14);
+            text.Margin = new Thickness(12, 0, 12, 0);
+            if (line.Done) text.TextDecorations = TextDecorations.Strikethrough;
+            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            if (line.Due is { } due)
             {
-                text.Foreground = CardKit.Ink2;
-                text.TextDecorations = TextDecorations.Strikethrough;
+                // Due today, overdue or gone off: the accent tint; later: quiet glass.
+                bool soon = !line.Done && (line.Fired || due.Date <= now.Date);
+                right.Children.Add(Sheet.Chip(TimeFormat.When(due, now, CardKit.H24), quiet: !soon));
             }
-            var meta = CardKit.Text(line.Due is { } due ? When(due, now) : "", 12, FontWeights.Medium, secondary: true);
-            var remove = CardKit.CloseButton(() => Delete(line.Id), "Delete");
+            var remove = Sheet.Round("Delete", CardKit.Paths.Close, () => Delete(line.Id), 24, iconSize: 10);
             remove.Visibility = Visibility.Hidden;
-            remove.Margin = new Thickness(10, 0, 0, 0);
-            var row = WallDetail.ListRow(CheckBox(line.Done), text, CardKit.Row(0, meta, remove));
+            remove.Margin = new Thickness(8, 0, 0, 0);
+            right.Children.Add(remove);
+            var row = Frame(Columns(Check(line), text, right), first);
+            if (line.Done) row.Opacity = 0.5;
             row.Cursor = Cursors.Hand;
             row.ToolTip = line.Text.Length > 50 ? line.Text : null;
             row.MouseEnter += (_, _) => remove.Visibility = Visibility.Visible;
@@ -288,28 +344,32 @@ internal sealed class NotesCard
             return row;
         }
 
-        /// <summary>A round-cornered box: a white tick when done (white, not the accent: the accent is for focus).</summary>
-        static Border CheckBox(bool done) => new()
+        /// <summary>The round check: an empty ring, or filled with the accent and a tick when done.</summary>
+        Pressable Check(NoteLine line)
         {
-            Width = 16,
-            Height = 16,
-            CornerRadius = new CornerRadius(5),
-            BorderBrush = done ? CardKit.Ink : CardKit.Ink2,
-            BorderThickness = new Thickness(1.6),
-            Background = done ? CardKit.Ink : Brushes.Transparent,
-            Child = done ? CardKit.Icon(CardKit.Paths.Check, CardKit.Ground, 11, 3) : null,
-        };
+            var check = line.Done
+                ? new Pressable(CardKit.Accent, CardKit.AccentHover, CardKit.Accent) { Child = CardKit.Icon(CardKit.Paths.Check, CardKit.OnAccent, 12, 3.4) }
+                : new Pressable(Brushes.Transparent, Sheet.CapFill, Ui.Tokens.Brush("#73EBEBF5"));
+            check.Width = check.Height = 22;
+            check.CornerRadius = new CornerRadius(11);
+            check.BorderThickness = new Thickness(2);
+            check.VerticalAlignment = VerticalAlignment.Center;
+            check.ToolTip = line.Done ? "Mark not done" : "Mark done";
+            System.Windows.Automation.AutomationProperties.SetName(check, line.Done ? $"Mark “{line.Text}” not done" : $"Mark “{line.Text}” done");
+            check.Click += () => Toggle(line.Id);
+            return check;
+        }
 
         void Toggle(string id)
         {
             _card._toggle(id);
-            Root.Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
+            Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
         }
 
         void Delete(string id)
         {
             _card._delete(id);
-            Root.Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
+            Dispatcher.BeginInvoke(Refresh, DispatcherPriority.Background);
         }
     }
 }

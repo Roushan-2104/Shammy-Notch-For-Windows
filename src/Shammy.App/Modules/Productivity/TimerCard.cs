@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using Shammy.Core.Productivity;
 using Shammy.Views;
 using Shammy.Views.Cards;
+using Shammy.Views.Screens;
 
 namespace Shammy.Modules.Productivity;
 
@@ -21,9 +22,10 @@ internal interface ITimerCardHost
 /// <summary>
 /// The timer card on the Focus Wall (Wall.dc.html): a tile whose artwork is the ring itself — white, draining on a
 /// dark dial — with the digits inside; focused, the name, "4:32 of 5:00", pause/resume (the primary control) and
-/// stop. Its detail grows the dial into the art panel and adds pause/stop, +1/+5/+10 min, quick starts and
-/// whatever else is running. A finished timer turns the dial the alarm red for a few seconds. Nothing here runs a
-/// clock of its own: the module's per-second tick refreshes it while visible.
+/// stop. Its detail is a card sheet (<see cref="TimerSheet"/>): the clock as a big palette ring with pause, stop and
+/// +1/+5 min, slim rows when several run, round quick starts when nothing does. A finished timer turns the tile's
+/// dial the alarm red for a few seconds. Nothing here runs a clock of its own: the module's per-second tick
+/// refreshes it while visible.
 /// </summary>
 internal sealed class TimerCard
 {
@@ -39,7 +41,7 @@ internal sealed class TimerCard
 
     string? _done; // label of a timer that just finished, while its alarm state shows
     string _buttonsKey = "";
-    Detail? _detail;
+    TimerSheet? _detail;
 
     public TimerCard(ITimerCardHost host)
     {
@@ -129,6 +131,7 @@ internal sealed class TimerCard
     /// <summary>Redraws the visible parts; cheap no-op while nothing is on screen.</summary>
     public void Refresh()
     {
+        QuickUse.Notice(_host.Clocks, Chips);
         _detail?.Refresh();
         if (!_tile.IsVisible && _buttonsKey.Length > 0) return;
         var now = DateTime.UtcNow;
@@ -195,149 +198,386 @@ internal sealed class TimerCard
 
     public FrameworkElement BuildDetail()
     {
-        var detail = new Detail(this);
-        _detail = detail;
-        detail.Root.Loaded += (_, _) => _detail = detail;
-        detail.Root.Unloaded += (_, _) =>
+        var sheet = new TimerSheet(this);
+        _detail = sheet;
+        sheet.Loaded += (_, _) => _detail = sheet;
+        sheet.Unloaded += (_, _) =>
         {
-            if (_detail == detail) _detail = null;
+            if (_detail == sheet) _detail = null;
         };
-        return detail.Root;
+        return sheet;
     }
 
-    sealed class Detail
-    {
-        readonly TimerCard _card;
-        readonly Ring _ring = new() { Width = 156, Height = 156, Thickness = 10 };
-        readonly TrackedText _digits = CardKit.Poster("", 40), _of = CardKit.Label("");
-        readonly StackPanel _actions = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
-        readonly WrapPanel _quick = new() { Margin = new Thickness(0, 8, 0, 0) };
-        readonly StackPanel _others = new();
-        readonly DockPanel _aside = new() { Width = 232 };
-        string _structure = "";
+    /// <summary>The round quick-start chips' lengths, in minutes.</summary>
+    static readonly int[] Chips = { 1, 5, 10, 25, 45 };
 
-        public Detail(TimerCard card)
+    /// <summary>
+    /// The opened Timer card (the card family's shape, 600 wide, as tall as what it shows). One clock: a big palette
+    /// ring with the time inside in the soft accent, its name and end time, Pause (the one accent button), Stop and
+    /// +1 / +5 min; the sheet's own header folds into the middle column, as in the mockup. Two or more: slim glass rows,
+    /// each with a small ring, the time, name, end time and its own Pause and Stop, and "New" in the header. Nothing
+    /// running: round quick-start chips, the most-used length tinted. A finished timer shows "Time's up" and Dismiss.
+    /// </summary>
+    sealed class TimerSheet : CardSheet
+    {
+        const double SheetWidth = 600;
+
+        readonly TimerCard _card;
+        readonly FrameworkElement _header;
+        readonly ContentControl _content = new() { Focusable = false };
+        readonly Button _new;
+        readonly List<(RunningClock Clock, ArcRing Ring, TextBlock Time, TextBlock Meta)> _live = new();
+        string _structure = "";
+        bool _picking;
+
+        public TimerSheet(TimerCard card) : base("Timer", SheetWidth)
         {
             _card = card;
-            Root = new WallDetail(Fields.Timer(true), "", "");
-            var dial = new Grid { Width = 156, Height = 156 };
-            dial.Children.Add(_ring);
-            _digits.HorizontalAlignment = _of.HorizontalAlignment = HorizontalAlignment.Center;
-            _of.Margin = new Thickness(0, 6, 0, 0);
-            var center = CardKit.Column(0, _digits, _of);
-            center.HorizontalAlignment = HorizontalAlignment.Center;
-            center.VerticalAlignment = VerticalAlignment.Center;
-            dial.Children.Add(center);
-            Root.Art.Children.Add(CardKit.At(dial, HorizontalAlignment.Left, VerticalAlignment.Top, 72, 46));
-
-            var quickHead = CardKit.Label("Quick start", CardKit.Ink2);
-            quickHead.HorizontalAlignment = HorizontalAlignment.Left;
-            quickHead.Margin = new Thickness(0, 16, 0, 0);
-            foreach (var m in TimerCardText.QuickMinutes)
+            // The header is the parent of the header's buttons: hidden while one clock runs (its row holds Back).
+            _header = (FrameworkElement)Actions.Parent;
+            _new = Action(Sheet.Cap("New", "New timer", () =>
             {
-                var chip = CardKit.Pill($"{m} min", $"Start a {m} minute timer", () => card._host.QuickStart(TimeSpan.FromMinutes(m)));
-                chip.Margin = new Thickness(0, 0, 8, 0);
-                _quick.Children.Add(chip);
-            }
-            var body = CardKit.Column(0, _actions, quickHead, _quick);
-            Root.Body.Children.Add(body);
-
-            var head = CardKit.Label("Also running", CardKit.Ink2);
-            head.HorizontalAlignment = HorizontalAlignment.Left;
-            head.Margin = new Thickness(0, 0, 0, 6);
-            DockPanel.SetDock(head, Dock.Top);
-            _aside.Children.Add(head);
-            _aside.Children.Add(_others);
+                _picking = !_picking;
+                _structure = "";
+                Refresh();
+            }, CardKit.Paths.Plus));
+            Body.Children.Add(_content);
             Refresh();
         }
 
-        public WallDetail Root { get; }
-
+        /// <summary>Rebuilt only when what's running changes; the digits, rings and end times update every tick.</summary>
         public void Refresh()
         {
             var now = DateTime.UtcNow;
-            var c = _card.Active;
-            var others = _card._host.Clocks.Where(k => k != c).Reverse().Take(4).ToList();
-
-            if (c is null)
-            {
-                bool done = _card._done is not null;
-                Root.Field = done ? Fields.Alarm() : Fields.Timer(true);
-                _ring.Fill = done ? CardKit.Alarm : CardKit.Ink;
-                _ring.Value = done ? 1 : 0;
-                _digits.Text = "0:00";
-                _of.Text = done ? "Done" : "Timer";
-                Root.Kicker.Text = done ? "Timer · time’s up" : "Timer";
-                Root.TitleText.Text = done ? _card._done! : "Start one";
-                Root.Line.Text = done ? "Finished just now" : "Pick a length below, or say “Shammy, 10 minute timer”";
-            }
-            else
-            {
-                Root.Field = Fields.Timer(true);
-                _ring.Fill = CardKit.Ink;
-                _ring.Value = RingValue(c, now);
-                var display = c.Display(now);
-                _digits.Text = display;
-                _digits.FontSize = display.Length > 5 ? 30 : 40;
-                _of.Text = c.IsCountdown ? TimerCardText.Of(c.Total) : "elapsed";
-                Root.Kicker.Text = c.Paused ? "Timer · paused" : "Timer · running";
-                Root.TitleText.Text = Name(c);
-                Root.Line.Text = c.IsCountdown
-                    ? $"{display} {TimerCardText.Of(c.Total)} · {Lower(TimerCardText.Ends(c.EndsLocal(now) ?? DateTime.Now, c.Paused, display, CardKit.H24))}"
-                    : c.Paused ? "Stopwatch · paused" : "Stopwatch · counting up";
-            }
-
-            // Buttons and rows are rebuilt only when what's running changes, not every second.
-            var structure = $"{c?.Id}:{c?.Paused}:{_card._done}|{string.Join(",", others.Select(o => $"{o.Id}:{o.Paused}:{o.PomodoroStep}"))}";
+            var clocks = Ordered();
+            if (clocks.Count < 2) _picking = false;
+            var structure = $"{clocks.Count}:{_card._done}:{_picking}|{string.Join(",", clocks.Select(c => $"{c.Id}:{c.Paused}:{c.PomodoroStep}:{c.Display(now).Length > 5}"))}";
             if (structure != _structure)
             {
                 _structure = structure;
-                BuildActions(c, others.Count > 0);
-                _others.Children.Clear();
-                foreach (var o in others) _others.Children.Add(OtherRow(o));
-                Root.Aside = others.Count > 0 ? _aside : null;
+                Build(clocks, now);
             }
-            // Live values in the rows.
-            for (int i = 0; i < others.Count && i < _others.Children.Count; i++)
-                if (_others.Children[i] is FrameworkElement { Tag: TextBlock time }) time.Text = others[i].Display(now);
+            foreach (var (clock, ring, time, meta) in _live)
+            {
+                ring.Fraction = RingValue(clock, now);
+                time.Text = clock.Display(now);
+                meta.Text = Line(clock, now);
+            }
         }
 
-        /// <summary>Pause/resume as an accent pill (the primary), Stop, then the extend buttons (fewer when the aside takes room).</summary>
-        void BuildActions(RunningClock? c, bool narrow)
+        /// <summary>The card's clock first (the one the tile shows), then the rest, newest first.</summary>
+        List<RunningClock> Ordered()
         {
-            _actions.Children.Clear();
-            if (c is null)
+            var active = _card.Active;
+            var list = new List<RunningClock>();
+            if (active is not null) list.Add(active);
+            list.AddRange(_card._host.Clocks.Where(c => c != active).Reverse());
+            return list;
+        }
+
+        /// <summary>"Ends at 1:38 PM", "Paused · 4:32 left", "Focus · round 2 of 4", "Counting up".</summary>
+        static string Line(RunningClock c, DateTime now)
+        {
+            if (c.Kind == ClockKind.Pomodoro && !c.Paused) return $"{TimerCardText.PomodoroLine(c.PomodoroStep)} · {Lower(TimerCardText.Ends(c.EndsLocal(now) ?? DateTime.Now, false, "", CardKit.H24))}";
+            if (c.IsCountdown) return TimerCardText.Ends(c.EndsLocal(now) ?? DateTime.Now, c.Paused, c.Display(now), CardKit.H24);
+            return c.Paused ? "Paused" : "Counting up";
+        }
+
+        void Build(List<RunningClock> clocks, DateTime now)
+        {
+            _live.Clear();
+            bool single = clocks.Count == 1;
+            _header.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
+            BodyGap = single ? 0 : 14;
+            _new.Visibility = clocks.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
+            _new.ToolTip = _picking ? "Hide the quick starts" : "New timer";
+            if (clocks.Count == 0)
             {
-                if (_card._done is not null) _actions.Children.Add(CardKit.PrimaryPill("Dismiss", "Dismiss", _card.Dismiss, 38, 14));
+                bool done = _card._done is not null;
+                TitleText.Text = "Timer";
+                Status = done ? "time’s up" : "or say “timer 12 min for tea”";
+                _content.Content = done ? Sheet.Column(14, Done(), QuickChips()) : QuickChips();
                 return;
             }
-            _actions.Children.Add(CardKit.PrimaryPill(c.Paused ? "Resume" : "Pause", c.Paused ? $"Resume {Name(c)}" : $"Pause {Name(c)}", () => _card._host.TogglePause(c), 38, 14));
-            var stop = CardKit.Pill("Stop", $"Stop {Name(c)}", () => _card._host.Stop(c), 38);
-            stop.Margin = new Thickness(8, 0, 0, 0);
-            _actions.Children.Add(stop);
-            if (!c.IsCountdown) return;
-            _actions.Children.Add(new Border { Width = 1, Height = 24, Background = CardKit.Hairline, Margin = new Thickness(14, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center });
-            foreach (var m in narrow ? new[] { 1 } : new[] { 1, 5, 10 })
+            if (single)
             {
-                var more = CardKit.Pill($"+{m} min", $"Add {m} minute{(m == 1 ? "" : "s")} to {Name(c)}", () => _card._host.Extend(c, TimeSpan.FromMinutes(m)));
-                more.Margin = new Thickness(0, 0, 8, 0);
-                more.VerticalAlignment = VerticalAlignment.Center;
-                _actions.Children.Add(more);
+                _content.Content = One(clocks[0], now);
+                return;
+            }
+            TitleText.Text = "Timers";
+            Status = $"{clocks.Count} running";
+            var rows = new StackPanel();
+            for (int i = 0; i < clocks.Count; i++)
+            {
+                var row = Slim(clocks[i], i, now);
+                if (i > 0) row.Margin = new Thickness(0, 8, 0, 0);
+                rows.Children.Add(row);
+            }
+            // Four rows show; more scroll.
+            var list = new ScrollViewer
+            {
+                Content = rows,
+                MaxHeight = 4 * 68 + 3 * 8,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Focusable = false,
+            };
+            _content.Content = _picking ? Sheet.Column(14, list, QuickChips()) : list;
+        }
+
+        // ---- One clock -----------------------------------------------------------------------------
+
+        FrameworkElement One(RunningClock c, DateTime now)
+        {
+            var display = c.Display(now);
+            var ring = new ArcRing(132, RingValue(c, now)) { Thickness = 8 };
+            var time = Sheet.Num(display, display.Length > 5 ? 26 : 34, c.Paused ? CardKit.Ink2 : Ink.Soft);
+            time.HorizontalAlignment = HorizontalAlignment.Center;
+            var of = Sheet.Meta(c.IsCountdown ? TimerCardText.Of(c.Total) : "elapsed", 11);
+            of.HorizontalAlignment = HorizontalAlignment.Center;
+            of.Margin = new Thickness(0, 4, 0, 0);
+            var inside = Sheet.Column(0, time, of);
+            inside.HorizontalAlignment = HorizontalAlignment.Center;
+            inside.VerticalAlignment = VerticalAlignment.Center;
+            var dial = new Grid { Width = 132, Height = 132, VerticalAlignment = VerticalAlignment.Center };
+            dial.Children.Add(ring);
+            dial.Children.Add(inside);
+
+            // The header, folded into the middle column: Back and the eyes, then the clock's name and its end.
+            var top = Sheet.Row(0, Sheet.Back(() => BackRequested?.Invoke()), Eyes());
+            var name = Sheet.Word(Name(c), 24);
+            name.Margin = new Thickness(0, 10, 0, 0);
+            var meta = Sheet.Meta(Line(c, now));
+            meta.Margin = new Thickness(0, 6, 0, 0);
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(20, 0, 16, 0) };
+            words.Children.Add(top);
+            words.Children.Add(name);
+            words.Children.Add(meta);
+            if (c.Kind == ClockKind.Pomodoro) words.Children.Add(Dots(c.PomodoroStep));
+
+            var stop = Sheet.Round($"Stop {Name(c)}", CardKit.Paths.Stop, () => _card._host.Stop(c), 40, iconSize: 14, filled: true);
+            var pause = Sheet.Round(c.Paused ? $"Resume {Name(c)}" : $"Pause {Name(c)}", c.Paused ? CardKit.Paths.Play : CardKit.Paths.Pause,
+                () => _card._host.TogglePause(c), 54, accent: true, iconSize: 20, filled: true);
+            pause.Margin = new Thickness(8, 0, 0, 0);
+            var main = Sheet.Row(0, stop, pause);
+            main.HorizontalAlignment = HorizontalAlignment.Right;
+            var controls = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            controls.Children.Add(main);
+            if (c.IsCountdown)
+            {
+                var extend = Sheet.Row(6,
+                    Sheet.Cap("+1 min", $"Add 1 minute to {Name(c)}", () => _card._host.Extend(c, TimeSpan.FromMinutes(1))),
+                    Sheet.Cap("+5 min", $"Add 5 minutes to {Name(c)}", () => _card._host.Extend(c, TimeSpan.FromMinutes(5))));
+                extend.HorizontalAlignment = HorizontalAlignment.Right;
+                extend.Margin = new Thickness(0, 10, 0, 0);
+                controls.Children.Add(extend);
+            }
+
+            var grid = new Grid { Margin = new Thickness(4, 2, 4, 0) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.Children.Add(dial);
+            Grid.SetColumn(words, 1);
+            grid.Children.Add(words);
+            Grid.SetColumn(controls, 2);
+            grid.Children.Add(controls);
+            _live.Add((c, ring, time, meta));
+            CardKit.Name(dial, $"{Name(c)}: {display} {(c.IsCountdown ? TimerCardText.Of(c.Total) : "elapsed")}");
+            return grid;
+        }
+
+        /// <summary>The pet's eyes, as in every card's header.</summary>
+        static FrameworkElement Eyes()
+        {
+            var eyes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
+            eyes.Children.Add(new Border { Width = 6, Height = 10, CornerRadius = new CornerRadius(3), Background = CardKit.Ink });
+            eyes.Children.Add(new Border { Width = 6, Height = 10, CornerRadius = new CornerRadius(3), Background = CardKit.Ink, Margin = new Thickness(4, 0, 0, 0) });
+            return eyes;
+        }
+
+        /// <summary>The four focus rounds of a pomodoro: done ones in the palette, the current one outlined.</summary>
+        static FrameworkElement Dots(int step)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+            var dots = TimerCardText.PomodoroDots(step);
+            for (int i = 0; i < dots.Length; i++)
+            {
+                row.Children.Add(new Border
+                {
+                    Width = 9,
+                    Height = 9,
+                    CornerRadius = new CornerRadius(4.5),
+                    Margin = new Thickness(i > 0 ? 6 : 0, 0, 0, 0),
+                    Background = dots[i] == RoundDot.Done ? Ink.A : Brushes.Transparent,
+                    BorderBrush = dots[i] switch { RoundDot.Done => Ink.A, RoundDot.Current => Ink.Soft, _ => Sheet.Track },
+                    BorderThickness = new Thickness(1.5),
+                });
+            }
+            CardKit.Name(row, TimerCardText.PomodoroLine(step));
+            return row;
+        }
+
+        // ---- Two or more ---------------------------------------------------------------------------
+
+        FrameworkElement Slim(RunningClock c, int index, DateTime now)
+        {
+            bool first = index == 0;
+            Brush stroke = (index % 3) switch { 0 => Ink.A, 1 => Ink.C, _ => Ink.B };
+            var ring = new ArcRing(44, RingValue(c, now)) { Thickness = 5, Stroke = stroke, VerticalAlignment = VerticalAlignment.Center };
+            var time = Sheet.Num(c.Display(now), first ? 40 : 32, c.Paused ? CardKit.Ink2 : first ? Ink.Soft : CardKit.Ink);
+            time.Margin = new Thickness(16, 0, 0, 0);
+            time.MinWidth = first ? 104 : 84;
+            var meta = Sheet.Meta(Line(c, now), 12);
+            meta.Margin = new Thickness(0, 2, 0, 0);
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 12, 0) };
+            words.Children.Add(Sheet.Word(Name(c), 14));
+            words.Children.Add(meta);
+
+            var stop = Sheet.Round($"Stop {Name(c)}", CardKit.Paths.Stop, () => _card._host.Stop(c), 34, iconSize: 12, filled: true);
+            double size = first ? 44 : 40;
+            var pause = Sheet.Round(c.Paused ? $"Resume {Name(c)}" : $"Pause {Name(c)}", c.Paused ? CardKit.Paths.Play : CardKit.Paths.Pause,
+                () => _card._host.TogglePause(c), size, accent: first, iconSize: first ? 16 : 14, filled: true);
+            pause.Margin = new Thickness(8, 0, 0, 0);
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.Children.Add(ring);
+            Grid.SetColumn(time, 1);
+            grid.Children.Add(time);
+            Grid.SetColumn(words, 2);
+            grid.Children.Add(words);
+            var buttons = Sheet.Row(0, stop, pause);
+            buttons.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(buttons, 3);
+            grid.Children.Add(buttons);
+            _live.Add((c, ring, time, meta));
+            return Sheet.Tile(grid, new Thickness(16, first ? 12 : 10, 14, first ? 12 : 10));
+        }
+
+        // ---- Nothing running -------------------------------------------------------------------------
+
+        FrameworkElement Done()
+        {
+            var ring = new ArcRing(56, 1) { Thickness = 5, VerticalAlignment = VerticalAlignment.Center };
+            var check = CardKit.Icon(CardKit.Paths.Check, Ink.Soft, 20, 2.6);
+            var dial = new Grid { Width = 56, Height = 56 };
+            dial.Children.Add(ring);
+            dial.Children.Add(check);
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 12, 0) };
+            words.Children.Add(Sheet.Word(_card._done ?? "Timer", 18));
+            var line = Sheet.Meta("Finished just now", 12);
+            line.Margin = new Thickness(0, 3, 0, 0);
+            words.Children.Add(line);
+            var dismiss = Sheet.Cap("Dismiss", "Dismiss", _card.Dismiss, CardKit.Paths.Check, accent: true);
+            var row = Sheet.Spread(Sheet.Row(0, dial, words), dismiss);
+            row.VerticalAlignment = VerticalAlignment.Center;
+            return Sheet.Tile(row, new Thickness(12, 10, 12, 10));
+        }
+
+        /// <summary>The round quick starts: 1, 5, 10, 25 and 45 minutes, the one used most in the soft accent.</summary>
+        FrameworkElement QuickChips()
+        {
+            int favourite = QuickUse.Favourite(Chips);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 0, 0, 0) };
+            foreach (var m in Chips)
+            {
+                var chip = Chip(m, m == favourite);
+                if (row.Children.Count > 0) chip.Margin = new Thickness(10, 0, 0, 0);
+                row.Children.Add(chip);
+            }
+            return row;
+        }
+
+        Pressable Chip(int minutes, bool favourite)
+        {
+            var number = Sheet.Num(minutes.ToString(System.Globalization.CultureInfo.InvariantCulture), 22, favourite ? Ink.Soft : CardKit.Ink);
+            number.HorizontalAlignment = HorizontalAlignment.Center;
+            var unit = CardKit.Text("MIN", 9, FontWeights.Bold, secondary: !favourite);
+            if (favourite) unit.Foreground = Ink.Soft;
+            unit.HorizontalAlignment = HorizontalAlignment.Center;
+            unit.Margin = new Thickness(0, 2, 0, 0);
+            var face = Sheet.Column(0, number, unit);
+            face.HorizontalAlignment = HorizontalAlignment.Center;
+            face.VerticalAlignment = VerticalAlignment.Center;
+            var chip = new Pressable(favourite ? Ink.Tint : Sheet.GlassFill, favourite ? Ink.Tint : Sheet.CapFill, favourite ? Ink.TintEdge : Sheet.GlassEdge)
+            {
+                Width = 58,
+                Height = 58,
+                CornerRadius = new CornerRadius(29),
+                Child = face,
+                ToolTip = $"Start a {minutes} minute timer",
+            };
+            System.Windows.Automation.AutomationProperties.SetName(chip, $"Start a {minutes} minute timer");
+            chip.Click += () =>
+            {
+                _picking = false;
+                _card._host.QuickStart(TimeSpan.FromMinutes(minutes));
+            };
+            return chip;
+        }
+    }
+
+    /// <summary>
+    /// How often each quick-start length was used (a chip, or a timer of that length started any other way), so the
+    /// chip used most can wear the accent. Kept in a small file next to the settings; 25 (a focus block) until then.
+    /// </summary>
+    static class QuickUse
+    {
+        static readonly string Store = System.IO.Path.Combine(Infrastructure.Paths.Root, "timer-lengths.json");
+        static readonly HashSet<int> Seen = new();
+        static Dictionary<int, int>? _counts;
+
+        static Dictionary<int, int> Counts
+        {
+            get
+            {
+                if (_counts is not null) return _counts;
+                try
+                {
+                    _counts = System.IO.File.Exists(Store)
+                        ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, int>>(System.IO.File.ReadAllText(Store)) ?? new()
+                        : new();
+                }
+                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+                {
+                    _counts = new();
+                }
+                return _counts;
             }
         }
 
-        static FrameworkElement OtherRow(RunningClock c)
+        public static int Favourite(int[] lengths)
         {
-            var now = DateTime.UtcNow;
-            var time = CardKit.Text(c.Display(now), 13, FontWeights.Bold);
-            time.Foreground = c.Paused ? CardKit.Ink2 : CardKit.Ink;
-            var meta = c.Kind == ClockKind.Pomodoro ? TimerCardText.PomodoroLine(c.PomodoroStep) : c.Paused ? "paused" : c.IsCountdown ? TimerCardText.Of(c.Total) : "counting up";
-            var name = new TextBlock { FontFamily = CardKit.Font, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
-            name.Inlines.Add(CardKit.Run(Name(c), FontWeights.SemiBold, CardKit.Ink));
-            name.Inlines.Add(CardKit.Run("  " + meta, FontWeights.Medium, CardKit.Ink2));
-            var row = WallDetail.ListRow(WallDetail.Bullet(), name, time, 30);
-            row.Tag = time;
-            return row;
+            var best = lengths.Select(m => (Minutes: m, Uses: Counts.GetValueOrDefault(m))).OrderByDescending(x => x.Uses).First();
+            return best.Uses > 0 ? best.Minutes : 25;
+        }
+
+        static void Count(int minutes)
+        {
+            Counts[minutes] = Counts.GetValueOrDefault(minutes) + 1;
+            try
+            {
+                System.IO.File.WriteAllText(Store, System.Text.Json.JsonSerializer.Serialize(Counts));
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                // Only a hint for which chip is tinted; nothing to do.
+            }
+        }
+
+        /// <summary>Counts each new plain timer of a chip's length once (from a chip, by voice or typed).</summary>
+        public static void Notice(IEnumerable<RunningClock> clocks, int[] lengths)
+        {
+            foreach (var c in clocks)
+            {
+                if (!Seen.Add(c.Id) || c.Kind != ClockKind.Timer) continue;
+                int minutes = (int)Math.Round(c.Total.TotalMinutes);
+                if (Math.Abs(c.Total.TotalMinutes - minutes) < 0.01 && lengths.Contains(minutes)) Count(minutes);
+            }
         }
     }
 
