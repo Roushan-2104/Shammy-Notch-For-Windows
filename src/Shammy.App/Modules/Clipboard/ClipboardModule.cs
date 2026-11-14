@@ -693,9 +693,8 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
     /// <summary>Opens a copied link; only http(s) addresses the card recognised as links.</summary>
     void OpenLink(string url)
     {
-        if (!ClipCardText.IsLink(url)) return;
-        if (url.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) url = "https://" + url;
-        _ctx.Open(url);
+        if (ClipCardText.LinkUrl(url) is not { } link) return;
+        _ctx.Open(link);
     }
 
     string CountText()

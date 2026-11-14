@@ -17,6 +17,8 @@ public class ClipCardTextTests
     [InlineData("def wake(word):\n    return word == \"shammy\"", ClipShape.Code)]
     [InlineData("Meeting notes for Thursday\nShip the mockup; review latency", ClipShape.Text)]
     [InlineData("#hashtag", ClipShape.Text)]
+    [InlineData("github.com/x", ClipShape.Link)]
+    [InlineData("decade", ClipShape.Text)]
     public void Classifies_text(string text, ClipShape shape) => Assert.Equal(shape, ClipCardText.Shape(T(text)));
 
     [Fact]
@@ -31,6 +33,8 @@ public class ClipCardTextTests
     {
         Assert.Equal("github.com/Roushan/shammy-notch", ClipCardText.LinkLabel("https://www.github.com/Roushan/shammy-notch/"));
         Assert.Equal("example.com", ClipCardText.LinkLabel("https://example.com/"));
+        Assert.Equal("github.com/x", ClipCardText.LinkLabel("github.com/x"));
+        Assert.Equal("https://github.com/x", ClipCardText.LinkUrl("github.com/x"));
     }
 
     [Fact]
@@ -38,8 +42,19 @@ public class ClipCardTextTests
     {
         Assert.Equal(((byte)255, (byte)138, (byte)61), ClipCardText.ColourOf("#FF8A3D"));
         Assert.Equal(((byte)255, (byte)136, (byte)0), ClipCardText.ColourOf("#f80"));
-        Assert.Equal(((byte)255, (byte)138, (byte)61), ClipCardText.ColourOf("#80FF8A3D"));
         Assert.Null(ClipCardText.ColourOf("rgb(300, 1, 1)"));
+    }
+
+    [Theory]
+    [InlineData("#80FF0000")]
+    [InlineData("#f80")]
+    [InlineData("rgb(25, 195, 178)")]
+    public void Colours_read_as_circle_to_search_reads_them(string text)
+    {
+        // One convention: eight digits are #RRGGBBAA, as CSS writes them.
+        var circle = Shammy.Core.Search.CircleSense.Read(text, DateTime.Now)!.Colour!.Value;
+        Assert.Equal((circle.R, circle.G, circle.B), ClipCardText.ColourOf(text));
+        Assert.Equal(((byte)0x80, (byte)0xFF, (byte)0x00), ClipCardText.ColourOf("#80FF0000"));
     }
 
     [Fact]

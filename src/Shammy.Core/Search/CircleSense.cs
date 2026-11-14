@@ -183,7 +183,8 @@ public static partial class CircleSense
         return Cover(m.Value, text) >= Mostly || restWords <= 3 ? m : null;
     }
 
-    static CircleMeaning? Link(string text)
+    /// <summary>A web address that is most of the text; the clipboard card reads links with this too.</summary>
+    internal static CircleMeaning? Link(string text)
     {
         if (Single(UrlRx, text) is not { } m) return null;
         var url = m.Value.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']', '\'', '"');
@@ -233,17 +234,19 @@ public static partial class CircleSense
         return local.Length is >= 7 and <= 11 ? code + local : null;
     }
 
-    static CircleMeaning? ColourText(string text)
+    /// <summary>A colour written as hex (#RRGGBBAA for eight digits, as CSS has it), rgb() or hsl(); the clipboard card reads colours with this too.</summary>
+    internal static CircleMeaning? ColourText(string text)
     {
         var t = text.Trim().TrimEnd(';', '.', ',');
         if (t.Length > 40) return null;
         Rgb? c = null;
-        if (HexRx.Match(t) is { Success: true } hex && (t.StartsWith('#') || Regex.IsMatch(hex.Groups[1].Value, "[a-f]", RegexOptions.IgnoreCase)))
+        if (HexRx.Match(t) is { Success: true } hex
+            && (t.StartsWith('#') || (Regex.IsMatch(hex.Groups[1].Value, "[a-f]", RegexOptions.IgnoreCase) && hex.Groups[1].Value.Any(char.IsAsciiDigit))))
         {
             var h = hex.Groups[1].Value;
             if (h.Length == 3) h = string.Concat(h.Select(ch => new string(ch, 2)));
             if (h.Length == 8) h = h[..6];
-            // A plain 6-digit number ("123456") is a PIN or an id, not a colour; it needs the # or a letter.
+            // Without the #, a plain 6-digit number ("123456") is a PIN or an id and all letters ("decade") a word.
             c = Notch.Colour.Parse(h);
         }
         else if (RgbRx.Match(t) is { Success: true } rgb)

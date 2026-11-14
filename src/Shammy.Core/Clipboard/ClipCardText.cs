@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using Shammy.Core.CircleMemory;
+using Shammy.Core.Search;
 
 namespace Shammy.Core.Clipboard;
 
@@ -10,8 +10,6 @@ public enum ClipShape { Text, Link, Colour, Code, Files, Image }
 /// <summary>Labels for the v2 clipboard card: the kind of thing, where it came from, and a short preview.</summary>
 public static class ClipCardText
 {
-    static readonly Regex Hex = new(@"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
-    static readonly Regex Rgb = new(@"^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*[\d.]+\s*)?\)$", RegexOptions.IgnoreCase);
     static readonly Regex CodeHints = new(
         @"(^\s*(def|class|function|import|from|using|public|private|const|let|var|return|if|for|while|#include|SELECT|<\w+)\b)|[{};]\s*$|=>|\)\s*\{",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
@@ -27,44 +25,33 @@ public static class ClipCardText
         return ClipShape.Text;
     }
 
-    /// <summary>A single http(s) or www. address with no spaces.</summary>
-    public static bool IsLink(string text)
+    /// <summary>A single web address with no spaces, read as Circle to Search reads one ("github.com/x" too).</summary>
+    public static bool IsLink(string text) => LinkUrl(text) is not null;
+
+    /// <summary>The full address to open for a copied link ("https://github.com/x" for "github.com/x"); null when it isn't one.</summary>
+    public static string? LinkUrl(string text)
     {
         var t = text.Trim();
-        if (t.Length == 0 || t.Any(char.IsWhiteSpace)) return false;
-        if (t.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) t = "https://" + t;
-        return Uri.TryCreate(t, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" && uri.Host.Contains('.');
+        if (t.Length == 0 || t.Any(char.IsWhiteSpace)) return null;
+        return CircleSense.Link(t)?.Value;
     }
 
     /// <summary>"github.com/Roushan/shammy" from "https://www.github.com/Roushan/shammy/".</summary>
     public static string LinkLabel(string text)
     {
-        var t = text.Trim();
-        if (t.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) t = "https://" + t;
+        var t = LinkUrl(text) ?? text.Trim();
         if (!Uri.TryCreate(t, UriKind.Absolute, out var uri)) return text.Trim();
         var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
         var path = uri.AbsolutePath.TrimEnd('/');
         return host + (path.Length > 0 ? Uri.UnescapeDataString(path) : "");
     }
 
-    /// <summary>The colour a "#FF8A3D", "#f80" or "rgb(255, 138, 61)" text names, as (r, g, b); else null.</summary>
-    public static (byte R, byte G, byte B)? ColourOf(string text)
-    {
-        var t = text.Trim();
-        if (Hex.IsMatch(t))
-        {
-            var h = t[1..];
-            if (h.Length == 3) h = string.Concat(h.Select(c => $"{c}{c}"));
-            if (h.Length == 8) h = h[2..]; // #AARRGGBB, as WPF writes it
-            int v = int.Parse(h, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-            return ((byte)(v >> 16), (byte)(v >> 8), (byte)v);
-        }
-        var m = Rgb.Match(t);
-        if (!m.Success) return null;
-        var parts = new[] { m.Groups[1], m.Groups[2], m.Groups[3] }.Select(g => int.Parse(g.Value, CultureInfo.InvariantCulture)).ToArray();
-        if (parts.Any(p => p > 255)) return null;
-        return ((byte)parts[0], (byte)parts[1], (byte)parts[2]);
-    }
+    /// <summary>
+    /// The colour a "#FF8A3D", "#f80", "rgb(255, 138, 61)" or "hsl(…)" text names, as (r, g, b); else null. Read as
+    /// Circle to Search reads it, so eight hex digits are #RRGGBBAA as in CSS.
+    /// </summary>
+    public static (byte R, byte G, byte B)? ColourOf(string text) =>
+        CircleSense.ColourText(text.Trim())?.Colour is { } c ? (c.R, c.G, c.B) : null;
 
     /// <summary>A rough guess: two or more lines that look like source code. Never true for a sentence.</summary>
     public static bool LooksLikeCode(string text)
