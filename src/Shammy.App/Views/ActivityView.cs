@@ -20,7 +20,7 @@ namespace Shammy.Views;
 internal sealed class ActivityView : Grid
 {
     /// <summary>The widest the pill grows (its content decides, see <see cref="CurrentWidth"/>), and the narrowest.</summary>
-    public const double ViewWidth = 380, MinWidth = 300, ViewHeight = 38, Radius = 19;
+    public const double ViewWidth = 380, NarrowWidth = 300, ViewHeight = 38, Radius = 19;
 
     /// <summary>With a line under the row (a lyric).</summary>
     public const double TallHeight = 62, TallRadius = 22;
@@ -178,7 +178,7 @@ internal sealed class ActivityView : Grid
         _right.Measure(any);
         // In 8 px steps, so a ticking value doesn't nudge the pill every second.
         double ear = Math.Ceiling(Math.Max(_left.DesiredSize.Width, _right.DesiredSize.Width) / 8) * 8;
-        CurrentWidth = Math.Clamp(2 * ear + ActivityPet.ColumnWidth, MinWidth, ViewWidth);
+        CurrentWidth = Math.Clamp(2 * ear + ActivityPet.ColumnWidth, NarrowWidth, ViewWidth);
         Width = CurrentWidth;
     }
 
