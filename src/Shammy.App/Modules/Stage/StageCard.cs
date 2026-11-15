@@ -46,7 +46,9 @@ internal sealed record StageHost(
 internal sealed class StageCard : Grid, Shammy.Shell.ICardDrop
 {
     public const double BaseWidth = 640, ColumnWidth = 560, MirrorSide = 108, MirrorSize = 84;
-    const double TopPad = 10, QuietHeight = 26, GlideSeconds = 0.9, PreviousOpacity = 0.32, NextOpacity = 0.4;
+    /// <summary>Above the lines; under the hairline, room enough that it stays clear of the island's rim light.</summary>
+    const double TopPad = 4, BottomPad = 22;
+    const double QuietHeight = 26, GlideSeconds = 0.9, PreviousOpacity = 0.32, NextOpacity = 0.4;
     static readonly TimeSpan Tick = TimeSpan.FromMilliseconds(40);
 
     /// <summary>Warm off-white for the script: about 15:1 on the notch's near-black, softer than pure white.</summary>
@@ -192,7 +194,7 @@ internal sealed class StageCard : Grid, Shammy.Shell.ICardDrop
 
     public double CardWidth => BaseWidth + (_prefs.Mirror ? MirrorSide * 2 : 0);
 
-    public double CardHeight => TopPad + LineHeight * 3 + 8 + QuietHeight + 8 + 1 + 12;
+    public double CardHeight => TopPad + LineHeight * 3 + 8 + QuietHeight + 8 + 1 + BottomPad;
 
     /// <summary>The script's column (lines, the quiet line, the hairline), centred under the camera; the mirror to its left.</summary>
     void Build()
