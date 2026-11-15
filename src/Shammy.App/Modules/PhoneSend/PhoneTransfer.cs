@@ -25,7 +25,7 @@ internal sealed class PhoneTransfer : IDisposable
     DateTime? _sentAt;
     bool _stopped;
 
-    PhoneTransfer(ModuleContext ctx, string path, IPAddress address)
+    PhoneTransfer(ModuleContext ctx, string path, IPAddress address, bool allowUploads, string? note, string? title)
     {
         _ctx = ctx;
         FilePath = path;
@@ -33,6 +33,8 @@ internal sealed class PhoneTransfer : IDisposable
         {
             FilePath = path,
             UploadDirectory = DownloadsFolder(),
+            AllowUploads = allowUploads,
+            Note = note,
             // Only the Wi-Fi/LAN adapter the QR advertises, not VPNs, Hyper-V or any public interface.
             BindAddress = address,
             // Unauthenticated clients that never finish a request line shouldn't hold slots for long.
@@ -47,7 +49,7 @@ internal sealed class PhoneTransfer : IDisposable
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => Tick(), ctx.Ui);
         try
         {
-            _card = new PhoneSendCard(Url, Path.GetFileName(path), _server.FileLength);
+            _card = new PhoneSendCard(Url, title ?? Path.GetFileName(path), _server.FileLength);
             _card.CloseRequested += () => { ClosedByUser = true; Stop(); };
             ctx.ShowCard(_card, PhoneSendCard.CardWidth, PhoneSendCard.CardHeight, interactive: true);
         }
@@ -76,7 +78,10 @@ internal sealed class PhoneTransfer : IDisposable
     public event Action? Ended;
 
     /// <summary>Starts sharing <paramref name="path"/>. Throws <see cref="PhoneSendException"/> with a user-facing reason.</summary>
-    public static PhoneTransfer Start(ModuleContext ctx, string path)
+    /// <param name="allowUploads">Off when only handing out a file (the page then has no upload form, and the server refuses uploads).</param>
+    /// <param name="note">A line under the file on the page (e.g. a signing fingerprint).</param>
+    /// <param name="title">What the card calls the file, instead of its name.</param>
+    public static PhoneTransfer Start(ModuleContext ctx, string path, bool allowUploads = true, string? note = null, string? title = null)
     {
         if (Directory.Exists(path)) throw new PhoneSendException("Folders can't be sent yet");
         if (!File.Exists(path)) throw new PhoneSendException("That file no longer exists");
@@ -84,7 +89,7 @@ internal sealed class PhoneTransfer : IDisposable
             ?? throw new PhoneSendException("Connect to Wi-Fi first");
         try
         {
-            return new PhoneTransfer(ctx, path, address);
+            return new PhoneTransfer(ctx, path, address, allowUploads, note, title);
         }
         catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or UnauthorizedAccessException)
         {

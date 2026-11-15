@@ -19,7 +19,8 @@ internal sealed class WhatsNewCard : Grid
     public static double HeightFor(int lines) => 190 - 21 * (3 - Math.Clamp(lines, 1, 3));
 
     /// <param name="seeAll">Opens the guide on everything that is new; null leaves the link out.</param>
-    public WhatsNewCard(string version, IReadOnlyList<string> lines, Action gotIt, Action? seeAll = null)
+    /// <param name="seeAllLabel">The second button's words (a version's own way in, like "Get it for your phone").</param>
+    public WhatsNewCard(string version, IReadOnlyList<string> lines, Action gotIt, Action? seeAll = null, string seeAllLabel = "See everything new")
     {
         Width = CardWidth;
         Height = HeightFor(lines.Count);
@@ -63,7 +64,7 @@ internal sealed class WhatsNewCard : Grid
         if (seeAll is not null)
         {
             // Three lines can't hold a big update: the guide lists the rest, each with its Try it.
-            var all = ScreenKit.Secondary("See everything new", seeAll, 30, fontSize: 12.5);
+            var all = ScreenKit.Secondary(seeAllLabel, seeAll, 30, fontSize: 12.5);
             all.HorizontalAlignment = HorizontalAlignment.Right;
             all.VerticalAlignment = VerticalAlignment.Bottom;
             all.Margin = new Thickness(0, 0, 88, 0);

@@ -20,7 +20,9 @@ WAIT = 120          # a laptop waits for its phone this long, then re-dials (a s
 IDLE = 180          # the link pings every 30 s, so a pair this quiet is gone
 MAX_ROOMS = 5000
 MAX_CONNECTIONS = 2000  # everything open at once, paired or not
+PER_ADDRESS = 8         # one place (one home, one phone) never needs more
 open_connections = 0
+per_address = {}
 HELLO = re.compile(rb"^SHAMMY-RELAY 1 ([0-9a-f]{32}) (laptop|phone)\n$")
 
 rooms = {}  # room -> {"laptop": (reader, writer, ready_event), "phone": ...}
@@ -42,14 +44,19 @@ async def pipe(src, dst):
 
 async def handle(reader, writer):
     global open_connections
-    if open_connections >= MAX_CONNECTIONS:
+    peer = (writer.get_extra_info("peername") or ("?",))[0]
+    if open_connections >= MAX_CONNECTIONS or per_address.get(peer, 0) >= PER_ADDRESS:
         writer.close()
         return
     open_connections += 1
+    per_address[peer] = per_address.get(peer, 0) + 1
     try:
         await serve(reader, writer)
     finally:
         open_connections -= 1
+        per_address[peer] -= 1
+        if per_address[peer] <= 0:
+            del per_address[peer]
 
 
 async def serve(reader, writer):

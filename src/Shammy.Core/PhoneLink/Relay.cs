@@ -7,15 +7,22 @@ namespace Shammy.Core.PhoneLink;
 /// <summary>
 /// "Link from anywhere" (docs/LINK.md §9): when the phone and laptop aren't on one network, both dial a relay
 /// (tools/relay/relay.py) that only joins the two connections. The same end-to-end encrypted link then runs through it
-/// unchanged; the relay sees a room id (a hash of both public keys) and byte counts, never content. No pairing via relay.
+/// unchanged; the relay sees a random room id (made by the laptop, shared only inside the link) and byte counts, never
+/// content. No pairing via relay.
 /// </summary>
 public static class Relay
 {
     public const int DefaultPort = 47950;
 
-    /// <summary>The pair's room: the first 16 bytes of SHA-256("shammy relay" ‖ laptop key ‖ phone key), as hex.</summary>
-    public static string RoomId(byte[] laptopSpki, byte[] phoneSpki) =>
-        Convert.ToHexString(SHA256.HashData([.. "shammy relay"u8, .. laptopSpki, .. phoneSpki]).AsSpan(0, 16)).ToLowerInvariant();
+    /// <summary>
+    /// A new room: 16 random bytes as hex. The laptop makes it once and sends it to the phone only inside the encrypted
+    /// link, so watching a handshake (or the relay) never reveals it, and nobody else can squat the pair's slot.
+    /// </summary>
+    public static string NewRoom() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+
+    /// <summary>A host name or address the relay may be (letters, digits, dots, dashes, colons for IPv6).</summary>
+    public static bool ValidHost(string host) =>
+        host.Length is > 0 and <= 253 && host.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or ':');
 
     /// <summary>"host:port" (port optional); null when it isn't one.</summary>
     public static (string Host, int Port)? Parse(string? at)
@@ -23,8 +30,9 @@ public static class Relay
         if (string.IsNullOrWhiteSpace(at)) return null;
         at = at.Trim();
         int colon = at.LastIndexOf(':');
-        if (colon < 0) return (at, DefaultPort);
-        return int.TryParse(at[(colon + 1)..], out int port) && port is > 0 and < 65536 && colon > 0 ? (at[..colon], port) : null;
+        if (colon < 0) return ValidHost(at) ? (at, DefaultPort) : null;
+        if (!int.TryParse(at[(colon + 1)..], out int port) || port is <= 0 or >= 65536 || colon == 0) return null;
+        return ValidHost(at[..colon]) ? (at[..colon], port) : null;
     }
 
     /// <summary>

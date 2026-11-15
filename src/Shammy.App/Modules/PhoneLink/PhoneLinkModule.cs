@@ -39,6 +39,9 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
         /// <summary>The relay for "link from anywhere" ("host:port"), or null for same Wi-Fi only.</summary>
         public string? Relay { get; set; }
+
+        /// <summary>The pair's secret relay room (made at first use, sent to the phone only inside the link).</summary>
+        public string? RelayRoom { get; set; }
     }
 
     ModuleContext _ctx = null!;
@@ -152,6 +155,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
     void Unpair()
     {
         _store.Phone = _store.PhoneName = null;
+        _store.RelayRoom = null; // a new pairing gets a new room
         _ctx.Save(_store);
         _pairing = false;
         StopListening();
@@ -286,7 +290,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             try
             {
                 var r = await udp.ReceiveAsync(ct);
-                if (!_lanOff && LinkSession.DiscoveryReply(r.Buffer, Environment.MachineName, id) is { } reply)
+                if (!_lanOff && LinkSession.DiscoveryReply(r.Buffer, Environment.MachineName, id, _pairing) is { } reply)
                     await udp.SendAsync(reply, r.RemoteEndPoint, ct);
             }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
@@ -302,14 +306,45 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             try { client = await tcp.AcceptTcpClientAsync(ct); }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException) { return; }
             // one phone needs one connection (two while it reconnects): anything past that is someone else's
-            if (Interlocked.Increment(ref _connections) > MaxConnections)
+            var from = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
+            if (Interlocked.Increment(ref _connections) > MaxConnections || !TakeSlot(from))
             {
                 Interlocked.Decrement(ref _connections);
                 client.Dispose();
                 continue;
             }
-            _ = Task.Run(() => ServeAsync(client, ct));
+            _ = Task.Run(async () => { try { await ServeAsync(client, ct); } finally { FreeSlot(from); } });
         }
+    }
+
+    readonly Dictionary<IPAddress, int> _perAddress = new();
+
+    bool TakeSlot(IPAddress? a)
+    {
+        if (a is null) return false;
+        lock (_perAddress)
+        {
+            _perAddress.TryGetValue(a, out int n);
+            if (n >= 2) return false;
+            _perAddress[a] = n + 1;
+            return true;
+        }
+    }
+
+    void FreeSlot(IPAddress? a)
+    {
+        if (a is null) return;
+        lock (_perAddress)
+            if (_perAddress.TryGetValue(a, out int n)) { if (n <= 1) _perAddress.Remove(a); else _perAddress[a] = n - 1; }
+    }
+
+    /// <summary>The pair's secret relay room, made once (UI thread: only from OnConnected; the relay loop reads it).</summary>
+    string RelayRoom()
+    {
+        if (_store.RelayRoom is { Length: 32 } r) return r;
+        _store.RelayRoom = Relay.NewRoom();
+        _ctx.Save(_store);
+        return _store.RelayRoom;
     }
 
     async Task ServeAsync(TcpClient client, CancellationToken ct)
@@ -334,7 +369,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         {
             try
             {
-                var room = Relay.RoomId(_identity.ExportSubjectPublicKeyInfo(), Convert.FromBase64String(phone));
+                var room = RelayRoom();
                 TcpClient client;
                 try { client = await Relay.JoinAsync(hp.Host, hp.Port, room, "laptop", RelayWait, ct); }
                 catch (Exception ex) when (!ct.IsCancellationRequested && ex is OperationCanceledException or IOException)
@@ -505,6 +540,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             Time = DateTimeOffset.Now,
         };
         _shown[key] = n;
+        if (_shown.Count > 200) _shown.Remove(_shown.MinBy(kv => kv.Value.Time).Key);
         if (canReply) _replyKey = key;
         _ctx.Services.Notifications.InjectForTest(n);
         PlayPhoneChime();

@@ -84,11 +84,13 @@ public class PhoneLinkTests
         var toLaptop = new LinkCrypto.Channel(k.PhoneToLaptop);
         var fromLaptop = new LinkCrypto.Channel(k.LaptopToPhone);
         var signer = forgePhoneSig ? ECDsa.Create(ECCurve.NamedCurves.nistP256) : phoneId;
-        var sig = LinkCrypto.Sign(signer, LinkCrypto.AuthMessage(k.Transcript));
+        var sig = LinkCrypto.Sign(signer, LinkCrypto.AuthMessage("phone", k.Transcript));
         await LinkSession.WriteFrameAsync(s, toLaptop.Seal(System.Text.Encoding.UTF8.GetBytes(
             $$"""{"t":"auth","sig":"{{Convert.ToBase64String(sig)}}"}""")), CancellationToken.None);
         var auth = System.Text.Json.Nodes.JsonNode.Parse(fromLaptop.Open(await LinkSession.ReadFrameAsync(s, CancellationToken.None)))!;
-        Assert.True(LinkCrypto.Verify(il, LinkCrypto.AuthMessage(k.Transcript), Convert.FromBase64String((string)auth["sig"]!)));
+        Assert.True(LinkCrypto.Verify(il, LinkCrypto.AuthMessage("laptop", k.Transcript), Convert.FromBase64String((string)auth["sig"]!)));
+        // and the laptop's signature is not one a phone could use (no reflection)
+        Assert.False(LinkCrypto.Verify(il, LinkCrypto.AuthMessage("phone", k.Transcript), Convert.FromBase64String((string)auth["sig"]!)));
         await handshake;
         return (laptop, s, toLaptop, fromLaptop, k.Sas);
     }
@@ -129,12 +131,18 @@ public class PhoneLinkTests
     }
 
     [Fact]
-    public void AnswersOnlyTheDiscoveryQuestion()
+    public void DiscoveryNamesTheLaptopOnlyWhilePairingAndOtherwiseAnswersOnlyItsPhone()
     {
-        Assert.Null(LinkSession.DiscoveryReply("hello"u8, "PC", B(1, 91)));
-        var reply = System.Text.Json.Nodes.JsonNode.Parse(LinkSession.DiscoveryReply("SHAMMY?1"u8, "PC", B(1, 91))!)!;
-        Assert.Equal(47900, (int)reply["port"]!);
-        Assert.Equal(8, Convert.FromBase64String((string)reply["id"]!).Length);
+        byte[] id = B(1, 91);
+        Assert.Null(LinkSession.DiscoveryReply("hello"u8, "PC", id, pairing: true));
+        var open = System.Text.Json.Nodes.JsonNode.Parse(LinkSession.DiscoveryReply("SHAMMY?1"u8, "PC", id, pairing: true)!)!;
+        Assert.Equal("PC", (string)open["name"]!);
+        Assert.Equal(47900, (int)open["port"]!);
+        // paired: a bare question gets nothing; the paired phone asking by id gets an answer without the name
+        Assert.Null(LinkSession.DiscoveryReply("SHAMMY?1"u8, "PC", id, pairing: false));
+        var asked = LinkSession.DiscoveryReply(System.Text.Encoding.ASCII.GetBytes("SHAMMY?1 " + LinkSession.ShortId(id)), "PC", id, pairing: false);
+        Assert.Equal("", (string)System.Text.Json.Nodes.JsonNode.Parse(asked!)!["name"]!);
+        Assert.Null(LinkSession.DiscoveryReply("SHAMMY?1 wrongid0000="u8, "PC", id, pairing: false));
     }
 
     [Fact]
@@ -146,10 +154,14 @@ public class PhoneLinkTests
         Assert.Equal("", LinkSession.Text(m, "missing"));
     }
 
-    /// <summary>The phone's tests check the same room id.</summary>
     [Fact]
-    public void RelayRoomMatchesTheSharedVector() =>
-        Assert.Equal("1de93e365eb092c35b35847becb7ed1e", Relay.RoomId(B(5, 91), B(2, 91)));
+    public void RelayRoomsAreRandomAndHostsAreChecked()
+    {
+        Assert.Matches("^[0-9a-f]{32}$", Relay.NewRoom());
+        Assert.NotEqual(Relay.NewRoom(), Relay.NewRoom());
+        Assert.Null(Relay.Parse("evil host:80"));
+        Assert.Null(Relay.Parse("a/b:80"));
+    }
 
     [Fact]
     public void RelayAddressesParse()
@@ -202,7 +214,7 @@ public class PhoneLinkTests
     {
         using var id = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var msg = LinkCrypto.AuthMessage(B(9, 32));
+        var msg = LinkCrypto.AuthMessage("phone", B(9, 32));
         var sig = LinkCrypto.Sign(id, msg);
         Assert.True(LinkCrypto.Verify(id.ExportSubjectPublicKeyInfo(), msg, sig));
         Assert.False(LinkCrypto.Verify(other.ExportSubjectPublicKeyInfo(), msg, sig));

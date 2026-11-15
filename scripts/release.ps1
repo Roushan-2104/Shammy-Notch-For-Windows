@@ -71,6 +71,16 @@ else {
     }
 }
 # Shammy Island for Android rides along, so the phone card's "Get it from GitHub" QR (releases/latest/download/...) works.
-gh release upload "v$version" "src\Shammy.App\Assets\Phone\ShammyIsland.apk" --clobber --repo "Roushan-2104/Shammy-Notch-For-Windows"
-if ($LASTEXITCODE) { Write-Warning "Uploading ShammyIsland.apk failed; the phone card's GitHub QR won't work until it's there." }
+# Only if it is signed by Shammy Island's own key (a debug-signed or swapped file never goes out).
+$apk = "src\Shammy.App\Assets\Phone\ShammyIsland.apk"
+$pinned = "5a9e0f78dd51bf7aaac581c49571b54cd2a8a6f568e20223070582c55ed337fe"
+$apksigner = Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+$certs = if ($apksigner) { & $apksigner.FullName verify --print-certs $apk 2>&1 | Out-String } else { "" }
+if ($certs -notmatch "certificate SHA-256 digest: $pinned") {
+    Write-Warning "ShammyIsland.apk is not signed by Shammy Island's key (or apksigner wasn't found): not uploaded."
+} else {
+    gh release upload "v$version" $apk --clobber --repo "Roushan-2104/Shammy-Notch-For-Windows"
+    if ($LASTEXITCODE) { Write-Warning "Uploading ShammyIsland.apk failed; the phone card's GitHub QR won't work until it's there." }
+    else { Write-Host "ShammyIsland.apk SHA-256: $((Get-FileHash $apk -Algorithm SHA256).Hash.ToLowerInvariant())" }
+}
 Write-Host "Released v$version. Installed copies will update within a few hours." -ForegroundColor Green

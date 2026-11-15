@@ -93,9 +93,13 @@ internal sealed partial class PhoneLinkModule
     /// <summary>The two ways to get the app onto a phone, as rows.</summary>
     IEnumerable<PhoneChoiceSheet.Row> InstallRows() =>
     [
-        new("get-here", DownloadIcon, "From this laptop", "QR code: the phone downloads it over your Wi-Fi", GetFromLaptop),
-        new("get-github", PhoneChoiceSheet.Icons.Globe, "From GitHub", "QR code: the download on GitHub", GetFromGitHub),
+        // GitHub first: it's HTTPS end to end; this laptop's own copy goes over plain Wi-Fi (checked by its fingerprint)
+        new("get-github", PhoneChoiceSheet.Icons.Globe, "From GitHub", "QR code: the download on GitHub (secure)", GetFromGitHub),
+        new("get-here", DownloadIcon, "From this laptop", "QR code: over your Wi-Fi, no internet needed", GetFromLaptop),
     ];
+
+    /// <summary>The release key's certificate (SHA-256): Shammy Island from anywhere else is not this app.</summary>
+    const string SigningFingerprint = "5A:9E:0F:78:DD:51:BF:7A:AA:C5:81:C4:95:71:B5:4C:D2:A8:A6:F5:68:E2:02:23:07:05:82:C5:5E:D3:37:FE";
 
     void ShowInstallStep() => _phoneSheet?.Show("install on another phone", InstallRows().ToList(), back: FillPhoneSheet);
 
@@ -107,7 +111,8 @@ internal sealed partial class PhoneLinkModule
         try
         {
             _apkTransfer?.Dispose();
-            var transfer = _apkTransfer = PhoneTransfer.Start(_ctx, apk);
+            var transfer = _apkTransfer = PhoneTransfer.Start(_ctx, apk, allowUploads: false,
+                note: "Signed by Shammy Island · SHA-256 " + SigningFingerprint, title: "Shammy Island for Android");
             // closed with ×, Esc or a click away, or done: back to the Your phone card, where you came from
             transfer.Ended += () =>
             {

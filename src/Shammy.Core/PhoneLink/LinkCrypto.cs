@@ -34,7 +34,8 @@ public static class LinkCrypto
         return new Keys(Expand(prk, "shammy p->l", 32), Expand(prk, "shammy l->p", 32), $"{digits[..3]} {digits[3..]}", t);
     }
 
-    public static byte[] AuthMessage(byte[] transcript) => Concat(Encoding.ASCII.GetBytes("shammy auth"), transcript);
+    /// <summary>What a side signs: its role ("phone" or "laptop") and the transcript, so one side's signature can never pass as the other's.</summary>
+    public static byte[] AuthMessage(string role, byte[] transcript) => Concat(Encoding.ASCII.GetBytes($"shammy auth {role}"), transcript);
 
     public static byte[] Sign(ECDsa identity, byte[] data) =>
         identity.SignData(data, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);

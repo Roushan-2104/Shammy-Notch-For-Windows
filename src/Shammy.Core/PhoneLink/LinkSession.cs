@@ -18,6 +18,9 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
 
     public const int MaxText = 4096;
 
+    /// <summary>The hello and reveal are about 400 bytes: nothing larger is read before the other side is known.</summary>
+    public const int MaxHandshakeFrame = 4096;
+
     readonly SemaphoreSlim _sendGate = new(1, 1);
     LinkCrypto.Channel? _send, _recv;
 
@@ -41,6 +44,7 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
         if (hello["t"]?.GetValue<string>() != "hello" || hello["v"]?.GetValue<int>() != 1)
             throw new InvalidDataException("not a v1 hello");
         var commit = B64(hello, "commit");
+        // a name comes only while pairing (afterwards the phone sends none: nothing identifying in the clear)
         var name = Text(hello, "name").Trim();
         PhoneName = name.Length is > 0 and <= 40 ? name : "your phone";
 
@@ -56,14 +60,14 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
         byte[] ep = B64(reveal, "eph"), ip = B64(reveal, "id"), np = B64(reveal, "nonce");
         if (np.Length != 16 || !CryptographicOperations.FixedTimeEquals(commit, SHA256.HashData([.. ep, .. ip, .. np])))
             throw new CryptographicException("the phone's reveal doesn't match its commitment");
+        if (ip.AsSpan().SequenceEqual(il)) throw new CryptographicException("the phone claims this laptop's own key");
 
         var keys = LinkCrypto.Derive(LinkCrypto.Ecdh(eph, ep), ep, ip, np, el, il, nl);
         _send = new LinkCrypto.Channel(keys.LaptopToPhone);
         _recv = new LinkCrypto.Channel(keys.PhoneToLaptop);
-        var auth = LinkCrypto.AuthMessage(keys.Transcript);
-        await SendAsync(new JsonObject { ["t"] = "auth", ["sig"] = Convert.ToBase64String(LinkCrypto.Sign(identity, auth)) }, ct);
+        await SendAsync(new JsonObject { ["t"] = "auth", ["sig"] = Convert.ToBase64String(LinkCrypto.Sign(identity, LinkCrypto.AuthMessage("laptop", keys.Transcript))) }, ct);
         var theirs = await ReceiveAsync(ct);
-        if (theirs["t"]?.GetValue<string>() != "auth" || !LinkCrypto.Verify(ip, auth, B64(theirs, "sig")))
+        if (theirs["t"]?.GetValue<string>() != "auth" || !LinkCrypto.Verify(ip, LinkCrypto.AuthMessage("phone", keys.Transcript), B64(theirs, "sig")))
             throw new CryptographicException("the phone's identity didn't check out");
         PhoneIdentity = ip;
         Sas = keys.Sas;
@@ -93,19 +97,19 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
         await s.FlushAsync(ct);
     }
 
-    public static async Task<byte[]> ReadFrameAsync(Stream s, CancellationToken ct)
+    public static async Task<byte[]> ReadFrameAsync(Stream s, CancellationToken ct, int max = MaxFrame)
     {
         var head = new byte[4];
         await s.ReadExactlyAsync(head, ct);
         int n = BinaryPrimitives.ReadInt32BigEndian(head);
-        if (n is < 0 or > MaxFrame) throw new InvalidDataException("frame too big");
+        if (n < 0 || n > max) throw new InvalidDataException("frame too big");
         var body = new byte[n];
         await s.ReadExactlyAsync(body, ct);
         return body;
     }
 
     async Task<JsonObject> ReadJsonAsync(CancellationToken ct) =>
-        JsonNode.Parse(await ReadFrameAsync(stream, ct)) as JsonObject ?? throw new InvalidDataException("not an object");
+        JsonNode.Parse(await ReadFrameAsync(stream, ct, MaxHandshakeFrame)) as JsonObject ?? throw new InvalidDataException("not an object");
 
     /// <summary>A text field from a message, capped (§5); "" when missing.</summary>
     public static string Text(JsonObject m, string field) => Cap(m[field] is JsonValue v && v.TryGetValue<string>(out var t) ? t : "");
@@ -113,14 +117,22 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
     /// <summary>Text fields are capped at 4 KB (§5).</summary>
     public static string Cap(string s) => s.Length > MaxText ? s[..MaxText] : s;
 
-    /// <summary>What the laptop answers a phone's "SHAMMY?1" broadcast with; null for anything else.</summary>
-    public static byte[]? DiscoveryReply(ReadOnlySpan<byte> query, string name, byte[] identitySpki) =>
-        query.SequenceEqual("SHAMMY?1"u8)
-            ? Json(new JsonObject
-            {
-                ["v"] = 1, ["name"] = name, ["port"] = TcpPort, ["id"] = Convert.ToBase64String(SHA256.HashData(identitySpki).AsSpan(0, 8)),
-            })
-            : null;
+    /// <summary>The laptop's short id: the first 8 bytes of SHA-256 of its identity key, base64.</summary>
+    public static string ShortId(byte[] identitySpki) => Convert.ToBase64String(SHA256.HashData(identitySpki).AsSpan(0, 8));
+
+    /// <summary>
+    /// What the laptop answers a phone's broadcast with; null for anything else. While pairing it answers "SHAMMY?1" with
+    /// its name; once paired it answers only "SHAMMY?1 &lt;its short id&gt;" (the paired phone asking for it), and without a name,
+    /// so a stranger on the network learns nothing about this laptop.
+    /// </summary>
+    public static byte[]? DiscoveryReply(ReadOnlySpan<byte> query, string name, byte[] identitySpki, bool pairing)
+    {
+        string id = ShortId(identitySpki);
+        bool open = pairing && query.SequenceEqual("SHAMMY?1"u8);
+        bool asked = query.SequenceEqual(Encoding.ASCII.GetBytes($"SHAMMY?1 {id}"));
+        if (!open && !asked) return null;
+        return Json(new JsonObject { ["v"] = 1, ["name"] = open ? name : "", ["port"] = TcpPort, ["id"] = id });
+    }
 
     static byte[] Json(JsonObject o) => Encoding.UTF8.GetBytes(o.ToJsonString());
 

@@ -18,6 +18,12 @@ public sealed class PhoneTransferOptions
     public int PortMax { get; init; } = 49900;
     public string Token { get; init; } = TransferToken.New();
     public long MaxUploadBytes { get; init; } = 4L << 30;
+
+    /// <summary>Whether the page offers (and the server accepts) uploads to the PC; off when only handing out a file.</summary>
+    public bool AllowUploads { get; init; } = true;
+
+    /// <summary>A line under the file's name on the page (e.g. the app's signing fingerprint), or null.</summary>
+    public string? Note { get; init; }
     public int MaxConnections { get; init; } = 16;
 
     /// <summary>A client must finish sending its request head within this.</summary>
@@ -207,13 +213,13 @@ public sealed class PhoneTransferServer : IDisposable
         if (segments.Length == 1 && isGet)
         {
             var name = _o.FilePath is { } p ? Path.GetFileName(p) : null;
-            await SendTextAsync(stream, 200, "OK", "text/html; charset=utf-8", PhonePage.Transfer(_o.Token, name, FileLength), isHead, ct, html: true);
+            await SendTextAsync(stream, 200, "OK", "text/html; charset=utf-8", PhonePage.Transfer(_o.Token, name, FileLength, _o.AllowUploads, _o.Note), isHead, ct, html: true);
         }
         else if (segments.Length == 2 && segments[1] == "file" && isGet && _o.FilePath is not null)
         {
             await SendFileAsync(stream, head, isHead, cts, ct);
         }
-        else if (segments.Length == 2 && segments[1] == "upload" && head.Method == "POST")
+        else if (segments.Length == 2 && segments[1] == "upload" && head.Method == "POST" && _o.AllowUploads)
         {
             await ReceiveAsync(stream, head, buf, headEnd, len, cts, ct);
         }

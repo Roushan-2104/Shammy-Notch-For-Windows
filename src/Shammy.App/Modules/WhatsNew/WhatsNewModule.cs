@@ -96,13 +96,20 @@ internal sealed class WhatsNewModule : IShammyModule
 
     void Show(string version, IReadOnlyList<string> lines)
     {
-        var card = new WhatsNewCard(version, lines, Close, Guide.GuideLinks.OpenNew is { } openNew
-            ? () =>
+        // a version with its own way in (1.5.0: the phone card, with the QR to get the app) offers that instead of the guide
+        var card = Shammy.Core.Updates.WhatsNew.Links.TryGetValue(version, out var link)
+            ? new WhatsNewCard(version, lines, Close, () =>
             {
                 Close();
-                openNew();
-            }
-            : null);
+                _ctx.OpenCard(link.CardId);
+            }, link.Label)
+            : new WhatsNewCard(version, lines, Close, Guide.GuideLinks.OpenNew is { } openNew
+                ? () =>
+                {
+                    Close();
+                    openNew();
+                }
+                : null);
         card.MouseEnter += (_, _) => _close.Stop();
         card.MouseLeave += (_, _) =>
         {
