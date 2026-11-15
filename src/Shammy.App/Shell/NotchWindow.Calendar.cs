@@ -85,10 +85,12 @@ public partial class NotchWindow
         SlideTo((CalendarWingFit.Neck + CalendarWingFit.Width) * scale / 2);
     }
 
-    internal void FoldCalendar(bool animate)
+    /// <param name="withIsland">The island itself is changing shape (closing, a card): the wing goes at once instead of
+    /// fading beside an island that's already shrinking away from it; the glide back still animates.</param>
+    internal void FoldCalendar(bool animate, bool withIsland = false)
     {
         if (!CalendarOpen) return;
-        _wing!.Fold(animate);
+        _wing!.Fold(animate && !withIsland);
         if (_overWing)
         {
             _overWing = false;

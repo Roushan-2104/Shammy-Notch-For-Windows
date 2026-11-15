@@ -424,11 +424,11 @@ public partial class ExpandedView : UserControl
         GoToPage(0);
     }
     void OnBackClicked(object sender, RoutedEventArgs e) => ShowHome();
-    void OnSearchClicked(object sender, MouseButtonEventArgs e) => SearchRequested?.Invoke();
+    void OnSearchClicked(object sender, RoutedEventArgs e) => SearchRequested?.Invoke();
 
-    void OnGuideClicked(object sender, MouseButtonEventArgs e) => OpenView("guide");
+    void OnGuideClicked(object sender, RoutedEventArgs e) => OpenView("guide");
 
-    void OnSettingsClicked(object sender, MouseButtonEventArgs e) => OpenView("settings");
+    void OnSettingsClicked(object sender, RoutedEventArgs e) => OpenView("settings");
 
     /// <summary>The time and date in the top row, always (it ticks only while the island is open).</summary>
     internal IslandClock HeaderClock { get; } = new(15, showDate: true);
@@ -436,7 +436,7 @@ public partial class ExpandedView : UserControl
     /// <summary>The header's date was clicked: the window pours the calendar out to the right (or folds it back).</summary>
     public event Action? DateClicked;
 
-    void OnDateClicked(object sender, MouseButtonEventArgs e)
+    void OnDateClicked(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
         DateClicked?.Invoke();
@@ -448,7 +448,7 @@ public partial class ExpandedView : UserControl
         var accent = Theme.AccentTheme.Brush.Color;
         // Closing clears the local value, so the hover style applies again.
         if (open) DateButton.Background = new SolidColorBrush(Color.FromArgb(0x33, accent.R, accent.G, accent.B));
-        else DateButton.ClearValue(Border.BackgroundProperty);
+        else DateButton.ClearValue(BackgroundProperty);
         DateCaret.RenderTransform = open ? new RotateTransform(180) : null;
         if (open) DateCaret.Foreground = CardKit.Accent;
         else DateCaret.SetResourceReference(TextBlock.ForegroundProperty, "WallText2");

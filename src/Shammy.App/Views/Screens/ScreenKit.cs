@@ -363,7 +363,7 @@ internal class Pressable : Border
 internal sealed class ToggleSwitch : Pressable
 {
     readonly Ellipse _knob = new() { Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
-    static readonly SolidColorBrush OffTrack = Ui.Tokens.Brush("#29FFFFFF"), OffHover = Ui.Tokens.Brush("#38FFFFFF"), SoftKnob = Ui.Tokens.Brush("#D0FFFFFF");
+    static readonly SolidColorBrush OffTrack = Ui.Tokens.Brush("#29FFFFFF"), OffHover = Ui.Tokens.Brush("#38FFFFFF"), SoftKnob = Ui.Tokens.Brush("#D0FFFFFF"), KnobEdge = Ui.Tokens.Brush("#2E000000");
     readonly TranslateTransform _slide = new();
     bool _on;
 
@@ -377,6 +377,9 @@ internal sealed class ToggleSwitch : Pressable
         PressScale = 1;
         ToolTip = tip;
         _knob.Margin = new Thickness(3, 0, 0, 0);
+        // A faint dark edge keeps the white knob crisp on light accents (lavender, mint) as well as dark ones.
+        _knob.Stroke = KnobEdge;
+        _knob.StrokeThickness = 1;
         _knob.RenderTransform = _slide;
         Child = _knob;
         _on = on;

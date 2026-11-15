@@ -9,6 +9,30 @@
          opened in place with its title and Back. -->
     <UserControl.Resources>
         <SolidColorBrush x:Key="WallSurfaceHover" Color="#FF1E1E24" />
+        <!-- The top row's buttons (date, search, guide, settings): real buttons, so Tab, Enter and screen readers reach them
+             like the eyes; glass at rest, lighter under the pointer. -->
+        <Style x:Key="TopButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource WallTile}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource WallFocusRing}" />
+            <Setter Property="ui:FocusKit.KeepsTextFocus" Value="True" />
+            <Setter Property="ui:Press.Feedback" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="16" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource WallSurfaceHover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid x:Name="Body" Margin="20,12,20,14">
@@ -28,37 +52,17 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <!-- Settings, beside the guide: the same round button. Shown once Settings has registered. -->
-            <Border x:Name="SettingsButton" Grid.Column="5" Width="32" Height="32" CornerRadius="16" Margin="6,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                    MouseLeftButtonUp="OnSettingsClicked" ToolTip="Settings" AutomationProperties.Name="Settings">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource WallTile}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+            <Button x:Name="SettingsButton" Grid.Column="5" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
+                    Click="OnSettingsClicked" ToolTip="Settings" AutomationProperties.Name="Settings">
                 <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource WallText}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
-            </Border>
+            </Button>
             <!-- The way into the guide: everything Shammy does, in one place. Shown once the guide has registered. -->
-            <Border x:Name="GuideButton" Grid.Column="4" Width="32" Height="32" CornerRadius="16" Margin="6,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                    MouseLeftButtonUp="OnGuideClicked" ToolTip="What Shammy can do" AutomationProperties.Name="What Shammy can do">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource WallTile}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+            <Button x:Name="GuideButton" Grid.Column="4" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
+                    Click="OnGuideClicked" ToolTip="What Shammy can do" AutomationProperties.Name="What Shammy can do">
                 <TextBlock Text="?" FontFamily="{StaticResource WallFontExtraBold}" FontWeight="ExtraBold" FontSize="15" Foreground="{DynamicResource WallText}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
-            </Border>
+            </Button>
             <Button x:Name="HomeButton" Width="54" Height="32" Margin="0,0,12,0" Cursor="Hand" ToolTip="Home"
                     FocusVisualStyle="{StaticResource WallFocusRing}" ui:FocusKit.KeepsTextFocus="True" ui:Press.Feedback="True"
                     AutomationProperties.Name="Home, Shammy" Click="OnHomeClicked">
@@ -79,40 +83,20 @@
                 </Button.Template>
             </Button>
             <!-- The time and date, always: tap to pour the calendar out of the island's right side (clock filled in code) -->
-            <Border x:Name="DateButton" Grid.Column="1" Height="32" Margin="0,0,10,0" Padding="13,0,11,0" ui:Capsule.Round="True" Cursor="Hand"
-                    MouseLeftButtonUp="OnDateClicked" ToolTip="Calendar" AutomationProperties.Name="Calendar">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource WallTile}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+            <Button x:Name="DateButton" Grid.Column="1" Style="{StaticResource TopButton}" Margin="0,0,10,0" Padding="13,0,11,0"
+                    Click="OnDateClicked" ToolTip="Calendar" AutomationProperties.Name="Calendar">
                 <StackPanel x:Name="DateRow" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="DateCaret" Text="›" FontFamily="{StaticResource WallFontSemiBold}" FontSize="15" Foreground="{DynamicResource WallText2}"
                                Margin="7,0,0,1" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False" />
                 </StackPanel>
-            </Border>
+            </Button>
             <!-- "Right now · Playing Kesariya · Standup in 12 min": filled in code (Home.cs) -->
             <Border x:Name="NowSentence" Grid.Column="2" Height="32" Margin="0,0,12,0" Background="Transparent" VerticalAlignment="Center">
                 <TextBlock x:Name="NowSentenceText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="13.5"
                            FontFamily="{StaticResource WallFontSemiBold}" FontWeight="SemiBold" Foreground="{DynamicResource WallText}" />
             </Border>
-            <Border x:Name="SearchPill" Grid.Column="3" Height="32" ui:Capsule.Round="True" Cursor="IBeam"
-                    MouseLeftButtonUp="OnSearchClicked" AutomationProperties.Name="Search Shammy">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource WallTile}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+            <Button x:Name="SearchPill" Grid.Column="3" Style="{StaticResource TopButton}" Cursor="IBeam"
+                    Click="OnSearchClicked" AutomationProperties.Name="Search Shammy">
                 <StackPanel Orientation="Horizontal" Margin="13,0,15,0" VerticalAlignment="Center">
                     <Viewbox Width="15" Height="15" IsHitTestVisible="False">
                         <Canvas Width="24" Height="24">
@@ -123,7 +107,7 @@
                     <TextBlock Text="Search or hold Right Alt" FontFamily="{StaticResource WallFontMedium}" FontWeight="Medium" FontSize="13"
                                Foreground="{DynamicResource WallText2}" Margin="8,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
-            </Border>
+            </Button>
         </Grid>
 
         <!-- Home: the big now moment and three numbers, then the six tools (filled in code: Home.cs, Tools.cs) -->
