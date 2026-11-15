@@ -200,6 +200,7 @@ An alarm opens the island into **the sky of the hour it rings**: a sunrise befor
 - **One list of notifications.** Your phone's and your laptop's together, newest first, each with a little phone or laptop beside it and **All · Phone · Laptop** to narrow it down. Dismiss one on either device and it's gone from both. Type `reply on my way` to answer the phone's latest message from your keyboard. Each side has its own soft chime, so you can tell by ear where it came from.
 - **Laptop notifications on the phone** drop a short two-line card from the notch, then wait in the phone's list.
 - **Your phone as a remote.** What's playing on your laptop (with its cover), play, skip and volume; your timers, calls and downloads with their own button; **Lock** and **Sleep** (tap twice); and Claude Code's **Allow / Deny**, from an unlocked phone only.
+- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key (Android asks the first time).
 - **Paired like Bluetooth.** Both screens show the same 6 digits and you confirm on both; after that, a small green dot on the island says your phone is online.
 
 <table>
