@@ -14,7 +14,7 @@ namespace Shammy.Modules.PhoneLink;
 /// </summary>
 internal sealed partial class PhoneLinkModule
 {
-    const string ClaudeAsk = "claude.ask";
+    const string ClaudeAsk = "claude.ask.";
     static readonly TimeSpan RefreshEvery = TimeSpan.FromSeconds(5);
 
     // UI thread only: what the phone was last told, so only changes go out.
@@ -54,7 +54,13 @@ internal sealed partial class PhoneLinkModule
         _refresh?.Start();
     }
 
-    void OnDisconnected() => _refresh?.Stop();
+    void OnDisconnected()
+    {
+        _refresh?.Stop();
+        // the phone's notifications stay in the history; only the bookkeeping for its next words goes
+        _shown.Clear();
+        _replyKey = null;
+    }
 
     void OnVolume(float level, bool muted) => _ctx.Ui.BeginInvoke(SendMedia);
 
@@ -90,7 +96,7 @@ internal sealed partial class PhoneLinkModule
             var s = live.State;
             if (s.Costume is PetCostume.Music or PetCostume.Notify or PetCostume.Charging or PetCostume.Earbuds) continue;
             var choices = new JsonArray();
-            if (live.Circle is { } c && live.Run is not null) choices.Add(c.Action.ToString());
+            if (live.Circle is { Enabled: true } c && live.Run is not null) choices.Add(c.Action.ToString());
             want[a.Id] = new JsonObject
             {
                 ["t"] = "moment", ["id"] = a.Id, ["kind"] = s.Costume.ToString().ToLowerInvariant(),
@@ -99,9 +105,9 @@ internal sealed partial class PhoneLinkModule
             };
         }
         if (ask is not null)
-            want[ClaudeAsk] = new JsonObject
+            want[ClaudeAsk + ask.Value.Id] = new JsonObject
             {
-                ["t"] = "moment", ["id"] = ClaudeAsk, ["kind"] = "claude", ["title"] = LinkSession.Cap(ask.Value.Wants),
+                ["t"] = "moment", ["id"] = ClaudeAsk + ask.Value.Id, ["kind"] = "claude", ["title"] = LinkSession.Cap(ask.Value.Wants),
                 ["text"] = LinkSession.Cap(ask.Value.Detail.Length > 0 ? $"{ask.Value.Where}\n{ask.Value.Detail}" : ask.Value.Where),
                 ["done"] = false, ["choices"] = new JsonArray("Deny", "Allow"),
             };
@@ -129,14 +135,17 @@ internal sealed partial class PhoneLinkModule
     /// <summary>The phone tapped a moment's choice: only the action that moment offers right now runs.</summary>
     void Answer(string id, string choice)
     {
-        if (id == ClaudeAsk)
+        // only what the phone was shown (and is still live), never any other activity's action
+        if (!_sentMoments.ContainsKey(id)) return;
+        if (id.StartsWith(ClaudeAsk, StringComparison.Ordinal))
         {
-            if (choice is "Allow" or "Deny" && AgentsLink.Answer is { } answer)
+            // and only the request that is waiting now: a late tap never answers the next one
+            if (choice is "Allow" or "Deny" && AgentsLink.Waiting?.Invoke() is { } now && ClaudeAsk + now.Id == id && AgentsLink.Answer is { } answer)
                 _ctx.Info($"Claude Code answered from the phone: {choice} ({answer(choice == "Allow").Length > 0})");
             return;
         }
         var a = _ctx.Activities.All.FirstOrDefault(x => x.Id == id);
-        if (a is null || PetActivitySource.From(a, _ctx.Services, DateTime.UtcNow) is not { Circle: { } c, Run: { } run }) return;
+        if (a is null || PetActivitySource.From(a, _ctx.Services, DateTime.UtcNow) is not { Circle: { Enabled: true } c, Run: { } run }) return;
         if (c.Action.ToString() != choice) return;
         run(c.Action);
         _ctx.Info($"The phone ran {choice} on {id}");

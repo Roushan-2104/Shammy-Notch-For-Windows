@@ -16,9 +16,11 @@ import argparse
 import asyncio
 import re
 
-WAIT = 600          # a laptop waits for its phone this long, then re-dials
+WAIT = 120          # a laptop waits for its phone this long, then re-dials (a sleeping laptop's socket goes soon)
 IDLE = 180          # the link pings every 30 s, so a pair this quiet is gone
 MAX_ROOMS = 5000
+MAX_CONNECTIONS = 2000  # everything open at once, paired or not
+open_connections = 0
 HELLO = re.compile(rb"^SHAMMY-RELAY 1 ([0-9a-f]{32}) (laptop|phone)\n$")
 
 rooms = {}  # room -> {"laptop": (reader, writer, ready_event), "phone": ...}
@@ -39,9 +41,21 @@ async def pipe(src, dst):
 
 
 async def handle(reader, writer):
+    global open_connections
+    if open_connections >= MAX_CONNECTIONS:
+        writer.close()
+        return
+    open_connections += 1
+    try:
+        await serve(reader, writer)
+    finally:
+        open_connections -= 1
+
+
+async def serve(reader, writer):
     try:
         line = await asyncio.wait_for(reader.readline(), 10)
-    except (asyncio.TimeoutError, ConnectionError, OSError):
+    except (asyncio.TimeoutError, ConnectionError, OSError, ValueError):  # ValueError: a first line over 64 KB
         writer.close()
         return
     m = HELLO.match(line)

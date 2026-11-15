@@ -23,6 +23,9 @@ namespace Shammy.Modules.PhoneLink;
 /// </summary>
 internal sealed partial class PhoneLinkModule : IShammyModule
 {
+    /// <summary>A little longer than the relay holds a lone side (120 s), so the relay is the one that lets go.</summary>
+    static readonly TimeSpan RelayWait = TimeSpan.FromSeconds(150);
+
     static readonly TimeSpan PairWindow = TimeSpan.FromMinutes(2), PairConfirm = TimeSpan.FromSeconds(60),
         HandshakeLimit = TimeSpan.FromSeconds(10), PingEvery = TimeSpan.FromSeconds(30), Silence = TimeSpan.FromSeconds(95);
 
@@ -186,6 +189,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                 _pairing = false;
                 _pairEnds?.Stop();
                 _ctx.Info("Paired a phone");
+                if (_store.Relay is not null && _listen is { } l) _ = Task.Run(() => RelayLoopAsync(l.Cts.Token));
             });
             return true;
         }
@@ -325,10 +329,19 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             try
             {
                 var room = Relay.RoomId(_identity.ExportSubjectPublicKeyInfo(), Convert.FromBase64String(phone));
-                using var client = await Relay.JoinAsync(hp.Host, hp.Port, room, "laptop", TimeSpan.FromMinutes(11), ct);
+                TcpClient client;
+                try { client = await Relay.JoinAsync(hp.Host, hp.Port, room, "laptop", RelayWait, ct); }
+                catch (Exception ex) when (!ct.IsCancellationRequested && ex is OperationCanceledException or IOException)
+                {
+                    // nobody came in the relay's waiting time (or it let us go): dial again, no back-off
+                    wait = TimeSpan.FromSeconds(5);
+                    try { await Task.Delay(TimeSpan.FromSeconds(1), ct); } catch (OperationCanceledException) { return; }
+                    continue;
+                }
+                using var joined = client;
                 wait = TimeSpan.FromSeconds(5);
                 _ctx.Info("The phone came in through the relay");
-                await ServeStreamAsync(client.GetStream(), ct, relayed: true);
+                await ServeStreamAsync(joined.GetStream(), ct, relayed: true);
             }
             catch (Exception) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)

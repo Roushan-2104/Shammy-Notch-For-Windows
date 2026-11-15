@@ -107,7 +107,8 @@ internal sealed class AgentsModule : IShammyModule
         _card = new ApprovalCard(() => AnswerCard(true), () => AnswerCard(false));
         // the phone link answers from the phone's notch through the same path as the card's buttons
         AgentsLink.Waiting = () => _asks.Count > 0
-            ? (AgentText.CardLabel(_asks[0].Request.Cwd), AgentText.Wants(_asks[0].Request.ToolName), AgentText.Detail(_asks[0].Request))
+            ? (_asks[0].ArrivedUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture), AgentText.CardLabel(_asks[0].Request.Cwd),
+               AgentText.Wants(_asks[0].Request.ToolName), AgentText.Detail(_asks[0].Request))
             : null;
         AgentsLink.Answer = AnswerCard;
         _tick.Tick += (_, _) => Tick();
