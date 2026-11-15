@@ -41,9 +41,7 @@ public partial class ExpandedView
         // The island opens on the home again next time.
         IsVisibleChanged += (_, e) =>
         {
-            if ((bool)e.NewValue || _page == 0) return;
-            _page = 0;
-            ApplyPage(animate: false);
+            if (!(bool)e.NewValue) FirstPage();
         };
         UpdateDots();
     }
@@ -88,6 +86,14 @@ public partial class ExpandedView
     }
 
     /// <summary>Shows the current page (on the home level), or hides both pages' extras while a card is open.</summary>
+    /// <summary>Back to the home page (the island left its open state, or this view was hidden).</summary>
+    internal void FirstPage()
+    {
+        if (_page == 0) return;
+        _page = 0;
+        ApplyPage(animate: false);
+    }
+
     void ApplyPage(bool animate, int direction = 1)
     {
         if (_openId is not null)

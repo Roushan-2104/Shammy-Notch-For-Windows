@@ -123,8 +123,14 @@ public partial class NotchWindow
 
     void Transition(NotchMode mode)
     {
-        // The calendar wing lives only beside the open island.
-        if (mode != NotchMode.Expanded) FoldCalendar(animate: mode != NotchMode.Hidden);
+        if (mode != NotchMode.Expanded)
+        {
+            // The calendar wing lives only beside the open island.
+            FoldCalendar(animate: mode != NotchMode.Hidden);
+            // Leaving the open island (Stage taking over, a card, closing) means it reopens on the home page, even
+            // when its view never got hidden on the way.
+            Expanded.FirstPage();
+        }
         var spec = SpecFor(mode);
         bool grow = spec.W * spec.H > _spec.W * _spec.H + 1;
         bool changed = mode != _mode || spec != _spec;
