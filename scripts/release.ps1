@@ -70,4 +70,7 @@ else {
         if ($LASTEXITCODE) { Write-Warning "Couldn't remove $old from the release page; it is only a duplicate." }
     }
 }
+# Shammy Island for Android rides along, so the phone card's "Get it from GitHub" QR (releases/latest/download/...) works.
+gh release upload "v$version" "src\Shammy.App\Assets\Phone\ShammyIsland.apk" --clobber --repo "Roushan-2104/Shammy-Notch-For-Windows"
+if ($LASTEXITCODE) { Write-Warning "Uploading ShammyIsland.apk failed; the phone card's GitHub QR won't work until it's there." }
 Write-Host "Released v$version. Installed copies will update within a few hours." -ForegroundColor Green
