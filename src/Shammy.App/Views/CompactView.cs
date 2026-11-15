@@ -152,11 +152,12 @@ internal sealed class CompactView : Grid
 
     double BuildHud(HudPayload p)
     {
-        _hud = new HudParts();
-        _left.Content = _hud.Icon;
-        _right.Content = _hud.Track;
+        // One row across both ears up to the time: the glyph, the level filling the pill, the number.
+        _hud = new HudParts { Row = { Width = CenterGap + 2 * HudParts.EarWidth } };
+        _left.Content = _hud.Row;
+        _right.Content = null;
         _hud.Set(p);
-        return HudParts.TrackWidth;
+        return HudParts.EarWidth;
     }
 
     double BuildBattery(Activity a)
@@ -267,10 +268,10 @@ internal sealed class CompactView : Grid
         _ => $"{bytes} B",
     };
 
-    /// <summary>Speaker/sun glyph plus a level track that springs to the new value.</summary>
+    /// <summary>Speaker/sun glyph, a level track that springs to the new value, and the level as a number.</summary>
     sealed class HudParts
     {
-        public const double TrackWidth = 84;
+        public const double EarWidth = 84;
 
         readonly Motion.SpringValue _level = new(0, 0.002);
         readonly Border _fill;
@@ -282,18 +283,34 @@ internal sealed class CompactView : Grid
             _fill = new Border { Height = 5, CornerRadius = new CornerRadius(2.5), Background = Ui.Tokens.Res("Fg"), HorizontalAlignment = HorizontalAlignment.Left, Width = 0 };
             Track = new Border
             {
-                Width = TrackWidth,
                 Height = 5,
+                Margin = new Thickness(10, 0, 10, 0),
                 CornerRadius = new CornerRadius(2.5),
                 Background = Ui.Tokens.Res("Fill2"),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = _fill,
             };
             Track.Unloaded += (_, _) => _frames?.Dispose();
+            Track.SizeChanged += (_, _) => _fill.Width = Math.Max(0, _level.Value * Track.ActualWidth);
+            // Right-aligned in a fixed slot so the track doesn't jump between "9" and "100".
+            _value = Label("", Ui.Tokens.Res("Fg"));
+            _value.MinWidth = 24;
+            _value.TextAlignment = TextAlignment.Right;
+            Row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Row.ColumnDefinitions.Add(new ColumnDefinition());
+            Row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(Track, 1);
+            Grid.SetColumn(_value, 2);
+            Row.Children.Add(Icon);
+            Row.Children.Add(Track);
+            Row.Children.Add(_value);
         }
 
-        public TextBlock Icon { get; }
-        public Border Track { get; }
+        readonly TextBlock _value;
+
+        TextBlock Icon { get; }
+        Border Track { get; }
+        public Grid Row { get; } = new() { VerticalAlignment = VerticalAlignment.Center };
 
         public void Set(HudPayload p)
         {
@@ -302,12 +319,13 @@ internal sealed class CompactView : Grid
                 : p.Muted || level <= 0 ? ""
                 : level < 0.34 ? ""
                 : level < 0.67 ? "" : "";
-            _fill.Background = Ui.Tokens.Res(p.Muted ? "Fg3" : "Fg");
+            _fill.Background = _value.Foreground = Ui.Tokens.Res(p.Muted ? "Fg3" : "Fg");
+            _value.Text = Math.Round(level * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
             if (_fill.Width == 0 && _level.Value == 0) _level.Snap(level);
             _level.AnimateTo(level, 0.3, 0.86);
             _frames ??= Motion.Animator.Subscribe(_ =>
             {
-                _fill.Width = Math.Max(0, _level.Value * TrackWidth);
+                _fill.Width = Math.Max(0, _level.Value * Track.ActualWidth);
                 if (_level.IsSettled)
                 {
                     _frames?.Dispose();
