@@ -12,7 +12,7 @@ namespace Shammy.Modules.Launcher;
 /// <summary>
 /// The Snippets card (was the last old-style tab): a tile with how many are saved, and a card-sheet detail
 /// (<see cref="Detail"/>): each trigger as a capsule with what it types today, click to edit, × to delete, and
-/// "New" for the add box (";sig Best regards", Enter).
+/// "Add" for the add box (";sig Best regards", Enter).
 /// </summary>
 internal sealed class SnippetsCard
 {
@@ -69,14 +69,15 @@ internal sealed class SnippetsCard
     void FillRows() => _detail?.Fill();
 
     /// <summary>
-    /// The opened Snippets card (the card family's shape, 560 wide, as tall as its list): "New" in the header opens
-    /// the add box (";sig Best regards", Enter saves). Each snippet is a row: its trigger as an accent-tint capsule,
-    /// an arrow, and what it types today (the real date or time, not "{date}"). Click a row to edit it in the same
-    /// box; × on hover deletes it. About six rows show; more scroll.
+    /// The opened Snippets card (the card family's shape, 560 wide, as tall as its list): "Add" in the header (the
+    /// accent) opens the add box (";sig Best regards", Enter saves). Each snippet is a row with a hairline above it
+    /// (as on Notes): its trigger as an accent-tint capsule on the left, and on the right an arrow and what it types
+    /// today (the real date or time, not "{date}"). Click a row to edit it in the same box; × on hover deletes it.
+    /// About six rows show; more scroll.
     /// </summary>
     sealed class Detail : CardSheet
     {
-        const double SheetWidth = 560, RowHeight = 28, RowGap = 8;
+        const double SheetWidth = 560, RowHeight = 28, RowPad = 8, Pitch = RowHeight + 2 * RowPad + 1;
         const string Arrow = "M5 12h14 M13 6l6 6-6 6";
         static readonly FontFamily Mono = new("Cascadia Mono, Consolas");
 
@@ -91,7 +92,7 @@ internal sealed class SnippetsCard
         {
             _card = card;
             BodyGap = 12;
-            Action(Sheet.Cap("New", "New snippet", () => OpenEditor(""), CardKit.Paths.Plus));
+            Action(Sheet.Cap("Add", "Add snippet", () => OpenEditor(""), CardKit.Paths.Plus, accent: true));
 
             System.Windows.Automation.AutomationProperties.SetName(_input, "Add a snippet: the trigger, a space, then the text");
             _input.KeyDown += (_, e) =>
@@ -131,7 +132,7 @@ internal sealed class SnippetsCard
             _live.Clear();
             if (all.Count == 0)
             {
-                var empty = Sheet.Meta("No snippets yet. Add one with New, like “;sig Best regards”.", 13);
+                var empty = Sheet.Meta("No snippets yet. Add one, like “;sig Best regards”.", 13);
                 empty.Margin = new Thickness(4, 2, 0, 0);
                 _list.Content = empty;
                 return;
@@ -139,21 +140,19 @@ internal sealed class SnippetsCard
             var rows = new StackPanel();
             foreach (var (trigger, text) in all)
             {
-                var row = Row(trigger, text);
-                if (rows.Children.Count > 0) row.Margin = new Thickness(0, RowGap, 0, 0);
-                rows.Children.Add(row);
+                rows.Children.Add(Row(trigger, text, rows.Children.Count == 0));
             }
             _list.Content = new ScrollViewer
             {
                 Content = rows,
-                MaxHeight = 6 * RowHeight + 5.5 * RowGap + RowHeight / 2,
+                MaxHeight = 6.5 * Pitch,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Focusable = false,
             };
         }
 
-        FrameworkElement Row(string trigger, string template)
+        FrameworkElement Row(string trigger, string template, bool first)
         {
             var key = Sheet.Chip(trigger, height: RowHeight, font: Mono);
             key.MinWidth = 82;
@@ -163,36 +162,50 @@ internal sealed class SnippetsCard
             arrow.Margin = new Thickness(12, 0, 12, 0);
             arrow.VerticalAlignment = VerticalAlignment.Center;
             var text = Sheet.Word(Today(template), 14, FontWeights.SemiBold);
+            text.MaxWidth = 330;
             text.ToolTip = template;
             _live.Add((text, template));
             var remove = Sheet.Round($"Delete {trigger}", CardKit.Paths.Close, () => _card._delete(trigger), 24, iconSize: 10);
             remove.Visibility = Visibility.Hidden;
             remove.Margin = new Thickness(8, 0, 0, 0);
 
-            var grid = new Grid { MinHeight = RowHeight, Background = Brushes.Transparent, Cursor = Cursors.Hand };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // The trigger on the left; what it types on the right, against ×.
+            var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition());
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.Children.Add(key);
-            Grid.SetColumn(arrow, 1);
+            Grid.SetColumn(arrow, 2);
             grid.Children.Add(arrow);
-            Grid.SetColumn(text, 2);
+            Grid.SetColumn(text, 3);
             grid.Children.Add(text);
-            Grid.SetColumn(remove, 3);
+            Grid.SetColumn(remove, 4);
             grid.Children.Add(remove);
-            grid.MouseEnter += (_, _) => remove.Visibility = Visibility.Visible;
-            grid.MouseLeave += (_, _) => remove.Visibility = Visibility.Hidden;
+            // The row as on Notes: a hairline above every row but the first.
+            var row = new Border
+            {
+                Child = grid,
+                Padding = new Thickness(4, RowPad, 4, RowPad),
+                MinHeight = RowHeight + 2 * RowPad,
+                Background = Brushes.Transparent,
+                BorderBrush = Sheet.RowLine,
+                BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0),
+                Cursor = Cursors.Hand,
+            };
+            row.MouseEnter += (_, _) => remove.Visibility = Visibility.Visible;
+            row.MouseLeave += (_, _) => remove.Visibility = Visibility.Hidden;
             // Click a row to edit it: the add box opens with the trigger and its text; Enter saves over it.
-            grid.MouseLeftButtonUp += (_, e) =>
+            row.MouseLeftButtonUp += (_, e) =>
             {
                 if (e.Handled) return;
                 e.Handled = true;
                 OpenEditor($"{trigger} {template}");
             };
-            grid.ToolTip = "Click to edit";
-            CardKit.Name(grid, $"{trigger}: {OneLine(template)}");
-            return grid;
+            row.ToolTip = "Click to edit";
+            CardKit.Name(row, $"{trigger}: {OneLine(template)}");
+            return row;
         }
 
         void OpenEditor(string text)

@@ -142,6 +142,10 @@ internal sealed class CalendarCard
     {
         const double SheetWidth = 620;
         const int LinesShown = 4;
+        const string WhenColumn = "When";
+
+        /// <summary>Where the hero's words start: its 1 px edge and 16 px padding.</summary>
+        const double HeroInset = 17;
 
         readonly CalendarModule _module;
 
@@ -166,6 +170,10 @@ internal sealed class CalendarCard
             Status = string.Join(" · ", status);
 
             var col = new StackPanel();
+            // The hero's "when" and the lines' times share one column width, so the titles line up under the hero's.
+            Grid.SetIsSharedSizeScope(col, true);
+            // The lines start where the hero's words do (its edge and padding); with no hero, where the line does.
+            double edge = next is null ? 6 : HeroInset;
             if (next is null)
             {
                 var line = Sheet.Meta("", 14);
@@ -179,7 +187,7 @@ internal sealed class CalendarCard
             var lines = Lines(items, next, now, h24);
             if (lines.Count > 0)
             {
-                var list = new StackPanel { Margin = new Thickness(6, 12, 6, 0) };
+                var list = new StackPanel { Margin = new Thickness(edge, 12, edge, 0) };
                 Brush[] dots = { Ink.B, Ink.C, Ink.A };
                 for (int i = 0; i < lines.Count; i++)
                 {
@@ -195,7 +203,7 @@ internal sealed class CalendarCard
             if (foot is not null)
             {
                 var quiet = Sheet.Meta(foot, 12);
-                quiet.Margin = new Thickness(6, 12, 0, 0);
+                quiet.Margin = new Thickness(edge, 12, 0, 0);
                 quiet.ToolTip = foot;
                 col.Children.Add(quiet);
             }
@@ -237,19 +245,25 @@ internal sealed class CalendarCard
             what.Children.Add(meta);
 
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = WhenColumn });
             grid.ColumnDefinitions.Add(new ColumnDefinition());
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.Children.Add(when);
             Grid.SetColumn(what, 1);
             grid.Children.Add(what);
+            // On the right: how long till it starts (when the big number is a clock time), then Join.
+            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            string until = CalendarText.Until(next.Start, next.End, now);
+            if (unit != "min" && next.Start > now && until.StartsWith("in ", StringComparison.Ordinal)) right.Children.Add(Sheet.Meta(until));
             if (next.HasLink && today)
             {
                 var join = Sheet.Cap("Join", $"Join {next.Title} on {next.Provider}", () => _module.Join(next), CardKit.Paths.Video, accent: true, height: 40);
-                Grid.SetColumn(join, 2);
-                grid.Children.Add(join);
+                if (right.Children.Count > 0) join.Margin = new Thickness(12, 0, 0, 0);
+                right.Children.Add(join);
             }
-            return Sheet.Tile(grid, new Thickness(16, 14, 16, 14));
+            Grid.SetColumn(right, 2);
+            grid.Children.Add(right);
+            return Sheet.Tile(grid, new Thickness(HeroInset - 1, 14, 16, 14));
         }
 
         /// <summary>
@@ -269,17 +283,20 @@ internal sealed class CalendarCard
             {
                 var dayDate = now.Date.AddDays(i);
                 foreach (var o in CalendarAgenda.OnDay(items, dayDate).Where(o => (o.Start >= dayDate || o.AllDay) && o != next).Take(LinesShown - rows.Count))
-                    rows.Add((dayDate.ToString("ddd", Inv), o.Title, o.AllDay ? "All day" : CalendarText.ClockAmPm(o.Start, h24)));
+                    rows.Add((o.AllDay ? "All day" : CalendarText.ClockAmPm(o.Start, h24), o.Title, i == 1 ? "Tomorrow" : dayDate.ToString("dddd", Inv)));
             }
             return rows.Take(LinesShown).ToList();
         }
 
-        /// <summary>A slim line: the time in light numbers, a palette dot, the title in bold, a quiet note.</summary>
+        /// <summary>
+        /// A slim line: the time in light numbers (the hero's "when" column), a palette dot, the title in bold (under
+        /// the hero's title), a quiet note.
+        /// </summary>
         static FrameworkElement Line(string time, string name, string meta, Brush dot)
         {
             var grid = new Grid { MinHeight = 22 };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = WhenColumn });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition());
             grid.Children.Add(Sheet.Num(time, 18));

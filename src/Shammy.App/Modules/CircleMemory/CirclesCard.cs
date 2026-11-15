@@ -203,7 +203,7 @@ internal sealed class CirclesCard
                 return;
             }
             int n = _host.Circles.Count;
-            Status = $"{n} in the last {CircleLog.KeepDays} days" + (_host.Paused ? " · paused" : "");
+            Status = (n == 0 ? "nothing yet" : $"{n} in the last {CircleLog.KeepDays} days") + (_host.Paused ? " · paused" : "");
         }
 
         // ---- Filters ---------------------------------------------------------------------------------
@@ -276,6 +276,7 @@ internal sealed class CirclesCard
             var all = _host.Circles;
             var inGroup = _group == CircleGroup.All ? all : all.Where(c => CircleKinds.GroupOf(c.Kind) == _group).ToList();
             var words = _input.Text.Trim();
+            ShowFilters();
             IReadOnlyList<RememberedCircle> found = words.Length == 0
                 ? inGroup
                 : CircleSearch.Find(inGroup, CircleSearch.ParseFilter(words, now), requireAll: true);
@@ -284,15 +285,22 @@ internal sealed class CirclesCard
             {
                 _shown = 0;
                 string text = all.Count == 0
-                    ? _host.Paused ? "Memory is paused. Resume it from ⋯ to remember what you circle."
-                        : "Nothing circled yet. Circle anything with the Copilot key and it’s kept here, on this PC, for 30 days."
+                    ? _host.Paused ? "Resume it from ⋯ to remember what you circle."
+                        : "Circle anything with Copilot or Right Ctrl; it’s kept here, found in your own words."
                     : words.Length > 0 ? $"No circle matches “{words}”."
                     : "No circles of this kind yet.";
                 var empty = Sheet.Meta(text, 13);
                 empty.TextWrapping = TextWrapping.Wrap;
                 empty.TextTrimming = TextTrimming.None;
                 empty.Margin = new Thickness(4, 2, 0, 2);
-                _list.Content = empty;
+                if (all.Count == 0)
+                {
+                    // Nothing at all yet: a bold lead and one quiet line.
+                    var lead = Sheet.Word(_host.Paused ? "Memory is paused" : "Nothing circled yet", 14);
+                    lead.Margin = new Thickness(4, 2, 0, 0);
+                    _list.Content = Sheet.Column(4, lead, empty);
+                }
+                else _list.Content = empty;
                 return;
             }
 
@@ -529,8 +537,13 @@ internal sealed class CirclesCard
         void HideConfirm()
         {
             _confirm.Visibility = Visibility.Collapsed;
-            _field.Visibility = _filters.Visibility = Visibility.Visible;
+            _field.Visibility = Visibility.Visible;
+            ShowFilters();
         }
+
+        /// <summary>The filters show once there's something to filter (or a search), and not while "Sure?" is asked.</summary>
+        void ShowFilters() => _filters.Visibility = _confirm.Visibility != Visibility.Visible && (_host.Circles.Count > 0 || _input.Text.Trim().Length > 0)
+            ? Visibility.Visible : Visibility.Collapsed;
 
         public string Describe() =>
             PrivacyState.Presenting ? "open hidden"

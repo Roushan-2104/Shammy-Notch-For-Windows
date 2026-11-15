@@ -151,8 +151,8 @@ internal sealed class NotesCard
     public FrameworkElement BuildDetail() => new Detail(this);
 
     /// <summary>
-    /// The opened Notes card (the card family's shape, 600 wide, as tall as its list): the header shows the day's
-    /// progress as a small palette ring and "3 of 12 done today"; under it a full-width add box (Enter saves), then
+    /// The opened Notes card (the card family's shape, 600 wide, as tall as its list): the header's status is the
+    /// day's progress, "3 of 12 done today"; under it a full-width add box (Enter saves), then
     /// today's calendar events (read-only, Join where there's a call link) and every note and reminder as a row: a
     /// round check (the accent when done), the text in bold and a due chip (the accent tint when due today or
     /// overdue). Click a row to tick it off, × on hover to delete, right-click to copy. About four and a half rows
@@ -165,16 +165,14 @@ internal sealed class NotesCard
         readonly NotesCard _card;
         readonly StackPanel _rows = new();
         readonly ContentControl _list = new() { Focusable = false };
-        readonly ArcRing _ring = new(28, 0) { Thickness = 4 };
-        readonly TextBlock _progress = Sheet.Meta("");
         readonly TextBox _input = new();
 
         public Detail(NotesCard card) : base("Notes", SheetWidth)
         {
             _card = card;
             BodyGap = 12;
-            Action(_ring);
-            Action(_progress);
+            // Every row's last column (Join, or × on hover) is as wide as the widest, so the chips end on one edge.
+            Grid.SetIsSharedSizeScope(_rows, true);
 
             // The add box: Enter saves.
             System.Windows.Automation.AutomationProperties.SetName(_input, "Add a note");
@@ -210,18 +208,7 @@ internal sealed class NotesCard
             var lines = Lines(store);
             var (doneToday, total) = Progress(store, now);
 
-            // "3 of 12 done today", the done count in light numbers, beside a ring of the same.
-            _ring.Visibility = _progress.Visibility = total == 0 ? Visibility.Collapsed : Visibility.Visible;
-            _ring.Fraction = total == 0 ? 0 : (double)doneToday / total;
-            _progress.Inlines.Clear();
-            _progress.Inlines.Add(new System.Windows.Documents.Run(doneToday.ToString(Inv))
-            {
-                FontFamily = Ui.Tokens.FontRes("ShammyDisplayFont"),
-                FontWeight = FontWeights.Light,
-                FontSize = 18,
-                Foreground = Ink.Soft,
-            });
-            _progress.Inlines.Add(new System.Windows.Documents.Run($" of {total} done today"));
+            Status = total == 0 ? null : $"{doneToday} of {total} done today";
 
             _rows.Children.Clear();
             if (Private)
@@ -265,6 +252,23 @@ internal sealed class NotesCard
             BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0),
         };
 
+        /// <summary>The row's right side: the chip, then the last column (shared by every row) holding Join or ×.</summary>
+        static Grid Trail(UIElement? chip, UIElement? last)
+        {
+            var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = "Last" });
+            if (chip is not null) grid.Children.Add(chip);
+            if (last is FrameworkElement end)
+            {
+                end.Margin = new Thickness(8, 0, 0, 0);
+                end.HorizontalAlignment = HorizontalAlignment.Right;
+                Grid.SetColumn(end, 1);
+                grid.Children.Add(end);
+            }
+            return grid;
+        }
+
         static Grid Columns(UIElement lead, UIElement text, UIElement right)
         {
             var grid = new Grid();
@@ -281,18 +285,20 @@ internal sealed class NotesCard
 
         FrameworkElement EventRow(Shammy.Core.Calendar.CalendarOccurrence e, DateTime now, bool first)
         {
-            var bell = new Border { Width = 22, Height = 22, Child = CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink2, 15, 2), VerticalAlignment = VerticalAlignment.Center };
+            // The bell in a round glass box the size of a note's check.
+            var bell = new Border
+            {
+                Width = 22,
+                Height = 22,
+                CornerRadius = new CornerRadius(11),
+                Background = Sheet.CapFill,
+                Child = CardKit.Icon(CardKit.Paths.Bell, CardKit.Ink2, 12, 2.2),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
             var title = Sheet.Word(e.Title, 14);
             title.Margin = new Thickness(12, 0, 12, 0);
-            var right = Sheet.Row(0, Sheet.Chip(DayLinks.EventMeta(e, now), quiet: true));
-            if (e.HasLink && _card.Join is { } join)
-            {
-                var b = Sheet.Cap("Join", $"Join {e.Title}", () => join(e), height: 26);
-                b.Margin = new Thickness(8, 0, 0, 0);
-                right.Children.Add(b);
-            }
-            right.VerticalAlignment = VerticalAlignment.Center;
-            var row = Frame(Columns(bell, title, right), first);
+            var join = e.HasLink && _card.Join is { } j ? Sheet.Cap("Join", $"Join {e.Title}", () => j(e), height: 26) : null;
+            var row = Frame(Columns(bell, title, Trail(Sheet.Chip(DayLinks.EventMeta(e, now), quiet: true), join)), first);
             row.ToolTip = $"{e.Title} · {Shammy.Core.Calendar.CalendarText.Range(e.Start, e.End)}";
             CardKit.Name(row, $"{e.Title}, {DayLinks.EventMeta(e, now)}, from your calendar");
             return row;
@@ -303,18 +309,16 @@ internal sealed class NotesCard
             var text = Sheet.Word(line.Text, 14);
             text.Margin = new Thickness(12, 0, 12, 0);
             if (line.Done) text.TextDecorations = TextDecorations.Strikethrough;
-            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            Border? chip = null;
             if (line.Due is { } due)
             {
                 // Due today, overdue or gone off: the accent tint; later: quiet glass.
                 bool soon = !line.Done && (line.Fired || due.Date <= now.Date);
-                right.Children.Add(Sheet.Chip(TimeFormat.When(due, now, CardKit.H24), quiet: !soon));
+                chip = Sheet.Chip(TimeFormat.When(due, now, CardKit.H24), quiet: !soon);
             }
             var remove = Sheet.Round("Delete", CardKit.Paths.Close, () => Delete(line.Id), 24, iconSize: 10);
             remove.Visibility = Visibility.Hidden;
-            remove.Margin = new Thickness(8, 0, 0, 0);
-            right.Children.Add(remove);
-            var row = Frame(Columns(Check(line), text, right), first);
+            var row = Frame(Columns(Check(line), text, Trail(chip, remove)), first);
             if (line.Done) row.Opacity = 0.5;
             row.Cursor = Cursors.Hand;
             row.ToolTip = line.Text.Length > 50 ? line.Text : null;
