@@ -291,8 +291,9 @@ internal sealed class TimerCard
         {
             _live.Clear();
             bool single = clocks.Count == 1;
-            _header.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
-            BodyGap = single ? 0 : 14;
+            // Every card keeps the same top row (Back, the eyes, the name, its status), one clock or many.
+            _header.Visibility = Visibility.Visible;
+            BodyGap = 14;
             _new.Visibility = clocks.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
             _new.ToolTip = _picking ? "Hide the quick starts" : "New timer";
             if (clocks.Count == 0)
@@ -305,6 +306,8 @@ internal sealed class TimerCard
             }
             if (single)
             {
+                TitleText.Text = Name(clocks[0]);
+                Status = clocks[0].Paused ? "paused" : clocks[0].IsCountdown ? "running" : "counting up";
                 _content.Content = One(clocks[0], now);
                 return;
             }
@@ -347,15 +350,9 @@ internal sealed class TimerCard
             dial.Children.Add(ring);
             dial.Children.Add(inside);
 
-            // The header, folded into the middle column: Back and the eyes, then the clock's name and its end.
-            var top = Sheet.Row(0, Sheet.Back(() => BackRequested?.Invoke()), Eyes());
-            var name = Sheet.Word(Name(c), 24);
-            name.Margin = new Thickness(0, 10, 0, 0);
-            var meta = Sheet.Meta(Line(c, now));
-            meta.Margin = new Thickness(0, 6, 0, 0);
-            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(20, 0, 16, 0) };
-            words.Children.Add(top);
-            words.Children.Add(name);
+            // The name is in the top row now; beside the ring, when it ends.
+            var meta = Sheet.Word(Line(c, now), 17, FontWeights.SemiBold);
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(22, 0, 16, 0) };
             words.Children.Add(meta);
             if (c.Kind == ClockKind.Pomodoro) words.Children.Add(Dots(c.PomodoroStep));
 
@@ -389,15 +386,6 @@ internal sealed class TimerCard
             _live.Add((c, ring, time, meta));
             CardKit.Name(dial, $"{Name(c)}: {display} {(c.IsCountdown ? TimerCardText.Of(c.Total) : "elapsed")}");
             return grid;
-        }
-
-        /// <summary>The pet's eyes, as in every card's header.</summary>
-        static FrameworkElement Eyes()
-        {
-            var eyes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
-            eyes.Children.Add(new Border { Width = 6, Height = 10, CornerRadius = new CornerRadius(3), Background = CardKit.Ink });
-            eyes.Children.Add(new Border { Width = 6, Height = 10, CornerRadius = new CornerRadius(3), Background = CardKit.Ink, Margin = new Thickness(4, 0, 0, 0) });
-            return eyes;
         }
 
         /// <summary>The four focus rounds of a pomodoro: done ones in the palette, the current one outlined.</summary>

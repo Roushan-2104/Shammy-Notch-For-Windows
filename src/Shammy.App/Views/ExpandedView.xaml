@@ -79,11 +79,11 @@
                 </Button.Template>
             </Button>
             <!-- The time and date, always: tap to pour the calendar out of the island's right side (clock filled in code) -->
-            <Border x:Name="DateButton" Grid.Column="1" Height="32" Margin="0,0,10,0" Padding="12,0,10,0" ui:Capsule.Round="True" Cursor="Hand"
+            <Border x:Name="DateButton" Grid.Column="1" Height="32" Margin="0,0,10,0" Padding="13,0,11,0" ui:Capsule.Round="True" Cursor="Hand"
                     MouseLeftButtonUp="OnDateClicked" ToolTip="Calendar" AutomationProperties.Name="Calendar">
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Background" Value="{StaticResource WallTile}" />
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{StaticResource WallSurfaceHover}" />

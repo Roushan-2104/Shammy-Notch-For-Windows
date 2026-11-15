@@ -61,7 +61,7 @@ internal sealed class IslandClock : StackPanel
         var now = DateTime.Now;
         var (time, suffix) = ClockPreference.Parts(now.Hour, now.Minute);
         _time.Text = time;
-        _ampm.Text = suffix.ToLowerInvariant();
+        _ampm.Text = suffix;
         _ampm.Visibility = suffix.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_date is not null) _date.Text = now.ToString("ddd d MMM", CultureInfo.InvariantCulture);
         // The next minute's turn, a hair after it.

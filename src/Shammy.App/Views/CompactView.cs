@@ -18,7 +18,7 @@ internal sealed class CompactView : Grid
     const double CenterGap = 120;
 
     /// <summary>The time at the right end.</summary>
-    const double ClockRoom = 64;
+    const double ClockRoom = 76;
 
     readonly IslandClock _clock = new() { HorizontalAlignment = HorizontalAlignment.Right };
 
@@ -40,10 +40,13 @@ internal sealed class CompactView : Grid
         Height = 32;
         _left.Margin = new Thickness(EarPadding, 0, 0, 0);
         _right.Margin = new Thickness(0, 0, EarPadding + ClockRoom, 0);
-        _clock.Margin = new Thickness(0, 0, EarPadding, 0);
+        // The time after a hairline, as on the live pill, so it never reads as part of the activity's words.
+        var clockHost = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, EarPadding, 0) };
+        clockHost.Children.Add(new System.Windows.Shapes.Rectangle { Width = 1, Height = 16, Fill = Ui.Tokens.Res("WallHairline"), Margin = new Thickness(0, 0, 9, 0), VerticalAlignment = VerticalAlignment.Center });
+        clockHost.Children.Add(_clock);
         Children.Add(_left);
         Children.Add(_right);
-        Children.Add(_clock);
+        Children.Add(clockHost);
         Background = Brushes.Transparent;
         MouseLeftButtonUp += (_, _) => _shown?.Click?.Invoke();
     }
@@ -160,8 +163,8 @@ internal sealed class CompactView : Grid
     {
         var p = (BatteryPayload)a.Payload!;
         bool low = a.Kind == ActivityKind.LowBattery;
-        _left.Content = Label(low ? "Low Battery" : "Charging",
-            Ui.Tokens.Res(low ? "Red" : "Fg"));
+        // The same quiet label as the other pills; the red stays on the number that needs you.
+        _left.Content = Label(low ? "LOW BATTERY" : "CHARGING", Ui.Tokens.Res("Fg2"));
         _battery = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center };
         _battery.Set(p.Percent, p.Charging);
         _rightText = Label($"{p.Percent}%", Ui.Tokens.Res(low ? "Red" : "Green"));

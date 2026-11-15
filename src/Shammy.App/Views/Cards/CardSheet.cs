@@ -65,7 +65,8 @@ internal class CardSheet : Grid
         }));
     }
 
-    /// <summary>The fade (28 px) at whichever ends of a scrolling list still hide something; none when it all fits.</summary>
+    /// <summary>The fade (48 px: long enough that a half-shown row melts away rather than looks cut) at whichever ends of a
+    /// scrolling list still hide something; none when it all fits.</summary>
     static void FadeEdges(ScrollViewer sv)
     {
         bool vertical = sv.ScrollableHeight > 0.5;
@@ -80,7 +81,7 @@ internal class CardSheet : Grid
         double offset = vertical ? sv.VerticalOffset : sv.HorizontalOffset;
         double scrollable = vertical ? sv.ScrollableHeight : sv.ScrollableWidth;
         bool start = offset > 0.5, end = offset < scrollable - 0.5;
-        const double fade = 28;
+        double fade = Math.Min(48, length * 0.22);
         var mask = new LinearGradientBrush
         {
             MappingMode = BrushMappingMode.Absolute,

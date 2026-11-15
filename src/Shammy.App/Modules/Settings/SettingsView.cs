@@ -356,7 +356,13 @@ internal sealed partial class SettingsView : CardSheet
         {
             lead.Margin = new Thickness(0, 0, 14, 0);
             lead.VerticalAlignment = VerticalAlignment.Center;
-            var both = new StackPanel { Orientation = Orientation.Horizontal, Children = { lead, titleText } };
+            // A grid, not a horizontal stack: the words get the width that's left, so the hint wraps instead of being cut.
+            var both = new Grid();
+            both.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            both.ColumnDefinitions.Add(new ColumnDefinition());
+            SetColumn(titleText, 1);
+            both.Children.Add(lead);
+            both.Children.Add(titleText);
             grid.Children.Add(both);
         }
         else grid.Children.Add(titleText);

@@ -363,7 +363,7 @@ internal class Pressable : Border
 internal sealed class ToggleSwitch : Pressable
 {
     readonly Ellipse _knob = new() { Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
-    static readonly SolidColorBrush OffTrack = Ui.Tokens.Brush("#29FFFFFF"), OffHover = Ui.Tokens.Brush("#38FFFFFF");
+    static readonly SolidColorBrush OffTrack = Ui.Tokens.Brush("#29FFFFFF"), OffHover = Ui.Tokens.Brush("#38FFFFFF"), SoftKnob = Ui.Tokens.Brush("#D0FFFFFF");
     readonly TranslateTransform _slide = new();
     bool _on;
 
@@ -410,7 +410,8 @@ internal sealed class ToggleSwitch : Pressable
     void Apply(bool animate)
     {
         Fill = _on ? ScreenKit.Accent : null;
-        _knob.Fill = _on ? ScreenKit.OnAccent : ScreenKit.Fg;
+        // On: a white knob on the palette's colour (a dark knob there read as a hole); off: a softer knob on the glass.
+        _knob.Fill = _on ? ScreenKit.Fg : SoftKnob;
         Paint();
         double x = _on ? 16 : 0;
         if (!animate || ScreenKit.ReducedMotion)

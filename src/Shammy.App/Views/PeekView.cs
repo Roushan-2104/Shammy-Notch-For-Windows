@@ -110,12 +110,22 @@ internal sealed class PeekView : Grid
             return;
         }
         _swatch.Background = peek.Swatch;
+        // The card's icon on its colour field (a bare field reads as an empty box).
+        var glyph = ExpandedView.CardGlyph(_cardId);
+        _swatch.Child = glyph.Length > 0 ? Centered(CardKit.FluentGlyph(glyph, 19)) : null;
         _kicker.Text = peek.Kicker;
         _title.Text = peek.Title;
         _line.Text = peek.Line;
         _primary.Content = peek.Primary is { } p ? Primary(p) : null;
         _primaryText = peek.Primary?.Label ?? "-";
         CardKit.Name(this, $"Open Shammy. {peek.Kicker}: {peek.Title}, {peek.Line}");
+    }
+
+    static FrameworkElement Centered(FrameworkElement e)
+    {
+        e.HorizontalAlignment = HorizontalAlignment.Center;
+        e.VerticalAlignment = VerticalAlignment.Center;
+        return e;
     }
 
     FrameworkElement Primary(WallAction a)
@@ -143,6 +153,7 @@ internal sealed class PeekView : Grid
         _cardId = "-";
         var now = DateTime.Now;
         _swatch.Background = Fields.Calendar();
+        _swatch.Child = null;
         _kicker.Text = now.ToString("dddd", CultureInfo.CurrentCulture);
         _title.Text = BuiltInGlances.Time(now, Shammy.Core.Productivity.ClockPreference.Is24Hour).Time;
         _line.Text = now.ToString("d MMMM", CultureInfo.CurrentCulture);

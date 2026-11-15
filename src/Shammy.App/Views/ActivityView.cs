@@ -19,7 +19,8 @@ namespace Shammy.Views;
 /// </summary>
 internal sealed class ActivityView : Grid
 {
-    public const double ViewWidth = 380, ViewHeight = 38, Radius = 19;
+    /// <summary>The widest the pill grows (its content decides, see <see cref="CurrentWidth"/>), and the narrowest.</summary>
+    public const double ViewWidth = 380, MinWidth = 300, ViewHeight = 38, Radius = 19;
 
     /// <summary>With a line under the row (a lyric).</summary>
     public const double TallHeight = 62, TallRadius = 22;
@@ -132,6 +133,9 @@ internal sealed class ActivityView : Grid
 
     public double CurrentRadius => LineText.Length > 0 ? TallRadius : Radius;
 
+    /// <summary>As wide as its longer side needs, both sides equal so the pet stays centred: no empty band on a short pill.</summary>
+    public double CurrentWidth { get; private set; } = ViewWidth;
+
     public string LabelText => _label.Text;
     public string ValueText => _value.Text;
 
@@ -160,10 +164,22 @@ internal sealed class ActivityView : Grid
         _value.MaxWidth = ViewWidth / 2 - ActivityPet.ColumnWidth / 2 - Padding - 4 - ClockRoom - (_marker.Content is null ? 0 : 14);
         ShowLine(s.Line.Trim());
 
+        Fit();
         Pet.Visibility = petOn || PetActivities.ShowsWithoutPet(live.Face) ? Visibility.Visible : Visibility.Collapsed;
         if (replay) Pet.Reset();
         Pet.Show(live.Face, s.Paused, live.Art, s.Progress, live.Level, live.Cover);
         return replay;
+    }
+
+    void Fit()
+    {
+        var any = new Size(double.PositiveInfinity, ViewHeight);
+        _left.Measure(any);
+        _right.Measure(any);
+        // In 8 px steps, so a ticking value doesn't nudge the pill every second.
+        double ear = Math.Ceiling(Math.Max(_left.DesiredSize.Width, _right.DesiredSize.Width) / 8) * 8;
+        CurrentWidth = Math.Clamp(2 * ear + ActivityPet.ColumnWidth, MinWidth, ViewWidth);
+        Width = CurrentWidth;
     }
 
     /// <summary>The line under the row; a new one fades in (the notch itself grows or shrinks around it).</summary>

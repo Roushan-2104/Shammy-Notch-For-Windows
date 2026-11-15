@@ -164,11 +164,15 @@ public partial class ExpandedView
         ["battery"] = "", ["cricket"] = "", ["system"] = "",
     };
 
+    /// <summary>A card's or feature's icon glyph (the card's own, else the wheel's), or "" for none.</summary>
+    internal static string CardGlyph(string id) =>
+        // The wheel answers an unknown id with its info glyph, so a card's own icon is asked first.
+        CardGlyphs.TryGetValue(id, out var card) ? card : WheelSlots.Find(id) is not null ? WheelModule.GlyphFor(id) : "";
+
     /// <summary>The feature's icon: the wheel's own glyph or its card's, else its initial.</summary>
     static TextBlock IconFor(Essential e, double size)
     {
-        // The wheel answers an unknown id with its info glyph, so a card's own icon is asked first.
-        var glyph = CardGlyphs.TryGetValue(e.Id, out var card) ? card : WheelSlots.Find(e.Id) is not null ? WheelModule.GlyphFor(e.Id) : "";
+        var glyph = CardGlyph(e.Id);
         if (glyph.Length > 0) return CardKit.FluentGlyph(glyph, size);
         var letter = CardKit.Text(e.Name[..1].ToUpperInvariant(), size * 0.9, FontWeights.Bold);
         letter.HorizontalAlignment = HorizontalAlignment.Center;

@@ -55,7 +55,8 @@ internal sealed class TourCard : Grid
             Background = ScreenKit.Tile,
             VerticalAlignment = VerticalAlignment.Top,
             ClipToBounds = true,
-            Child = new PetFace(2.6, mood) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 8, 0, 0) },
+            // Sized so the face's extras (hearts, blush, sparkles) stay inside the rounded tile instead of being cut at its edge.
+            Child = new PetFace(2.15, mood) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) },
         };
         grid.Children.Add(tile);
 
@@ -181,7 +182,8 @@ internal sealed class TourCard : Grid
             buttons.Children.Add(skip);
         }
         var back = ScreenKit.Secondary("Back", actions.Back, 36, 18, 13, ScreenKit.Tile);
-        if (step == 1) back.Enabled = false;
+        // Nothing to go back to on the first step: no greyed-out button.
+        if (step == 1) back.Visibility = Visibility.Collapsed;
         buttons.Children.Add(back);
         var next = ScreenKit.Primary(step < TourScript.Steps ? "Next" : "Let’s go", actions.Next, 36, 14, null, 20);
         // The arrow sits after the word.

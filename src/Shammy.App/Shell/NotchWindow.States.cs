@@ -87,7 +87,7 @@ public partial class NotchWindow
         NotchMode.Hidden => (150, 0, 0),
         NotchMode.Idle => Pill(RestView.RestWidth, RestView.RestHeight),
         NotchMode.Peek => (PeekView.PeekWidth, PeekView.PeekHeight, 26),
-        NotchMode.Compact when _petShowing => (ActivityView.ViewWidth, IslandGeometry.ClosedPill(_activityView.CurrentHeight), _activityView.CurrentRadius),
+        NotchMode.Compact when _petShowing => (_activityView.CurrentWidth, IslandGeometry.ClosedPill(_activityView.CurrentHeight), _activityView.CurrentRadius),
         NotchMode.Compact => Pill(_compactWidth, 32),
         NotchMode.Notification => (NotificationView.CardWidth, NotificationView.CardHeight, 30),
         NotchMode.Card => (_cardSize.W, _cardSize.H, Math.Min(32, _cardSize.H / 2)),

@@ -228,7 +228,8 @@ public partial class ExpandedView
         _nowItems = items.OrderByDescending(e => e.Item.Priority).ToList();
 
         var parts = new List<string>();
-        if (_s.Media is { HasSession: true, IsPlaying: true } m) parts.Add("Playing " + m.Title);
+        // The big music card right below already says what's playing.
+        if (_s.Media is { HasSession: true, IsPlaying: true } m && _heroKind is not (HeroKind.Music or HeroKind.PausedMusic)) parts.Add("Playing " + m.Title);
         parts.AddRange(_nowItems.Select(e => e.Item.Text));
         // Never "Nothing needs you" while the moment shows a call, a countdown or a meeting: say that instead.
         if (parts.Count == 0 && NowText.HeroLine(_heroKind, _now.CallApp, _now.Meeting is null ? null : MeetingTitle(_now.Meeting), _now.Clock is null ? null : ClockName(_now.Clock)) is { } line)
@@ -379,19 +380,20 @@ public partial class ExpandedView
         time.Children.Add(bar);
         time.Children.Add(dur);
 
-        var play = CardKit.Primary("Play", CardKit.PlayPause(false, 13), () => RunMedia(x => x.TogglePlayPause()), 38);
+        var play = CardKit.Primary("Play", CardKit.PlayPause(false, 13), () => RunMedia(x => x.TogglePlayPause()), 34);
         var controls = CardKit.Row(6,
             CardKit.Quiet("Previous", CardKit.Glyph(CardKit.Paths.Previous, CardKit.Ink, 12), () => RunMedia(x => x.Previous()), 30),
             play,
             CardKit.Quiet("Next", CardKit.Glyph(CardKit.Paths.Next, CardKit.Ink, 12), () => RunMedia(x => x.Next()), 30));
         controls.VerticalAlignment = VerticalAlignment.Center;
         controls.Margin = new Thickness(12, 0, 0, 0);
-        var bottom = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
+        // The words above need about 60 px of the 120: the controls row stays slim so the artist line isn't clipped.
+        var bottom = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
         DockPanel.SetDock(controls, Dock.Right);
         bottom.Children.Add(controls);
         bottom.Children.Add(time);
 
-        var right = new DockPanel { Margin = new Thickness(120, 12, 16, 12) };
+        var right = new DockPanel { Margin = new Thickness(120, 10, 16, 10) };
         DockPanel.SetDock(bottom, Dock.Bottom);
         right.Children.Add(bottom);
         words.VerticalAlignment = VerticalAlignment.Center;
@@ -682,6 +684,12 @@ public partial class ExpandedView
         public void Set(NowStat stat, string value, string unit, string line1, string line2)
         {
             Stat = stat;
+            // A degree sign at the unit's small size sat at mid-height and read as "30·": it goes with the number.
+            if (unit == "°")
+            {
+                value += unit;
+                unit = "";
+            }
             if (_value.Text != value) _value.Text = value;
             if (_unit.Text != unit) _unit.Text = unit;
             if (_line1.Text != line1) _line1.Text = line1;

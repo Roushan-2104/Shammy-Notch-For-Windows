@@ -367,13 +367,15 @@ public static class CalendarAgenda
     }
 }
 
-/// <summary>How the calendar wing fits beside the open island, which never moves: the wing opens on its right.</summary>
+/// <summary>How the calendar wing fits beside the open island: it opens on the island's right while the island glides
+/// left, the two centred together.</summary>
 public static class CalendarWingFit
 {
     public const double Width = 352, Neck = 14, Margin = 8, MinScale = 0.7;
 
     /// <summary>
-    /// The wing's scale: the island's own, or smaller when the room right of the island (DIPs) is short of it.
+    /// The wing's scale: the island's own, or smaller when <paramref name="room"/> (the screen less the island and one
+    /// margin, in DIPs: what the neck and the wing share) is short of it.
     /// shortcut: below <see cref="MinScale"/> it stays at that size and runs off the screen's edge.
     /// </summary>
     public static double Scale(double room, double islandScale) =>

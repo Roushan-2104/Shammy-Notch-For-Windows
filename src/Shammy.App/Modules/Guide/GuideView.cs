@@ -79,6 +79,8 @@ internal sealed class GuideView : CardSheet
             e.Handled = true;
         };
         _chipScroll.ScrollChanged += (_, _) => Fade();
+        // Also when it first lays out: a row that starts out overflowing fades without being scrolled first.
+        _chipScroll.SizeChanged += (_, _) => Fade();
 
         _tiles.ColumnDefinitions.Add(new ColumnDefinition());
         _tiles.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(TileGap) });
@@ -389,6 +391,11 @@ internal sealed class GuideView : CardSheet
         var line = Sheet.Meta(f.Line, 12);
         line.ToolTip = f.Line;
         line.Margin = new Thickness(0, 4, 0, 0);
+        // Two lines before it trims: one line cut the sentence just where it made its point.
+        line.TextWrapping = TextWrapping.Wrap;
+        line.LineHeight = 16;
+        line.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        line.MaxHeight = 32;
         var words = new StackPanel();
         words.Children.Add(top);
         words.Children.Add(line);

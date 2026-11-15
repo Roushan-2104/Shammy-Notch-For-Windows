@@ -194,6 +194,8 @@ internal sealed class SystemCard
             rings.Children.Add(Gauge("CPU", CardMath.Percent(s.Cpu), SystemFormat.Percent(s.Cpu).TrimEnd('%'),
                 s.Top is { } t ? $"{AppNames.Friendly(t.Name)} uses most" : "Processor", Ink.C, CardKit.Ink));
             rings.Columns = rings.Children.Count;
+            // Each gauge starts at its column's left edge: the first lines up with Back, the gaps come out even.
+            foreach (FrameworkElement g in rings.Children) g.HorizontalAlignment = HorizontalAlignment.Left;
 
             var col = new StackPanel();
             col.Children.Add(rings);

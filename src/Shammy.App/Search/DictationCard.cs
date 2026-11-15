@@ -109,7 +109,8 @@ internal sealed class DictationCard : Grid
         var check = CardKit.FluentGlyph("", 13, Ui.Tokens.Ok);
         check.Margin = new Thickness(0, 0, 10, 0);
         var undoButton = ScreenKit.Secondary("Undo", undo, 28);
-        var row = new DockPanel { LastChildFill = true, Margin = new Thickness(20, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
+        // The Undo capsule sits concentric in the pill's round end (8 px all round); the words keep their 20.
+        var row = new DockPanel { LastChildFill = true, Margin = new Thickness(20, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
         DockPanel.SetDock(undoButton, Dock.Right);
         row.Children.Add(undoButton);
         row.Children.Add(CardKit.Row(0, check, ScreenKit.Text(said, 13, Weight.SemiBold)));
