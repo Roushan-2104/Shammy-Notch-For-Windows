@@ -32,6 +32,9 @@ internal sealed partial class PhoneLinkModule
 
     void StartCard()
     {
+        // test hook: pick a row of the open Your phone card (1-based), as a click would
+        _ctx.AddPipeCommand("phonelink-close-card", _ => { _ctx.CloseCard(); return "closed"; });
+        _ctx.AddPipeCommand("phonelink-pick", arg => _phoneSheet is { } sh && int.TryParse(arg.Trim(), out int n) ? sh.Pick(n - 1) : "error: no card open");
         _ctx.AddCard(new NotchCard
         {
             Id = "phone",
@@ -61,7 +64,10 @@ internal sealed partial class PhoneLinkModule
         return sheet;
     }
 
-    /// <summary>The card as things are now (it's rebuilt when the phone comes or goes, or pairs).</summary>
+    /// <summary>
+    /// The card as things are now (rebuilt when the phone comes or goes, or pairs). Linked: status, Unpair, and one quiet
+    /// "Install on another phone" row with its own step (This laptop / GitHub, Back). Not linked: Pair, then both ways in.
+    /// </summary>
     void FillPhoneSheet()
     {
         if (_phoneSheet is not { } sheet) return;
@@ -69,14 +75,28 @@ internal sealed partial class PhoneLinkModule
         string name = _store.PhoneName ?? "your phone";
         string status = !paired ? "not linked" : _live is not null ? $"{name} · online" : $"{name} · away";
         var rows = new List<PhoneChoiceSheet.Row>();
-        if (!paired)
-            rows.Add(new("pair", PhoneIcon, "Pair your phone", "Open Shammy Island on it and tap Pair", () => { OpenPairing(); return "pairing"; }));
-        rows.Add(new("get-here", DownloadIcon, paired ? "Get the app on another phone" : "Get Shammy Island", "QR code: download it from this laptop over your Wi-Fi", GetFromLaptop));
-        rows.Add(new("get-github", PhoneChoiceSheet.Icons.Globe, "Get it from GitHub instead", "QR code: the download on GitHub", GetFromGitHub));
         if (paired)
+        {
             rows.Add(new("unpair", CrossIcon, "Unpair", $"{name} stops linking until you pair again", () => { Unpair(); FillPhoneSheet(); return "unpaired"; }));
-        sheet.Show(status, rows);
+            rows.Add(new("install", DownloadIcon, "Install on another phone", "From this laptop or GitHub", () => { ShowInstallStep(); return "install step"; }));
+        }
+        else
+        {
+            rows.Add(new("pair", PhoneIcon, "Pair your phone", "Open Shammy Island on it and tap Pair", () => { OpenPairing(); return "pairing"; }));
+            rows.AddRange(InstallRows());
+        }
+        // linked, nothing is "the thing to do" (least of all Unpair): no row is tinted
+        sheet.Show(status, rows, accentFirst: !paired);
     }
+
+    /// <summary>The two ways to get the app onto a phone, as rows.</summary>
+    IEnumerable<PhoneChoiceSheet.Row> InstallRows() =>
+    [
+        new("get-here", DownloadIcon, "From this laptop", "QR code: the phone downloads it over your Wi-Fi", GetFromLaptop),
+        new("get-github", PhoneChoiceSheet.Icons.Globe, "From GitHub", "QR code: the download on GitHub", GetFromGitHub),
+    ];
+
+    void ShowInstallStep() => _phoneSheet?.Show("install on another phone", InstallRows().ToList(), back: FillPhoneSheet);
 
     /// <summary>"From this laptop": the bundled app, behind a QR code, through Send to phone's own page (Wi-Fi only).</summary>
     string GetFromLaptop()
@@ -86,12 +106,14 @@ internal sealed partial class PhoneLinkModule
         try
         {
             _apkTransfer?.Dispose();
-            _apkTransfer = PhoneTransfer.Start(_ctx, apk);
+            var transfer = _apkTransfer = PhoneTransfer.Start(_ctx, apk);
+            // closed with ×, Esc or a click away, or done: back to the Your phone card, where you came from
+            transfer.Ended += () => { if (ReferenceEquals(_apkTransfer, transfer)) { _apkTransfer = null; BackToPhoneCard(); } };
             return "serving the app";
         }
         catch (PhoneSendException ex)
         {
-            _ctx.ShowMessage("", ex.Message, error: true);
+            _ctx.ShowMessage("\uE8EA", ex.Message, error: true);
             return "error: " + ex.Message;
         }
     }
@@ -99,11 +121,14 @@ internal sealed partial class PhoneLinkModule
     /// <summary>"From GitHub": a QR code to the published download (no server runs).</summary>
     string GetFromGitHub()
     {
-        var card = PhoneSendCard.ForQr(GitHubApk, "Shammy Island", "Scan with your phone", "Downloads the app from GitHub", "", "Shammy Island download");
-        card.CloseRequested += () => _ctx.CloseCard();
+        var card = PhoneSendCard.ForQr(GitHubApk, "Shammy Island", "Scan with your phone", "Downloads the app from GitHub", "", "Shammy Island download", label: "Install on a phone");
+        card.CloseRequested += () => { _ctx.CloseCard(); BackToPhoneCard(); };
         _ctx.ShowCard(card, PhoneSendCard.CardWidth, PhoneSendCard.CardHeight, interactive: true);
         return "github qr";
     }
+
+    /// <summary>A QR card closed: the Your phone card again, so Back always leads somewhere.</summary>
+    void BackToPhoneCard() => _ctx.Ui.BeginInvoke(() => _ctx.OpenCard("phone"));
 
     /// <summary>Online or not: the green dots and the card follow.</summary>
     void ShowOnline(bool on)

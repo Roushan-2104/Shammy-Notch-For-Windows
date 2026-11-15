@@ -38,10 +38,10 @@ internal sealed class PhoneSendCard : Grid
     /// A card whose QR code carries the thing itself (a link the phone opens, or short text it shows): no server, so
     /// no progress either. <paramref name="footer"/> is the quiet last line (the link's address, or nothing).
     /// </summary>
-    public static PhoneSendCard ForQr(string payload, string title, string subtitle, string hint, string footer, string qrName) =>
-        new(payload, title, subtitle, hint, footer, qrName);
+    public static PhoneSendCard ForQr(string payload, string title, string subtitle, string hint, string footer, string qrName, string label = "Send to phone") =>
+        new(payload, title, subtitle, hint, footer, qrName, label);
 
-    PhoneSendCard(string qrPayload, string fileName, string subtitle, string hint, string footer, string qrName)
+    PhoneSendCard(string qrPayload, string fileName, string subtitle, string hint, string footer, string qrName, string label = "Send to phone")
     {
         Width = CardWidth;
         Height = CardHeight;
@@ -60,7 +60,7 @@ internal sealed class PhoneSendCard : Grid
         Children.Add(right);
 
         // Header: a tracked label, plus close.
-        var header = WallParts.Label("Send to phone");
+        var header = WallParts.Label(label);
         header.HorizontalAlignment = HorizontalAlignment.Left;
         header.Margin = new Thickness(0, 2, 34, 0);
         right.Children.Add(header);
