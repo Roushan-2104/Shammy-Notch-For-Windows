@@ -297,7 +297,7 @@ internal sealed class MusicModule : IShammyModule
             _panel.ShowLyrics(cached, track);
             return;
         }
-        _panel.ShowStatus("\uE895", "Finding lyrics\u2026", track);
+        _panel.ShowStatus("\uE895", "Finding lyrics\u2026", track, busy: true);
         _ = LoadAsync();
 
         async Task LoadAsync()

@@ -164,7 +164,7 @@ internal sealed class MusicCard
         readonly TextBlock _title = Sheet.Word("", 26), _artist = Sheet.Meta("", 14);
         readonly TextBlock _elapsed = Sheet.Num("", 13, CardKit.Ink2), _left = Sheet.Num("", 13, CardKit.Ink2);
         readonly CardTrack _scrub = new() { TrackHeight = 5, KnobSize = 10, Fill = Ink.Gradient, Track = Sheet.Track };
-        readonly CardTrack _volume = new() { TrackHeight = 4, KnobSize = 0, Fill = CardKit.Ink, Track = Sheet.Track };
+        readonly CardTrack _volume = new() { TrackHeight = 5, KnobSize = 10, Fill = Ink.Gradient, Track = Sheet.Track };
         readonly Grid _timeline = new() { Margin = new Thickness(0, 12, 0, 0) };
         readonly ContentControl _playSlot = new() { Focusable = false };
         readonly Border _cover = new() { Width = CoverSize, Height = CoverSize, CornerRadius = new CornerRadius(22), ClipToBounds = true };
@@ -213,15 +213,16 @@ internal sealed class MusicCard
             info.Children.Add(_timeline);
             info.Children.Add(controls);
 
-            // Lyrics: the module's own panel (synced, click a line to seek), beside the controls.
+            // Lyrics: the module's own panel (synced, click a line to seek), beside the controls; no lyrics, no column.
             _lyricsHost.Width = 210;
+            _lyricsHost.Margin = new Thickness(20, 0, 0, 0);
 
             var row = new Grid();
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition());
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.Children.Add(_cover);
-            info.Margin = new Thickness(20, 0, 20, 0);
+            info.Margin = new Thickness(20, 0, 0, 0);
             Grid.SetColumn(info, 1);
             row.Children.Add(info);
             Grid.SetColumn(_lyricsHost, 2);
@@ -279,6 +280,8 @@ internal sealed class MusicCard
             if (!_volume.IsDragging) _volume.Value = muted ? 0 : level;
         }
 
+        void OnLyrics() => _lyricsHost.Visibility = _card._lyrics.IsEmpty ? Visibility.Collapsed : Visibility.Visible;
+
         /// <summary>Moves the lyrics panel in and listens for volume; undone by <see cref="Close"/>.</summary>
         void Attach()
         {
@@ -287,6 +290,8 @@ internal sealed class MusicCard
             CardKit.Detach(_card._lyrics);
             _card._lyrics.ShowTrack = false;
             _lyricsHost.Child = _card._lyrics;
+            _card._lyrics.LyricsChanged += OnLyrics;
+            OnLyrics();
             if (_card._services.Volume is { } v) v.Changed += OnVolume;
         }
 
@@ -295,6 +300,7 @@ internal sealed class MusicCard
             if (!_attached) return;
             _attached = false;
             if (_card._services.Volume is { } v) v.Changed -= OnVolume;
+            _card._lyrics.LyricsChanged -= OnLyrics;
             // Let the next detail (or nothing) own the panel; it stops ticking once it's off screen.
             if (_lyricsHost.Child == _card._lyrics) _lyricsHost.Child = null;
         }

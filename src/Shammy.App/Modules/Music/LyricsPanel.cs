@@ -163,8 +163,13 @@ internal sealed class LyricsPanel : Grid
     /// <summary>Raised when the lyrics shown change (new track, found, not found), so a "Synced" badge can follow.</summary>
     public event Action? LyricsChanged;
 
-    public void ShowStatus(string glyph, string text, string track)
+    /// <summary>No lines to show and none on the way (not found, instrumental, nothing playing, offline).</summary>
+    public bool IsEmpty { get; private set; }
+
+    /// <param name="busy">Lyrics are being looked up, so the panel is not empty yet.</param>
+    public void ShowStatus(string glyph, string text, string track, bool busy = false)
     {
+        IsEmpty = !busy;
         _lyrics = TrackLyrics.None;
         _lines.Children.Clear();
         _centers = Array.Empty<double>();
@@ -191,6 +196,7 @@ internal sealed class LyricsPanel : Grid
                 return;
         }
 
+        IsEmpty = false;
         _lyrics = lyrics;
         _track.Text = track;
         _status.Visibility = Visibility.Collapsed;
