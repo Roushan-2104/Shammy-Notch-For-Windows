@@ -137,7 +137,11 @@ internal sealed class PhoneLinkModule : IShammyModule
     async Task<bool> PairAsync(LinkSession s, CancellationToken ct)
     {
         var tap = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!await _ctx.Ui.InvokeAsync(() => ShowPairSheet(s, tap))) return false;
+        if (!await _ctx.Ui.InvokeAsync(() => ShowPairSheet(s, tap)))
+        {
+            _ctx.Info("Pairing: another pairing is showing, refused this one");
+            return false;
+        }
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(PairConfirm);
         try
@@ -145,7 +149,11 @@ internal sealed class PhoneLinkModule : IShammyModule
             var theirs = WaitForPairedAsync(s, limit.Token);
             // The phone cancelling closes the connection, which ends the wait with an error: close the card at once.
             if (await Task.WhenAny(tap.Task, theirs) == theirs) await theirs;
-            if (!await tap.Task.WaitAsync(limit.Token)) return false;
+            if (!await tap.Task.WaitAsync(limit.Token))
+            {
+                _ctx.Info("Pairing: cancelled on the laptop");
+                return false;
+            }
             await s.SendAsync(new JsonObject { ["t"] = "paired" }, limit.Token);
             await theirs;
             // pinned before the card closes, so closing it never stops the listener under the new connection
@@ -174,7 +182,7 @@ internal sealed class PhoneLinkModule : IShammyModule
     bool ShowPairSheet(LinkSession s, TaskCompletionSource<bool> tap)
     {
         if (_pairSheet is not null || _store.Phone is not null) return false;
-        var sheet = new PhoneChoiceSheet(() => tap.TrySetResult(false));
+        var sheet = new PhoneChoiceSheet(() => { if (tap.TrySetResult(false)) _ctx.Info("Pairing: card closed (Back/Esc)"); });
         sheet.TitleText.Text = s.Sas;
         sheet.TitleText.FontSize = 22;
         sheet.Show($"same digits on {s.PhoneName}?",
@@ -185,7 +193,8 @@ internal sealed class PhoneLinkModule : IShammyModule
         // Closed by a click elsewhere or another card: that's a no.
         sheet.IsVisibleChanged += (_, _) =>
         {
-            if (!sheet.IsVisible && !ReferenceEquals(_ctx.Notch.OpenCardContent, sheet)) tap.TrySetResult(false);
+            if (!sheet.IsVisible && !ReferenceEquals(_ctx.Notch.OpenCardContent, sheet) && tap.TrySetResult(false))
+                _ctx.Info("Pairing: card left the screen");
         };
         _pairSheet = sheet;
         _ctx.ShowCard(sheet, PhoneChoiceSheet.SheetWidth, sheet.Fit(), interactive: true);
