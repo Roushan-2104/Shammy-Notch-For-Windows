@@ -172,11 +172,24 @@ Rest the pointer on the island, or click it, and it opens into **one screen**: t
   <img src="docs/images/calendar.png" alt="The open island with the calendar beside it: today's 15 in light type, the month as dots with today glowing, and today's events with Join" width="100%">
 </p>
 
-Tap the time and date at the top of the open island and **the month opens on its right**, a slab of the same glass and the island's own height, joined by a short liquid neck. The island stays exactly where it is.
+Tap the time and date at the top of the open island and **the month opens on its right**, a slab of the same glass and the island's own height, joined by a short liquid neck. The island glides left to make room, so the month sits under your pointer in one smooth move.
 
 - **The month as dots.** Rest on a day and it opens into a numbered circle; today glows in your palette's colour; days with events are ringed in their colour; days gone by dim.
 - **The day at a glance.** A big light number for the chosen day, its events with *in 3h 25m* and **Join** on today's meeting, and the day as a thin line with a "now" needle.
 - **Any day, any month.** Tap a day, scroll, or use the arrows. Events come from your Google Calendar (from this week to the end of next month); titles show as *Busy* while you share your screen.
+
+#### Alarms that ring in the sky outside
+
+<p align="center">
+  <img src="docs/images/alarms.png" alt="The ringing alarm in four skies: a 7:30 AM sunrise, a 1:30 PM day sky, a 5:30 PM sunset and an 11:30 PM night with the moon" width="100%">
+</p>
+
+An alarm opens the island into **the sky of the hour it rings**: a sunrise before 9, a bright day until 4, a sunset until 7, and night with the moon after that. The sky comes up over its first 30 seconds, the sun rising behind a big light time, and one tap on **Stop** ends it.
+
+- **Light before sound.** For the two minutes before an alarm, the bottom edge of the resting island warms in that sky's colour.
+- **Your morning, after Stop.** Stop a morning alarm and a short card says good morning with the date, the weather, your first event and today's reminders.
+- **Snoozed and missed.** A snoozed alarm's sun climbs a little arc as the snooze runs out; a missed one shows in the island, and tapping a missed morning alarm opens your morning.
+- **Calm stays calm.** With Calm motion on, the sky is simply there, and the island doesn't glow ahead of time.
 
 <table>
 <tr>
@@ -248,7 +261,7 @@ Open any card (Alarms, Timer, Clipboard, Notes, Weather, System, Health, Calenda
 | 🩺 **Health** | Drive space, a careful cleanup (each step asks first), and a daily check of battery wear, startup apps and updates. |
 | 🎵 **Music** | *"play …"* in YouTube Music or Spotify, synced lyrics, drag the song line to seek, scroll for volume, swipe to skip. |
 | 📱 **To phone** | Files, links and text to your phone over your own Wi-Fi; with nothing chosen, it asks what to send. |
-| ⏱️ **Timers, alarms, reminders** | Live countdowns, alarms that ring through fullscreen, and reminders in plain words: *"remind me at 6pm to call mom"*. |
+| ⏱️ **Timers, alarms, reminders** | Live countdowns, alarms that ring through fullscreen in the sky of their hour, and reminders in plain words: *"remind me at 6pm to call mom"*. |
 | 📅 **Calendar** | Your Google Calendar from its secret address (no sign-in), *Join* five minutes before, and the month beside the island when you tap the date. |
 | 📋 **Clipboard, shelf, snippets** | Clipboard history with search, a file shelf you drop onto, and snippets that expand in any app. |
 | 🔔 **Notifications** | Other apps' notifications, calmly, with message text hidden while you share your screen. |
