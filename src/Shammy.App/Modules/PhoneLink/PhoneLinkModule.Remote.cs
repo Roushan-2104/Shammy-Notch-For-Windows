@@ -47,6 +47,8 @@ internal sealed partial class PhoneLinkModule
     {
         _sentMoments.Clear();
         _sentMedia = "";
+        // where to find this laptop when the phone is away from its network (or "" for nowhere)
+        Send(new JsonObject { ["t"] = "relay", ["at"] = _store.Relay ?? "" });
         SendMedia();
         SyncMoments();
         _refresh?.Start();

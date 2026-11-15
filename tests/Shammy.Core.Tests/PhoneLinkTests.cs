@@ -146,6 +146,44 @@ public class PhoneLinkTests
         Assert.Equal("", LinkSession.Text(m, "missing"));
     }
 
+    /// <summary>The phone's tests check the same room id.</summary>
+    [Fact]
+    public void RelayRoomMatchesTheSharedVector() =>
+        Assert.Equal("1de93e365eb092c35b35847becb7ed1e", Relay.RoomId(B(5, 91), B(2, 91)));
+
+    [Fact]
+    public void RelayAddressesParse()
+    {
+        Assert.Equal(("relay.example", 47950), Relay.Parse("relay.example"));
+        Assert.Equal(("10.0.0.2", 5000), Relay.Parse(" 10.0.0.2:5000 "));
+        Assert.Null(Relay.Parse("host:99999"));
+        Assert.Null(Relay.Parse(""));
+    }
+
+    [Fact]
+    public async Task JoinsARelayOnlyAfterReady()
+    {
+        var server = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        server.Start();
+        int port = ((System.Net.IPEndPoint)server.LocalEndpoint).Port;
+        var fake = Task.Run(async () =>
+        {
+            using var c = await server.AcceptTcpClientAsync();
+            var s = c.GetStream();
+            var hello = new byte[64];
+            int n = await s.ReadAsync(hello);
+            Assert.Equal("SHAMMY-RELAY 1 0123456789abcdef0123456789abcdef laptop\n", System.Text.Encoding.ASCII.GetString(hello, 0, n));
+            await s.WriteAsync("READY\nX"u8.ToArray()); // the "X" belongs to the link, not to the relay line
+            await Task.Delay(200);
+        });
+        using var joined = await Relay.JoinAsync("127.0.0.1", port, "0123456789abcdef0123456789abcdef", "laptop", TimeSpan.FromSeconds(5), CancellationToken.None);
+        var next = new byte[1];
+        Assert.Equal(1, await joined.GetStream().ReadAsync(next));
+        Assert.Equal((byte)'X', next[0]);
+        await fake;
+        server.Stop();
+    }
+
     [Fact]
     public void IdentitySignaturesVerifyAndForgeriesDont()
     {

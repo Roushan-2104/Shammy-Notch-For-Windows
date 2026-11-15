@@ -33,6 +33,9 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         public string? Identity { get; set; }
         public string? Phone { get; set; }
         public string? PhoneName { get; set; }
+
+        /// <summary>The relay for "link from anywhere" ("host:port"), or null for same Wi-Fi only.</summary>
+        public string? Relay { get; set; }
     }
 
     ModuleContext _ctx = null!;
@@ -42,6 +45,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
     (CancellationTokenSource Cts, TcpListener Tcp, UdpClient Udp)? _listen;
     volatile bool _pairing;
+    /// <summary>Test switch: stop answering the phone's Wi-Fi question, so it has to come through the relay.</summary>
+    volatile bool _lanOff;
     int _connections, _pairAttempts;
     System.Windows.Threading.DispatcherTimer? _pairEnds;
     PhoneChoiceSheet? _pairSheet;
@@ -71,6 +76,17 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             OpenPairing();
             return "pairing window open";
         });
+        ctx.AddPipeCommand("phonelink-relay", arg =>
+        {
+            var at = arg.Trim();
+            if (at is "off" or "") _store.Relay = null;
+            else if (Relay.Parse(at) is null) return "error: usage phonelink-relay host[:port]|off";
+            else _store.Relay = at;
+            _ctx.Save(_store);
+            if (_store.Phone is not null) { StopListening(); Listen(); }
+            return $"relay={_store.Relay ?? "off"}";
+        });
+        ctx.AddPipeCommand("phonelink-lan", arg => $"lan={((_lanOff = arg.Trim() == "off") ? "off" : "on")}");
         ctx.AddPipeCommand("phonelink-beacon", _ => { Beacon(); return _beacon is { } b ? $"beacon {b.Status}" : "error: no beacon"; });
         ctx.AddPipeCommand("phonelink-reply", text => Reply(text) is { } who ? $"replied to {who}" : "error: nothing to reply to");
         StartRemote();
@@ -228,6 +244,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             _listen = (cts, tcp, udp);
             _ = Task.Run(() => AcceptAsync(tcp, cts.Token));
             _ = Task.Run(() => AnswerAsync(udp, cts.Token));
+            if (_store.Phone is not null && _store.Relay is not null) _ = Task.Run(() => RelayLoopAsync(cts.Token));
             _ctx.Info("Listening for the phone");
         }
         catch (SocketException ex)
@@ -259,7 +276,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             try
             {
                 var r = await udp.ReceiveAsync(ct);
-                if (LinkSession.DiscoveryReply(r.Buffer, Environment.MachineName, id) is { } reply)
+                if (!_lanOff && LinkSession.DiscoveryReply(r.Buffer, Environment.MachineName, id) is { } reply)
                     await udp.SendAsync(reply, r.RemoteEndPoint, ct);
             }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
@@ -288,7 +305,44 @@ internal sealed partial class PhoneLinkModule : IShammyModule
     async Task ServeAsync(TcpClient client, CancellationToken ct)
     {
         client.NoDelay = true;
-        using var s = new LinkSession(client.GetStream(), _identity);
+        try { await ServeStreamAsync(client.GetStream(), ct, relayed: false); }
+        finally
+        {
+            client.Dispose();
+            Interlocked.Decrement(ref _connections);
+        }
+    }
+
+    /// <summary>
+    /// "Link from anywhere": while paired with a relay set, one connection waits at the relay; when the phone can't find
+    /// this laptop on its network it comes in there, and the same handshake runs (pinned key only, never pairing).
+    /// </summary>
+    async Task RelayLoopAsync(CancellationToken ct)
+    {
+        var wait = TimeSpan.FromSeconds(5);
+        while (!ct.IsCancellationRequested && _store.Relay is { } at && _store.Phone is { } phone && Relay.Parse(at) is { } hp)
+        {
+            try
+            {
+                var room = Relay.RoomId(_identity.ExportSubjectPublicKeyInfo(), Convert.FromBase64String(phone));
+                using var client = await Relay.JoinAsync(hp.Host, hp.Port, room, "laptop", TimeSpan.FromMinutes(11), ct);
+                wait = TimeSpan.FromSeconds(5);
+                _ctx.Info("The phone came in through the relay");
+                await ServeStreamAsync(client.GetStream(), ct, relayed: true);
+            }
+            catch (Exception) when (ct.IsCancellationRequested) { return; }
+            catch (Exception ex)
+            {
+                _ctx.Info($"Relay: {ex.GetType().Name}; trying again in {wait.TotalSeconds:0} s");
+                try { await Task.Delay(wait, ct); } catch (OperationCanceledException) { return; }
+                wait = TimeSpan.FromSeconds(Math.Min(wait.TotalSeconds * 2, 300));
+            }
+        }
+    }
+
+    async Task ServeStreamAsync(Stream stream, CancellationToken ct, bool relayed)
+    {
+        using var s = new LinkSession(stream, _identity);
         try
         {
             // While unpaired, each attempt is a fresh 1-in-a-million guess at the digits: only a few per window.
@@ -303,6 +357,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                 await s.HandshakeAsync(limit.Token);
             }
             var pinned = _store.Phone;
+            if (pinned is null && relayed) return; // pairing happens on the same Wi-Fi only, with both screens in hand
             if (pinned is null)
             {
                 if (!_pairing || !await PairAsync(s, ct)) return;
@@ -318,11 +373,6 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         {
             // the network edge: anything a stranger sends ends only that connection
             _ctx.Info($"Phone connection ended ({ex.GetType().Name})");
-        }
-        finally
-        {
-            client.Dispose();
-            Interlocked.Decrement(ref _connections);
         }
     }
 
