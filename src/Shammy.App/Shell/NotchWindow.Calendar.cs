@@ -76,6 +76,8 @@ public partial class NotchWindow
             _wing.PointerOver += OnWingPointer;
             _wing.FoldWanted += () => FoldCalendar(animate: true);
         }
+        // Placed before it shows, so it never flashes at the window's default spot.
+        _wing.PlaceAt(_windowPx.X + (int)Math.Round((Cx + Expanded.Width / 2) * _scale * px) - 1, _windowPx.Y + (int)Math.Round(_gap * _scale * px));
         // Its own height in its units, so on screen it's exactly as tall (and as round) as the island.
         _wing.Pour(scale, Expanded.Height * _scale / scale, _spec.R * _scale / scale, Shape.Fill, ExcludedFromCapture);
         PlaceWing();
@@ -106,7 +108,6 @@ public partial class NotchWindow
             _slide?.Stop();
             _wingShift = shift;
             Reposition();
-            PlaceWing();
             return;
         }
         _slide ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(15), System.Windows.Threading.DispatcherPriority.Render, (_, _) => SlideStep(), Dispatcher);
@@ -123,9 +124,8 @@ public partial class NotchWindow
         {
             _slide!.Stop();
             _wingShift = _slideTo;
-            // Settled: placed properly once, so the glass is remade for where it is now.
+            // Settled: placed properly once (the wing follows), so the glass is remade for where it is now.
             Reposition();
-            PlaceWing();
             return;
         }
         // Mid-glide only the window moves (remaking the glass every frame would re-read the wallpaper).
@@ -133,7 +133,8 @@ public partial class NotchWindow
         int dx = (int)Math.Round((_wingShift - before) * dpi / 96.0);
         if (dx == 0) return;
         _windowPx = (_windowPx.X - dx, _windowPx.Y);
-        Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, _windowPx.X, _windowPx.Y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        // NOZORDER: both are topmost already; reordering them every frame is churn.
+        Native.SetWindowPos(_hwnd, IntPtr.Zero, _windowPx.X, _windowPx.Y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_NOZORDER);
         PlaceWing();
     }
 
@@ -151,6 +152,8 @@ public partial class NotchWindow
 
     void OnWingPointer(bool over)
     {
+        // Back onto a wing that's already folding: no hold, since nothing would be left to release it.
+        if (over && !CalendarOpen) return;
         if (over == _overWing) return;
         _overWing = over;
         // While the pointer is on the wing the island stays open, as while typing or dragging.

@@ -26,8 +26,6 @@ internal sealed class ActivityView : Grid
     public const double TallHeight = 62, TallRadius = 22;
     const double Padding = 14;
 
-    /// <summary>The time and the hairline before it, at the right end.</summary>
-    const double ClockRoom = 76;
 
     readonly ShammyServices _services;
     readonly StackPanel _left = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
@@ -90,7 +88,6 @@ internal sealed class ActivityView : Grid
         _right.Margin = new Thickness(4, 0, Padding, 0);
         _right.Children.Add(_marker);
         _right.Children.Add(_value);
-        _right.Children.Add(new System.Windows.Shapes.Rectangle { Width = 1, Height = 16, Fill = Ui.Tokens.Res("WallHairline"), Margin = new Thickness(10, 0, 9, 0), VerticalAlignment = VerticalAlignment.Center });
         _right.Children.Add(Clock);
         Children.Add(_left);
         // Music's eq bars move with the pet's sway bursts and hold still between them (see ActivityPet.Burst).
@@ -119,7 +116,7 @@ internal sealed class ActivityView : Grid
     public ActivityPet Pet { get; } = new();
 
     /// <summary>The time at the right end.</summary>
-    public IslandClock Clock { get; } = new();
+    public IslandClock Clock { get; } = new(rule: true);
 
     public PetLive? Shown { get; private set; }
 
@@ -161,7 +158,7 @@ internal sealed class ActivityView : Grid
         if (replay || (_badge.Content is null) != (s.Costume != PetCostume.Notify)) UpdateBadge(live);
         UpdateMarker(live);
         // The value gives way before the time does.
-        _value.MaxWidth = ViewWidth / 2 - ActivityPet.ColumnWidth / 2 - Padding - 4 - ClockRoom - (_marker.Content is null ? 0 : 14);
+        _value.MaxWidth = ViewWidth / 2 - ActivityPet.ColumnWidth / 2 - Padding - 4 - IslandClock.Room - (_marker.Content is null ? 0 : 14);
         ShowLine(s.Line.Trim());
 
         Fit();

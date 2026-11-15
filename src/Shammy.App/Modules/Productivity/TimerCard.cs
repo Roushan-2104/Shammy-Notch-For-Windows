@@ -227,7 +227,6 @@ internal sealed class TimerCard
         const double SheetWidth = 600;
 
         readonly TimerCard _card;
-        readonly FrameworkElement _header;
         readonly ContentControl _content = new() { Focusable = false };
         readonly Button _new;
         readonly List<(RunningClock Clock, ArcRing Ring, TextBlock Time, TextBlock Meta)> _live = new();
@@ -237,8 +236,6 @@ internal sealed class TimerCard
         public TimerSheet(TimerCard card) : base("Timer", SheetWidth)
         {
             _card = card;
-            // The header is the parent of the header's buttons: hidden while one clock runs (its row holds Back).
-            _header = (FrameworkElement)Actions.Parent;
             _new = Action(Sheet.Cap("New", "New timer", () =>
             {
                 _picking = !_picking;
@@ -291,8 +288,6 @@ internal sealed class TimerCard
         {
             _live.Clear();
             bool single = clocks.Count == 1;
-            // Every card keeps the same top row (Back, the eyes, the name, its status), one clock or many.
-            _header.Visibility = Visibility.Visible;
             BodyGap = 14;
             _new.Visibility = clocks.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
             _new.ToolTip = _picking ? "Hide the quick starts" : "New timer";

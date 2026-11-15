@@ -290,6 +290,8 @@ public partial class NotchWindow
         UpdateGlass();
         ApplyVisuals(force: true);
         ApplyLook();
+        // A display, DPI or taskbar change moves the island: the calendar wing goes with it.
+        PlaceWing();
     }
 
     /// <summary>Make (or keep) the glass for where the window is now; skipped while the plan has no glass.</summary>

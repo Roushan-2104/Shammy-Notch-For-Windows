@@ -85,7 +85,6 @@ public partial class ExpandedView
         ApplyPage(animate: true, direction);
     }
 
-    /// <summary>Shows the current page (on the home level), or hides both pages' extras while a card is open.</summary>
     /// <summary>Back to the home page (the island left its open state, or this view was hidden).</summary>
     internal void FirstPage()
     {
@@ -94,6 +93,7 @@ public partial class ExpandedView
         ApplyPage(animate: false);
     }
 
+    /// <summary>Shows the current page (on the home level), or hides both pages' extras while a card is open.</summary>
     void ApplyPage(bool animate, int direction = 1)
     {
         if (_openId is not null)

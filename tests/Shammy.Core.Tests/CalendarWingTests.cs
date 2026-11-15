@@ -40,8 +40,10 @@ public class CalendarWingTests
     [Fact]
     public void Wing_keeps_the_island_scale_when_it_fits_and_shrinks_when_it_does_not()
     {
-        // Your screen at Small: the island (760 x 0.88) centred on 1536 leaves 434 on its right.
-        Assert.Equal(0.88, CalendarWingFit.Scale(434, 0.88));
+        // Your screen at Small: the room the neck and wing share is the screen less the island and one margin.
+        Assert.Equal(0.88, CalendarWingFit.Scale(1536 - CalendarWingFit.Margin - 760 * 0.88, 0.88));
+        // A notch smaller than the floor keeps its own scale rather than throwing.
+        Assert.Equal(0.6, CalendarWingFit.Scale(100, 0.6));
         double tight = CalendarWingFit.Scale(300, 1.0);
         Assert.Equal((300 - CalendarWingFit.Margin) / (CalendarWingFit.Neck + CalendarWingFit.Width), tight, 6);
         Assert.Equal(CalendarWingFit.MinScale, CalendarWingFit.Scale(100, 1.0));

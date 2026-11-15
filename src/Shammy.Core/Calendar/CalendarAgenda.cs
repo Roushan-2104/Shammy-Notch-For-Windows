@@ -361,9 +361,8 @@ public static class CalendarAgenda
         var monthStart = new DateTime(now.Year, now.Month, 1);
         var monday = Week(now)[0];
         var from = monday < monthStart ? monday : monthStart;
-        var to = monthStart.AddMonths(2);
-        var twoWeeks = now.Date.AddDays(15);
-        return (from, to > twoWeeks ? to : twoWeeks);
+        // Two months on always covers the card's 15 days.
+        return (from, monthStart.AddMonths(2));
     }
 }
 
@@ -379,5 +378,5 @@ public static class CalendarWingFit
     /// shortcut: below <see cref="MinScale"/> it stays at that size and runs off the screen's edge.
     /// </summary>
     public static double Scale(double room, double islandScale) =>
-        Math.Clamp((room - Margin) / (Neck + Width), MinScale, islandScale);
+        Math.Min(islandScale, Math.Max(MinScale, (room - Margin) / (Neck + Width)));
 }

@@ -18,10 +18,16 @@ internal sealed class IslandClock : StackPanel
     readonly TextBlock? _date;
     readonly DispatcherTimer _tick = new(DispatcherPriority.Background);
 
-    public IslandClock(double size = 13, bool showDate = false)
+    /// <summary>What a pill keeps free at its right end for the time and its hairline.</summary>
+    public const double Room = 76;
+
+    /// <param name="rule">A hairline before the time, so on a pill it never reads as part of the activity's words.</param>
+    public IslandClock(double size = 13, bool showDate = false, bool rule = false)
     {
         Orientation = Orientation.Horizontal;
         VerticalAlignment = VerticalAlignment.Center;
+        if (rule)
+            Children.Add(new System.Windows.Shapes.Rectangle { Width = 1, Height = 16, Fill = Ui.Tokens.Res("WallHairline"), Margin = new Thickness(10, 0, 9, 0), VerticalAlignment = VerticalAlignment.Center });
         _time.FontSize = size;
         _time.SetResourceReference(TextBlock.FontFamilyProperty, "WallFontSemiBold");
         _time.FontWeight = FontWeights.SemiBold;

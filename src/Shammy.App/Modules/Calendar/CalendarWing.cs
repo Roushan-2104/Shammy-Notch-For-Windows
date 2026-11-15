@@ -39,7 +39,6 @@ internal sealed class CalendarWing : Window
     readonly List<Action> _stop = new();
     IntPtr _hwnd;
     DateTime _month, _selected;
-    double _height = 262;
 
     public CalendarWing()
     {
@@ -118,7 +117,6 @@ internal sealed class CalendarWing : Window
     public void Pour(double scale, double height, double radius, Brush fill, bool excludeFromCapture)
     {
         _scale = scale;
-        _height = height;
         var today = DateTime.Today;
         _month = new DateTime(today.Year, today.Month, 1);
         _selected = today;
@@ -130,7 +128,7 @@ internal sealed class CalendarWing : Window
         // The glows stay inside the rounded corners.
         _inner.Clip = new RectangleGeometry(new Rect(0, 0, CalendarWingFit.Width - 2, height - 2), radius - 1, radius - 1);
         Build();
-        if (_hwnd != IntPtr.Zero) Native.SetWindowDisplayAffinity(_hwnd, excludeFromCapture ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
+        SetExcluded(excludeFromCapture);
         IsOpen = true;
         Show();
         Animate(open: true);
@@ -146,6 +144,12 @@ internal sealed class CalendarWing : Window
         else Animate(open: false);
     }
 
+    /// <summary>Kept out of captures exactly when the island is (Stage, a recording, Shammy's own screenshot or freeze).</summary>
+    internal void SetExcluded(bool exclude)
+    {
+        if (_hwnd != IntPtr.Zero) Native.SetWindowDisplayAffinity(_hwnd, exclude ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
+    }
+
     /// <summary>Moves the wing so its neck meets the island's right edge (device pixels).</summary>
     public void PlaceAt(int left, int top)
     {
@@ -156,6 +160,10 @@ internal sealed class CalendarWing : Window
     {
         if (!MotionPrefs.Lively)
         {
+            // A held fold from an earlier Lively close would otherwise outlive these values and keep the wing invisible.
+            _neckPour.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            _pour.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            _slab.BeginAnimation(OpacityProperty, null);
             _pour.ScaleX = _neckPour.ScaleX = _slab.Opacity = 1;
             return;
         }
@@ -207,9 +215,21 @@ internal sealed class CalendarWing : Window
         Build();
     }
 
+    /// <summary>The months whose events are kept (see <see cref="CalendarAgenda.FetchWindow"/>): the arrows stop there, so a
+    /// month is never shown as "Nothing planned" just because it was never fetched.</summary>
+    static (DateTime First, DateTime Last) Months()
+    {
+        var (from, to) = CalendarAgenda.FetchWindow(DateTime.Now);
+        var last = to.AddDays(-1);
+        return (new DateTime(from.Year, from.Month, 1), new DateTime(last.Year, last.Month, 1));
+    }
+
     void Flip(int months)
     {
-        _month = _month.AddMonths(months);
+        var (first, last) = Months();
+        var target = _month.AddMonths(months);
+        if (target < first || target > last) return;
+        _month = target;
         // The big number follows: today in this month, else the 1st.
         var today = DateTime.Today;
         if (_selected.Year != _month.Year || _selected.Month != _month.Month)
@@ -281,12 +301,13 @@ internal sealed class CalendarWing : Window
     {
         var stack = new StackPanel();
         var nav = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-        nav.Children.Add(Round("‹", "Previous month", () => Flip(-1), HorizontalAlignment.Left));
+        var (first, last) = Months();
+        nav.Children.Add(Ends(Round("‹", "Previous month", () => Flip(-1), HorizontalAlignment.Left), _month > first));
         var label = CardKit.Label(_month.ToString("MMM yyyy", Inv), CardKit.Ink, 10.5);
         label.HorizontalAlignment = HorizontalAlignment.Center;
         label.VerticalAlignment = VerticalAlignment.Center;
         nav.Children.Add(label);
-        nav.Children.Add(Round("›", "Next month", () => Flip(1), HorizontalAlignment.Right));
+        nav.Children.Add(Ends(Round("›", "Next month", () => Flip(1), HorizontalAlignment.Right), _month < last));
         stack.Children.Add(nav);
 
         var heads = new UniformGrid7();
@@ -304,6 +325,14 @@ internal sealed class CalendarWing : Window
         foreach (var d in CalendarAgenda.MonthGrid(_month.Year, _month.Month)) grid.Children.Add(Day(d, now));
         stack.Children.Add(grid);
         return stack;
+    }
+
+    /// <summary>An arrow at the end of the kept months: faint and inert.</summary>
+    static Button Ends(Button b, bool can)
+    {
+        b.IsEnabled = can;
+        b.Opacity = can ? 1 : 0.3;
+        return b;
     }
 
     static Button Round(string glyph, string name, Action click, HorizontalAlignment side)
@@ -483,7 +512,7 @@ internal sealed class CalendarWing : Window
             row.Children.Add(Docked(pill, System.Windows.Controls.Dock.Right));
         }
         if (isToday && !o.AllDay && o.End > now)
-            row.Children.Add(Docked(Sheet.Meta(CalendarText.Until(o.Start, o.End, now).Replace(" h ", "h ").Replace(" min", "m"), 11), System.Windows.Controls.Dock.Right));
+            row.Children.Add(Docked(Sheet.Meta(CalendarText.Until(o.Start, o.End, now).Replace(" h", "h").Replace(" min", "m"), 11), System.Windows.Controls.Dock.Right));
         var words = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var title = Sheet.Word(hidden ? "Busy" : o.Title, 12.5, FontWeights.SemiBold);
         title.MaxWidth = 170;

@@ -450,7 +450,8 @@ public partial class ExpandedView : UserControl
         if (open) DateButton.Background = new SolidColorBrush(Color.FromArgb(0x33, accent.R, accent.G, accent.B));
         else DateButton.ClearValue(Border.BackgroundProperty);
         DateCaret.RenderTransform = open ? new RotateTransform(180) : null;
-        DateCaret.Foreground = open ? CardKit.Accent : Ui.Tokens.Res("WallText2");
+        if (open) DateCaret.Foreground = CardKit.Accent;
+        else DateCaret.SetResourceReference(TextBlock.ForegroundProperty, "WallText2");
     }
 
     /// <summary>Test pipe: every card's id, in order.</summary>

@@ -17,12 +17,8 @@ internal sealed class CompactView : Grid
     const double EarPadding = 13;
     const double CenterGap = 120;
 
-    /// <summary>The time at the right end.</summary>
-    const double ClockRoom = 76;
-
-    readonly IslandClock _clock = new() { HorizontalAlignment = HorizontalAlignment.Right };
-
-    public IslandClock Clock => _clock;
+    /// <summary>The time at the right end, after its hairline (as on the live pill).</summary>
+    public IslandClock Clock { get; } = new(rule: true) { HorizontalAlignment = HorizontalAlignment.Right };
 
     readonly ContentControl _left = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     readonly ContentControl _right = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
@@ -39,14 +35,11 @@ internal sealed class CompactView : Grid
     {
         Height = 32;
         _left.Margin = new Thickness(EarPadding, 0, 0, 0);
-        _right.Margin = new Thickness(0, 0, EarPadding + ClockRoom, 0);
-        // The time after a hairline, as on the live pill, so it never reads as part of the activity's words.
-        var clockHost = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, EarPadding, 0) };
-        clockHost.Children.Add(new System.Windows.Shapes.Rectangle { Width = 1, Height = 16, Fill = Ui.Tokens.Res("WallHairline"), Margin = new Thickness(0, 0, 9, 0), VerticalAlignment = VerticalAlignment.Center });
-        clockHost.Children.Add(_clock);
+        _right.Margin = new Thickness(0, 0, EarPadding + IslandClock.Room, 0);
+        Clock.Margin = new Thickness(0, 0, EarPadding, 0);
         Children.Add(_left);
         Children.Add(_right);
-        Children.Add(clockHost);
+        Children.Add(Clock);
         Background = Brushes.Transparent;
         MouseLeftButtonUp += (_, _) => _shown?.Click?.Invoke();
     }
@@ -78,7 +71,7 @@ internal sealed class CompactView : Grid
             ActivityKind.Custom when a.Payload is Modules.ICompactContent custom => custom.Build(_left, _right),
             _ => BuildMessage((MessagePayload)a.Payload!),
         };
-        Width = CenterGap + 2 * (earWidth + EarPadding) + ClockRoom;
+        Width = CenterGap + 2 * (earWidth + EarPadding) + IslandClock.Room;
         return Width;
     }
 
