@@ -121,7 +121,7 @@ internal sealed class LiveCricketCard
     /// The opened card (the card family's shape, 580 wide): "IND v AUS · T20 · live" with a small red Live chip;
     /// the other side's score quiet, the batting side's the hero in light numbers in the accent, the overs, and the
     /// feed's line ("Need 24 from 10") bold with the rate it asks for; the last balls under it when known. A
-    /// finished match drops the Live chip and says so; no match is one short line.
+    /// finished match drops the Live chip and says so; no match says so in the header, over one short line.
     /// </summary>
     sealed class Detail : CardSheet
     {
@@ -160,17 +160,16 @@ internal sealed class LiveCricketCard
             if (match is not { } m)
             {
                 TitleText.Text = "Cricket";
-                Status = null;
+                Status = "no live match";
                 _liveChip.Visibility = Visibility.Collapsed;
-                var line = Sheet.Meta("", 14);
-                line.Inlines.Add(CardKit.Run("No live match. ", FontWeights.Bold, CardKit.Ink));
-                line.Inlines.Add(new System.Windows.Documents.Run("The score shows here while India is playing."));
-                Body.Children.Add(line);
+                BodyGap = 4;
+                Body.Children.Add(Sheet.Meta("The score shows here while India is playing."));
                 CardKit.Name(this, "Cricket: no live match");
                 return;
             }
 
             bool ended = Ended(m);
+            BodyGap = 14;
             TitleText.Text = CricketText.Teams(m);
             Status = string.Join(" · ", new[] { m.Format, ended ? "result" : "live" }.Where(s => !string.IsNullOrEmpty(s)));
             _liveChip.Visibility = ended ? Visibility.Collapsed : Visibility.Visible;
