@@ -51,8 +51,9 @@ internal sealed partial class PhoneLinkModule
 
     void StopCard()
     {
-        _apkTransfer?.Dispose();
-        _apkTransfer = null;
+        var t = _apkTransfer;
+        _apkTransfer = null; // first, so its Ended doesn't reopen the card while Shammy closes
+        t?.Dispose();
     }
 
     FrameworkElement BuildPhoneSheet()
@@ -108,7 +109,12 @@ internal sealed partial class PhoneLinkModule
             _apkTransfer?.Dispose();
             var transfer = _apkTransfer = PhoneTransfer.Start(_ctx, apk);
             // closed with ×, Esc or a click away, or done: back to the Your phone card, where you came from
-            transfer.Ended += () => { if (ReferenceEquals(_apkTransfer, transfer)) { _apkTransfer = null; BackToPhoneCard(); } };
+            transfer.Ended += () =>
+            {
+                if (!ReferenceEquals(_apkTransfer, transfer)) return;
+                _apkTransfer = null;
+                if (transfer.ClosedByUser || transfer.CompletedDownloads > 0) BackToPhoneCard();
+            };
             return "serving the app";
         }
         catch (PhoneSendException ex)

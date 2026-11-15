@@ -520,7 +520,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
     /// <summary>This laptop's notifications go to the phone's notch (never the phone's own, which came from there).</summary>
     void OnLaptopNotification(ShammyNotification n)
     {
-        if (_live is null || n.AppId.StartsWith("phone.", StringComparison.Ordinal)) return;
+        if (_live is null || n.IsFromPhone) return;
         var text = n.Body.Length > 0 ? $"{n.Title}\n{n.Body}" : n.Title;
         Send(new JsonObject
         {

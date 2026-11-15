@@ -19,6 +19,9 @@ internal sealed class ShammyNotification
     public required string Body { get; init; }
     public required DateTimeOffset Time { get; init; }
 
+    /// <summary>It came from the linked phone (Shammy Island), not from this laptop.</summary>
+    public bool IsFromPhone => AppId.StartsWith("phone.", StringComparison.Ordinal);
+
     // The Notifications tab's two lines, read when a row is built; the tab rebuilds its rows when PrivacyState
     // or the "always hide message text" setting flips, so a call hides them and its end reveals them without reopening.
     public (string Title, string Detail) ListText(bool alwaysHide) =>

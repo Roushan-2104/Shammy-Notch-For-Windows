@@ -48,7 +48,7 @@ internal sealed class PhoneTransfer : IDisposable
         try
         {
             _card = new PhoneSendCard(Url, Path.GetFileName(path), _server.FileLength);
-            _card.CloseRequested += () => Stop();
+            _card.CloseRequested += () => { ClosedByUser = true; Stop(); };
             ctx.ShowCard(_card, PhoneSendCard.CardWidth, PhoneSendCard.CardHeight, interactive: true);
         }
         catch
@@ -63,6 +63,9 @@ internal sealed class PhoneTransfer : IDisposable
     public string Url { get; }
     public string FilePath { get; }
     public bool IsRunning => !_stopped;
+
+    /// <summary>Stopped by its × or Esc (not by idling out, another card, or Shammy closing).</summary>
+    public bool ClosedByUser { get; private set; }
     public long BytesSent => _server.BytesSent;
     public long FileLength => _server.FileLength;
     public int CompletedDownloads => _server.CompletedDownloads;

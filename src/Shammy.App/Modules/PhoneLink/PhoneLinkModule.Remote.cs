@@ -1,5 +1,8 @@
 using System.Text.Json.Nodes;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Shammy.Core.Notch;
+using Shammy.Infrastructure;
 using Shammy.Core.PhoneLink;
 using Shammy.Modules.Agents;
 
@@ -59,8 +62,7 @@ internal sealed partial class PhoneLinkModule
     {
         _refresh?.Stop();
         ShowOnline(false);
-        // the phone's notifications stay in the history; only the bookkeeping for its next words goes
-        _shown.Clear();
+        // the phone's notifications stay in the list and stay linked (a reconnect continues the sync); no reply target
         _replyKey = null;
     }
 
@@ -75,11 +77,46 @@ internal sealed partial class PhoneLinkModule
         {
             ["t"] = "media", ["has"] = m.HasSession, ["title"] = LinkSession.Cap(m.Title), ["artist"] = LinkSession.Cap(m.Artist),
             ["playing"] = m.IsPlaying, ["volume"] = Math.Round(v?.Level ?? -1, 2), ["muted"] = v?.Muted ?? false,
+            ["art"] = ArtFor(m.HasSession ? m.Art : null),
         };
         var json = msg.ToJsonString();
         if (json == _sentMedia) return;
         _sentMedia = json;
         Send(msg);
+    }
+
+    ImageSource? _artOf;
+    string _art = "";
+
+    /// <summary>The cover, small (96 px JPEG, a few KB), made once per song: the phone shows it on the laptop's music card.</summary>
+    string ArtFor(ImageSource? art)
+    {
+        if (ReferenceEquals(art, _artOf)) return _art;
+        _artOf = art;
+        _art = "";
+        if (art is not BitmapSource b || b.PixelWidth <= 0) return _art;
+        try
+        {
+            double s = 96.0 / Math.Max(b.PixelWidth, b.PixelHeight);
+            var small = s < 1 ? new TransformedBitmap(b, new ScaleTransform(s, s)) : (BitmapSource)b;
+            var jpeg = new JpegBitmapEncoder { QualityLevel = 80 };
+            jpeg.Frames.Add(BitmapFrame.Create(small));
+            using var ms = new MemoryStream();
+            jpeg.Save(ms);
+            if (ms.Length < 32 * 1024) _art = Convert.ToBase64String(ms.ToArray());
+        }
+        catch (Exception ex) { _ctx.Warn("Making the cover for the phone failed", ex); }
+        return _art;
+    }
+
+    /// <summary>
+    /// The phone pressed something: its new state goes back at once (and again a moment later, for actions that land
+    /// asynchronously, like a media session or the microphone), so the phone's buttons never wait for the 5-second refresh.
+    /// </summary>
+    void EchoSoon()
+    {
+        foreach (var ms in new[] { 150, 700 })
+            UiDelay.After(TimeSpan.FromMilliseconds(ms), () => { SendMedia(); SyncMoments(); }, _ctx.Ui);
     }
 
     /// <summary>What the phone's notch should show from here right now, by id.</summary>
@@ -144,6 +181,7 @@ internal sealed partial class PhoneLinkModule
             // and only the request that is waiting now: a late tap never answers the next one
             if (choice is "Allow" or "Deny" && AgentsLink.Waiting?.Invoke() is { } now && ClaudeAsk + now.Id == id && AgentsLink.Answer is { } answer)
                 _ctx.Info($"Claude Code answered from the phone: {choice} ({answer(choice == "Allow").Length > 0})");
+            EchoSoon();
             return;
         }
         var a = _ctx.Activities.All.FirstOrDefault(x => x.Id == id);
@@ -151,6 +189,7 @@ internal sealed partial class PhoneLinkModule
         if (c.Action.ToString() != choice) return;
         run(c.Action);
         _ctx.Info($"The phone ran {choice} on {id}");
+        EchoSoon();
     }
 
     /// <summary>The phone's remote keys. Lock and sleep go through the same commands you would type.</summary>
@@ -168,6 +207,7 @@ internal sealed partial class PhoneLinkModule
             default: return;
         }
         _ctx.Info($"The phone pressed {what}");
+        EchoSoon();
     }
 
     async void RunCommand(string text)

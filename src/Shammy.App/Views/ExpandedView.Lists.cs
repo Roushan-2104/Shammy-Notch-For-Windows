@@ -184,6 +184,8 @@ public partial class ExpandedView
     CardSheet? _alertsDetail;
     /// <summary>All, Phone or Laptop: whose notifications the list shows.</summary>
     string _alertFilter = "All";
+
+    bool Shown(Notifications.ShammyNotification x) => _alertFilter == "All" || x.IsFromPhone == (_alertFilter == "Phone");
     readonly List<Button> _alertFilters = new();
     Button? _alertsClear;
     TextBlock? _alertsNote;
@@ -198,7 +200,12 @@ public partial class ExpandedView
             b.Tag = f;
             _alertFilters.Add(b);
         }
-        _alertsClear = d.Action(Sheet.Cap("Clear all", "Clear all notifications", () => _s?.Notifications.ClearHistory()));
+        _alertsClear = d.Action(Sheet.Cap("Clear all", "Clear the notifications shown", () =>
+        {
+            if (_s is not { } s) return;
+            if (_alertFilter == "All") s.Notifications.ClearHistory();
+            else foreach (var x in s.Notifications.History.Where(Shown).ToList()) s.Notifications.Dismiss(x);
+        }));
         _alertRows = new StackPanel();
         _alertsNote = Sheet.Meta("", 13);
         _alertsNote.Margin = new Thickness(2, 0, 0, 10);
@@ -234,7 +241,9 @@ public partial class ExpandedView
             _alertsNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
         }
         if (_alertsClear is not null) _alertsClear.Visibility = n.History.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        bool fromPhone = n.History.Any(x => x.AppId.StartsWith("phone.", StringComparison.Ordinal)) || _alertFilter != "All";
+        // a filter whose source has run out goes back to All, so nothing new is hidden under it
+        if (_alertFilter != "All" && !n.History.Any(x => x.IsFromPhone == (_alertFilter == "Phone"))) _alertFilter = "All";
+        bool fromPhone = n.History.Any(x => x.IsFromPhone);
         foreach (var b in _alertFilters)
         {
             b.Visibility = fromPhone ? Visibility.Visible : Visibility.Collapsed;
@@ -252,7 +261,7 @@ public partial class ExpandedView
         RefreshAlertsHeader();
         _alertRows.Children.Clear();
         var history = _s.Notifications.History
-            .Where(x => _alertFilter == "All" || x.AppId.StartsWith("phone.", StringComparison.Ordinal) == (_alertFilter == "Phone")).ToList();
+            .Where(Shown).ToList();
         if (history.Count == 0)
         {
             // The line above already says why when notifications aren't available.
@@ -266,7 +275,7 @@ public partial class ExpandedView
     {
         var icon = new Grid { Width = 22, Height = 22 };
         icon.Children.Add(new Border { CornerRadius = new CornerRadius(6), Background = CardKit.PillBg });
-        if (n.AppId.StartsWith("phone.", StringComparison.Ordinal))
+        if (n.IsFromPhone)
             icon.Children.Add(new TextBlock
             {
                 Text = "\uE8EA", FontFamily = (FontFamily)FindResource("IconFont"), FontSize = 12, Foreground = CardKit.Ink2,
