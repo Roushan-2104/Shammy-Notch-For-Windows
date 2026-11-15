@@ -22,6 +22,8 @@ internal sealed class CompactView : Grid
 
     readonly IslandClock _clock = new() { HorizontalAlignment = HorizontalAlignment.Right };
 
+    public IslandClock Clock => _clock;
+
     readonly ContentControl _left = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     readonly ContentControl _right = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
 

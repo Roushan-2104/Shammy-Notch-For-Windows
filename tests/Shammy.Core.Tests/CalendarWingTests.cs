@@ -38,15 +38,12 @@ public class CalendarWingTests
     }
 
     [Fact]
-    public void Wing_takes_the_room_left_and_the_island_slides_half()
+    public void Wing_keeps_the_island_scale_when_it_fits_and_shrinks_when_it_does_not()
     {
-        var (wing, shift) = CalendarWingFit.Fit(950, 1536);
-        Assert.Equal(470, wing);
-        Assert.Equal((CalendarWingFit.Neck + 470) / 2, shift);
-        // A narrower screen gets a narrower wing, never below the smallest.
-        (wing, _) = CalendarWingFit.Fit(950, 1400);
-        Assert.Equal(1400 - 2 * CalendarWingFit.Margin - 950 - CalendarWingFit.Neck, wing);
-        (wing, _) = CalendarWingFit.Fit(950, 1100);
-        Assert.Equal(CalendarWingFit.MinWidth, wing);
+        // Your screen at Small: the island (760 x 0.88) centred on 1536 leaves 434 on its right.
+        Assert.Equal(0.88, CalendarWingFit.Scale(434, 0.88));
+        double tight = CalendarWingFit.Scale(300, 1.0);
+        Assert.Equal((300 - CalendarWingFit.Margin) / (CalendarWingFit.Neck + CalendarWingFit.Width), tight, 6);
+        Assert.Equal(CalendarWingFit.MinScale, CalendarWingFit.Scale(100, 1.0));
     }
 }

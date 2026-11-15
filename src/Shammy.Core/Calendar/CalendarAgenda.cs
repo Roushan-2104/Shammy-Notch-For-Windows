@@ -367,18 +367,15 @@ public static class CalendarAgenda
     }
 }
 
-/// <summary>How the calendar wing fits beside the open island: its width, and how far the island slides left so the two sit centred together.</summary>
+/// <summary>How the calendar wing fits beside the open island, which never moves: the wing opens on its right.</summary>
 public static class CalendarWingFit
 {
-    public const double MaxWidth = 470, MinWidth = 380, Neck = 34, Margin = 16;
+    public const double Width = 352, Neck = 14, Margin = 8, MinScale = 0.7;
 
-    /// <summary>All in the island's own units (DIPs before the notch-size scale); <paramref name="screenWidth"/> in the same units.</summary>
-    public static (double WingWidth, double Shift) Fit(double islandWidth, double screenWidth)
-    {
-        double room = screenWidth - 2 * Margin - islandWidth - Neck;
-        double wing = Math.Clamp(room, MinWidth, MaxWidth);
-        // The island moves left by half of what's added on its right, so the pair stays centred;
-        // shortcut: on a screen too narrow even for the smallest wing, the wing runs off the right edge.
-        return (wing, (Neck + wing) / 2);
-    }
+    /// <summary>
+    /// The wing's scale: the island's own, or smaller when the room right of the island (DIPs) is short of it.
+    /// shortcut: below <see cref="MinScale"/> it stays at that size and runs off the screen's edge.
+    /// </summary>
+    public static double Scale(double room, double islandScale) =>
+        Math.Clamp((room - Margin) / (Neck + Width), MinScale, islandScale);
 }

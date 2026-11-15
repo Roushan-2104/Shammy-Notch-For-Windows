@@ -16,30 +16,30 @@ using Shammy.Views.Cards;
 namespace Shammy.Modules.Calendar;
 
 /// <summary>
-/// The calendar wing: tap the date in the open island's header and the month pours out of the island's right side,
-/// joined to it by a liquid neck. A huge light month name, today as a glossy drop in the palette's colour, this week
-/// softly lit, warmer weekends, faded days gone by and a bead for each event; under it the chosen day as a line from
-/// morning to night with a "now" needle, and its events with Join on the next meeting. Tap a day to see it; scroll
-/// or use the arrows for other months. Its own small topmost window, never activated (the island keeps the keyboard).
-/// The window owner (the notch) places it and keeps the island open while the pointer is on it.
+/// The calendar wing (the "dot month"): tap the date in the open island's header and a slab the island's own height
+/// opens on its right, joined by a short pinched neck; the island never moves. On top, the chosen day as a big light
+/// number beside the month drawn as dots, one circle size throughout: a dot opens into a numbered circle when you rest
+/// on it or pick it, today is the palette's colour and breathes, days with events are ringed in the event's colour,
+/// days gone by dim. Across the bottom, the chosen day's events (with "in 3h 37m" and Join today) and the day as a
+/// thin line with a now needle. Its own small topmost window, never activated (the island keeps the keyboard); the
+/// notch places it and holds the island open while the pointer is on it.
 /// </summary>
 internal sealed class CalendarWing : Window
 {
-    const double Pad = 20, Cell = 42, CellGap = 4, NeckHeight = 132;
+    const double Dot = 10, Open = 20, NeckHeight = 96;
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    static readonly Brush Past = Ui.Tokens.Brush("#24FFFFFF"), Future = Ui.Tokens.Brush("#57FFFFFF"), Hover = Ui.Tokens.Brush("#29FFFFFF"),
+        Line = Ui.Tokens.Brush("#12FFFFFF");
 
     readonly Grid _layout = new();
-    readonly Canvas _neckHost = new() { Width = CalendarWingFit.Neck };
     readonly Path _neck = new();
     readonly Border _slab = new();
-    readonly Grid _glowLayer = new() { IsHitTestVisible = false, ClipToBounds = true };
-    readonly StackPanel _body = new();
-    readonly ScaleTransform _pour = new(1, 1);
-    readonly ScaleTransform _neckPour = new(1, 1);
+    readonly Grid _inner = new();
+    readonly ScaleTransform _pour = new(1, 1), _neckPour = new(1, 1);
+    readonly List<Action> _stop = new();
     IntPtr _hwnd;
     DateTime _month, _selected;
-    double _wingWidth = CalendarWingFit.MaxWidth;
-    readonly List<Action> _stop = new();
+    double _height = 262;
 
     public CalendarWing()
     {
@@ -54,23 +54,24 @@ internal sealed class CalendarWing : Window
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
+        _layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(CalendarWingFit.Neck) });
         _layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var w = CalendarWingFit.Neck + 2;
+        double h = NeckHeight, m = h * 0.31;
+        _neck.Data = Geometry.Parse(string.Create(Inv,
+            $"M0,0 C{w * 0.44:0.#},{m:0.#} {w * 0.56:0.#},{m:0.#} {w:0.#},0 L{w:0.#},{h:0.#} C{w * 0.56:0.#},{h - m:0.#} {w * 0.44:0.#},{h - m:0.#} 0,{h:0.#} Z"));
+        _neck.Margin = new Thickness(-1, 0, -1, 0);
+        _neck.VerticalAlignment = VerticalAlignment.Center;
+        _neck.RenderTransformOrigin = new Point(0, 0.5);
         _neck.RenderTransform = _neckPour;
-        _neckHost.Children.Add(_neck);
-        _layout.Children.Add(_neckHost);
+        _layout.Children.Add(_neck);
 
-        _slab.CornerRadius = new CornerRadius(32);
         _slab.BorderThickness = new Thickness(1);
         _slab.BorderBrush = Ui.Tokens.Brush("#1CFFFFFF");
-        _slab.ClipToBounds = true;
+        _slab.Width = CalendarWingFit.Width;
         _slab.RenderTransformOrigin = new Point(0, 0.5);
         _slab.RenderTransform = _pour;
-        var inner = new Grid();
-        inner.Children.Add(_glowLayer);
-        _body.Margin = new Thickness(Pad, Pad - 2, Pad, 16);
-        inner.Children.Add(_body);
-        _slab.Child = inner;
+        _slab.Child = _inner;
         Grid.SetColumn(_slab, 1);
         _layout.Children.Add(_slab);
         Content = _layout;
@@ -84,7 +85,7 @@ internal sealed class CalendarWing : Window
         MouseLeave += (_, _) => PointerOver?.Invoke(false);
         PrivacyState.Changed += _ => Dispatcher.BeginInvoke(() =>
         {
-            if (IsVisible) Build();
+            if (IsOpen) Build();
         });
         SourceInitialized += (_, _) =>
         {
@@ -98,34 +99,36 @@ internal sealed class CalendarWing : Window
     /// <summary>The pointer came onto the wing (true) or left it (false): the notch holds the island open meanwhile.</summary>
     public event Action<bool>? PointerOver;
 
-    /// <summary>The wing wants to fold away (to let the island show the Connect card).</summary>
+    /// <summary>The wing wants to fold away (Join was pressed, or Connect opens its card in the island).</summary>
     public event Action? FoldWanted;
 
     public bool IsOpen { get; private set; }
 
-    /// <summary>For the test pipe: "open month=2026-11 selected=2026-11-15 events=2 width=470".</summary>
+    /// <summary>For the test pipe: "open month=2026-11 selected=2026-11-15 events=2 scale=0.88".</summary>
     public string Describe() => IsOpen
-        ? string.Create(Inv, $"open month={_month:yyyy-MM} selected={_selected:yyyy-MM-dd} events={DayItems(_selected).Count} width={_wingWidth:0}")
+        ? string.Create(Inv, $"open month={_month:yyyy-MM} selected={_selected:yyyy-MM-dd} events={DayItems(_selected).Count} scale={_scale:0.##}")
         : "closed";
 
-    /// <summary>Pours the wing out at this month, today chosen. <paramref name="fill"/> is the island's own colour (for the neck and the slab).</summary>
-    public void Pour(double wingWidth, double scale, double islandHeight, Brush fill, bool excludeFromCapture)
+    double _scale = 1;
+
+    /// <summary>
+    /// Opens the wing on today. <paramref name="height"/> and <paramref name="radius"/> are the island's, in the wing's
+    /// own units; <paramref name="fill"/> is the island's colour (the slab and the neck are the same stuff).
+    /// </summary>
+    public void Pour(double scale, double height, double radius, Brush fill, bool excludeFromCapture)
     {
-        _wingWidth = wingWidth;
+        _scale = scale;
+        _height = height;
         var today = DateTime.Today;
         _month = new DateTime(today.Year, today.Month, 1);
         _selected = today;
         _layout.LayoutTransform = new ScaleTransform(scale, scale);
+        _slab.Height = height;
+        _slab.CornerRadius = new CornerRadius(radius);
         _slab.Background = fill;
         _neck.Fill = fill;
-        // The neck meets the island's straight right side, halfway down it; pinched in the middle, like the island's button.
-        double top = Math.Max(0, islandHeight / 2 - NeckHeight / 2);
-        double w = CalendarWingFit.Neck + 2, h = NeckHeight, m = h * 0.28;
-        _neck.Data = Geometry.Parse(string.Create(Inv,
-            $"M0,0 C{w * 0.45:0.#},{m:0.#} {w * 0.55:0.#},{m:0.#} {w:0.#},0 L{w:0.#},{h:0.#} C{w * 0.55:0.#},{h - m:0.#} {w * 0.45:0.#},{h - m:0.#} 0,{h:0.#} Z"));
-        Canvas.SetTop(_neck, top);
-        _neckHost.Margin = new Thickness(-1, 0, -1, 0);
-        _neckPour.CenterY = top + h / 2;
+        // The glows stay inside the rounded corners.
+        _inner.Clip = new RectangleGeometry(new Rect(0, 0, CalendarWingFit.Width - 2, height - 2), radius - 1, radius - 1);
         Build();
         if (_hwnd != IntPtr.Zero) Native.SetWindowDisplayAffinity(_hwnd, excludeFromCapture ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
         IsOpen = true;
@@ -139,12 +142,8 @@ internal sealed class CalendarWing : Window
         if (!IsOpen) return;
         IsOpen = false;
         StopLoops();
-        if (!animate || !MotionPrefs.Lively)
-        {
-            Hide();
-            return;
-        }
-        Animate(open: false);
+        if (!animate || !MotionPrefs.Lively) Hide();
+        else Animate(open: false);
     }
 
     /// <summary>Moves the wing so its neck meets the island's right edge (device pixels).</summary>
@@ -157,30 +156,26 @@ internal sealed class CalendarWing : Window
     {
         if (!MotionPrefs.Lively)
         {
-            _pour.ScaleX = _neckPour.ScaleX = 1;
-            _slab.Opacity = 1;
+            _pour.ScaleX = _neckPour.ScaleX = _slab.Opacity = 1;
             return;
         }
-        var ms = open ? 420 : 200;
-        IEasingFunction ease = open ? new BackEase { Amplitude = 0.28, EasingMode = EasingMode.EaseOut } : new CubicEase { EasingMode = EasingMode.EaseIn };
-        // The drop beads out first (the neck), then the wing swells to full width from the island's side.
-        var neck = Lean(new DoubleAnimation(open ? 0 : 1, open ? 1 : 0, TimeSpan.FromMilliseconds(open ? 160 : ms)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
-        var widen = Lean(new DoubleAnimation(open ? 0.08 : 1, open ? 1 : 0.08, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease, BeginTime = TimeSpan.FromMilliseconds(open ? 90 : 0) });
-        var tall = Lean(new DoubleAnimation(open ? 0.55 : 1, open ? 1 : 0.55, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease, BeginTime = TimeSpan.FromMilliseconds(open ? 90 : 0) });
-        var fade = Lean(new DoubleAnimation(open ? 0 : 1, open ? 1 : 0, TimeSpan.FromMilliseconds(open ? 240 : ms)) { BeginTime = TimeSpan.FromMilliseconds(open ? 90 : 0) });
+        int ms = open ? 360 : 180;
+        IEasingFunction ease = open ? new BackEase { Amplitude = 0.22, EasingMode = EasingMode.EaseOut } : new CubicEase { EasingMode = EasingMode.EaseIn };
+        // The neck beads out of the island first, then the slab swells from it.
+        var neck = Lean(new DoubleAnimation(open ? 0 : 1, open ? 1 : 0, TimeSpan.FromMilliseconds(open ? 140 : ms)));
+        var widen = Lean(new DoubleAnimation(open ? 0.1 : 1, open ? 1 : 0.1, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease, BeginTime = TimeSpan.FromMilliseconds(open ? 80 : 0) });
+        var fade = Lean(new DoubleAnimation(open ? 0 : 1, open ? 1 : 0, TimeSpan.FromMilliseconds(open ? 220 : ms)) { BeginTime = TimeSpan.FromMilliseconds(open ? 80 : 0) });
         if (!open) fade.Completed += (_, _) =>
         {
             if (!IsOpen) Hide();
         };
         if (open)
         {
-            _pour.ScaleX = 0.08;
-            _pour.ScaleY = 0.55;
+            _pour.ScaleX = 0.1;
             _slab.Opacity = 0;
         }
         _neckPour.BeginAnimation(ScaleTransform.ScaleXProperty, neck);
         _pour.BeginAnimation(ScaleTransform.ScaleXProperty, widen);
-        _pour.BeginAnimation(ScaleTransform.ScaleYProperty, tall);
         _slab.BeginAnimation(OpacityProperty, fade);
     }
 
@@ -194,9 +189,7 @@ internal sealed class CalendarWing : Window
     /// <summary>Test pipe: chooses a day (and shows its month).</summary>
     internal string Pick(DateTime day)
     {
-        _selected = day.Date;
-        _month = new DateTime(day.Year, day.Month, 1);
-        Build();
+        Select(day);
         return Describe();
     }
 
@@ -207,314 +200,305 @@ internal sealed class CalendarWing : Window
         return Describe();
     }
 
+    void Select(DateTime day)
+    {
+        _selected = day.Date;
+        _month = new DateTime(day.Year, day.Month, 1);
+        Build();
+    }
+
     void Flip(int months)
     {
         _month = _month.AddMonths(months);
+        // The big number follows: today in this month, else the 1st.
+        var today = DateTime.Today;
         if (_selected.Year != _month.Year || _selected.Month != _month.Month)
-            _selected = _month.Year == DateTime.Today.Year && _month.Month == DateTime.Today.Month ? DateTime.Today : _month;
+            _selected = _month.Year == today.Year && _month.Month == today.Month ? today : _month;
         Build();
     }
 
     // ---- Building ----------------------------------------------------------------------------------
 
-    static IReadOnlyList<CalendarOccurrence> Items => CalendarModule.Agenda;
-
-    static List<CalendarOccurrence> DayItems(DateTime day) => CalendarAgenda.OnDay(Items, day);
+    static List<CalendarOccurrence> DayItems(DateTime day) => CalendarAgenda.OnDay(CalendarModule.Agenda, day);
 
     /// <summary>Meetings with a call link take the palette's first colour, all-day events its third, the rest its second.</summary>
-    static Brush KindBrush(CalendarOccurrence o) => o.HasLink ? Ink.A : o.AllDay ? Ink.C : Ink.B;
+    static SolidColorBrush KindBrush(CalendarOccurrence o) => o.HasLink ? Ink.A : o.AllDay ? Ink.C : Ink.B;
 
     void Build()
     {
         StopLoops();
-        _body.Children.Clear();
-        _glowLayer.Children.Clear();
-        _body.Width = _wingWidth - 2 * Pad;
+        _inner.Children.Clear();
         var now = DateTime.Now;
         bool h24 = CardKit.H24;
 
-        // Soft palette light inside the glass (cheap radial fills, no blur).
-        _glowLayer.Children.Add(Glow(Ink.A, 0.42, 360, 300, HorizontalAlignment.Right, VerticalAlignment.Top, new Thickness(0, -120, -130, 0)));
-        _glowLayer.Children.Add(Glow(Ink.B, 0.18, 300, 240, HorizontalAlignment.Left, VerticalAlignment.Bottom, new Thickness(-110, 0, 0, -90)));
-
-        _body.Children.Add(Header(now));
-        _body.Children.Add(Weekdays());
-        _body.Children.Add(MonthGrid(now));
-        _body.Children.Add(Day(now, h24));
-    }
-
-    FrameworkElement Header(DateTime now)
-    {
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        bool thisMonth = _month.Year == now.Year && _month.Month == now.Month;
-
-        var left = new StackPanel();
-        var name = Sheet.Num(_month.ToString("MMMM", Inv), 50);
-        name.Foreground = Sheen();
-        left.Children.Add(name);
-        int left_ = DayItems(now).Count(o => !o.AllDay && o.End > now);
-        var line = thisMonth
-            ? $"{now.ToString("dddd", Inv)} · {(left_ == 0 ? "nothing left today" : left_ == 1 ? "1 event left today" : $"{left_} events left today")}"
-            : _month.ToString("yyyy", Inv);
-        var meta = Sheet.Meta(line, 12.5);
-        meta.Margin = new Thickness(2, 4, 0, 0);
-        left.Children.Add(meta);
-        grid.Children.Add(left);
-
-        var right = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        var big = Sheet.Num(thisMonth ? now.Day.ToString(Inv) : _month.ToString("MMM", Inv), 50, Ink.A);
-        big.HorizontalAlignment = HorizontalAlignment.Right;
-        right.Children.Add(big);
-        var chips = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
-        chips.Children.Add(Round("‹", "Previous month", () => Flip(-1)));
-        var todayChip = CardKit.Pill("Today", "This month, today", () =>
+        // Soft palette light inside the glass, low on the left (cheap radial fills, no blur).
+        var c = Ink.A.Color;
+        _inner.Children.Add(new Ellipse
         {
-            _month = new DateTime(now.Year, now.Month, 1);
-            _selected = DateTime.Today;
-            Build();
-        }, 28, 11.5);
-        todayChip.Margin = new Thickness(5, 0, 5, 0);
-        chips.Children.Add(todayChip);
-        chips.Children.Add(Round("›", "Next month", () => Flip(1)));
-        right.Children.Add(chips);
-        Grid.SetColumn(right, 1);
-        grid.Children.Add(right);
-        return grid;
+            Width = 280, Height = 220, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(-90, 0, 0, -100), Opacity = 0.5, IsHitTestVisible = false,
+            Fill = new RadialGradientBrush(Color.FromArgb(0xFF, c.R, c.G, c.B), Color.FromArgb(0, c.R, c.G, c.B)),
+        });
+
+        var body = new Grid { Margin = new Thickness(18, 15, 16, 13) };
+        body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        body.RowDefinitions.Add(new RowDefinition());
+        body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var top = new Grid();
+        top.ColumnDefinitions.Add(new ColumnDefinition());
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(176) });
+        top.Children.Add(TheDay(now));
+        var month = Month(now);
+        Grid.SetColumn(month, 1);
+        top.Children.Add(month);
+        body.Children.Add(top);
+        var bottom = Bottom(now, h24);
+        Grid.SetRow(bottom, 2);
+        body.Children.Add(bottom);
+        _inner.Children.Add(body);
     }
 
-    static Button Round(string glyph, string name, Action click)
+    /// <summary>The chosen day, poster-sized: "15", "TODAY · SUNDAY", "NOVEMBER 2026".</summary>
+    FrameworkElement TheDay(DateTime now)
     {
-        var t = CardKit.Text(glyph, 15, FontWeights.SemiBold);
-        t.HorizontalAlignment = HorizontalAlignment.Center;
-        t.Margin = new Thickness(0, -2, 0, 0);
-        return CardKit.Tile(name, t, click, 28, 28, 14);
+        bool today = _selected == now.Date;
+        var stack = new StackPanel();
+        var big = Sheet.Num(_selected.Day.ToString(Inv), 74, today ? Ink.A : null);
+        big.LineHeight = 64;
+        big.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        stack.Children.Add(big);
+        var name = CardKit.Label((today ? "Today · " : "") + _selected.ToString("dddd", Inv), CardKit.Ink, 11);
+        name.Margin = new Thickness(2, 8, 0, 0);
+        stack.Children.Add(name);
+        var year = CardKit.Label(_selected.ToString("MMMM yyyy", Inv), CardKit.Ink2, 9.5);
+        year.Margin = new Thickness(2, 2, 0, 0);
+        stack.Children.Add(year);
+        return stack;
     }
 
-    FrameworkElement Weekdays()
+    /// <summary>"‹ NOV 2026 ›", the weekday letters, and the month as circles.</summary>
+    FrameworkElement Month(DateTime now)
     {
-        var row = new UniformGrid7 { Margin = new Thickness(0, 14, 0, 4) };
-        string[] names = { "M", "T", "W", "T", "F", "S", "S" };
+        var stack = new StackPanel();
+        var nav = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+        nav.Children.Add(Round("‹", "Previous month", () => Flip(-1), HorizontalAlignment.Left));
+        var label = CardKit.Label(_month.ToString("MMM yyyy", Inv), CardKit.Ink, 10.5);
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        nav.Children.Add(label);
+        nav.Children.Add(Round("›", "Next month", () => Flip(1), HorizontalAlignment.Right));
+        stack.Children.Add(nav);
+
+        var heads = new UniformGrid7();
+        string[] letters = { "M", "T", "W", "T", "F", "S", "S" };
         for (int i = 0; i < 7; i++)
         {
-            var t = CardKit.Label(names[i], i >= 5 ? Ink.Soft : CardKit.Ink2, 10.5);
+            var t = CardKit.Label(letters[i], i >= 5 ? Ink.Soft : CardKit.Ink2, 9);
             t.HorizontalAlignment = HorizontalAlignment.Center;
-            row.Children.Add(t);
+            t.Height = 14;
+            heads.Children.Add(t);
         }
-        return row;
-    }
+        stack.Children.Add(heads);
 
-    FrameworkElement MonthGrid(DateTime now)
-    {
-        var days = CalendarAgenda.MonthGrid(_month.Year, _month.Month);
-        var host = new Grid();
-        // This week: a soft band of the palette's light across its row.
-        int weekRow = days.ToList().FindIndex(d => d == now.Date) is var i and >= 0 ? i / 7 : -1;
-        if (weekRow >= 0)
-        {
-            var c = Ink.A.Color;
-            host.Children.Add(new Border
-            {
-                Height = Cell + 4,
-                CornerRadius = new CornerRadius(16),
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(-6, weekRow * (Cell + CellGap) - 2, -6, 0),
-                IsHitTestVisible = false,
-                Background = new LinearGradientBrush(
-                    new GradientStopCollection
-                    {
-                        new(Color.FromArgb(0, c.R, c.G, c.B), 0), new(Color.FromArgb(0x24, c.R, c.G, c.B), 0.5), new(Color.FromArgb(0, c.R, c.G, c.B), 1),
-                    }, 0),
-            });
-        }
         var grid = new UniformGrid7();
-        foreach (var d in days) grid.Children.Add(DayCell(d, now));
-        host.Children.Add(grid);
-        return host;
+        foreach (var d in CalendarAgenda.MonthGrid(_month.Year, _month.Month)) grid.Children.Add(Day(d, now));
+        stack.Children.Add(grid);
+        return stack;
     }
 
-    FrameworkElement DayCell(DateTime d, DateTime now)
+    static Button Round(string glyph, string name, Action click, HorizontalAlignment side)
     {
-        bool inMonth = d.Month == _month.Month;
-        bool today = d == now.Date;
-        bool selected = d == _selected.Date;
-        bool weekend = d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-        var items = inMonth ? DayItems(d) : new List<CalendarOccurrence>();
-
-        var number = CardKit.Text(d.Day.ToString(Inv), 14.5, today ? FontWeights.Bold : FontWeights.Medium);
-        number.HorizontalAlignment = HorizontalAlignment.Center;
-        number.Foreground = today ? CardKit.OnAccent : weekend ? Ink.Soft : CardKit.Ink;
-        var beads = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Height = 5, Margin = new Thickness(0, 3, 0, 0) };
-        foreach (var o in items.Take(3))
-            beads.Children.Add(new Ellipse { Width = 5, Height = 5, Margin = new Thickness(1.5, 0, 1.5, 0), Fill = today ? CardKit.OnAccent : KindBrush(o) });
-        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        stack.Children.Add(number);
-        stack.Children.Add(beads);
-
-        var face = new Grid { Height = Cell, Margin = new Thickness(0, 0, 0, CellGap) };
-        if (today) face.Children.Add(TodayDrop());
-        else if (selected && inMonth)
-            face.Children.Add(new Border { CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1.5), BorderBrush = CardKit.Ink, Background = Sheet.CapFill });
-        face.Children.Add(stack);
-        if (!inMonth) face.Opacity = 0.28;
-        else if (d < now.Date) face.Opacity = 0.55;
-
-        var name = d.ToString("dddd d MMMM", Inv) + (items.Count == 0 ? "" : items.Count == 1 ? ", 1 event" : $", {items.Count} events");
-        var b = CardKit.Bare(name, face, () =>
-        {
-            _selected = d;
-            if (!inMonth) _month = new DateTime(d.Year, d.Month, 1);
-            Build();
-        }, double.NaN, Cell + CellGap);
+        var t = CardKit.Text(glyph, 12, FontWeights.SemiBold);
+        t.HorizontalAlignment = HorizontalAlignment.Center;
+        t.Margin = new Thickness(0, -2, 0, 0);
+        var b = CardKit.Tile(name, t, click, 22, 22, 11);
+        b.HorizontalAlignment = side;
         return b;
     }
 
-    /// <summary>Today: a glossy drop in the palette's colour that breathes slowly while the wing is out.</summary>
-    FrameworkElement TodayDrop()
+    /// <summary>One day: a 10 px dot that opens into a 20 px numbered circle on hover, when chosen, and today.</summary>
+    FrameworkElement Day(DateTime d, DateTime now)
     {
-        var a = Ink.A.Color;
-        var root = new Grid();
-        var halo = new Border
+        bool inMonth = d.Month == _month.Month;
+        if (!inMonth) return new FrameworkElement { Height = Open + 2 };
+        bool today = d == now.Date;
+        bool chosen = d == _selected;
+        var items = DayItems(d);
+        var ring = items.Count > 0 ? KindBrush(items[0]) : null;
+
+        var circle = new Border { Width = Dot, Height = Dot, CornerRadius = new CornerRadius(Open / 2), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var number = CardKit.Text(d.Day.ToString(Inv), 10, today ? FontWeights.Bold : FontWeights.SemiBold);
+        number.HorizontalAlignment = HorizontalAlignment.Center;
+        number.VerticalAlignment = VerticalAlignment.Center;
+        number.Margin = new Thickness(0, -1, 0, 0);
+        circle.Child = number;
+
+        void Rest()
         {
-            CornerRadius = new CornerRadius(17),
-            Margin = new Thickness(-3),
-            Background = new RadialGradientBrush(Color.FromArgb(0x66, a.R, a.G, a.B), Color.FromArgb(0, a.R, a.G, a.B)),
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = new ScaleTransform(1, 1),
-        };
-        root.Children.Add(halo);
-        root.Children.Add(new Border
-        {
-            CornerRadius = new CornerRadius(14),
-            Background = new RadialGradientBrush
+            bool open = today || chosen;
+            circle.Width = circle.Height = open ? Open : Dot;
+            number.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            circle.BorderThickness = new Thickness(0);
+            circle.BorderBrush = null;
+            if (today)
             {
-                GradientOrigin = new Point(0.3, 0.2),
-                Center = new Point(0.35, 0.3),
-                RadiusX = 0.95,
-                RadiusY = 0.95,
-                GradientStops = { new GradientStop(Lighten(a, 0.55), 0), new GradientStop(a, 0.5), new GradientStop(Darken(a, 0.35), 1) },
-            },
-        });
-        // The gloss: a small soft highlight near the top left.
-        root.Children.Add(new Ellipse
-        {
-            Width = 14, Height = 6, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(9, 5, 0, 0), Fill = new SolidColorBrush(Color.FromArgb(0x8C, 255, 255, 255)), IsHitTestVisible = false,
-        });
-        if (MotionPrefs.Lively)
-        {
-            var breathe = new DoubleAnimation(1, 1.16, TimeSpan.FromSeconds(1.6)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
-            Timeline.SetDesiredFrameRate(breathe, 10);
-            var scale = (ScaleTransform)halo.RenderTransform;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, breathe);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, breathe);
-            var fade = new DoubleAnimation(1, 0.35, TimeSpan.FromSeconds(1.6)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
-            Timeline.SetDesiredFrameRate(fade, 10);
-            halo.BeginAnimation(OpacityProperty, fade);
-            _stop.Add(() =>
+                var a = Ink.A.Color;
+                circle.Background = new RadialGradientBrush
+                {
+                    GradientOrigin = new Point(0.35, 0.3), Center = new Point(0.4, 0.35), RadiusX = 0.85, RadiusY = 0.85,
+                    GradientStops = { new GradientStop(Lighten(a, 0.6), 0), new GradientStop(a, 0.5), new GradientStop(Darken(a, 0.3), 1) },
+                };
+                number.Foreground = CardKit.OnAccent;
+            }
+            else if (chosen)
             {
-                scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-                scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-                halo.BeginAnimation(OpacityProperty, null);
-            });
+                circle.Background = Ui.Tokens.Brush("#1AFFFFFF");
+                circle.BorderBrush = CardKit.Ink;
+                circle.BorderThickness = new Thickness(1.5);
+                number.Foreground = CardKit.Ink;
+            }
+            else if (ring is not null)
+            {
+                circle.Background = null;
+                circle.BorderBrush = ring;
+                circle.BorderThickness = new Thickness(2);
+            }
+            else circle.Background = d < now.Date ? Past : Future;
         }
-        return root;
+        Rest();
+
+        var face = new Grid { Width = Open + 4, Height = Open + 2 };
+        if (today) face.Children.Add(Breath(Ink.A.Color));
+        else if (chosen && ring is not null)
+        {
+            // The chosen day keeps a faint halo of its event's colour.
+            var r = ring.Color;
+            face.Children.Add(new Ellipse { Width = Open + 6, Height = Open + 6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Fill = new SolidColorBrush(Color.FromArgb(0x55, r.R, r.G, r.B)) });
+        }
+        face.Children.Add(circle);
+
+        var name = d.ToString("dddd d MMMM", Inv) + (items.Count == 0 ? "" : items.Count == 1 ? ", 1 event" : $", {items.Count} events");
+        var b = CardKit.Bare(name, face, () => Select(d), Open + 4, Open + 2);
+        b.HorizontalAlignment = HorizontalAlignment.Center;
+        b.MouseEnter += (_, _) =>
+        {
+            // The opening circle is the hover; the button's own hover pill would draw a second one behind it.
+            ((Border)b.Content).Background = null;
+            if (today || chosen) return;
+            circle.Width = circle.Height = Open;
+            circle.BorderThickness = new Thickness(0);
+            circle.Background = Hover;
+            number.Foreground = CardKit.Ink;
+            number.Visibility = Visibility.Visible;
+        };
+        b.MouseLeave += (_, _) => Rest();
+        return b;
     }
 
-    FrameworkElement Day(DateTime now, bool h24)
+    /// <summary>Today's soft glow, breathing slowly while the wing is out (a few frames a second).</summary>
+    FrameworkElement Breath(Color a)
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
-        var items = DayItems(_selected);
-        bool isToday = _selected.Date == now.Date;
-        bool hidden = PrivacyState.Presenting;
+        var glow = new Ellipse
+        {
+            Width = Open + 10, Height = Open + 10, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            Fill = new RadialGradientBrush(Color.FromArgb(0x8C, a.R, a.G, a.B), Color.FromArgb(0, a.R, a.G, a.B)),
+            RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1), IsHitTestVisible = false,
+        };
+        if (!MotionPrefs.Lively) return glow;
+        var scale = (ScaleTransform)glow.RenderTransform;
+        var breathe = new DoubleAnimation(0.85, 1.2, TimeSpan.FromSeconds(1.6)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
+        Timeline.SetDesiredFrameRate(breathe, 10);
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, breathe);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, breathe);
+        _stop.Add(() =>
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        });
+        return glow;
+    }
 
-        var head = new Grid { Margin = new Thickness(2, 0, 2, 8) };
-        head.Children.Add(CardKit.Label((isToday ? "Today · " : "") + _selected.ToString("dddd d MMM", Inv), CardKit.Ink, 11.5));
-        var count = Sheet.Meta(items.Count == 0 ? "" : items.Count == 1 ? "1 event" : $"{items.Count} events", 12);
-        count.HorizontalAlignment = HorizontalAlignment.Right;
-        head.Children.Add(count);
-        panel.Children.Add(head);
+    /// <summary>Across the bottom: the chosen day's events (two at most), then the day as a thin line with a now needle.</summary>
+    FrameworkElement Bottom(DateTime now, bool h24)
+    {
+        var stack = new StackPanel();
+        var items = DayItems(_selected);
+        bool isToday = _selected == now.Date;
+        bool hidden = PrivacyState.Presenting;
 
         if (items.Count == 0 && Links.Calendar is { Connected: false })
         {
-            panel.Children.Add(Sheet.Meta("Connect Google Calendar to see your events here.", 12.5));
+            var row = new DockPanel { Height = 26 };
             var connect = CardKit.PrimaryPill("Connect", "Connect Google Calendar", () =>
             {
                 FoldWanted?.Invoke();
                 Links.Calendar?.OpenSetup();
-            });
-            connect.HorizontalAlignment = HorizontalAlignment.Left;
-            connect.Margin = new Thickness(0, 8, 0, 0);
-            panel.Children.Add(connect);
-            return panel;
+            }, 22, 11);
+            DockPanel.SetDock(connect, System.Windows.Controls.Dock.Right);
+            row.Children.Add(connect);
+            row.Children.Add(Sheet.Meta("Your Google Calendar's events show here", 11.5));
+            stack.Children.Add(row);
+        }
+        else if (items.Count == 0)
+        {
+            var free = Sheet.Meta(isToday ? "Nothing planned · a free day" : "Nothing planned", 11.5);
+            free.Height = 22;
+            stack.Children.Add(free);
+        }
+        else
+        {
+            var meeting = isToday ? items.FirstOrDefault(o => !o.AllDay && o.HasLink && o.End > now) : null;
+            foreach (var o in items.Take(2)) stack.Children.Add(EventRow(o, now, h24, hidden, isToday, o == meeting));
         }
 
-        // The day as a line: each timed event a capsule, and a "now" needle on today.
+        // The day as a line: each timed event a short bar, and a needle at now (today only).
         var (startH, endH) = CalendarAgenda.TimelineHours(items, _selected);
-        double span = (endH - startH) * 60.0;
-        var track = new Grid { Height = 40 };
-        track.Children.Add(new Border { CornerRadius = new CornerRadius(13), Background = Sheet.GlassFill, BorderBrush = Sheet.GlassEdge, BorderThickness = new Thickness(1) });
-        var lane = new Canvas { ClipToBounds = false, Margin = new Thickness(6, 0, 6, 0) };
-        track.Children.Add(lane);
-        double laneW = _body.Width - 12;
-        double X(DateTime t) => Math.Clamp(((t - _selected.Date).TotalMinutes - startH * 60) / span, 0, 1) * laneW;
+        double span = (endH - startH) * 60.0, width = CalendarWingFit.Width - 36;
+        double X(DateTime t) => Math.Clamp(((t - _selected).TotalMinutes - startH * 60) / span, 0, 1) * width;
+        var line = new Canvas { Height = 6, Margin = new Thickness(0, 6, 0, 0), Background = null };
+        line.Children.Add(new Rectangle { Width = width, Height = 6, RadiusX = 3, RadiusY = 3, Fill = Line });
         foreach (var o in items.Where(o => !o.AllDay))
         {
-            double x0 = X(o.Start), x1 = Math.Max(X(o.End), x0 + 18);
-            var cap = new Border
-            {
-                Width = x1 - x0, Height = 24, CornerRadius = new CornerRadius(12), Background = KindBrush(o),
-                Child = x1 - x0 < 54 || hidden ? null : new TextBlock
-                {
-                    Text = o.Title, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = CardKit.OnAccent,
-                    TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 7, 0),
-                    FontFamily = CardKit.Face(FontWeights.SemiBold),
-                },
-                ToolTip = hidden ? null : o.Title,
-            };
-            Canvas.SetLeft(cap, x0);
-            Canvas.SetTop(cap, 8);
-            lane.Children.Add(cap);
+            double x0 = X(o.Start), x1 = Math.Max(X(o.End), x0 + 8);
+            line.Children.Add(Place(new Rectangle { Width = x1 - x0, Height = 6, RadiusX = 3, RadiusY = 3, Fill = KindBrush(o) }, x0, 0));
         }
         if (isToday && now.Hour >= startH && now.Hour < endH)
-        {
-            double x = X(now);
-            lane.Children.Add(Place(new Rectangle { Width = 2, Height = 48, RadiusX = 1, RadiusY = 1, Fill = CardKit.Ink }, x - 1, -4));
-            lane.Children.Add(Place(new Ellipse { Width = 9, Height = 9, Fill = CardKit.Ink }, x - 4.5, -8));
-        }
-        panel.Children.Add(track);
+            line.Children.Add(Place(new Rectangle { Width = 2, Height = 14, RadiusX = 1, RadiusY = 1, Fill = CardKit.Ink }, X(now) - 1, -4));
+        stack.Children.Add(line);
+        return stack;
+    }
 
-        var hours = new Grid { Margin = new Thickness(4, 4, 4, 6) };
-        for (int k = 0; k <= 4; k++)
+    FrameworkElement EventRow(CalendarOccurrence o, DateTime now, bool h24, bool hidden, bool isToday, bool join)
+    {
+        var row = new DockPanel { Height = 24, LastChildFill = true };
+        row.Children.Add(Docked(new Rectangle { Width = 3, Height = 16, RadiusX = 1.5, RadiusY = 1.5, Fill = KindBrush(o), Margin = new Thickness(0, 0, 8, 0) }, System.Windows.Controls.Dock.Left));
+        if (join)
         {
-            int h = startH + (endH - startH) * k / 4;
-            var t = Sheet.Meta(CalendarText.HourLabel(h, h24).ToLowerInvariant(), 10);
-            t.HorizontalAlignment = k == 0 ? HorizontalAlignment.Left : k == 4 ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-            if (k is > 0 and < 4) t.Margin = new Thickness((laneW - 8) * k / 4 - 14, 0, 0, 0);
-            hours.Children.Add(t);
+            var pill = CardKit.PrimaryPill("Join", "Join " + (hidden ? "meeting" : o.Title), () =>
+            {
+                Links.Calendar?.Join(o);
+                FoldWanted?.Invoke();
+            }, 20, 11);
+            pill.Margin = new Thickness(6, 0, 0, 0);
+            row.Children.Add(Docked(pill, System.Windows.Controls.Dock.Right));
         }
-        panel.Children.Add(hours);
+        if (isToday && !o.AllDay && o.End > now)
+            row.Children.Add(Docked(Sheet.Meta(CalendarText.Until(o.Start, o.End, now).Replace(" h ", "h ").Replace(" min", "m"), 11), System.Windows.Controls.Dock.Right));
+        var words = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var title = Sheet.Word(hidden ? "Busy" : o.Title, 12.5, FontWeights.SemiBold);
+        title.MaxWidth = 170;
+        words.Children.Add(title);
+        var when = Sheet.Meta(o.AllDay ? "all day" : CalendarText.Clock(o.Start, h24) + (h24 ? "" : " " + CalendarText.AmPm(o.Start).ToLowerInvariant()), 11);
+        when.Margin = new Thickness(7, 1, 0, 0);
+        words.Children.Add(when);
+        row.Children.Add(words);
+        return row;
+    }
 
-        if (items.Count == 0)
-        {
-            var free = Sheet.Meta(isToday ? "Nothing planned · a free day" : "Nothing planned", 12.5);
-            free.Margin = new Thickness(4, 2, 0, 0);
-            panel.Children.Add(free);
-            return panel;
-        }
-
-        // The list: the next one today gets "in 36 min"; the next meeting with a call link gets Join.
-        var next = isToday ? items.FirstOrDefault(o => !o.AllDay && o.End > now) : null;
-        var meeting = isToday ? items.FirstOrDefault(o => !o.AllDay && o.HasLink && o.End > now) : null;
-        foreach (var o in items.Take(3)) panel.Children.Add(EventRow(o, now, h24, hidden, o == next || o == meeting, o == meeting));
-        if (items.Count > 3)
-        {
-            var more = Sheet.Meta($"+{items.Count - 3} more", 12);
-            more.Margin = new Thickness(12, 2, 0, 0);
-            panel.Children.Add(more);
-        }
-        return panel;
+    static T Docked<T>(T e, System.Windows.Controls.Dock side) where T : UIElement
+    {
+        DockPanel.SetDock(e, side);
+        return e;
     }
 
     static UIElement Place(UIElement e, double x, double y)
@@ -522,88 +506,6 @@ internal sealed class CalendarWing : Window
         Canvas.SetLeft(e, x);
         Canvas.SetTop(e, y);
         return e;
-    }
-
-    FrameworkElement EventRow(CalendarOccurrence o, DateTime now, bool h24, bool hidden, bool soon, bool join)
-    {
-        var row = new Grid { Margin = new Thickness(0, 0, 0, 4), MinHeight = 40 };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
-        row.ColumnDefinitions.Add(new ColumnDefinition());
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var bg = new Border { CornerRadius = new CornerRadius(14), Margin = new Thickness(-8, 0, -8, 0), Background = soon ? Ink.Tint : null, BorderBrush = soon ? Ink.TintEdge : null, BorderThickness = new Thickness(soon ? 1 : 0) };
-        Grid.SetColumnSpan(bg, 4);
-        row.Children.Add(bg);
-
-        var time = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        if (o.AllDay) time.Children.Add(Sheet.Word("All day", 13, FontWeights.SemiBold));
-        else
-        {
-            time.Children.Add(Sheet.Word(CalendarText.Clock(o.Start, h24), 14, FontWeights.SemiBold));
-            if (!h24)
-            {
-                var ap = Sheet.Meta(CalendarText.AmPm(o.Start).ToLowerInvariant(), 10.5);
-                ap.Margin = new Thickness(2, 1, 0, 0);
-                time.Children.Add(ap);
-            }
-        }
-        row.Children.Add(time);
-        var bar = new Rectangle { Width = 4, Height = 24, RadiusX = 2, RadiusY = 2, Fill = KindBrush(o), VerticalAlignment = VerticalAlignment.Center };
-        Grid.SetColumn(bar, 1);
-        row.Children.Add(bar);
-
-        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 8, 4) };
-        words.Children.Add(Sheet.Word(hidden ? "Busy" : o.Title, 14));
-        var parts = new List<string>();
-        if (soon && !o.AllDay) parts.Add(CalendarText.Until(o.Start, o.End, now));
-        if (!hidden && !string.IsNullOrEmpty(o.Provider)) parts.Add(o.Provider!);
-        else if (!hidden && o.Location.Length > 0) parts.Add(o.Location);
-        if (parts.Count == 0) parts.Add(CalendarText.Length(o));
-        words.Children.Add(Sheet.Meta(string.Join(" · ", parts), 12));
-        Grid.SetColumn(words, 2);
-        row.Children.Add(words);
-
-        if (join)
-        {
-            var pill = CardKit.PrimaryPill("Join", "Join " + (hidden ? "meeting" : o.Title), () =>
-            {
-                Links.Calendar?.Join(o);
-                FoldWanted?.Invoke();
-            });
-            pill.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(pill, 3);
-            row.Children.Add(pill);
-        }
-        return row;
-    }
-
-    // ---- Looks ---------------------------------------------------------------------------------------
-
-    static FrameworkElement Glow(SolidColorBrush ink, double opacity, double w, double h, HorizontalAlignment ha, VerticalAlignment va, Thickness margin)
-    {
-        var c = ink.Color;
-        return new Ellipse
-        {
-            Width = w, Height = h, HorizontalAlignment = ha, VerticalAlignment = va, Margin = margin, Opacity = opacity,
-            Fill = new RadialGradientBrush(Color.FromArgb(0xFF, c.R, c.G, c.B), Color.FromArgb(0, c.R, c.G, c.B)),
-        };
-    }
-
-    /// <summary>The month's name: off-white with a light band that sweeps across it once as the wing pours out.</summary>
-    Brush Sheen()
-    {
-        var ink = ((SolidColorBrush)CardKit.Ink).Color;
-        var shine = Lighten(Ink.A.Color, 0.6);
-        var stops = new GradientStopCollection { new(ink, 0), new(ink, 0.4), new(shine, 0.5), new(ink, 0.6), new(ink, 1) };
-        var brush = new LinearGradientBrush(stops, new Point(-1, 0), new Point(0, 0)) { MappingMode = BrushMappingMode.RelativeToBoundingBox };
-        if (!MotionPrefs.Lively) return new SolidColorBrush(ink);
-        var start = new PointAnimation(new Point(-1, 0), new Point(1, 0), TimeSpan.FromMilliseconds(1300)) { BeginTime = TimeSpan.FromMilliseconds(260), EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
-        var end = new PointAnimation(new Point(0, 0), new Point(2, 0), TimeSpan.FromMilliseconds(1300)) { BeginTime = TimeSpan.FromMilliseconds(260), EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
-        Timeline.SetDesiredFrameRate(start, 24);
-        Timeline.SetDesiredFrameRate(end, 24);
-        brush.BeginAnimation(LinearGradientBrush.StartPointProperty, start);
-        brush.BeginAnimation(LinearGradientBrush.EndPointProperty, end);
-        return brush;
     }
 
     static Color Lighten(Color c, double t) => Color.FromRgb((byte)(c.R + (255 - c.R) * t), (byte)(c.G + (255 - c.G) * t), (byte)(c.B + (255 - c.B) * t));
@@ -616,7 +518,7 @@ internal sealed class CalendarWing : Window
         _stop.Clear();
     }
 
-    /// <summary>Seven equal columns, rows as tall as their tallest child (a month, the weekday names).</summary>
+    /// <summary>Seven equal columns.</summary>
     sealed class UniformGrid7 : System.Windows.Controls.Primitives.UniformGrid
     {
         public UniformGrid7() => Columns = 7;

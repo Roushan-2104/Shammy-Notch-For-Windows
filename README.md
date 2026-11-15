@@ -144,6 +144,7 @@ The notch doesn't hang from the edge of your screen. It **floats** a few pixels 
 - **Light like water.** Soft waves drift inside the glass in the colours of what you're playing, and hold still (costing nothing) when nothing is happening.
 - **One liquid surface.** When there's something to press, a round button beads out of the island's end through a smooth, water-drop neck.
 - **A rim that breathes.** A thin line of light along the bottom edge tells you the state without opening anything: **red** while your mic is live, **green** before a meeting, **blue** in focus, your **song's colour** with music.
+- **The time, always.** It sits at the right end of the island whatever is happening (a song, a call, a timer, a recording) and, with the date, at the top of the open island.
 - **Fake glass, real calm.** The frosted look is a tiny pre-blurred copy of your wallpaper (about 26 KB), remade only when your wallpaper changes. No live blur, no busy graphics card.
 
 <p align="center">
@@ -161,9 +162,21 @@ The notch doesn't hang from the edge of your screen. It **floats** a few pixels 
   <img src="docs/images/open.gif" alt="The island opening into its Now screen" width="800">
 </p>
 
-Rest the pointer on the island, or click it, and it opens into **one screen**: one sentence about right now, one big moment (your song, your call, your focus time, your next meeting with *Join*), three numbers in light type, and **six tools that change with what you're doing**.
+Rest the pointer on the island, or click it, and it opens into **one screen**: the time and date, one sentence about right now, one big moment (your song, your call, your focus time, your next meeting with *Join*), three numbers in light type, and **six tools that change with what you're doing**.
 
 **Slide right** (swipe, the dots or the arrows) for **everything Shammy does**: the features you use most as big tiles, then every other one A to Z. Nothing to search for.
+
+#### Tap the date: your month, right beside it
+
+<p align="center">
+  <img src="docs/images/calendar.png" alt="The open island with the calendar beside it: today's 15 in light type, the month as dots with today glowing, and today's events with Join" width="100%">
+</p>
+
+Tap the time and date at the top of the open island and **the month opens on its right**, a slab of the same glass and the island's own height, joined by a short liquid neck. The island stays exactly where it is.
+
+- **The month as dots.** Rest on a day and it opens into a numbered circle; today glows in your palette's colour; days with events are ringed in their colour; days gone by dim.
+- **The day at a glance.** A big light number for the chosen day, its events with *in 3h 25m* and **Join** on today's meeting, and the day as a thin line with a "now" needle.
+- **Any day, any month.** Tap a day, scroll, or use the arrows. Events come from your Google Calendar (from this week to the end of next month); titles show as *Busy* while you share your screen.
 
 <table>
 <tr>
@@ -236,7 +249,7 @@ Open any card (Alarms, Timer, Clipboard, Notes, Weather, System, Health, Calenda
 | 🎵 **Music** | *"play …"* in YouTube Music or Spotify, synced lyrics, drag the song line to seek, scroll for volume, swipe to skip. |
 | 📱 **To phone** | Files, links and text to your phone over your own Wi-Fi; with nothing chosen, it asks what to send. |
 | ⏱️ **Timers, alarms, reminders** | Live countdowns, alarms that ring through fullscreen, and reminders in plain words: *"remind me at 6pm to call mom"*. |
-| 📅 **Calendar** | Your Google Calendar from its secret address (no sign-in), and *Join* five minutes before. |
+| 📅 **Calendar** | Your Google Calendar from its secret address (no sign-in), *Join* five minutes before, and the month beside the island when you tap the date. |
 | 📋 **Clipboard, shelf, snippets** | Clipboard history with search, a file shelf you drop onto, and snippets that expand in any app. |
 | 🔔 **Notifications** | Other apps' notifications, calmly, with message text hidden while you share your screen. |
 | 🤖 **Claude Code** | Coding-agent sessions in the island, with Allow and Deny. |
