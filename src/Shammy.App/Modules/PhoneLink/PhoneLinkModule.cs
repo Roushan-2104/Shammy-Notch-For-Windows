@@ -94,6 +94,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         ctx.AddPipeCommand("phonelink-reply", text => Reply(text) is { } who ? $"replied to {who}" : "error: nothing to reply to");
         StartRemote();
         StartCard();
+        StartSync();
         if (_store.Phone is not null) Listen();
     }
 
@@ -102,6 +103,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         _ctx.Services.Notifications.Arrived -= OnLaptopNotification;
         StopRemote();
         StopCard();
+        StopSync();
         StopBeacon();
         StopListening();
         _identity.Dispose();
@@ -155,6 +157,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         StopListening();
         _shown.Clear();
         _replyKey = null;
+        _sentToasts.Clear();
         _ctx.ShowMessage("", "Phone unpaired");
         _ctx.Info("Unpaired the phone");
     }
@@ -439,6 +442,10 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                         var (id, choice) = (LinkSession.Text(m, "id"), LinkSession.Text(m, "choice"));
                         _ = _ctx.Ui.BeginInvoke(() => Answer(id, choice));
                         break;
+                    case "dismiss":
+                        var dismissed = LinkSession.Text(m, "id");
+                        _ = _ctx.Ui.BeginInvoke(() => DismissFromPhone(dismissed));
+                        break;
                     case "beacon":
                         _ = _ctx.Ui.BeginInvoke(Beacon);
                         break;
@@ -520,6 +527,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             ["t"] = "moment", ["id"] = $"toast.{n.Id}", ["kind"] = "app", ["title"] = n.AppName,
             ["text"] = LinkSession.Cap(text),
         });
+        RememberSentToast(n.Id);
     }
 
     /// <summary>Replies to the latest phone notification that can take one; returns who it went to, or null.</summary>

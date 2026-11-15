@@ -182,12 +182,22 @@ public partial class ExpandedView
 
     StackPanel? _alertRows;
     CardSheet? _alertsDetail;
+    /// <summary>All, Phone or Laptop: whose notifications the list shows.</summary>
+    string _alertFilter = "All";
+    readonly List<Button> _alertFilters = new();
     Button? _alertsClear;
     TextBlock? _alertsNote;
 
     CardSheet BuildAlertsDetail()
     {
         var d = new CardSheet("Alerts", ListSheetWidth);
+        _alertFilters.Clear();
+        foreach (var f in new[] { "All", "Phone", "Laptop" })
+        {
+            var b = d.Action(Sheet.Cap(f, $"Show {f.ToLowerInvariant()} notifications", () => { _alertFilter = f; RebuildAlertRows(); }));
+            b.Tag = f;
+            _alertFilters.Add(b);
+        }
         _alertsClear = d.Action(Sheet.Cap("Clear all", "Clear all notifications", () => _s?.Notifications.ClearHistory()));
         _alertRows = new StackPanel();
         _alertsNote = Sheet.Meta("", 13);
@@ -224,6 +234,12 @@ public partial class ExpandedView
             _alertsNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
         }
         if (_alertsClear is not null) _alertsClear.Visibility = n.History.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        bool fromPhone = n.History.Any(x => x.AppId.StartsWith("phone.", StringComparison.Ordinal)) || _alertFilter != "All";
+        foreach (var b in _alertFilters)
+        {
+            b.Visibility = fromPhone ? Visibility.Visible : Visibility.Collapsed;
+            b.Opacity = (string?)b.Tag == _alertFilter ? 1 : 0.5;
+        }
     }
 
     /// <summary>
@@ -235,7 +251,8 @@ public partial class ExpandedView
         if (_s is null || _alertRows is null) return;
         RefreshAlertsHeader();
         _alertRows.Children.Clear();
-        var history = _s.Notifications.History;
+        var history = _s.Notifications.History
+            .Where(x => _alertFilter == "All" || x.AppId.StartsWith("phone.", StringComparison.Ordinal) == (_alertFilter == "Phone")).ToList();
         if (history.Count == 0)
         {
             // The line above already says why when notifications aren't available.
@@ -249,7 +266,13 @@ public partial class ExpandedView
     {
         var icon = new Grid { Width = 22, Height = 22 };
         icon.Children.Add(new Border { CornerRadius = new CornerRadius(6), Background = CardKit.PillBg });
-        if (n.Icon is { } src)
+        if (n.AppId.StartsWith("phone.", StringComparison.Ordinal))
+            icon.Children.Add(new TextBlock
+            {
+                Text = "\uE8EA", FontFamily = (FontFamily)FindResource("IconFont"), FontSize = 12, Foreground = CardKit.Ink2,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            });
+        else if (n.Icon is { } src)
         {
             var img = new Image { Source = src, Width = 18, Height = 18 };
             RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
@@ -261,7 +284,7 @@ public partial class ExpandedView
         if (detail.Length > 0)
             text.Inlines.Add(CardKit.Run("  " + detail, FontWeights.Medium, CardKit.Ink2));
         var time = CardKit.Text(n.TimeText, 12, FontWeights.Medium, secondary: true);
-        var dismiss = CardKit.CloseButton(() => _s?.Notifications.History.Remove(n), "Dismiss");
+        var dismiss = CardKit.CloseButton(() => _s?.Notifications.Dismiss(n), "Dismiss");
         dismiss.Visibility = Visibility.Hidden;
         dismiss.Margin = new Thickness(10, 0, 0, 0);
         var row = WallDetail.ListRow(icon, text, CardKit.Row(0, time, dismiss), 36);
@@ -280,7 +303,7 @@ public partial class ExpandedView
             {
                 menu("Open", () => NotificationOpened?.Invoke(n));
                 menu("Remind me in 1 hour", () => NotificationRemindRequested?.Invoke(n));
-                menu("Dismiss", () => _s?.Notifications.History.Remove(n));
+                menu("Dismiss", () => _s?.Notifications.Dismiss(n));
             });
             e.Handled = true;
         };

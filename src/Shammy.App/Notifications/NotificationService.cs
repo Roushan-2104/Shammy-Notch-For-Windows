@@ -337,7 +337,28 @@ internal sealed class NotificationService : IDisposable
         while (History.Count > HistoryLimit) History.RemoveAt(History.Count - 1);
     }
 
-    public void ClearHistory() => History.Clear();
+    /// <summary>You dismissed these (one, or everything with Clear all); a list trimmed to its length doesn't count.</summary>
+    public event Action<IReadOnlyList<ShammyNotification>>? Dismissed;
+
+    /// <summary>You dismissed one notification (the Alerts list's × or Dismiss).</summary>
+    public void Dismiss(ShammyNotification n)
+    {
+        if (History.Remove(n)) Dismissed?.Invoke([n]);
+    }
+
+    public void ClearHistory()
+    {
+        var all = History.ToList();
+        History.Clear();
+        if (all.Count > 0) Dismissed?.Invoke(all);
+    }
+
+    /// <summary>Takes a toast out of Windows' notification centre as well (it was dismissed on the phone).</summary>
+    public void RemoveFromWindows(uint id)
+    {
+        try { _listener?.RemoveNotification(id); }
+        catch (Exception ex) { Log.Warn("Removing a notification from Windows failed", ex); }
+    }
 
     /// <summary>Test pipe: a made-up toast through the same path as a real one (history, then pop-up).</summary>
     internal void InjectForTest(ShammyNotification n)
