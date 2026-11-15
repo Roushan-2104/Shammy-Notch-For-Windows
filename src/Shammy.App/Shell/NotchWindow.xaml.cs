@@ -655,11 +655,11 @@ public partial class NotchWindow : Window
     static Color Red => Ui.Tokens.Alarm.Color;
 
     /// <summary>Keep the edge lit in a module's colour (e.g. a finished timer); null releases it.</summary>
-    internal void SetGlow(Color? color)
+    internal void SetGlow(Color? color, bool cheer = true)
     {
         _moduleGlow = color;
         // A module holds the edge lit for something you asked to be told about (a finished timer or alarm).
-        _restView.Mood.SetTimerDone(color is not null);
+        _restView.Mood.SetTimerDone(color is not null && cheer);
         UpdateEdgeHold();
     }
 

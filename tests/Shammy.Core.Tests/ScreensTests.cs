@@ -36,7 +36,11 @@ public class ScreensTests
     public void TemperatureFromGlance(string? glance, string? expected) => Assert.Equal(expected, AlarmText.Temperature(glance));
 
     [Fact]
-    public void RingDate() => Assert.Equal("Alarm · Thu 5 Nov", AlarmText.RingDate(new DateTime(2026, 11, 5, 7, 0, 0)));
+    public void RingDate()
+    {
+        Assert.Equal("Alarm · Thu 5 Nov", AlarmText.RingDate(new DateTime(2026, 11, 5, 7, 0, 0)));
+        Assert.Equal("Wake up · Thu 5 Nov", AlarmText.RingDate(new DateTime(2026, 11, 5, 7, 0, 0), "Wake up"));
+    }
 
     [Fact]
     public void WeekIsMondayFirstAndCoversEveryDay()

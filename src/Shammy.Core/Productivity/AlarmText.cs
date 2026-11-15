@@ -107,8 +107,13 @@ public static class AlarmText
         return (number.TrimStart('-', '−').Length > 0 && number.TrimStart('-', '−').All(char.IsAsciiDigit)) ? number + "°" : null;
     }
 
-    /// <summary>The ringing screen's header: "Alarm · Thu 5 Nov".</summary>
-    public static string RingDate(DateTime nowLocal) => "Alarm · " + nowLocal.ToString("ddd d MMM", Invariant);
+    /// <summary>The place after a weather glance's temperature ("24° Bhubaneswar" → "Bhubaneswar"), or "".</summary>
+    public static string Place(string? weatherGlance) =>
+        Temperature(weatherGlance) is null ? "" : weatherGlance!.Trim()[(weatherGlance.Trim().IndexOf('°') + 1)..].Trim();
+
+    /// <summary>The ringing screen's header: "Wake up · Thu 5 Nov" ("Alarm · Thu 5 Nov" without a label).</summary>
+    public static string RingDate(DateTime nowLocal, string label = "") =>
+        $"{(label.Length > 0 ? label : "Alarm")} · {nowLocal.ToString("ddd d MMM", Invariant)}";
 
     /// <summary>The days row's spoken name for a day toggle ("Monday"), in the design's Monday-first order.</summary>
     public static readonly IReadOnlyList<(AlarmDays Day, string Letter, string Name)> Week = new[]

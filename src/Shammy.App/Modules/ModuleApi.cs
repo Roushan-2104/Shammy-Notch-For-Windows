@@ -254,7 +254,8 @@ internal sealed class ModuleContext
     public Task SearchImageAsync(byte[] png) => _registry.SearchImage?.Invoke(png) ?? Task.CompletedTask;
 
     /// <summary>Keep the notch's edge lit in a colour while a state lasts; null removes it.</summary>
-    public void SetGlow(Color? color) => Notch.SetGlow(color);
+    /// <param name="cheer">False for a glow that isn't news (the island warming before an alarm): the pet stays as it is.</param>
+    public void SetGlow(Color? color, bool cheer = true) => Notch.SetGlow(color, cheer);
 
     /// <summary>Briefly light the notch's edge in a colour (an event, not a state).</summary>
     public void FlashEdge(Color color) => Notch.FlashEdge(color);

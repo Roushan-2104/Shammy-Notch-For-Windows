@@ -270,6 +270,21 @@ internal sealed class ActivityChrome
         else spring.AnimateTo(0, 0.3, 1);
     }
 
+    /// <summary>A finished timer's disc: the alarms' dawn sun (its colours in AlarmSkyLook), lit from just above its middle.</summary>
+    static readonly Brush SunDisc = Sun();
+
+    static Brush Sun()
+    {
+        var sun = new RadialGradientBrush
+        {
+            GradientOrigin = new Point(0.5, 0.38),
+            Center = new Point(0.5, 0.38),
+            GradientStops = { new(Color.FromRgb(0xFF, 0xF6, 0xE6), 0), new(Color.FromRgb(0xFF, 0xA8, 0x60), 1) },
+        };
+        sun.Freeze();
+        return sun;
+    }
+
     void ApplyCircle(CircleSpec spec, PetLive owner)
     {
         var accent = Ui.Tokens.Res("WallAccent");
@@ -277,6 +292,7 @@ internal sealed class ActivityChrome
         {
             CircleTone.Accent => accent,
             CircleTone.Red => Ui.Tokens.Frozen(RecRed),
+            CircleTone.Sun => SunDisc,
             _ => Brushes.Transparent,
         };
         _circle.Cursor = spec.Enabled ? Cursors.Hand : null;
@@ -284,8 +300,9 @@ internal sealed class ActivityChrome
         AutomationProperties.SetName(_circle, $"{spec.Description}, {Describe(owner)}");
         _circle.ToolTip = spec.Description;
 
-        // Dark marks on the accent disc, light ones elsewhere.
+        // Dark marks on the accent disc and the sun, light ones elsewhere.
         var onAccent = Ui.Tokens.Frozen(Ground);
+        bool dark = spec.Tone is CircleTone.Accent or CircleTone.Sun;
         _ring = null;
         _icon.Content = spec.Action switch
         {
@@ -294,13 +311,13 @@ internal sealed class ActivityChrome
             CircleAction.Pause => Icon(12, FillPath("M 6.5,4 H 8.5 A 1.5,1.5 0 0 1 10,5.5 V 18.5 A 1.5,1.5 0 0 1 8.5,20 H 6.5 A 1.5,1.5 0 0 1 5,18.5 V 5.5 A 1.5,1.5 0 0 1 6.5,4 Z M 15.5,4 H 17.5 A 1.5,1.5 0 0 1 19,5.5 V 18.5 A 1.5,1.5 0 0 1 17.5,20 H 15.5 A 1.5,1.5 0 0 1 14,18.5 V 5.5 A 1.5,1.5 0 0 1 15.5,4 Z", Ui.Tokens.Frozen(Ink))),
             CircleAction.Play or CircleAction.Resume => Icon(12, FillPath("M 7,4.5 V 19.5 A 1,1 0 0 0 8.5,20.36 L 20.5,12.86 A 1,1 0 0 0 20.5,11.14 L 8.5,3.64 A 1,1 0 0 0 7,4.5 Z", Ui.Tokens.Frozen(Ink))),
             CircleAction.Stop => Icon(12, new Rectangle { Width = 16, Height = 16, RadiusX = 4, RadiusY = 4, Fill = spec.Tone == CircleTone.Red ? Brushes.White : Ui.Tokens.Frozen(RecRed), Margin = new Thickness(4) }),
-            CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
-            CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.8)),
+            CircleAction.Open => Icon(14, Stroke("M 7,17 L 17,7 M 9,7 H 17 V 15", dark ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            CircleAction.Dismiss => Icon(14, Stroke("M 5,12.5 L 9.5,17 L 19,7.5", dark ? onAccent : Ui.Tokens.Frozen(Ink), 2.8)),
             CircleAction.OpenWhenDone => DownloadWait(owner.State.Progress ?? 0),
-            CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            CircleAction.Skip => Icon(14, Stroke("M 6.5,6.5 L 17.5,17.5 M 17.5,6.5 L 6.5,17.5", dark ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
             // Two overlapping sheets: copy.
-            CircleAction.Copy => Icon(14, Stroke("M 9,9 H 18 A 1.5,1.5 0 0 1 19.5,10.5 V 19 A 1.5,1.5 0 0 1 18,20.5 H 10.5 A 1.5,1.5 0 0 1 9,19 Z M 15,9 V 6 A 1.5,1.5 0 0 0 13.5,4.5 H 6 A 1.5,1.5 0 0 0 4.5,6 V 13.5 A 1.5,1.5 0 0 0 6,15 H 9", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.2)),
-            CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", spec.Tone == CircleTone.Accent ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
+            CircleAction.Copy => Icon(14, Stroke("M 9,9 H 18 A 1.5,1.5 0 0 1 19.5,10.5 V 19 A 1.5,1.5 0 0 1 18,20.5 H 10.5 A 1.5,1.5 0 0 1 9,19 Z M 15,9 V 6 A 1.5,1.5 0 0 0 13.5,4.5 H 6 A 1.5,1.5 0 0 0 4.5,6 V 13.5 A 1.5,1.5 0 0 0 6,15 H 9", dark ? onAccent : Ui.Tokens.Frozen(Ink), 2.2)),
+            CircleAction.Restart => Icon(14, Stroke("M 19,12 A 7,7 0 1 1 16.8,6.9 M 17.5,3 V 7.5 H 13", dark ? onAccent : Ui.Tokens.Frozen(Ink), 2.6)),
             _ => null,
         };
     }

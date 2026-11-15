@@ -41,6 +41,8 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
     StoppedPill? _stoppedPill;
     Alarm? _ringing;
     bool _relevant;
+    // The pre-glow's colour while the island warms before an alarm (set only when it changes: the glow slot is shared).
+    Color? _preGlow;
     bool _disposed;
 
     public AlarmController(ModuleContext ctx, Func<ProductivityStore> store, Action save)
@@ -88,6 +90,24 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
             return State();
         });
         _ctx.AddPipeCommand("alarm-ring-now", PipeRingNow);
+        // Design checks: the ringing card in the sky of any hour (nothing rings or sounds), and the morning card.
+        _ctx.AddPipeCommand("alarm-sky-test", arg =>
+        {
+            if (arg.Trim() == "off")
+            {
+                _ctx.CloseCard();
+                return "ok";
+            }
+            if (!int.TryParse(arg.Trim(), out var hour) || hour is < 0 or > 23) return "error: usage alarm-sky-test <hour 0-23>|off";
+            var fake = new Alarm { Hour = hour, Minute = 30, Label = "Wake up", RingingSinceUtc = DateTime.UtcNow - AlarmSky.RiseTime };
+            _ctx.ShowCard(new AlarmRingView(fake, DefaultSnoozeMinutes, () => _ctx.CloseCard(), _ => _ctx.CloseCard()), AlarmRingView.CardWidth, AlarmRingView.CardHeight);
+            return $"ok sky={AlarmSky.At(hour)}";
+        });
+        _ctx.AddPipeCommand("alarm-morning-now", _ =>
+        {
+            ShowMorning();
+            return "ok";
+        });
         _ctx.AddPipeCommand("alarm-stop", _ => _ringing is null ? "error: nothing ringing" : Do(Stop));
         _ctx.AddPipeCommand("alarm-snooze", arg =>
         {
@@ -175,12 +195,28 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         Refresh();
         if (_disposed) return;
         var now = DateTime.UtcNow;
+        var waiting = List.Where(a => !a.IsRinging && !a.IsSnoozed).Select(a => (Alarm: a, At: AlarmSchedule.UpcomingUtc(a, now, TimeZoneInfo.Local))).ToList();
+        PreGlow(waiting, now);
         if (AlarmSchedule.NextWakeUtc(List, now, TimeZoneInfo.Local) is not { } next) return;
         var wait = next - now;
         // A second alarm due while one rings waits its turn: look again every couple of seconds, not in a tight loop.
         var min = _ringing is null ? TimeSpan.FromMilliseconds(200) : TimeSpan.FromSeconds(2);
         _wake.Interval = wait < min ? min : wait > MaxWait ? MaxWait : wait;
         _wake.Start();
+    }
+
+    /// <summary>
+    /// Light before sound: for the two minutes before an alarm the resting island's edge warms in that alarm's sky
+    /// (without the pet's "done" cheer). Not with Calm motion, and not while another alarm rings. The schedule wakes at
+    /// least every 30 s, so it starts within half a minute of the two.
+    /// </summary>
+    void PreGlow(List<(Alarm Alarm, DateTime? At)> waiting, DateTime now)
+    {
+        var soon = _ringing is null && !Views.Screens.ScreenKit.ReducedMotion ? AlarmSky.Glowing(waiting.Select(w => w.At), now) : null;
+        Color? glow = soon is { } at ? AlarmSkyLook.For(waiting.First(w => w.At == at).Alarm).Glow : null;
+        if (glow == _preGlow) return;
+        _preGlow = glow;
+        if (glow is not null || _ringing is null) _ctx.SetGlow(glow, cheer: false);
     }
 
     public DateTime? UpcomingLocal(Alarm a) =>
@@ -192,8 +228,9 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
     {
         _ringing = a;
         _sound.Start(_ctx.Settings.NotchSoundVolume, _ctx.Settings.AlarmGentleWake);
-        // The ring around the notch is the wall's accent, like the pulsing ring on the ringing screen.
-        _ctx.SetGlow(Ui.Tokens.Accent.Color);
+        // The ring around the notch is the light of the sky it rings in.
+        _preGlow = null;
+        _ctx.SetGlow(AlarmSkyLook.For(a).Glow);
         _ctx.Remove(StoppedId);
         SyncSnoozedPill();
         // If the card gets covered (a search, another card), the pill brings it back.
@@ -256,10 +293,34 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         StopRinging();
         _save();
         Schedule();
-        ShowStopped();
+        if (Morning(a)) ShowMorning();
+        else ShowStopped();
     }
 
-    /// <summary>The pet stretches and waves beside "Morning · 24°" (the weather glance's temperature, else the time).</summary>
+    /// <summary>A dawn alarm, still in the morning (one missed through a long sleep doesn't say good morning at 3 PM).</summary>
+    static bool Morning(Alarm a) => AlarmSky.At(a.Hour) == Sky.Dawn && MorningBrief.IsMorning(DateTime.Now);
+
+    /// <summary>A dawn alarm's morning: the date, the first event, today's reminders and the weather, for a few seconds.</summary>
+    void ShowMorning()
+    {
+        var now = DateTime.Now;
+        var first = Calendar.CalendarModule.Agenda.Where(o => !o.AllDay && o.Start.Date == now.Date && o.Start >= now).OrderBy(o => o.Start).FirstOrDefault();
+        int reminders = Connect.Links.Notes?.Reminders.Count(r => !r.Done && r.Due.Date == now.Date) ?? 0;
+        var card = new MorningCard(now, HostLinks.WeatherGlance(), first is null ? null : (first.Start, first.Title), reminders);
+        void Close() => _ctx.Ui.BeginInvoke(() =>
+        {
+            PrivacyState.Changed -= Shared;
+            if (ReferenceEquals(_ctx.Notch.OpenCardContent, card)) _ctx.CloseCard();
+        });
+        // A screen share starting while it shows: the event's title goes with the card.
+        void Shared(bool presenting) => Close();
+        PrivacyState.Changed += Shared;
+        card.MouseLeftButtonUp += (_, _) => Close();
+        _ctx.ShowCard(card, MorningCard.CardWidth, MorningCard.CardHeight);
+        UiDelay.After(TimeSpan.FromSeconds(12), Close);
+    }
+
+    /// <summary>The pet stretches and waves beside "Evening · 24°" (the weather glance's temperature, else the time).</summary>
     void ShowStopped()
     {
         var now = DateTime.Now;
@@ -288,7 +349,7 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
             return;
         }
         if (_snoozedPill?.Alarm == snoozed && _ctx.Get(SnoozedId) is not null) return;
-        _snoozedPill = new SnoozedPill(snoozed, () => TurnOffSnoozed(snoozed));
+        _snoozedPill = new SnoozedPill(snoozed, AlarmSchedule.SnoozeLength(snoozed, DefaultSnoozeMinutes), () => TurnOffSnoozed(snoozed));
         _ctx.Post(new Activity(SnoozedId, ActivityKind.Custom, SnoozedPriority, _snoozedPill) { Click = ShowList });
     }
 
@@ -358,11 +419,23 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
 
     void ShowMissed(Alarm a)
     {
-        _ctx.Post(new Activity(MissedId, ActivityKind.Message, MissedPriority, new MessagePayload(Glyph, AlarmText.Missed(a), true),
-            DateTime.UtcNow.AddSeconds(15))
+        _ctx.Post(new Activity(MissedId, ActivityKind.Custom, MissedPriority, new MissedPill(a), DateTime.UtcNow.AddSeconds(15))
         {
-            Click = ShowList,
+            // A missed morning alarm opens the morning it was meant for; any other opens Alarms.
+            Click = () =>
+            {
+                if (!Morning(a))
+                {
+                    ShowList();
+                    return;
+                }
+                ClearMissed();
+                Refresh();
+                ShowMorning();
+            },
         });
+        _ctx.FlashEdge(AlarmSkyLook.For(a).Glow);
+        Ui.A11y.Announce(AlarmText.Missed(a));
         NotchSound.Play(Shammy.Core.Audio.PingKind.Alert);
         _ctx.Info($"Alarm missed: {AlarmText.Time(a)}");
     }
@@ -399,11 +472,17 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
 
     void ShowList()
     {
+        ClearMissed();
+        _ctx.OpenCard("alarms");
+        Refresh();
+    }
+
+    /// <summary>The missed alarm has been seen.</summary>
+    void ClearMissed()
+    {
         foreach (var a in List) a.MissedUtc = null;
         _ctx.Remove(MissedId);
-        _ctx.OpenCard("alarms");
         _save();
-        Refresh();
     }
 
     FrameworkElement OpenDetail()
@@ -411,9 +490,7 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         // Looking at the list is seeing the missed alarm.
         if (List.Any(a => a.MissedUtc is not null))
         {
-            foreach (var a in List) a.MissedUtc = null;
-            _ctx.Remove(MissedId);
-            _save();
+            ClearMissed();
             _ctx.Ui.BeginInvoke(Refresh);
         }
         return _card.BuildDetail();
@@ -616,9 +693,10 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         string label = arg.Trim();
         if (parts.Length > 0 && parts[0] == "late")
         {
-            if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out late) || late is < 0 or > 600)
-                return "error: usage alarm-ring-now late <minutes>";
-            label = $"Test ({late} min late)";
+            // A negative lateness is an alarm due that many minutes from now (the island glows before it).
+            if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out late) || late is < -10 or > 600)
+                return "error: usage alarm-ring-now late <minutes, -10 to 600>";
+            label = late < 0 ? $"Test (in {-late} min)" : $"Test ({late} min late)";
         }
         var due = DateTime.Now.AddMinutes(-late);
         var alarm = new Alarm
@@ -651,7 +729,8 @@ internal sealed class AlarmController : IAlarmHost, IDisposable
         }
         return $"alarms={List.Count} ringing={(_ringing is { } r ? AlarmText.Time(r, use24Hour: true) : "-")} sound={_sound.IsPlaying} " +
                $"card={(_ringCard?.IsVisible == true ? "shown" : _ringCard is null ? "-" : "hidden")} " +
-               $"pill={(_ctx.Get(SnoozedId) is not null ? _snoozedPill?.Describe() : _ctx.Get(StoppedId) is not null ? _stoppedPill?.Describe() : "-")} " +
+               $"pill={(_ctx.Get(SnoozedId) is not null ? _snoozedPill?.Describe() : _ctx.Get(StoppedId) is not null ? _stoppedPill?.Describe() : _ctx.Get(MissedId)?.Payload is MissedPill m ? m.Describe() : "-")} " +
+               $"sky={(_ringing is { } sr ? AlarmSky.At(sr.Hour).ToString() : "-")} preglow={_preGlow is not null} morning={(_ctx.Notch.OpenCardContent is MorningCard ? "shown" : "-")} " +
                $"snooze={DefaultSnoozeMinutes} gentle={GentleWake} breaks={BreaksFullscreen} " +
                $"wake={(_wake.IsEnabled ? $"{_wake.Interval.TotalSeconds:0.#}s" : "off")} now={now:HH:mm:ss} " +
                string.Join(" ", List.Select(Describe));

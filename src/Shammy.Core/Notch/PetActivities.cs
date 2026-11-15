@@ -53,7 +53,8 @@ public enum CircleAction { Mute, Unmute, Pause, Play, Resume, Dismiss, Stop, Ope
 /// How the circle is coloured. Accent only when its action is the primary "Open/Dismiss" (the one thing to do);
 /// toggles like mute and pause stay neutral; a muted microphone is red so it reads at a glance.
 /// </summary>
-public enum CircleTone { Neutral, Accent, Red }
+/// <summary>Sun: a lit sun disc, the done mark of a finished timer (the alarms' sunrise).</summary>
+public enum CircleTone { Neutral, Accent, Red, Sun }
 
 /// <param name="Enabled">False while it only shows progress (a download's Open before it finishes).</param>
 /// <param name="Description">What clicking it does, for the tooltip and the screen reader.</param>
@@ -140,7 +141,7 @@ public static class PetActivities
             ? new CircleSpec(CircleAction.Pause, CircleTone.Neutral, true, "Pause")
             : new CircleSpec(CircleAction.Play, CircleTone.Neutral, true, "Play"),
         PetCostume.Timer => s.Done
-            ? new CircleSpec(CircleAction.Dismiss, CircleTone.Accent, true, "Dismiss")
+            ? new CircleSpec(CircleAction.Dismiss, CircleTone.Sun, true, "Dismiss")
             : s.Paused
                 ? new CircleSpec(CircleAction.Resume, CircleTone.Neutral, true, "Resume timer")
                 : new CircleSpec(CircleAction.Pause, CircleTone.Neutral, true, "Pause timer"),

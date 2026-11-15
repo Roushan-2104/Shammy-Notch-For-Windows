@@ -41,7 +41,7 @@ public class PetActivitiesTests
         Assert.Equal((CircleAction.Play, CircleTone.Neutral), Pair(S("m", PetCostume.Music)));
         Assert.Equal((CircleAction.Pause, CircleTone.Neutral), Pair(S("t", PetCostume.Timer)));
         Assert.Equal((CircleAction.Resume, CircleTone.Neutral), Pair(S("t", PetCostume.Timer) with { Paused = true }));
-        Assert.Equal((CircleAction.Dismiss, CircleTone.Accent), Pair(S("t", PetCostume.Timer) with { Done = true }));
+        Assert.Equal((CircleAction.Dismiss, CircleTone.Sun), Pair(S("t", PetCostume.Timer) with { Done = true }));
         Assert.Equal((CircleAction.Stop, CircleTone.Neutral), Pair(S("r", PetCostume.Recording) with { CanStop = true, CanOpen = true }));
         Assert.Equal((CircleAction.Open, CircleTone.Accent), Pair(S("r", PetCostume.Recording) with { CanOpen = true }));
         Assert.Equal((CircleAction.Open, CircleTone.Accent), Pair(S("d", PetCostume.Download) with { Done = true, CanOpen = true }));
