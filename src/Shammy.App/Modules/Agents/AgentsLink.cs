@@ -21,4 +21,15 @@ internal static class AgentsLink
     public static event Action? Changed;
 
     public static void RaiseChanged() => Changed?.Invoke();
+
+    /// <summary>The request waiting for an OK now (for the phone's notch): where, what it wants, the command; null when none.</summary>
+    public static Func<(string Where, string Wants, string Detail)?>? Waiting { get; set; }
+
+    /// <summary>Answers that request exactly as the card's Allow (true) or Deny would; returns what the hook prints.</summary>
+    public static Func<bool, string>? Answer { get; set; }
+
+    /// <summary>The waiting request may have changed (a new one, answered, timed out).</summary>
+    public static event Action? AskChanged;
+
+    public static void RaiseAskChanged() => AskChanged?.Invoke();
 }

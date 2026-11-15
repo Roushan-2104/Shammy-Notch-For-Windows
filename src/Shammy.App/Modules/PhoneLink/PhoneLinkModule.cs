@@ -18,9 +18,10 @@ namespace Shammy.Modules.PhoneLink;
 /// show the same 6 digits, and the user confirms on both. Nothing listens on the network unless a phone is paired or
 /// the window is open. Shared-file workaround: phone notifications enter through NotificationService.InjectForTest,
 /// the only way in for a module.
+/// The phone is also a remote for this laptop: see PhoneLinkModule.Remote.cs.
 /// Pipes: phonelink-state, phonelink-pair, phonelink-reply "text".
 /// </summary>
-internal sealed class PhoneLinkModule : IShammyModule
+internal sealed partial class PhoneLinkModule : IShammyModule
 {
     static readonly TimeSpan PairWindow = TimeSpan.FromMinutes(2), PairConfirm = TimeSpan.FromSeconds(60),
         HandshakeLimit = TimeSpan.FromSeconds(10), PingEvery = TimeSpan.FromSeconds(30), Silence = TimeSpan.FromSeconds(95);
@@ -71,12 +72,14 @@ internal sealed class PhoneLinkModule : IShammyModule
             return "pairing window open";
         });
         ctx.AddPipeCommand("phonelink-reply", text => Reply(text) is { } who ? $"replied to {who}" : "error: nothing to reply to");
+        StartRemote();
         if (_store.Phone is not null) Listen();
     }
 
     public void Dispose()
     {
         _ctx.Services.Notifications.Arrived -= OnLaptopNotification;
+        StopRemote();
         StopListening();
         _identity.Dispose();
     }
@@ -339,6 +342,7 @@ internal sealed class PhoneLinkModule : IShammyModule
             _live?.Dispose();
             _live = s;
             _ctx.Info("Phone connected");
+            OnConnected();
         });
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _ = PingAsync(s, stop.Token);
@@ -363,7 +367,15 @@ internal sealed class PhoneLinkModule : IShammyModule
                         var key = LinkSession.Text(m, "key");
                         _ = _ctx.Ui.BeginInvoke(() => DropPhoneNotification(key));
                         break;
-                    // "pong", "answer" (no laptop moments with choices yet) and anything newer: ignored (§5).
+                    case "answer":
+                        var (id, choice) = (LinkSession.Text(m, "id"), LinkSession.Text(m, "choice"));
+                        _ = _ctx.Ui.BeginInvoke(() => Answer(id, choice));
+                        break;
+                    case "do":
+                        var what = LinkSession.Text(m, "what");
+                        _ = _ctx.Ui.BeginInvoke(() => Do(what));
+                        break;
+                    // "pong" and anything newer: ignored (§5).
                 }
             }
         }
@@ -372,7 +384,9 @@ internal sealed class PhoneLinkModule : IShammyModule
             stop.Cancel();
             _ = _ctx.Ui.BeginInvoke(() =>
             {
-                if (ReferenceEquals(_live, s)) _live = null;
+                if (!ReferenceEquals(_live, s)) return;
+                _live = null;
+                OnDisconnected();
             });
         }
     }

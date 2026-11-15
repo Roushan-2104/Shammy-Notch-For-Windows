@@ -105,6 +105,11 @@ internal sealed class AgentsModule : IShammyModule
             _sessions.RestoreSeen(day, _store.SeenIds);
 
         _card = new ApprovalCard(() => AnswerCard(true), () => AnswerCard(false));
+        // the phone link answers from the phone's notch through the same path as the card's buttons
+        AgentsLink.Waiting = () => _asks.Count > 0
+            ? (AgentText.CardLabel(_asks[0].Request.Cwd), AgentText.Wants(_asks[0].Request.ToolName), AgentText.Detail(_asks[0].Request))
+            : null;
+        AgentsLink.Answer = AnswerCard;
         _tick.Tick += (_, _) => Tick();
 
         ctx.AddPipeCommand("agents-state", _ => State());
@@ -168,6 +173,8 @@ internal sealed class AgentsModule : IShammyModule
         _tick.Stop();
         AgentsLink.View = null;
         AgentsLink.Press = null;
+        AgentsLink.Waiting = null;
+        AgentsLink.Answer = null;
         if (_ctx is not null) _ctx.Settings.Changed -= OnSettingChanged;
         foreach (var ask in _asks) ask.Answer.TrySetResult(AgentText.NoDecision);
         _asks.Clear();
@@ -453,6 +460,7 @@ internal sealed class AgentsModule : IShammyModule
     /// </summary>
     void ShowCardIfNeeded()
     {
+        AgentsLink.RaiseAskChanged();
         if (_asks.Count == 0)
         {
             if (_cardUp && _card.Parent is not null) _ctx.CloseCard();
