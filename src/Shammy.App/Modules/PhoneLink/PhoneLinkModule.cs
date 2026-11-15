@@ -19,7 +19,7 @@ namespace Shammy.Modules.PhoneLink;
 /// the window is open. Shared-file workaround: phone notifications enter through NotificationService.InjectForTest,
 /// the only way in for a module.
 /// The phone is also a remote for this laptop: see PhoneLinkModule.Remote.cs.
-/// Pipes: phonelink-state, phonelink-pair, phonelink-reply "text".
+/// Pipes: phonelink-state, phonelink-pair, phonelink-reply "text", phonelink-beacon.
 /// </summary>
 internal sealed partial class PhoneLinkModule : IShammyModule
 {
@@ -71,6 +71,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             OpenPairing();
             return "pairing window open";
         });
+        ctx.AddPipeCommand("phonelink-beacon", _ => { Beacon(); return _beacon is { } b ? $"beacon {b.Status}" : "error: no beacon"; });
         ctx.AddPipeCommand("phonelink-reply", text => Reply(text) is { } who ? $"replied to {who}" : "error: nothing to reply to");
         StartRemote();
         if (_store.Phone is not null) Listen();
@@ -80,6 +81,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
     {
         _ctx.Services.Notifications.Arrived -= OnLaptopNotification;
         StopRemote();
+        StopBeacon();
         StopListening();
         _identity.Dispose();
     }
@@ -370,6 +372,9 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "answer":
                         var (id, choice) = (LinkSession.Text(m, "id"), LinkSession.Text(m, "choice"));
                         _ = _ctx.Ui.BeginInvoke(() => Answer(id, choice));
+                        break;
+                    case "beacon":
+                        _ = _ctx.Ui.BeginInvoke(Beacon);
                         break;
                     case "do":
                         var what = LinkSession.Text(m, "what");
