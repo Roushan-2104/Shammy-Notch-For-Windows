@@ -286,7 +286,7 @@ internal sealed class CirclesCard
                 _shown = 0;
                 string text = all.Count == 0
                     ? _host.Paused ? "Resume it from ⋯ to remember what you circle."
-                        : "Circle anything with Copilot or Right Ctrl; it’s kept here, found in your own words."
+                        : "Circle anything with Copilot or Right Ctrl; it’s kept on this PC for 30 days, found in your own words."
                     : words.Length > 0 ? $"No circle matches “{words}”."
                     : "No circles of this kind yet.";
                 var empty = Sheet.Meta(text, 13);
