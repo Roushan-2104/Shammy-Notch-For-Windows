@@ -136,6 +136,7 @@ internal sealed class CalendarModule : IShammyModule, Connect.ICalendarLink
     DateTime? Connect.ICalendarLink.FetchedAt => FetchedAt;
     void Connect.ICalendarLink.OpenSetup() => OpenSetup();
     void Connect.ICalendarLink.Disconnect() => Disconnect();
+    void Connect.ICalendarLink.Join(CalendarOccurrence o) => Join(o);
 
     public void Dispose()
     {
@@ -222,11 +223,10 @@ internal sealed class CalendarModule : IShammyModule, Connect.ICalendarLink
         }
     }
 
-    /// <summary>The window the card needs: this week (from Monday) through the next 14 days.</summary>
+    /// <summary>The days kept (see <see cref="CalendarAgenda.FetchWindow"/>): the card's two weeks, the wing's two months.</summary>
     static List<CalendarOccurrence> Expand(string ics, DateTime now)
     {
-        var from = CalendarAgenda.Week(now)[0];
-        var to = now.Date.AddDays(15);
+        var (from, to) = CalendarAgenda.FetchWindow(now);
         var local = TimeZoneInfo.Local;
         return CalendarExpander.Expand(IcsParser.Parse(ics), TimeZoneInfo.ConvertTimeToUtc(from, local),
             TimeZoneInfo.ConvertTimeToUtc(to, local), local);

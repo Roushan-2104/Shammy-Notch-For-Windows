@@ -40,6 +40,7 @@ public partial class ExpandedView : UserControl
     {
         InitializeComponent();
         _nowPlaying = BuildNowPlaying();
+        DateRow.Children.Insert(0, HeaderClock);
 
         IsVisibleChanged += (_, _) =>
         {
@@ -428,6 +429,29 @@ public partial class ExpandedView : UserControl
     void OnGuideClicked(object sender, MouseButtonEventArgs e) => OpenView("guide");
 
     void OnSettingsClicked(object sender, MouseButtonEventArgs e) => OpenView("settings");
+
+    /// <summary>The time and date in the top row, always (it ticks only while the island is open).</summary>
+    internal IslandClock HeaderClock { get; } = new(15, showDate: true);
+
+    /// <summary>The header's date was clicked: the window pours the calendar out to the right (or folds it back).</summary>
+    public event Action? DateClicked;
+
+    void OnDateClicked(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        DateClicked?.Invoke();
+    }
+
+    /// <summary>Lights the date while the calendar is out, its caret turned to point back in.</summary>
+    public void SetCalendarOpen(bool open)
+    {
+        var accent = Theme.AccentTheme.Brush.Color;
+        // Closing clears the local value, so the hover style applies again.
+        if (open) DateButton.Background = new SolidColorBrush(Color.FromArgb(0x33, accent.R, accent.G, accent.B));
+        else DateButton.ClearValue(Border.BackgroundProperty);
+        DateCaret.RenderTransform = open ? new RotateTransform(180) : null;
+        DateCaret.Foreground = open ? CardKit.Accent : Ui.Tokens.Res("WallText2");
+    }
 
     /// <summary>Test pipe: every card's id, in order.</summary>
     internal string CardIdsForTest() => string.Join(",", _cards.Select(c => c.Id));

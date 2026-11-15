@@ -178,6 +178,7 @@ public partial class NotchWindow : Window
         };
         // Leaving the view (Back, Esc, another chip) drops the text box; once focus has settled, see if typing is over.
         Expanded.ViewChanged += () => Dispatcher.BeginInvoke(CheckDetailTyping, DispatcherPriority.Background);
+        InitCalendarWing();
         Expanded.ShelfDragging += dragging =>
         {
             _holdOpen += dragging ? 1 : -1;

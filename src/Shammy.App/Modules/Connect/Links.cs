@@ -44,6 +44,9 @@ internal interface ICalendarLink
     /// <summary>Opens the paste-your-address card.</summary>
     void OpenSetup();
 
+    /// <summary>Opens a meeting's call link (Meet, Zoom, Teams only).</summary>
+    void Join(Shammy.Core.Calendar.CalendarOccurrence o);
+
     void Disconnect();
 }
 

@@ -10,12 +10,17 @@ namespace Shammy.Views;
 
 /// <summary>
 /// The compact notch: content lives in the two "ears" either side of the centre, with the middle kept
-/// black like the real cut-out. Each activity kind decides its own pill width.
+/// black like the real cut-out, and the time at the right end. Each activity kind decides its own pill width.
 /// </summary>
 internal sealed class CompactView : Grid
 {
     const double EarPadding = 13;
     const double CenterGap = 120;
+
+    /// <summary>The time at the right end.</summary>
+    const double ClockRoom = 64;
+
+    readonly IslandClock _clock = new() { HorizontalAlignment = HorizontalAlignment.Right };
 
     readonly ContentControl _left = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     readonly ContentControl _right = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
@@ -32,9 +37,11 @@ internal sealed class CompactView : Grid
     {
         Height = 32;
         _left.Margin = new Thickness(EarPadding, 0, 0, 0);
-        _right.Margin = new Thickness(0, 0, EarPadding, 0);
+        _right.Margin = new Thickness(0, 0, EarPadding + ClockRoom, 0);
+        _clock.Margin = new Thickness(0, 0, EarPadding, 0);
         Children.Add(_left);
         Children.Add(_right);
+        Children.Add(_clock);
         Background = Brushes.Transparent;
         MouseLeftButtonUp += (_, _) => _shown?.Click?.Invoke();
     }
@@ -66,7 +73,7 @@ internal sealed class CompactView : Grid
             ActivityKind.Custom when a.Payload is Modules.ICompactContent custom => custom.Build(_left, _right),
             _ => BuildMessage((MessagePayload)a.Payload!),
         };
-        Width = CenterGap + 2 * (earWidth + EarPadding);
+        Width = CenterGap + 2 * (earWidth + EarPadding) + ClockRoom;
         return Width;
     }
 

@@ -12,17 +12,21 @@ namespace Shammy.Views;
 
 /// <summary>
 /// The compact notch while something is live (the Activities board): the pet stays in the middle wearing the
-/// activity's costume, a short label on the left and the value on the right ("STANDUP · 12:41"). With the pet
+/// activity's costume, a short label on the left, the value on the right ("STANDUP · 12:41") and the time at the
+/// right end, always. With the pet
 /// turned off it's the same pill with an empty middle, like the real cut-out. The action circle beside the notch
 /// is drawn by the window (see Shell.ActivityChrome).
 /// </summary>
 internal sealed class ActivityView : Grid
 {
-    public const double ViewWidth = 300, ViewHeight = 38, Radius = 19;
+    public const double ViewWidth = 380, ViewHeight = 38, Radius = 19;
 
     /// <summary>With a line under the row (a lyric).</summary>
     public const double TallHeight = 62, TallRadius = 22;
     const double Padding = 14;
+
+    /// <summary>The time and the hairline before it, at the right end.</summary>
+    const double ClockRoom = 76;
 
     readonly ShammyServices _services;
     readonly StackPanel _left = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
@@ -85,6 +89,8 @@ internal sealed class ActivityView : Grid
         _right.Margin = new Thickness(4, 0, Padding, 0);
         _right.Children.Add(_marker);
         _right.Children.Add(_value);
+        _right.Children.Add(new System.Windows.Shapes.Rectangle { Width = 1, Height = 16, Fill = Ui.Tokens.Res("WallHairline"), Margin = new Thickness(10, 0, 9, 0), VerticalAlignment = VerticalAlignment.Center });
+        _right.Children.Add(Clock);
         Children.Add(_left);
         // Music's eq bars move with the pet's sway bursts and hold still between them (see ActivityPet.Burst).
         _burstEnd = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background);
@@ -110,6 +116,9 @@ internal sealed class ActivityView : Grid
     }
 
     public ActivityPet Pet { get; } = new();
+
+    /// <summary>The time at the right end.</summary>
+    public IslandClock Clock { get; } = new();
 
     public PetLive? Shown { get; private set; }
 
@@ -147,6 +156,8 @@ internal sealed class ActivityView : Grid
 
         if (replay || (_badge.Content is null) != (s.Costume != PetCostume.Notify)) UpdateBadge(live);
         UpdateMarker(live);
+        // The value gives way before the time does.
+        _value.MaxWidth = ViewWidth / 2 - ActivityPet.ColumnWidth / 2 - Padding - 4 - ClockRoom - (_marker.Content is null ? 0 : 14);
         ShowLine(s.Line.Trim());
 
         Pet.Visibility = petOn || PetActivities.ShowsWithoutPet(live.Face) ? Visibility.Visible : Visibility.Collapsed;

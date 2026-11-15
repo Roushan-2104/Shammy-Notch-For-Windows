@@ -123,6 +123,8 @@ public partial class NotchWindow
 
     void Transition(NotchMode mode)
     {
+        // The calendar wing lives only beside the open island.
+        if (mode != NotchMode.Expanded) FoldCalendar(animate: mode != NotchMode.Hidden);
         var spec = SpecFor(mode);
         bool grow = spec.W * spec.H > _spec.W * _spec.H + 1;
         bool changed = mode != _mode || spec != _spec;

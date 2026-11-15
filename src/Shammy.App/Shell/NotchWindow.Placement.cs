@@ -105,7 +105,8 @@ public partial class NotchWindow
         var info = Native.MonitorInfo(monitor);
         var r = _services.Settings.PinToScreenEdge ? info.rcMonitor : info.rcWork;
         int width = (int)Math.Round(WindowWidth * _scale * dpi / 96.0);
-        int x = r.Left + (r.Right - r.Left - width) / 2;
+        // Left of centre while the calendar wing is out, so the island and the wing sit centred together.
+        int x = r.Left + (r.Right - r.Left - width) / 2 - WingShiftPx(dpi);
         // The window still starts at the very top (so the pointer at the top edge reaches the island); the island
         // floats the gap below that inside it.
         if (!Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, x, r.Top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE)) return false;

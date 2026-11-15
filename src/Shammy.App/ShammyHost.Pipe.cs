@@ -331,6 +331,8 @@ internal sealed partial class ShammyHost
             case "voice-plan": return _search.PlanFor(arg);
             case "voice-state": return _search.LiveState;
             case "home-state": return _notch.ExpandedView.DescribeHomeTop();
+            case "calendar": return _notch.CalendarCommand(arg);
+            case "clock-state": return _notch.ClockState();
             case "listen-start": _search.ListenUntilSilence(); return "ok";
             case "listen-state": return _search.SilenceState;
             // "voice-hear <words>": as if a held talk key brought these words back; "voice-live <words>": the listening view.

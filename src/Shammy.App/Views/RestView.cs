@@ -11,14 +11,14 @@ using Shammy.Modules;
 namespace Shammy.Views;
 
 /// <summary>
-/// The resting notch (the v2 design, "A + C" plus the pet): Shammy the notch pet on the left and a rotating
-/// glance on the right that slides to the next useful bit every few seconds (time and date, the next meeting,
-/// weather, a low battery...). Some moods take over the right side with their own text ("Listening…",
+/// The resting notch (the v2 design, "A + C" plus the pet): Shammy the notch pet on the left, the time at the right
+/// end (always), and between them a rotating glance that slides to the next useful bit every few seconds (the next
+/// meeting, weather, a low battery...). Some moods take over the right side with their own text ("Listening…",
 /// "Hi!", the app that pinged you). Nothing ticks while it's off screen.
 /// </summary>
 internal sealed class RestView : Grid
 {
-    public const double RestWidth = 240, RestHeight = 32;
+    public const double RestWidth = 300, RestHeight = 32;
     const double Padding = 14;
     static readonly TimeSpan Rotation = TimeSpan.FromSeconds(4);
 
@@ -41,12 +41,16 @@ internal sealed class RestView : Grid
         Background = Brushes.Transparent;
         ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         ColumnDefinitions.Add(new ColumnDefinition());
+        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         Pet = new ShammyPet(MusicLevel) { Margin = new Thickness(Padding, 0, 0, 0) };
         Children.Add(Pet);
-        _glanceHost.Margin = new Thickness(8, 0, Padding, 0);
+        _glanceHost.Margin = new Thickness(8, 0, 12, 0);
         SetColumn(_glanceHost, 1);
         Children.Add(_glanceHost);
+        Clock.Margin = new Thickness(0, 0, Padding, 0);
+        SetColumn(Clock, 2);
+        Children.Add(Clock);
 
         Mood = new PetController(services, feed, mood =>
         {
@@ -73,6 +77,9 @@ internal sealed class RestView : Grid
     }
 
     public ShammyPet Pet { get; }
+
+    /// <summary>The time at the right end.</summary>
+    public IslandClock Clock { get; } = new();
     public PetController Mood { get; }
 
     public bool PetEnabled => _petEnabled;
@@ -82,7 +89,7 @@ internal sealed class RestView : Grid
     {
         _petEnabled = on;
         Pet.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
-        _glanceHost.Margin = new Thickness(on ? 8 : Padding, 0, Padding, 0);
+        _glanceHost.Margin = new Thickness(on ? 8 : Padding, 0, 12, 0);
         _shown = null;
         if (IsVisible) Rotate(animate: false, advance: false);
         else Swap(null, animate: false);
@@ -112,7 +119,6 @@ internal sealed class RestView : Grid
             PetMood.Thinking => new GlanceEntry("pet-think", new GlanceItem("On it…", NotchPalette.Text), GlanceKind.Text),
             PetMood.MeetingSoon => Mood.Meeting,
             PetMood.Tired => new GlanceEntry("pet-tired", new GlanceItem($"{SafePercent()}% · plug in", NotchPalette.Alarm)),
-            PetMood.Sleepy => _feed.Current().FirstOrDefault(e => e.Kind == GlanceKind.Time),
             PetMood.Happy => new GlanceEntry("pet-happy", new GlanceItem("Hi!", NotchPalette.Text), GlanceKind.Text),
             _ => null,
         };
@@ -130,7 +136,8 @@ internal sealed class RestView : Grid
         var next = MoodSide();
         if (next is null)
         {
-            var entries = _feed.Current();
+            // The time has its own place at the right end, so it leaves the rotation.
+            var entries = _feed.Current().Where(e => e.Kind != GlanceKind.Time).ToList();
             var ids = entries.Select(e => e.Id).ToList();
             int index = advance ? _rotator.Advance(ids) : _rotator.Locate(ids) is >= 0 and var at ? at : _rotator.Advance(ids);
             next = index >= 0 ? entries[index] : null;
@@ -201,15 +208,6 @@ internal sealed class RestView : Grid
         };
         switch (e.Kind)
         {
-            case GlanceKind.Time:
-                row.Children.Add(Text(e.Item.Text, "CardText", FontWeights.Bold));
-                if (e.Secondary is { } date)
-                {
-                    var d = Text(date, "CardText2", FontWeights.Medium);
-                    d.Margin = new Thickness(7, 0, 0, 0);
-                    row.Children.Add(d);
-                }
-                break;
             case GlanceKind.Music:
             case GlanceKind.Listen:
                 bool music = e.Kind == GlanceKind.Music;

@@ -343,4 +343,42 @@ public static class CalendarAgenda
         var monday = today.Date.AddDays(-back);
         return Enumerable.Range(0, 7).Select(i => monday.AddDays(i)).ToList();
     }
+
+    /// <summary>A month as the calendar wing lays it out: six Monday-first weeks (42 days) from the Monday on or before the 1st.</summary>
+    public static IReadOnlyList<DateTime> MonthGrid(int year, int month)
+    {
+        var first = new DateTime(year, month, 1);
+        var monday = Week(first)[0];
+        return Enumerable.Range(0, 42).Select(i => monday.AddDays(i)).ToList();
+    }
+
+    /// <summary>
+    /// The days whose events are kept: from this week's Monday (or the 1st, if earlier) to the end of next month,
+    /// so the card's two weeks and the calendar wing's this month and next all have theirs.
+    /// </summary>
+    public static (DateTime From, DateTime To) FetchWindow(DateTime now)
+    {
+        var monthStart = new DateTime(now.Year, now.Month, 1);
+        var monday = Week(now)[0];
+        var from = monday < monthStart ? monday : monthStart;
+        var to = monthStart.AddMonths(2);
+        var twoWeeks = now.Date.AddDays(15);
+        return (from, to > twoWeeks ? to : twoWeeks);
+    }
+}
+
+/// <summary>How the calendar wing fits beside the open island: its width, and how far the island slides left so the two sit centred together.</summary>
+public static class CalendarWingFit
+{
+    public const double MaxWidth = 470, MinWidth = 380, Neck = 34, Margin = 16;
+
+    /// <summary>All in the island's own units (DIPs before the notch-size scale); <paramref name="screenWidth"/> in the same units.</summary>
+    public static (double WingWidth, double Shift) Fit(double islandWidth, double screenWidth)
+    {
+        double room = screenWidth - 2 * Margin - islandWidth - Neck;
+        double wing = Math.Clamp(room, MinWidth, MaxWidth);
+        // The island moves left by half of what's added on its right, so the pair stays centred;
+        // shortcut: on a screen too narrow even for the smallest wing, the wing runs off the right edge.
+        return (wing, (Neck + wing) / 2);
+    }
 }
