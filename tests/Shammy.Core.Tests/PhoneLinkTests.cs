@@ -69,7 +69,7 @@ public class PhoneLinkTests
         byte[] ep = eph.ExportSubjectPublicKeyInfo(), ip = phoneId.ExportSubjectPublicKeyInfo(), np = RandomNumberGenerator.GetBytes(16);
         await LinkSession.WriteFrameAsync(s, System.Text.Encoding.UTF8.GetBytes(new System.Text.Json.Nodes.JsonObject
         {
-            ["t"] = "hello", ["v"] = 1, ["commit"] = Convert.ToBase64String(SHA256.HashData([.. ep, .. ip, .. np])), ["name"] = "Test phone",
+            ["t"] = "hello", ["v"] = LinkSession.Version, ["commit"] = Convert.ToBase64String(SHA256.HashData([.. ep, .. ip, .. np])), ["name"] = "Test phone",
         }.ToJsonString()), CancellationToken.None);
         var hello = System.Text.Json.Nodes.JsonNode.Parse(await LinkSession.ReadFrameAsync(s, CancellationToken.None))!;
         byte[] el = Convert.FromBase64String((string)hello["eph"]!), il = Convert.FromBase64String((string)hello["id"]!), nl = Convert.FromBase64String((string)hello["nonce"]!);

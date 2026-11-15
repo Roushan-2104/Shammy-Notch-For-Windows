@@ -75,7 +75,9 @@ else {
 $apk = "src\Shammy.App\Assets\Phone\ShammyIsland.apk"
 $pinned = "5a9e0f78dd51bf7aaac581c49571b54cd2a8a6f568e20223070582c55ed337fe"
 $apksigner = Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+$ErrorActionPreference = "Continue" # apksigner may write to stderr; the digest check below decides
 $certs = if ($apksigner) { & $apksigner.FullName verify --print-certs $apk 2>&1 | Out-String } else { "" }
+$ErrorActionPreference = "Stop"
 if ($certs -notmatch "certificate SHA-256 digest: $pinned") {
     Write-Warning "ShammyIsland.apk is not signed by Shammy Island's key (or apksigner wasn't found): not uploaded."
 } else {

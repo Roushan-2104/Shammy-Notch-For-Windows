@@ -13,6 +13,9 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
 {
     public const int TcpPort = 47900, UdpPort = 47901;
 
+    /// <summary>The protocol's version: 2 since role-bound signatures and discovery by id (16 Nov).</summary>
+    public const int Version = 2;
+
     /// <summary>Frames bigger than this close the connection (messages are small; text is capped at 4 KB).</summary>
     public const int MaxFrame = 64 * 1024;
 
@@ -41,8 +44,8 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
     public async Task HandshakeAsync(CancellationToken ct)
     {
         var hello = await ReadJsonAsync(ct);
-        if (hello["t"]?.GetValue<string>() != "hello" || hello["v"]?.GetValue<int>() != 1)
-            throw new InvalidDataException("not a v1 hello");
+        if (hello["t"]?.GetValue<string>() != "hello" || hello["v"]?.GetValue<int>() != Version)
+            throw new InvalidDataException($"not a v{Version} hello (update Shammy Island on the phone)");
         var commit = B64(hello, "commit");
         // a name comes only while pairing (afterwards the phone sends none: nothing identifying in the clear)
         var name = Text(hello, "name").Trim();
@@ -52,7 +55,7 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
         byte[] el = eph.ExportSubjectPublicKeyInfo(), il = identity.ExportSubjectPublicKeyInfo(), nl = RandomNumberGenerator.GetBytes(16);
         await WriteFrameAsync(stream, Json(new JsonObject
         {
-            ["t"] = "hello", ["v"] = 1, ["eph"] = Convert.ToBase64String(el), ["id"] = Convert.ToBase64String(il), ["nonce"] = Convert.ToBase64String(nl),
+            ["t"] = "hello", ["v"] = Version, ["eph"] = Convert.ToBase64String(el), ["id"] = Convert.ToBase64String(il), ["nonce"] = Convert.ToBase64String(nl),
         }), ct);
 
         var reveal = await ReadJsonAsync(ct);
@@ -131,7 +134,7 @@ public sealed class LinkSession(Stream stream, ECDsa identity) : IDisposable
         bool open = pairing && query.SequenceEqual("SHAMMY?1"u8);
         bool asked = query.SequenceEqual(Encoding.ASCII.GetBytes($"SHAMMY?1 {id}"));
         if (!open && !asked) return null;
-        return Json(new JsonObject { ["v"] = 1, ["name"] = open ? name : "", ["port"] = TcpPort, ["id"] = id });
+        return Json(new JsonObject { ["v"] = Version, ["name"] = open ? name : "", ["port"] = TcpPort, ["id"] = id });
     }
 
     static byte[] Json(JsonObject o) => Encoding.UTF8.GetBytes(o.ToJsonString());

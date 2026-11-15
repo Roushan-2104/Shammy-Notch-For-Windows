@@ -112,7 +112,7 @@ internal sealed partial class PhoneLinkModule
         {
             _apkTransfer?.Dispose();
             var transfer = _apkTransfer = PhoneTransfer.Start(_ctx, apk, allowUploads: false,
-                note: "Signed by Shammy Island · SHA-256 " + SigningFingerprint, title: "Shammy Island for Android");
+                note: "Signed by Shammy Island · SHA-256 " + SigningFingerprint, title: "Shammy Island · key " + SigningFingerprint[..5] + "…" + SigningFingerprint[^5..]);
             // closed with ×, Esc or a click away, or done: back to the Your phone card, where you came from
             transfer.Ended += () =>
             {

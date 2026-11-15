@@ -369,7 +369,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         {
             try
             {
-                var room = RelayRoom();
+                var room = await _ctx.Ui.InvokeAsync(RelayRoom);
                 TcpClient client;
                 try { client = await Relay.JoinAsync(hp.Host, hp.Port, room, "laptop", RelayWait, ct); }
                 catch (Exception ex) when (!ct.IsCancellationRequested && ex is OperationCanceledException or IOException)
@@ -480,6 +480,13 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "dismiss":
                         var dismissed = LinkSession.Text(m, "id");
                         _ = _ctx.Ui.BeginInvoke(() => DismissFromPhone(dismissed));
+                        break;
+                    case "version":
+                        int code = m["code"] is JsonValue cv && cv.TryGetValue<int>(out int c) ? c : 0;
+                        _ = _ctx.Ui.BeginInvoke(() => OnPhoneVersion(code));
+                        break;
+                    case "getUpdate":
+                        _ = _ctx.Ui.BeginInvoke(SendUpdate);
                         break;
                     case "beacon":
                         _ = _ctx.Ui.BeginInvoke(Beacon);

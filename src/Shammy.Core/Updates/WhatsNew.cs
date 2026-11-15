@@ -126,6 +126,12 @@ public static class WhatsNew
         },
     };
 
+    /// <summary>A version's note can carry one button that opens a card: the way in to what's new (its label, the card's id).</summary>
+    public static readonly IReadOnlyDictionary<string, (string Label, string CardId)> Links = new Dictionary<string, (string, string)>
+    {
+        ["1.5.0"] = ("Get it for your phone", "phone"),
+    };
+
     /// <summary>
     /// The lines to show now; empty for nothing. A fresh install shows nothing (the tour does the welcoming). Someone
     /// who skipped versions sees the newest lines first, up to <see cref="MaxLines"/>.
@@ -133,12 +139,6 @@ public static class WhatsNew
     /// <param name="lastRun">The version that last ran here; null when none was recorded yet.</param>
     /// <param name="existingUser">Shammy has run here before: a null <paramref name="lastRun"/> then means a version
     /// from before this note existed, not a fresh install.</param>
-    /// <summary>A version's note can carry one button that opens a card: the way in to what's new (its label, the card's id).</summary>
-    public static readonly IReadOnlyDictionary<string, (string Label, string CardId)> Links = new Dictionary<string, (string, string)>
-    {
-        ["1.5.0"] = ("Get it for your phone", "phone"),
-    };
-
     public static IReadOnlyList<string> LinesFor(string? lastRun, string current, bool existingUser)
     {
         if (Parse(current) is not { } now) return Array.Empty<string>();

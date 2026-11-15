@@ -25,6 +25,7 @@
     <Resource Include="Assets\Fonts\*.ttf" />
     <!-- Shammy Island for Android: the laptop hands it to a phone over Wi-Fi (Phone card, "From this laptop"). -->
     <None Include="Assets\Phone\ShammyIsland.apk" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Phone\ShammyIsland.apk.version" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
