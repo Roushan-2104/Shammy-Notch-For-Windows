@@ -69,7 +69,10 @@ internal partial class SettingsView
                 _status.Text = on ? $"{BeadPlaces[bead]} bead pinned" : $"{BeadPlaces[bead]} bead learns from what you use";
                 BuildPanel(keepScroll: true);
             }, $"Pin the {BeadPlaces[bead].ToLowerInvariant()} bead");
-            Row($"{i + 1} · {BeadPlaces[i]}", slot.Pinned ? "Pinned" : "Learns from what you use", ScreenKit.Row(10, pick, pin));
+            // The switch says what it is: a bare one beside the menu read as unexplained.
+            var pinLabel = ScreenKit.Text("Pin", 12, Weight.Medium, ScreenKit.Fg2);
+            pinLabel.VerticalAlignment = VerticalAlignment.Center;
+            Row($"{i + 1} · {BeadPlaces[i]}", slot.Pinned ? "Pinned" : "Learns from what you use", ScreenKit.Row(10, pick, ScreenKit.Row(6, pinLabel, pin)));
         }
     }
 }

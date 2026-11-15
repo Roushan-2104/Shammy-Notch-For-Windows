@@ -625,9 +625,12 @@ internal sealed class DayToggle : Pressable
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Ui.TogglePeer(this, () => _on, Invoke);
 
+    /// <summary>An unchosen day still shows its circle (a faint glass), whatever is behind the card.</summary>
+    static readonly SolidColorBrush OffFill = Ui.Tokens.Brush("#14FFFFFF");
+
     void PaintDay()
     {
-        Fill = _on ? Views.Cards.Ink.Tint : null;
+        Fill = _on ? Views.Cards.Ink.Tint : OffFill;
         Paint();
         if (_on) BorderBrush = Views.Cards.Ink.TintEdge;
         var (family, weight) = ScreenKit.Font(_on ? Weight.Bold : Weight.SemiBold);

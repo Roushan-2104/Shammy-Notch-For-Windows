@@ -225,12 +225,13 @@ internal sealed class HealthView : CardSheet
     }
 
     /// <summary>
-    /// A quiet check chip with a palette dot; one that wants attention takes the accent's tint and soft words. An
+    /// A quiet check chip with a grey dot (a palette colour there read as a warning on every chip); one that wants
+    /// attention takes the accent's tint, a coloured dot and soft words. An
     /// action (Restart) sits at the chip's end.
     /// </summary>
     static FrameworkElement Chip(string text, bool attention, FrameworkElement? action = null)
     {
-        var dot = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(3.5), Background = attention ? Ink.Soft : Ink.C, VerticalAlignment = VerticalAlignment.Center };
+        var dot = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(3.5), Background = attention ? Ink.Soft : CardKit.Ink2, VerticalAlignment = VerticalAlignment.Center };
         var words = CardKit.Text(text, 12, FontWeights.SemiBold);
         words.Foreground = attention ? Ink.Soft : Ui.Tokens.Brush("#D9EBEBF5");
         words.VerticalAlignment = VerticalAlignment.Center;

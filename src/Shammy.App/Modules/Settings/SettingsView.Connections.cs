@@ -40,14 +40,14 @@ internal partial class SettingsView
             return;
         }
         const string connectHint = Shammy.Core.Agents.AgentText.ConnectHint;
-        TextBlock hint = null!, title = null!;
+        TextBlock hint = null!;
         string problem = "";
         Pressable button = null!;
         void Show()
         {
             var now = view();
-            title.Text = now.Status;
-            hint.Text = problem.Length > 0 ? problem : connectHint;
+            // Named like the Google Calendar row; how it stands goes first in the grey line.
+            hint.Text = $"{now.Status} · {(problem.Length > 0 ? problem : connectHint)}";
             ((TextBlock)button.Child).Text = now.Button;
             Dim(button, now.Enabled);
         }
@@ -59,8 +59,7 @@ internal partial class SettingsView
             Show();
         });
         button.MinWidth = 96;
-        var row = Row(view().Status, connectHint, button, out hint, words: "claude code connect agent coding");
-        title = (TextBlock)((StackPanel)hint.Parent).Children[0];
+        var row = Row("Claude Code", connectHint, button, out hint, words: "claude code connect agent coding");
         Show();
         row.Loaded += (_, _) =>
         {
@@ -106,6 +105,8 @@ internal partial class SettingsView
                 link.OpenSetup();
                 Say("Paste your calendar’s secret address");
             });
+        // The same width as Claude Code's button, so the two line up.
+        if (action is Pressable p) p.MinWidth = 96;
         Row("Google Calendar", status, action, tile);
         Row("Meetings in the notch", connected
             ? "The next meeting shows as you hover, with a nudge before it starts and Join for Meet links."

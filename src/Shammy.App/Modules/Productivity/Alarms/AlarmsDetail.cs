@@ -120,7 +120,8 @@ internal sealed class AlarmsDetail : CardSheet
             timeRow.Children.Add(am);
         }
 
-        var name = Sheet.Word(a.Label.Length > 0 ? a.Label : "Alarm", 14);
+        // No name of its own: say when it rings ("Weekdays", "Tomorrow") rather than a placeholder "Alarm".
+        var name = Sheet.Word(a.Label.Length > 0 ? a.Label : AlarmText.Repeat(a, DateTime.Now, _host.UpcomingLocal(a)), 14);
         var under = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 0) };
         if (Note(a) is { } note)
         {
@@ -133,7 +134,7 @@ internal sealed class AlarmsDetail : CardSheet
             foreach (var (day, letter, dayName) in AlarmText.Week)
             {
                 var toggle = new DayToggle(letter, (a.Days & day) != 0, on => _host.SetDays(a, on ? a.Days | day : a.Days & ~day),
-                    $"Repeat on {dayName}", 20) { Margin = new Thickness(under.Children.Count > 0 ? 3 : 0, 0, 0, 0) };
+                    $"Repeat on {dayName}", 22) { Margin = new Thickness(under.Children.Count > 0 ? 4 : 0, 0, 0, 0) };
                 under.Children.Add(toggle);
             }
         }
