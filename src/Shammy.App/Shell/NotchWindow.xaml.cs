@@ -298,6 +298,13 @@ public partial class NotchWindow : Window
     internal ResultView ResultView => Result;
     internal AnswerView AnswerView => Answer;
     internal ExpandedView ExpandedView => Expanded;
+
+    /// <summary>The linked phone is online: a tiny green dot on the resting notch and on the phone button.</summary>
+    internal void SetPhoneOnline(bool on)
+    {
+        _restView.PhoneOnline = on;
+        Expanded.SetPhoneOnline(on);
+    }
     internal NotificationView NotificationView => NotificationCard;
 
     /// <summary>The pointer is resting on the message that is up (it is being held on screen).</summary>

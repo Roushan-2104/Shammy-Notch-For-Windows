@@ -47,6 +47,7 @@ internal sealed partial class PhoneLinkModule
     {
         _sentMoments.Clear();
         _sentMedia = "";
+        ShowOnline(true);
         // where to find this laptop when the phone is away from its network (or "" for nowhere)
         Send(new JsonObject { ["t"] = "relay", ["at"] = _store.Relay ?? "" });
         SendMedia();
@@ -57,6 +58,7 @@ internal sealed partial class PhoneLinkModule
     void OnDisconnected()
     {
         _refresh?.Stop();
+        ShowOnline(false);
         // the phone's notifications stay in the history; only the bookkeeping for its next words goes
         _shown.Clear();
         _replyKey = null;

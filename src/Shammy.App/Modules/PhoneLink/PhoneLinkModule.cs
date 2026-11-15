@@ -93,6 +93,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         ctx.AddPipeCommand("phonelink-beacon", _ => { Beacon(); return _beacon is { } b ? $"beacon {b.Status}" : "error: no beacon"; });
         ctx.AddPipeCommand("phonelink-reply", text => Reply(text) is { } who ? $"replied to {who}" : "error: nothing to reply to");
         StartRemote();
+        StartCard();
         if (_store.Phone is not null) Listen();
     }
 
@@ -100,6 +101,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
     {
         _ctx.Services.Notifications.Arrived -= OnLaptopNotification;
         StopRemote();
+        StopCard();
         StopBeacon();
         StopListening();
         _identity.Dispose();
@@ -189,6 +191,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                 _pairing = false;
                 _pairEnds?.Stop();
                 _ctx.Info("Paired a phone");
+                FillPhoneSheet();
                 if (_store.Relay is not null && _listen is { } l) _ = Task.Run(() => RelayLoopAsync(l.Cts.Token));
             });
             return true;
@@ -497,6 +500,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         _shown[key] = n;
         if (canReply) _replyKey = key;
         _ctx.Services.Notifications.InjectForTest(n);
+        PlayPhoneChime();
     }
 
     void DropPhoneNotification(string key)

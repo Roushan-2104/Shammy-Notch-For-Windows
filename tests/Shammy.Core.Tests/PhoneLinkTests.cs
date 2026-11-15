@@ -185,6 +185,19 @@ public class PhoneLinkTests
     }
 
     [Fact]
+    public void ChimesAreShortSoftAndWellFormed()
+    {
+        var s = Chime.Samples(Chime.FromPhone);
+        Assert.InRange(s.Length / (double)Chime.Rate, 0.25, 0.4);
+        Assert.InRange(s.Max(v => Math.Abs((int)v)), short.MaxValue * 0.2, short.MaxValue * 0.23);
+        Assert.True(Math.Abs((int)s[0]) < 500); // no click at the start
+        var wav = Chime.Wav(s);
+        Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(wav, 0, 4));
+        Assert.Equal(44 + s.Length * 2, wav.Length);
+        Assert.NotEqual(Chime.Samples(Chime.FromPhone), Chime.Samples(Chime.FromLaptop));
+    }
+
+    [Fact]
     public void IdentitySignaturesVerifyAndForgeriesDont()
     {
         using var id = ECDsa.Create(ECCurve.NamedCurves.nistP256);

@@ -45,6 +45,7 @@ internal sealed class RestView : Grid
 
         Pet = new ShammyPet(MusicLevel) { Margin = new Thickness(Padding, 0, 0, 0) };
         Children.Add(Pet);
+        Children.Add(_phoneDot);
         _glanceHost.Margin = new Thickness(8, 0, 12, 0);
         SetColumn(_glanceHost, 1);
         Children.Add(_glanceHost);
@@ -77,6 +78,16 @@ internal sealed class RestView : Grid
     }
 
     public ShammyPet Pet { get; }
+
+    /// <summary>A tiny green dot just left of the pet: your linked phone is online (it says nothing else, never moves).</summary>
+    readonly System.Windows.Shapes.Ellipse _phoneDot = new()
+    {
+        Width = 5, Height = 5, Fill = new SolidColorBrush(Color.FromRgb(0x3D, 0xD6, 0x8C)),
+        HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(5, 0, 0, 0), Visibility = Visibility.Collapsed, IsHitTestVisible = false,
+    };
+
+    internal bool PhoneOnline { set => _phoneDot.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
 
     /// <summary>The time at the right end.</summary>
     public IslandClock Clock { get; } = new();
