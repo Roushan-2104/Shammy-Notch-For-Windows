@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import { GOATCOUNTER } from '../site';
 const groups = [
   ['Your voice', [
     'With your Gnani key saved, a command\'s recording goes to Gnani only while you hold the talk key. The key is encrypted on your PC.',
@@ -30,11 +31,13 @@ const groups = [
     'Phone transfers stay on your own network behind a random one-time link. Claude Code talks to Shammy only on your PC, through a local address with a random token.',
   ]],
   ['This website', [
-    'No cookies and no trackers. If page counts are switched on later, they will use GoatCounter, which counts visits without cookies or personal data.',
+    'No cookies and no trackers, so there is nothing to accept.',
+    GOATCOUNTER ? 'Visits are counted with GoatCounter, which uses no cookies and keeps no personal data: only the page, the referring site, and the browser and screen size, in totals.' : 'Visits are not counted. If counting is switched on later, it will be with GoatCounter, which uses no cookies and keeps no personal data.',
+    'The Shammy Island app for Android links only to your own laptop, over your own network.',
   ]],
 ] as const;
 ---
-<Base title="Privacy · Shammy" description="What Shammy keeps on your PC, what leaves it, and when.">
+<Base island="Privacy" title="Privacy · Shammy" description="What Shammy keeps on your PC, what leaves it, and when.">
   <section class="page wrap">
     <h1>What stays on your PC.</h1>
     <div class="head">

@@ -1,0 +1,66 @@
+---
+import Base from '../layouts/Base.astro';
+import { REPO, CONTACT } from '../site';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+// The address is shown as character codes so simple scrapers pass it by; browsers show it as normal text.
+const shown = [...CONTACT].map((c) => `&#${c.charCodeAt(0)};`).join('');
+const groups: [string, string[]][] = [
+  ['Who this is from', [
+    'Shammy is made by Roushan, an independent developer. "We" on this page means Roushan.',
+    'These terms cover the Shammy app for Windows, the Shammy Island app for Android, and this website.',
+  ]],
+  ['The licence', [
+    'Shammy is free and open source under the MIT licence. You may use, copy, change and share it under that licence.',
+    'Where the licence in the repository says more than this page, the licence wins.',
+  ]],
+  ['No warranty', [
+    'Shammy comes as it is, without any warranty. We work hard to keep it reliable, but we can\'t promise it will always work or suit your needs.',
+    'As far as the law allows, we are not responsible for any loss or damage that comes from using it, including lost data or missed alarms.',
+  ]],
+  ['Services Shammy talks to', [
+    'Some features send something to another service, and only when you ask: Gnani for voice (with your own key), Google for searches, Lens, Translate and your calendar, Wikipedia, Open-Meteo, Razorpay\'s IFSC lookup, India Post, and GitHub for updates.',
+    'When Shammy talks to one of them, that service\'s own terms and privacy policy apply. Your keys and accounts are yours to look after.',
+  ]],
+  ['Other apps and names', [
+    'Shammy shows Claude Code\'s permission requests on your PC. What you allow or deny is your decision.',
+    'Shammy is not made by, or affiliated with, Microsoft, Anthropic, Google, Meta or any other company named on this site. Their names and marks belong to them.',
+  ]],
+  ['Using it fairly', [
+    'Don\'t use Shammy to break the law, to record people who haven\'t agreed to it, or to misuse the services above.',
+  ]],
+  ['Changes', [
+    'Shammy updates itself from GitHub Releases. We may change features and these terms; when the terms change, the date above changes too.',
+  ]],
+  ['Law', [
+    'These terms are governed by the laws of India.',
+  ]],
+];
+---
+<Base island="Terms" title="Terms · Shammy" description="The terms for using Shammy and this website, in plain words.">
+  <section class="page wrap">
+    <h1>Terms of use.</h1>
+    <p class="lead">The short version: Shammy is free and open source, it comes as it is, and you use it at your own risk. The longer version is below, in plain words. Last updated 17 November 2026.</p>
+    <div class="groups">
+      {groups.map(([title, items], n) => (
+        <section class="group" aria-labelledby={`t${n}`}>
+          <h2 id={`t${n}`}>{title}</h2>
+          {items.map((i) => <p>{i}</p>)}
+        </section>
+      ))}
+      <section class="group" aria-labelledby="t-contact">
+        <h2 id="t-contact">Questions</h2>
+        <p>Write to <a class="link" set:html={shown} href={`mailto:${CONTACT}`} />, or open an issue on <a class="link" href={REPO}>GitHub</a>. How we handle data is on the <a class="link" href={`${base}/privacy/`}>Privacy</a> page.</p>
+      </section>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .page { padding-top: clamp(64px, 10vw, 140px); padding-bottom: 120px; }
+  h1 { font-size: clamp(44px, 6.4vw, 96px); }
+  .lead { margin-top: 24px; }
+  .groups { margin-top: 72px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px 64px; }
+  @media (max-width: 860px) { .groups { grid-template-columns: 1fr; } }
+  h2 { font-size: clamp(26px, 2.6vw, 34px); letter-spacing: -.02em; }
+  .group p { margin: 14px 0 0; color: var(--ink-soft); }
+</style>

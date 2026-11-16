@@ -5,6 +5,7 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { skyAt, fmtHour, ROMAN, DEVA } from './shared.js';
+import { chime, setSound, soundIsOn } from './sound.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -100,7 +101,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
       return { w: 640, html: `<div class="c-sky" style="--top:${sky.top};--mid:${sky.mid};--hor:${sky.hor}"><span class="c-body${sky.moon ? ' moon' : ''}" style="top:${y.toFixed(0)}px;${body}"></span><div class="cap">Wake up · ${sky.name}</div><div class="c-alarm">${t}<span>${ap}</span></div><button type="button" class="c-stop" style="background:${sky.stop}" data-act="stop">Stop</button></div>` };
     },
     get() {
-      return { w: 600, html: `<div class="c-head"><span class="eyes"><i></i><i></i></span><div><div class="cap">Shammy ${version} · Windows 10 and 11</div><div class="c-title">Free, and about 104 MB</div></div></div>
+      return { w: 600, html: `<div class="c-head"><span class="eyes"><i></i><i></i></span><div><div class="cap">Shammy ${version} · Windows 10 and 11</div><div class="c-title">Free, and about 105 MB</div></div></div>
         <div class="c-acts start"><a class="pill pri big" href="${release}/download/Shammy-Setup.exe">Download Setup.exe</a><a class="pill" href="${release}/download/Shammy-Portable.zip">Portable .zip</a></div>` };
     },
   };
@@ -177,6 +178,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     tl.call(() => { moment.m = 0; html = ''; fill(); });
     tl.to(open, { k: 1, duration: .7, ease: 'expo.out' }, was <= 0 ? '>-0.35' : '>');
     tl.call(() => {
+      chime(i - 1);
       playing = gsap.to(moment, { m: 1, duration: (s.play || .01) * speed, ease: 'none', onUpdate: () => { fill(); draw(); } });
       if (!speed) playing.progress(1);
     }, null, '-=0.35');
@@ -187,11 +189,11 @@ export function mountStory(journey, { reduced, cover, release, version }) {
   card.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || act === 'talk') return;
-    if (act === 'allow' || act === 'deny') { user.claude = act; playing?.progress(1); }
+    if (act === 'allow' || act === 'deny') { user.claude = act; playing?.progress(1); chime(act === 'allow' ? 4 : 1, .6); }
     else if (act === 'roman' || act === 'deva') { user.script = act; user.words = 8; }
     else if (act === 'play') { user.paused = !user.paused; playing?.paused(user.paused); }
     else if (act === 'send') { phone.classList.remove('got'); playing?.restart(); }
-    else if (act === 'stop') user.stopped = true;
+    else if (act === 'stop') { user.stopped = true; chime(0, .6); }
     html = ''; fill(); draw();
   });
   const startTalk = (e) => {
@@ -207,6 +209,12 @@ export function mountStory(journey, { reduced, cover, release, version }) {
   card.addEventListener('pointerleave', stopTalk);
   card.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) startTalk(e); });
   card.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') stopTalk(); });
+
+  // The speaker: island sounds are off until the visitor turns them on.
+  const speaker = stage.querySelector('.sound');
+  speaker.hidden = false;
+  speaker.setAttribute('aria-pressed', String(soundIsOn()));
+  speaker.addEventListener('click', () => { setSound(!soundIsOn()); speaker.setAttribute('aria-pressed', String(soundIsOn())); chime(2, .7); });
 
   // The scroll picks the scene; a short scroll or swipe glides on to the next one.
   measure();

@@ -11,7 +11,7 @@ const releases = [...source.matchAll(/\["(\d+\.\d+\.\d+)"\]\s*=\s*new\[\]\s*\{([
 }));
 const release = 'https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases';
 ---
-<Base title="What's new · Shammy" description="Every Shammy release, in the words the island itself shows after an update.">
+<Base island={`What's new · ${releases[0].version}`} title="What's new · Shammy" description="Every Shammy release, in the words the island itself shows after an update.">
   <section class="page wrap">
     <div class="head">
       <div>

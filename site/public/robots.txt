@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://roushan-2104.github.io/Shammy-Notch-For-Windows/sitemap.xml

@@ -2,9 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Base from '../layouts/Base.astro';
+import { RELEASE as release, SETUP, APK } from '../site';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const img = (p: string) => `${base}/img/${p}`;
-const release = 'https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest';
 // The newest version, from the same notes the app shows after an update.
 const notes = fs.readFileSync(path.resolve('../src/Shammy.Core/Updates/WhatsNew.cs'), 'utf8');
 const version = notes.match(/\["(\d+\.\d+\.\d+)"\]/)?.[1] ?? '';
@@ -26,7 +26,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
 ---
 <Base title="Shammy, the island Windows was missing" description="A floating island at the top of Windows: talk in Hinglish and it types, approve Claude from the top of your screen, your phone joins in. About 90 MB, free.">
 
-<section class="journey" aria-label="Shammy, chapter by chapter" data-version={version} data-release={release} data-cover={img('night-song-cover.png')}>
+<section class="journey" aria-label="Shammy, chapter by chapter" data-version={version} data-release={release} data-cover={img('night-song-cover.webp')}>
   <span class="at" id="features" data-at="1"></span>
   <span class="at" id="download" data-at="8"></span>
   <div class="stage" data-scene="open">
@@ -36,7 +36,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
     <div class="moments" aria-hidden="true" data-ui>
       <div class="m glass" data-x="-0.31" data-y="-0.105" data-z="70"><div class="row"><b>Claude Code</b><small>wants to run</small><span class="allow">Allow</span></div><code class="mono code">npm test</code></div>
       <div class="m glass" data-x="0.31" data-y="-0.115" data-z="50"><div class="row"><span class="dot"></span><b class="caps">Dictating</b><small>into WhatsApp</small></div><div class="deva big-deva">हाँ, कल 6 बजे कैफ़े पे मिलते हैं</div></div>
-      <div class="m glass" data-x="-0.31" data-y="0.15" data-z="40"><div class="row"><img src={img('night-song-cover.png')} alt="" width="44" height="44" class="cover"><div><b>Night Song</b><br><small>Nusrat Fateh Ali Khan &amp; Michael Brook</small></div></div></div>
+      <div class="m glass" data-x="-0.31" data-y="0.15" data-z="40"><div class="row"><img src={img('night-song-cover.webp')} alt="" width="44" height="44" class="cover"><div><b>Night Song</b><br><small>Nusrat Fateh Ali Khan &amp; Michael Brook</small></div></div></div>
       <div class="m dawn" data-x="0.31" data-y="0.15" data-z="90"><span class="sun"></span><small class="caps">Wake up · dawn</small><div class="dawn-time">6:30<span>AM</span></div></div>
     </div>
     <div class="open-copy">
@@ -45,7 +45,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
     <div class="open-foot">
       <p class="lead">Talk in Hinglish and it types. Approve Claude from the top of your screen. Your phone joins in. All in about 90&nbsp;MB, free.</p>
       <div class="actions">
-        <a class="btn" href={`${release}/download/Shammy-Setup.exe`}>Download for Windows</a>
+        <a class="btn" href={SETUP}>Download for Windows</a>
         <a class="link" href="#features">Watch it work</a>
       </div>
     </div>
@@ -56,7 +56,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
     <article class="copy" hidden data-i="1"><h2>Claude asks.<br>You tap Allow.</h2><p class="lead">Your Claude Code sessions live in the island. When one wants to run a command, it asks up there, over whatever app you're in, so you stop missing the moment it needs you.</p></article>
     <article class="copy" hidden data-i="2"><h2>Talk in Hinglish.<br>It types.</h2><p class="lead">Hold <kbd>Ctrl</kbd> + <kbd>Win</kbd> in any app and talk. Your words show live in the island; let go and they're typed where your cursor is. Say "in Hindi" and it lands in Devanagari.</p></article>
     <article class="copy" hidden data-i="3"><h2>Your song,<br>in its own colours.</h2><p class="lead">The island takes its light from the cover you're playing. Lyrics scroll in time where the song has them; drag the line to seek, scroll over it for volume.</p></article>
-    <article class="copy" hidden data-i="4"><h2>Your phone<br>joins the island.</h2><p class="lead">Your laptop's notifications drop onto your phone, and your phone's onto the laptop. Send files, links and text across your own Wi-Fi.</p><p class="aside">Shammy Island for Android is coming soon. <a class="link" href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">Watch the repo</a> to hear first.</p></article>
+    <article class="copy" hidden data-i="4"><h2>Your phone<br>joins the island.</h2><p class="lead">Your laptop's notifications drop onto your phone, and your phone's onto the laptop. Answer Claude from your phone. Send files, links and text across your own Wi-Fi.</p><p class="aside"><a class="link" href={APK}>Get Shammy Island for Android</a>, or scan the QR from the island's Phone button.</p></article>
     <article class="copy" hidden data-i="5"><h2>Read your script.<br>Look at the lens.</h2><p class="lead">Stage puts your script right under the camera and follows your voice. Its ring light lights your face and never shows up in the share.</p></article>
     <article class="copy" hidden data-i="6"><h2>Alarms in<br>the sky outside.</h2><p class="lead">At 6:30 it's a sunrise. At 2 AM it's the moon, and we don't ask questions. The sky comes up over the first thirty seconds, and one tap stops it.</p><p class="aside" data-sky-note></p></article>
     <article class="copy wide" hidden data-i="7"><h2>Light enough to forget.</h2>
@@ -64,11 +64,12 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
         <div><dt>90</dt><dd>MB of memory while it sits there. Task Manager says so; we asked it twice.</dd></div>
         <div><dt>0</dt><dd>paid AI services. Plain things are answered on your PC.</dd></div>
         <div><dt>26</dt><dd>KB: the frosted glass is a blurred copy of your wallpaper, remade only when it changes.</dd></div>
-        <div><dt>104</dt><dd>MB installer. Updates are usually a few MB, in the background.</dd></div>
+        <div><dt>105</dt><dd>MB installer. Updates are usually a few MB, in the background.</dd></div>
       </dl>
     </article>
     <article class="copy" hidden data-i="8"><h2>Get Shammy.<br>It's free.</h2><p class="lead">It runs on Windows 10 (2004 or later) and 11, and updates itself in the background, usually a few MB at a time.</p><p class="aside"><a class="link" href="#try">Or try it first, right here</a> · <a class="link" href={release}>All releases</a></p></article>
 
+    <button type="button" class="sound" aria-pressed="false" aria-label="Island sounds" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="w1" d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/><path class="w2" d="M18 7a7 7 0 0 1 0 10"/><path class="x" d="m16 9.5 5 5M21 9.5l-5 5"/></svg></button>
     <nav class="rail" aria-label="Chapters" hidden>{chapters.map((c, i) => <button type="button" data-go={i + 1}>{c}</button>)}</nav>
   </div>
 </section>
@@ -114,7 +115,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
     </div>
     <svg class="lasso" aria-hidden="true"><polyline points=""/></svg>
     <div class="dial" hidden></div>
-    <div class="minute" hidden><p class="g-title">Your Shammy minute</p><p data-minute></p><a class="btn small" href={`${release}/download/Shammy-Setup.exe`}>Download for Windows</a></div>
+    <div class="minute" hidden><p class="g-title">Your Shammy minute</p><p data-minute></p><a class="btn small" href={SETUP}>Download for Windows</a></div>
     <div class="flyout" hidden>
       <p class="g-title">Alarm</p>
       <label class="fly-row">Ring at <b data-hour-label></b><input type="range" min="0" max="23" data-hour aria-label="Alarm hour"></label>
@@ -218,7 +219,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
   .isle :global(.c-progress) { height: 6px; } .isle :global(.c-progress i) { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #9FD8C2, #B9A4FF); }
   .isle :global(.c-times) { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 13px; color: #C9B9B6; font-variant-numeric: tabular-nums; }
   .isle :global(.play) { width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #F4F3F0; font-size: 14px; cursor: pointer; }
-  .isle :global(.c-prompt) { text-align: center; font-size: 30px; font-weight: 700; line-height: 1.3; color: rgba(244,243,240,.35); }
+  .isle :global(.c-prompt) { text-align: center; font-size: 30px; font-weight: 700; line-height: 1.3; color: rgba(244,243,240,.48); }
   .isle :global(.c-prompt .read) { color: #F4F3F0; }
   .isle :global(.c-sky) { position: relative; margin: -26px -30px -28px; padding: 26px 30px 28px; min-height: 270px; overflow: hidden; background: linear-gradient(180deg, var(--top) 0%, var(--top) 22%, var(--mid) 60%, var(--hor) 100%); }
   .isle :global(.c-sky .cap) { position: relative; color: rgba(255,255,255,.85); }
@@ -270,13 +271,18 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
   }
 
   .rail { position: absolute; right: 3vw; top: 50%; transform: translateY(-50%); z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-  .rail button { height: 34px; border: 0; background: none; color: rgba(239,239,243,.45); font: 500 14px var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+  .rail button { height: 34px; border: 0; background: none; color: rgba(239,239,243,.66); font: 500 14px var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 0 4px; }
   .rail button::after { content: ''; width: 8px; height: 2px; background: currentColor; transition: width .4s; }
   .rail button:hover { color: var(--ink); }
   .rail button[aria-current="true"] { color: var(--ink); font-weight: 600; }
   .rail button[aria-current="true"]::after { width: 28px; }
   @media (max-width: 1000px) { .rail { display: none; } }
 
+  .sound { position: absolute; right: 3vw; top: 3%; z-index: 5; width: 44px; height: 44px; border: 0; border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--edge); cursor: pointer; }
+  .sound:hover { background: rgba(255,255,255,.16); }
+  .sound svg { width: 22px; height: 22px; }
+  .sound[aria-pressed="false"] .w1, .sound[aria-pressed="false"] .w2, .sound[aria-pressed="true"] .x { display: none; }
+  @media (max-width: 760px) { .sound { top: 4px; right: 10px; width: 40px; height: 40px; } }
   @media (prefers-reduced-motion: reduce) { .world { transition: none; } .ph-drop { transition: none; } }
 
   /* The playground: a Windows desktop with Shammy on it. */
@@ -302,7 +308,7 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
   .hint { padding: 0 22px; font-size: 14px; color: var(--ink-faint); }
   .term { right: 4%; top: 84px; width: 44%; height: 260px; background: rgba(14,14,20,.86); }
   .term pre { margin: 0; padding: 12px 20px 6px; font-size: 14.5px; line-height: 1.75; color: #C9C6D2; white-space: pre-wrap; }
-  .term .ok { color: var(--mint); } .term .ask { color: #F2B35A; } .term .ask.done { color: #6E6A72; }
+  .term .ok { color: var(--mint); } .term .ask { color: #F2B35A; } .term .ask.done { color: #8E8A96; }
   .term-go { margin: 0 20px; height: 44px; padding: 0 14px; border: 0; border-radius: 8px; background: rgba(255,255,255,.07); color: var(--ink); font: 14.5px var(--mono); cursor: pointer; }
   .term-go:hover { background: rgba(255,255,255,.14); }
   .wa { right: 4%; top: 368px; width: 40%; height: 290px; background: rgba(12,28,22,.86); }
@@ -397,6 +403,15 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
   // The practice desktop, and its own glass island once it comes into view.
   const desk = document.querySelector('.desk') as HTMLElement;
   desk.querySelectorAll('[data-date]').forEach((el) => { el.textContent = new Date().toLocaleDateString('en-GB'); });
+  // Leaving for another page: the island morphs into that page's island (where the browser supports it).
+  addEventListener('pageswap', (e) => {
+    if (!(e as any).viewTransition) return;
+    const card = stage.querySelector('.isle') as HTMLElement, pill = stage.querySelector('.css-island') as HTMLElement;
+    const from = card.style.visibility === 'visible' && stage.getBoundingClientRect().bottom > 0 ? card : pill;
+    if (from === pill) pill.style.visibility = 'visible';
+    from.style.viewTransitionName = 'island';
+  });
+
   import('../scripts/desk.js').then(({ mountDesk }) => {
     mountDesk(desk);
     if (reduced || !canWebGL || (navigator.hardwareConcurrency ?? 4) < 4) return;
