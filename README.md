@@ -19,6 +19,7 @@
   <a href="#hover">Hover</a> ·
   <a href="#the-floating-island">Island</a> ·
   <a href="#the-dial">Dial</a> ·
+  <a href="#your-phone">Your phone</a> ·
   <a href="#everything-else">Everything else</a> ·
   <a href="#say-it-or-type-it">Commands</a> ·
   <a href="#privacy">Privacy</a>
@@ -191,6 +192,17 @@ An alarm opens the island into **the sky of the hour it rings**: a sunrise befor
 - **Snoozed and missed.** A snoozed alarm's sun climbs a little arc as the snooze runs out; a missed one shows in the island, and tapping a missed morning alarm opens your morning.
 - **Calm stays calm.** With Calm motion on, the sky is simply there, and the island doesn't glow ahead of time.
 
+<a name="your-phone"></a>
+#### Your phone, in the same family
+
+**Shammy Island** (Android 11 and later) draws the same pet around your phone's camera and links it to Shammy over your own Wi-Fi, or your phone's hotspot. Click the **phone button** at the top of the open island to pair, or to get the app with a QR code: straight from this laptop, or from GitHub.
+
+- **One list of notifications.** Your phone's and your laptop's together, newest first, each with a little phone or laptop beside it and **All · Phone · Laptop** to narrow it down. Dismiss one on either device and it's gone from both. Type `reply on my way` to answer the phone's latest message from your keyboard. Each side has its own soft chime, so you can tell by ear where it came from.
+- **Laptop notifications on the phone** drop a short two-line card from the notch, then wait in the phone's list.
+- **Your phone as a remote.** What's playing on your laptop (with its cover), play, skip and volume; your timers, calls and downloads with their own button; **Lock** and **Sleep** (tap twice); and Claude Code's **Allow / Deny**, from an unlocked phone only.
+- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key (Android asks the first time).
+- **Paired like Bluetooth.** Both screens show the same 6 digits and you confirm on both; after that, a small green dot on the island says your phone is online.
+
 <table>
 <tr>
 <td width="50%"><img src="docs/images/island-open-call.png" alt="In a call: Stage, Captions, Mute mic, Record, Notes, Share link"><p align="center"><sub><b>In a call:</b> Stage, Captions, Mute mic, Record, Notes, Share link</sub></p></td>
@@ -261,6 +273,7 @@ Open any card (Alarms, Timer, Clipboard, Notes, Weather, System, Health, Calenda
 | 🩺 **Health** | Drive space, a careful cleanup (each step asks first), and a daily check of battery wear, startup apps and updates. |
 | 🎵 **Music** | *"play …"* in YouTube Music or Spotify, synced lyrics, drag the song line to seek, scroll for volume, swipe to skip. |
 | 📱 **To phone** | Files, links and text to your phone over your own Wi-Fi; with nothing chosen, it asks what to send. |
+| 🏝️ **[Shammy Island](#your-phone)** | Your Android phone, linked: one notification list for both, your phone as a remote, Claude Code answered from your pocket. |
 | ⏱️ **Timers, alarms, reminders** | Live countdowns, alarms that ring through fullscreen in the sky of their hour, and reminders in plain words: *"remind me at 6pm to call mom"*. |
 | 📅 **Calendar** | Your Google Calendar from its secret address (no sign-in), *Join* five minutes before, and the month beside the island when you tap the date. |
 | 📋 **Clipboard, shelf, snippets** | Clipboard history with search, a file shelf you drop onto, and snippets that expand in any app. |
@@ -352,6 +365,7 @@ Something of yours under the island? Click the **small tab under it** and it sli
 - **Logs** never contain what you said, searched, dictated or copied, and are kept for 3 days.
 - **Phone transfers** stay on your local network, behind a random one-time link; received programs are renamed `.blocked`.
 - **Claude Code** talks to Shammy only on your own PC, through a local address with a random token.
+- **Your phone (Shammy Island)** talks only to the laptop it paired with: end-to-end encrypted with fresh keys for every connection, each device's identity checked on every reconnect, and no server in between. Pairing needs the same 6 digits confirmed on both screens. Nothing listens on the network unless a phone is paired or you've opened the 2-minute pairing window. Anything that acts on the laptop (Claude's Allow, Lock, Sleep) needs your phone unlocked. Hiding Android's own banners is optional, and **Restore all** puts every app back.
 
 <details>
 <summary><b>Known limits</b></summary>
@@ -363,6 +377,7 @@ Something of yours under the island? Click the **small tab under it** and it sli
 - **Notifications:** clicking one opens the app, not the exact chat.
 - **Exclusive-fullscreen games** can draw over a timer or alarm that breaks through fullscreen; you still hear its chime.
 - **The Copilot key** replaces Windows' Copilot/Search action while Shammy runs.
+- **Shammy Island** is installed from the QR code (Android asks you to allow installing it once); it isn't on the Play Store. Linking from anywhere (outside your Wi-Fi) needs a small relay you host yourself (`tools/relay/relay.py`). The first time Shammy listens for your phone, Windows asks once to allow it on your network.
 
 </details>
 

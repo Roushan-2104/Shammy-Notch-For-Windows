@@ -74,6 +74,7 @@ public partial class ExpandedView : UserControl
         Ui.FocusKit.Focusable(GuideButton);
         Ui.FocusKit.Activates(GuideButton, () => OpenView("guide"));
         Ui.FocusKit.Focusable(SettingsButton);
+        Ui.FocusKit.Focusable(PhoneButton);
         Ui.FocusKit.Activates(SettingsButton, () => OpenView("settings"));
         Ui.FocusKit.Focusable(SearchPill);
         Ui.FocusKit.Activates(SearchPill, () => SearchRequested?.Invoke());
@@ -430,6 +431,11 @@ public partial class ExpandedView : UserControl
 
     void OnSettingsClicked(object sender, RoutedEventArgs e) => OpenView("settings");
 
+    void OnPhoneClicked(object sender, RoutedEventArgs e) => OpenView("phone");
+
+    /// <summary>The phone button's green dot: the linked phone is online right now.</summary>
+    internal void SetPhoneOnline(bool on) => PhoneOnlineDot.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
     /// <summary>The time and date in the top row, always (it ticks only while the island is open).</summary>
     internal IslandClock HeaderClock { get; } = new(15, showDate: true);
 
@@ -470,6 +476,7 @@ public partial class ExpandedView : UserControl
     {
         if (card.Id == "guide") GuideButton.Visibility = Visibility.Visible;
         if (card.Id == "settings") SettingsButton.Visibility = Visibility.Visible;
+        if (card.Id == "phone") PhoneButton.Visibility = Visibility.Visible;
         foreach (var old in _cards.Where(c => c.Id == card.Id).ToList())
         {
             CardKit.Detach(old.Compact);

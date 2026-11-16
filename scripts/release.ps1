@@ -26,6 +26,22 @@ $repo = "https://github.com/Roushan-2104/Shammy-Notch-For-Windows"
 $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 if (-not $version) { throw "No <Version> in Directory.Build.props" }
 if (-not (Select-String -Path src\Shammy.Core\Updates\WhatsNew.cs -SimpleMatch "[`"$version`"]" -Quiet)) { throw "Add what's-new lines for $version in src\Shammy.Core\Updates\WhatsNew.cs" }
+# The bundled phone app must be signed by Shammy Island's own key and be the version its .version file says
+# (paired phones update themselves from it): checked before anything is built or published.
+$apk = "src\Shammy.App\Assets\Phone\ShammyIsland.apk"
+$pinned = "5a9e0f78dd51bf7aaac581c49571b54cd2a8a6f568e20223070582c55ed337fe"
+$tools = Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk\build-tools\*" -Directory -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1
+if (-not $tools) { throw "Android build-tools not found: can't check ShammyIsland.apk" }
+$ErrorActionPreference = "Continue" # apksigner and aapt2 may write to stderr; the checks below decide
+$certs = & (Join-Path $tools.FullName "apksigner.bat") verify --print-certs $apk 2>&1 | Out-String
+$badging = & (Join-Path $tools.FullName "aapt2.exe") dump badging $apk 2>&1 | Out-String
+$ErrorActionPreference = "Stop"
+if ($certs -notmatch "certificate SHA-256 digest: $pinned") { throw "ShammyIsland.apk is not signed by Shammy Island's key" }
+$apkCode = if ($badging -match "versionCode='(\d+)'") { $Matches[1] } else { "" }
+$bundled = (Get-Content "$apk.version" -Raw).Trim()
+if ($apkCode -ne $bundled) { throw "ShammyIsland.apk is version $apkCode but ShammyIsland.apk.version says $bundled" }
+Write-Host "Shammy Island $bundled (signed by its own key)"
+
 $publishDir = "artifacts\publish"
 Write-Host "Shammy $version" -ForegroundColor Cyan
 
@@ -70,4 +86,9 @@ else {
         if ($LASTEXITCODE) { Write-Warning "Couldn't remove $old from the release page; it is only a duplicate." }
     }
 }
+# Shammy Island for Android rides along, so the phone card's "Get it from GitHub" QR (releases/latest/download/...) works.
+# (Checked before anything was built: signed by Shammy Island's own key, its version matches the .version file.)
+gh release upload "v$version" $apk --clobber --repo "Roushan-2104/Shammy-Notch-For-Windows"
+if ($LASTEXITCODE) { Write-Warning "Uploading ShammyIsland.apk failed; the phone card's GitHub QR won't work until it's there." }
+else { Write-Host "ShammyIsland.apk SHA-256: $((Get-FileHash $apk -Algorithm SHA256).Hash.ToLowerInvariant())" }
 Write-Host "Released v$version. Installed copies will update within a few hours." -ForegroundColor Green

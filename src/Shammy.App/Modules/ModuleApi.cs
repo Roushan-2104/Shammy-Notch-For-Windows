@@ -174,6 +174,9 @@ internal sealed class ModuleContext
     public void Post(Activity activity) => _activities.Post(activity);
 
     public bool Remove(string id) => _activities.Remove(id);
+
+    /// <summary>Every module's live activities (read-only use: the phone link mirrors them to the phone's notch).</summary>
+    internal ActivityManager Activities => _activities;
     public Activity? Get(string id) => _activities.Get(id);
 
     /// <summary>A short message in the compact notch.</summary>

@@ -19,6 +19,9 @@ internal sealed class ShammyNotification
     public required string Body { get; init; }
     public required DateTimeOffset Time { get; init; }
 
+    /// <summary>It came from the linked phone (Shammy Island), not from this laptop.</summary>
+    public bool IsFromPhone => AppId.StartsWith("phone.", StringComparison.Ordinal);
+
     // The Notifications tab's two lines, read when a row is built; the tab rebuilds its rows when PrivacyState
     // or the "always hide message text" setting flips, so a call hides them and its end reveals them without reopening.
     public (string Title, string Detail) ListText(bool alwaysHide) =>
@@ -337,7 +340,28 @@ internal sealed class NotificationService : IDisposable
         while (History.Count > HistoryLimit) History.RemoveAt(History.Count - 1);
     }
 
-    public void ClearHistory() => History.Clear();
+    /// <summary>You dismissed these (one, or everything with Clear all); a list trimmed to its length doesn't count.</summary>
+    public event Action<IReadOnlyList<ShammyNotification>>? Dismissed;
+
+    /// <summary>You dismissed one notification (the Alerts list's × or Dismiss).</summary>
+    public void Dismiss(ShammyNotification n)
+    {
+        if (History.Remove(n)) Dismissed?.Invoke([n]);
+    }
+
+    public void ClearHistory()
+    {
+        var all = History.ToList();
+        History.Clear();
+        if (all.Count > 0) Dismissed?.Invoke(all);
+    }
+
+    /// <summary>Takes a toast out of Windows' notification centre as well (it was dismissed on the phone).</summary>
+    public void RemoveFromWindows(uint id)
+    {
+        try { _listener?.RemoveNotification(id); }
+        catch (Exception ex) { Log.Warn("Removing a notification from Windows failed", ex); }
+    }
 
     /// <summary>Test pipe: a made-up toast through the same path as a real one (history, then pop-up).</summary>
     internal void InjectForTest(ShammyNotification n)

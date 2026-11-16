@@ -58,14 +58,15 @@ internal sealed class PhoneChoiceSheet : CardSheet
     public bool InStep => _back is not null;
 
     /// <summary>Shows <paramref name="rows"/>; with <paramref name="back"/>, Back and Esc return to the previous step instead of closing.</summary>
-    public void Show(string? status, IReadOnlyList<Row> rows, Action? back = null)
+    /// <param name="accentFirst">Tint the first row as the one thing to do (false when no row is a recommendation).</param>
+    public void Show(string? status, IReadOnlyList<Row> rows, Action? back = null, bool accentFirst = true)
     {
         Status = status;
         _back = back;
         _current.Clear();
         _current.AddRange(rows);
         _rows.Children.Clear();
-        for (int i = 0; i < rows.Count; i++) _rows.Children.Add(RowButton(rows[i], i));
+        for (int i = 0; i < rows.Count; i++) _rows.Children.Add(RowButton(rows[i], i, accentFirst));
         if (IsLoaded) Dispatcher.BeginInvoke(FocusFirst, DispatcherPriority.Input);
     }
 
@@ -99,9 +100,9 @@ internal sealed class PhoneChoiceSheet : CardSheet
         else Focus();
     }
 
-    Button RowButton(Row row, int index)
+    Button RowButton(Row row, int index, bool accentFirst)
     {
-        bool best = index == 0;
+        bool best = index == 0 && accentFirst;
         var iconDisc = new Border
         {
             Width = 34,

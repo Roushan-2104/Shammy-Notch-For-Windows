@@ -17,6 +17,12 @@ public static class WhatsNew
 
     public static readonly IReadOnlyDictionary<string, string[]> Notes = new Dictionary<string, string[]>
     {
+        ["1.5.0"] = new[]
+        {
+            "New: Shammy Island links your Android phone",
+            "Phone button at the top: scan a QR to get the app",
+            "One list for both; answer Claude from your phone",
+        },
         ["1.4.0"] = new[]
         {
             "The time, always: on the island and when it’s open",
@@ -118,6 +124,12 @@ public static class WhatsNew
             "Message text hides the moment you start sharing",
             "This little note after every update",
         },
+    };
+
+    /// <summary>A version's note can carry one button that opens a card: the way in to what's new (its label, the card's id).</summary>
+    public static readonly IReadOnlyDictionary<string, (string Label, string CardId)> Links = new Dictionary<string, (string, string)>
+    {
+        ["1.5.0"] = ("Get it for your phone", "phone"),
     };
 
     /// <summary>

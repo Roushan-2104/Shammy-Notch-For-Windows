@@ -29,7 +29,7 @@ public static class PhonePage
         """;
 
     /// <summary>The landing page: big download button, and a form to send files back to the PC.</summary>
-    public static string Transfer(string token, string? fileName, long size)
+    public static string Transfer(string token, string? fileName, long size, bool uploads = true, string? note = null)
     {
         var sb = Begin(fileName ?? "Shammy");
         if (fileName is not null)
@@ -37,9 +37,11 @@ public static class PhonePage
             sb.Append("<div class=\"icon\">&#128196;</div>")
               .Append("<h1>").Append(Encode(fileName)).Append("</h1>")
               .Append("<p class=\"meta\">").Append(Encode(ByteSize.Format(size))).Append(" &middot; from your PC</p>")
-              .Append("<a class=\"btn primary\" href=\"/").Append(token).Append("/file\" download>Download</a>")
-              .Append("<div class=\"divider\"></div>");
+              .Append("<a class=\"btn primary\" href=\"/").Append(token).Append("/file\" download>Download</a>");
+            if (note is not null) sb.Append("<p class=\"hint\" style=\"margin-top:18px;word-break:break-all\">").Append(Encode(note)).Append("</p>");
+            if (uploads) sb.Append("<div class=\"divider\"></div>");
         }
+        if (!uploads) return End(sb);
         sb.Append("<p class=\"hint\">Send photos or files to this PC&rsquo;s Downloads folder</p>")
           .Append("<form id=\"up\" method=\"post\" enctype=\"multipart/form-data\" action=\"/").Append(token).Append("/upload\">")
           .Append("<label class=\"btn secondary\" for=\"f\">Upload to PC</label>")

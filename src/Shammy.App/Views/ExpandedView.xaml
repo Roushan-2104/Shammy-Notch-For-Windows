@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Shammy.Views.ExpandedView"
+<UserControl x:Class="Shammy.Views.ExpandedView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Shammy.Views"
@@ -50,15 +50,26 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <!-- Your phone: link it, get the app; a green dot while it's online. Shown once the phone link has registered. -->
+            <Button x:Name="PhoneButton" Grid.Column="4" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
+                    Click="OnPhoneClicked" ToolTip="Your phone" AutomationProperties.Name="Your phone">
+                <Grid Width="30" Height="30" IsHitTestVisible="False">
+                    <TextBlock Text="&#xE8EA;" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource WallText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="PhoneOnlineDot" Width="7" Height="7" Fill="#3DD68C" Stroke="#000000" StrokeThickness="1.2"
+                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0" Visibility="Collapsed" />
+                </Grid>
+            </Button>
             <!-- Settings, beside the guide: the same round button. Shown once Settings has registered. -->
-            <Button x:Name="SettingsButton" Grid.Column="5" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
+            <Button x:Name="SettingsButton" Grid.Column="6" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
                     Click="OnSettingsClicked" ToolTip="Settings" AutomationProperties.Name="Settings">
                 <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource WallText}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
             </Button>
             <!-- The way into the guide: everything Shammy does, in one place. Shown once the guide has registered. -->
-            <Button x:Name="GuideButton" Grid.Column="4" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
+            <Button x:Name="GuideButton" Grid.Column="5" Width="32" Style="{StaticResource TopButton}" Margin="6,0,0,0" Visibility="Collapsed"
                     Click="OnGuideClicked" ToolTip="What Shammy can do" AutomationProperties.Name="What Shammy can do">
                 <TextBlock Text="?" FontFamily="{StaticResource WallFontExtraBold}" FontWeight="ExtraBold" FontSize="15" Foreground="{DynamicResource WallText}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
