@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+const groups = [
+  ['Your voice', [
+    'With your Gnani key saved, a command\'s recording goes to Gnani only while you hold the talk key. The key is encrypted on your PC.',
+    'Without a key, or offline, a small model on your PC hears it instead. Text on screen is read with Windows\' own OCR.',
+  ]],
+  ['Dictation', [
+    'The recording goes to Gnani only while you hold the dictation key, and it is never saved.',
+    'The words are pasted through a private copy that skips clipboard history, your clipboard is put back, and the log only counts words.',
+    'It is off in password boxes, and shows only "Dictating…" while you share your screen.',
+  ]],
+  ['What leaves your PC, and when', [
+    'Searches go to Google only when you ask. The island says "Sent to Google" whenever an image goes to Lens.',
+    'A circled phone number, email, link, date, address, sum, colour, time zone, flight, tracking number, PNR, UPI ID or vehicle number is read on your PC and goes nowhere.',
+    'A circled name or term of one to four words is looked up on Wikipedia, with only those words.',
+    'A question, an "explain" or a translation goes to Google (AI Mode or Translate) only when you ask, with only those words.',
+    'For an IFSC or PIN code, only the code goes to a free public lookup (Razorpay\'s IFSC service, India Post).',
+    '"Weather in a city" sends only that city name to Open-Meteo, with no account and no key.',
+    'Your calendar is read only from Google, at the secret address you pasted.',
+  ]],
+  ['Sharing your screen', [
+    'While you share or record your whole screen, message text, meeting titles, reminders, notes and clipboard text are hidden.',
+    'Stage and its ring light never show up in a share or a recording.',
+    'One-time codes are copied privately, cleared after a minute, hidden while you share, and never written to the log.',
+  ]],
+  ['Your data on your PC', [
+    'Clipboard history, notes, snippets and your calendar\'s address are encrypted with Windows DPAPI under your account.',
+    'Unpinned clipboard items are forgotten after 24 hours. Logs never hold what you said, searched, dictated or copied, and are kept for 3 days.',
+    'Phone transfers stay on your own network behind a random one-time link. Claude Code talks to Shammy only on your PC, through a local address with a random token.',
+  ]],
+  ['This website', [
+    'No cookies and no trackers. If page counts are switched on later, they will use GoatCounter, which counts visits without cookies or personal data.',
+  ]],
+] as const;
+---
+<Base title="Privacy · Shammy" description="What Shammy keeps on your PC, what leaves it, and when.">
+  <section class="page wrap">
+    <h1>What stays on your PC.</h1>
+    <div class="head">
+      <p class="lead">Shammy does most things on your own computer. When something has to go online, it goes only when you ask, with only what it needs.</p>
+      <div class="says" data-ui aria-label="What the island says: Dictating… while you share your screen, and Sent to Google when an image goes to Lens">
+        <span class="isle-pill"><span class="isle-eyes" aria-hidden="true"><i></i><i></i></span>Dictating…</span>
+        <span class="isle-pill"><span class="isle-eyes" aria-hidden="true"><i></i><i></i></span><span class="g" aria-hidden="true"></span>Sent to Google</span>
+      </div>
+    </div>
+    <div class="groups">
+      {groups.map(([title, items]) => (
+        <section class="group" aria-labelledby={title}>
+          <h2 id={title}>{title}</h2>
+          <ul>{items.map((i) => <li>{i}</li>)}</ul>
+        </section>
+      ))}
+    </div>
+  </section>
+</Base>
+
+<style>
+  .page { padding-top: clamp(64px, 10vw, 140px); padding-bottom: 120px; }
+  h1 { font-size: clamp(44px, 6.4vw, 96px); }
+  .lead { margin-top: 24px; }
+  .head { display: grid; grid-template-columns: 1.2fr .8fr; gap: 32px 64px; align-items: end; }
+  @media (max-width: 860px) { .head { grid-template-columns: 1fr; } }
+  .says { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+  @media (max-width: 860px) { .says { align-items: flex-start; } .says .isle-pill:last-child { transform: translateX(24px); } }
+  .says .isle-pill:last-child { transform: translateX(-28px); }
+  .g { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
+  .groups { margin-top: 72px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px 64px; }
+  @media (max-width: 860px) { .groups { grid-template-columns: 1fr; } }
+  h2 { font-size: clamp(26px, 2.6vw, 34px); letter-spacing: -.02em; }
+  ul { margin: 18px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; color: var(--ink-soft); }
+  li::marker { color: var(--mint); }
+</style>

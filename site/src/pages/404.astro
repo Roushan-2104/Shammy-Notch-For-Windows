@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Not here · Shammy" description="This page doesn't exist.">
+  <section class="page wrap">
+    <p class="eyes-big" aria-hidden="true"><i></i><i></i></p>
+    <h1>The island looked everywhere.</h1>
+    <p class="lead">This page isn't here. It may have moved, or the link has a typo.</p>
+    <p class="actions"><a class="btn" href={`${base}/`}>Back to the start</a></p>
+  </section>
+</Base>
+
+<style>
+  .page { padding-top: clamp(80px, 12vw, 160px); padding-bottom: 160px; text-align: center; }
+  .eyes-big { display: inline-flex; gap: 14px; margin-bottom: 36px; }
+  .eyes-big i { width: 28px; height: 46px; border-radius: 14px; background: var(--ink); animation: look 4s ease-in-out infinite; }
+  @keyframes look { 0%, 40% { transform: translateX(0); } 50%, 70% { transform: translateX(-10px); } 80%, 100% { transform: translateX(10px); } }
+  h1 { font-size: clamp(40px, 6vw, 88px); }
+  .lead { margin: 24px auto 0; }
+  .actions { margin-top: 36px; }
+</style>

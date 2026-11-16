@@ -1,0 +1,352 @@
+---
+import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const img = (p: string) => `${base}/img/${p}`;
+const release = 'https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest';
+---
+<Base title="Shammy, the island Windows was missing" description="A floating island at the top of Windows: talk in Hinglish and it types, approve Claude from the top of your screen, your phone joins in. About 90 MB, free.">
+
+<section class="open" id="top" aria-labelledby="hero-title">
+  <canvas class="gl" aria-hidden="true"></canvas>
+  <div class="css-island" aria-hidden="true" data-ui><span class="ci-eyes"><i></i><i></i></span><span class="ci-status"><b></b>Charging 100%</span><span class="ci-time" data-clock></span></div>
+  <div class="moments" aria-hidden="true" data-ui>
+    <div class="m glass" data-x="-0.31" data-y="-0.105" data-z="70"><div class="row"><b>Claude Code</b><small>wants to run</small><span class="allow">Allow</span></div><div class="mono code">npm test</div></div>
+    <div class="m glass" data-x="0.31" data-y="-0.115" data-z="50"><div class="row"><span class="dot"></span><b class="caps">Dictating</b><small>into WhatsApp</small></div><div class="deva big-deva">हाँ, कल 6 बजे कैफ़े पे मिलते हैं</div></div>
+    <div class="m glass" data-x="-0.31" data-y="0.15" data-z="40"><div class="row"><img src={img('night-song-cover.png')} alt="" width="44" height="44" class="cover"><div><b>Night Song</b><br><small>Nusrat Fateh Ali Khan &amp; Michael Brook</small></div></div></div>
+    <div class="m dawn" data-x="0.31" data-y="0.15" data-z="90"><span class="sun"></span><small class="caps">Wake up · dawn</small><div class="dawn-time">6:30<span>AM</span></div></div>
+  </div>
+  <div class="open-copy">
+    <h1 id="hero-title" class="sheen">The island Windows<br>was missing.</h1>
+  </div>
+  <div class="open-foot">
+    <p class="lead">Talk in Hinglish and it types. Approve Claude from the top of your screen. Your phone joins in. All in about 90&nbsp;MB, free.</p>
+    <div class="actions">
+      <a class="btn" href={`${release}/download/Shammy-Setup.exe`}>Download for Windows</a>
+      <a class="link" href="#try">Try it on this page</a>
+    </div>
+  </div>
+</section>
+
+<section class="chapter claude" id="features" aria-labelledby="claude-title">
+  <div class="wrap two">
+    <div class="words">
+      <h2 id="claude-title">Claude asks.<br>You tap Allow.</h2>
+      <p class="lead">Your Claude Code sessions live in the island. When one wants to run a command, it asks up there, over whatever app you're in, so you stop missing the moment it needs you.</p>
+      <p class="aside">Allow or Deny from the island; the terminal carries on.</p>
+    </div>
+    <figure class="shot"><img src={img('app/claude.webp')} alt="The island asking: Claude Code wants to run npm test, with Deny and Allow" width="581" height="226" loading="lazy"></figure>
+  </div>
+</section>
+
+<section class="chapter dictate" aria-labelledby="dictate-title">
+  <div class="wrap two">
+    <div class="words">
+      <h2 id="dictate-title">Talk in Hinglish.<br>It types.</h2>
+      <p class="lead">Hold <kbd>Ctrl</kbd> + <kbd>Win</kbd> in any app and talk. Your words show live in the island; let go and they're typed where your cursor is. Say "in Hindi" and it lands in Devanagari.</p>
+    </div>
+    <div class="chat glass" data-ui aria-label="A WhatsApp chat with a dictated reply">
+      <img src={img('app/dictate.webp')} alt="The island while dictating: haan, kal 6 baje cafe pe milte hain, into WhatsApp" width="581" height="179" loading="lazy" class="chat-island">
+      <div class="bubble them">kal milte hain?</div>
+      <div class="bubble me" data-script="roman">haan, kal 6 baje cafe pe milte hain</div>
+      <div class="bubble me deva" data-script="deva" hidden>हाँ, कल 6 बजे कैफ़े पे मिलते हैं</div>
+      <div class="script-toggle" role="group" aria-label="Script">
+        <button type="button" aria-pressed="true" data-pick="roman">Roman</button>
+        <button type="button" aria-pressed="false" data-pick="deva" class="deva">देवनागरी</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter music" aria-labelledby="music-title">
+  <div class="wrap two flip">
+    <div class="words">
+      <h2 id="music-title">Your song,<br>in its own colours.</h2>
+      <p class="lead">The island takes its light from the cover you're playing. Lyrics scroll in time where the song has them; drag the line to seek, scroll over it for volume.</p>
+    </div>
+    <div class="isle-open" data-ui role="img" aria-label="The open island playing Night Song by Nusrat Fateh Ali Khan and Michael Brook, lit red and green by its cover">
+      <div class="io-top"><span class="eyes"><i></i><i></i></span><span>Right now · <b>Playing Night Song</b></span></div>
+      <div class="io-card">
+        <img src={img('night-song-cover.png')} alt="" width="104" height="104">
+        <div><small class="caps">Now playing</small><b class="io-title">Night Song</b><span class="io-artist">Nusrat Fateh Ali Khan &amp; Michael Brook</span><span class="io-bar"><i></i></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter phone" aria-labelledby="phone-title">
+  <div class="wrap two">
+    <div class="words">
+      <h2 id="phone-title">Your phone joins<br>the island.</h2>
+      <p class="lead">Your laptop's notifications drop onto your phone, and your phone's onto the laptop. Send files, links and text across your own Wi-Fi.</p>
+      <p class="aside">Shammy Island for Android is coming soon. <a class="link" href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">Watch the repo</a> to hear first.</p>
+    </div>
+    <div class="phone-frame" aria-hidden="true" data-ui>
+      <div class="phone-drop glass"><small>From your laptop</small><b>Gmail · Studio</b><span>The edit is ready for review</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter stage" aria-labelledby="stage-title">
+  <div class="wrap">
+    <h2 id="stage-title">Read your script. Look at the lens.</h2>
+    <p class="lead">Stage puts your script right under the camera and follows your voice. Its ring light lights your face and never shows up in the share.</p>
+    <div class="views">
+      <figure><div class="cam you"><img src={img('app/stage.webp')} alt="Stage under the camera: Thanks for joining, everyone. Here's what changes for you this week." width="806" height="224" loading="lazy"><span class="face" aria-hidden="true"></span></div><figcaption>What you see</figcaption></figure>
+      <figure><div class="cam them"><span class="face" aria-hidden="true"></span></div><figcaption>What they see</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="chapter alarms" aria-labelledby="alarm-title">
+  <div class="wrap two flip">
+    <div class="words">
+      <h2 id="alarm-title">Alarms in<br>the sky outside.</h2>
+      <p class="lead">At 6:30 it's a sunrise. At 2 AM it's the moon, and we don't ask questions. The sky comes up over the first thirty seconds, and one tap stops it.</p>
+      <p class="aside" data-sky-note></p>
+    </div>
+    <figure class="shot sky-shot">
+      <img src={img('app/alarm-dawn.webp')} alt="An alarm ringing at 6:30 AM in a dawn sky, with the sun rising behind the time" width="856" height="384" loading="lazy" data-sky="dawn">
+      <img src={img('app/alarm-night.webp')} alt="An alarm ringing at 11:30 PM in a night sky, with the moon" width="856" height="384" loading="lazy" data-sky="night" hidden>
+    </figure>
+  </div>
+</section>
+
+<section class="chapter try" id="try" aria-labelledby="try-title">
+  <div class="wrap">
+    <h2 id="try-title">Now try it.</h2>
+    <p class="lead">A Windows desktop with Shammy on it. Circle the flight number, hold to talk, answer Claude, ring an alarm at any hour. Middle-click anywhere on it for the dial.</p>
+  </div>
+  <div class="desk" data-ui tabindex="0" aria-label="A practice desktop with Shammy on it">
+    <div class="desk-island" aria-live="polite"><div class="di-rest"><span class="eyes"><i></i><i></i></span><span class="di-time" data-clock></span></div></div>
+    <div class="win mail"><div class="win-bar">Mail · Your trip</div>
+      <p class="mail-text">Hi Aria, your flight <b class="flight" tabindex="0" role="button" aria-label="Circle the flight number 6E 2134">6E 2134</b> leaves Delhi at 7:40 AM on Friday. Please reach the airport two hours early. Your seat is 14C.</p>
+      <p class="hint">Hold the left button and circle the flight number, or Tab to it and press Enter.</p></div>
+    <div class="win term"><div class="win-bar">Terminal · claude · login-fix</div>
+      <pre class="mono"><span>&gt; fix the failing login test</span>
+<span class="ok">● Edited src/auth/session.ts (+6 −2)</span>
+<span class="ask" data-term-ask>? Allow Bash: npm test</span>
+<span class="ok" data-term-result></span></pre></div>
+    <div class="win wa"><div class="win-bar">WhatsApp · Riya</div>
+      <div class="wa-body"><span class="bubble them">kal milte hain?</span><span class="bubble me" data-wa-sent hidden></span></div></div>
+    <svg class="lasso" aria-hidden="true"><polyline points=""/></svg>
+    <div class="dial" hidden></div>
+    <div class="minute glass" hidden><small class="caps">Your Shammy minute</small><p data-minute></p><a class="btn small" href={`${release}/download/Shammy-Setup.exe`}>Download for Windows</a></div>
+    <div class="desk-bar glass">
+      <button type="button" class="chip" data-talk><kbd>D</kbd> Hold to talk</button>
+      <button type="button" class="chip" data-claude>Let Claude ask</button>
+      <label class="chip alarm-pick">Alarm at <b data-hour-label></b><input type="range" min="0" max="23" data-hour aria-label="Alarm hour"></label>
+      <button type="button" class="chip" data-ring>Ring it</button>
+      <button type="button" class="chip" data-dial-open>Open the dial</button>
+    </div>
+  </div>
+</section>
+
+<section class="chapter light" aria-labelledby="light-title">
+  <div class="wrap two">
+    <h2 id="light-title">Light enough<br>to forget.</h2>
+    <dl class="ledger">
+      <div><dt>90</dt><dd>MB of memory while it sits there. Task Manager says so; we asked it twice.</dd></div>
+      <div><dt>0</dt><dd>paid AI services. Plain things are answered on your PC.</dd></div>
+      <div><dt>26</dt><dd>KB: the frosted glass is a blurred copy of your wallpaper, remade only when it changes.</dd></div>
+      <div><dt>104</dt><dd>MB installer. Updates are usually a few MB, in the background.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="chapter get" id="download" aria-labelledby="get-title">
+  <div class="wrap get-inner">
+    <h2 id="get-title">Get Shammy. It's free.</h2>
+    <p class="lead">It runs on Windows 10 (2004 or later) and 11 and updates itself in the background, usually a few MB at a time.</p>
+    <div class="actions">
+      <a class="btn" href={`${release}/download/Shammy-Setup.exe`}>Download Setup.exe</a>
+      <a class="btn quiet" href={`${release}/download/Shammy-Portable.zip`}>Portable .zip</a>
+      <a class="link" href={release}>All releases</a>
+    </div>
+  </div>
+</section>
+
+</Base>
+
+<style>
+  .open { position: relative; height: calc(100svh - 68px); min-height: 640px; overflow: hidden; background: radial-gradient(36% 44% at 20% 28%, rgba(107,63,216,.55), transparent 70%), radial-gradient(32% 40% at 80% 18%, rgba(25,195,178,.45), transparent 70%), radial-gradient(40% 44% at 62% 92%, rgba(224,87,122,.35), transparent 70%), var(--ground); }
+  .gl { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .8s ease; }
+  .open.gl-on .gl { opacity: 1; }
+  .open.gl-on .css-island { opacity: 0; }
+  .css-island { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(600px, 84vw); height: 80px; border-radius: 40px; display: flex; align-items: center; gap: 18px; padding: 0 32px; font-family: var(--app); background: radial-gradient(40% 120% at 30% 120%, rgba(110,70,220,.35), transparent 70%), radial-gradient(40% 120% at 70% -20%, rgba(25,195,178,.25), transparent 70%), #08080C; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -2px 0 rgba(140,200,220,.5), 0 30px 80px rgba(0,0,0,.6); transition: opacity .6s ease; }
+  .ci-eyes { display: inline-flex; gap: 6px; } .ci-eyes i { width: 13px; height: 22px; border-radius: 7px; background: var(--ink); display: block; }
+  .ci-status { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; } .ci-status b { width: 9px; height: 9px; border-radius: 50%; background: #3BD16F; }
+  .ci-time { font-weight: 700; font-size: 22px; padding-left: 16px; box-shadow: inset 1px 0 0 rgba(255,255,255,.18); }
+  @media (max-width: 760px) { .ci-status { display: none; } }
+
+  .open-copy { position: absolute; left: 0; right: 0; top: 6svh; text-align: center; padding: 0 var(--gutter-r) 0 var(--gutter); z-index: 2; }
+  .sheen { font-size: clamp(32px, 7.2vw, 108px); color: var(--ink); }
+  .open-foot { position: absolute; left: 0; right: 0; bottom: 3.5svh; text-align: center; padding: 0 var(--gutter-r) 0 var(--gutter); }
+  .open-foot .lead { margin: 0 auto; max-width: 62em; text-wrap: balance; }
+  .actions { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center; justify-content: center; margin-top: 22px; }
+
+  .moments { position: absolute; inset: 0; pointer-events: none; perspective: 1200px; transform-style: preserve-3d; }
+  .m { position: absolute; left: 50%; top: 50%; width: 330px; border-radius: 22px; padding: 14px 16px; font-size: 15px; transition: transform .3s ease-out; }
+  .m small { color: var(--ink-soft); font-size: 13px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .allow { margin-left: auto; height: 30px; padding: 0 14px; border-radius: 15px; background: var(--mint); color: #0B0A0E; display: inline-flex; align-items: center; font-weight: 700; font-size: 14px; }
+  .code { font-size: 14px; margin-top: 6px; }
+  .big-deva { font-size: 18px; margin-top: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #3BD16F; }
+  .caps { text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 600; }
+  .cover { border-radius: 10px; }
+  .dawn { width: 250px; overflow: hidden; color: #fff; background: linear-gradient(180deg, #1E1626 0%, #5A2E3A 60%, #FFB070 100%); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .dawn .sun { position: absolute; right: 22px; top: 24px; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 45% 40%, #FFF6E6, #FFA860); box-shadow: 0 0 40px 10px rgba(255,186,120,.5); }
+  .dawn small { position: relative; color: rgba(255,255,255,.85); }
+  .dawn-time { position: relative; font: 300 44px var(--display); letter-spacing: -.03em; } .dawn-time span { font-size: 15px; margin-left: 6px; }
+  @media (max-width: 900px) { .moments { display: none; } }
+
+  .chapter { padding: clamp(96px, 14vw, 180px) 0; position: relative; }
+  .two { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
+  .two.flip > :first-child { order: 2; }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } .two.flip > :first-child { order: 0; } }
+  .words h2, .chapter h2 { font-size: clamp(36px, 4.6vw, 68px); }
+  .words .lead, .chapter > .wrap > .lead { margin-top: 26px; }
+  .aside { margin-top: 18px; color: var(--ink-soft); font-size: 18px; }
+  .shot { margin: 0; filter: drop-shadow(0 40px 80px rgba(0,0,0,.55)); }
+  .shot img { width: 100%; }
+  kbd { font: 600 .8em var(--text); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.12); box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+
+  .claude { background: radial-gradient(50% 60% at 85% 40%, rgba(159,216,194,.14), transparent 70%); }
+  .dictate { background: radial-gradient(50% 60% at 15% 50%, rgba(107,63,216,.18), transparent 70%); }
+  .chat { border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .chat-island { width: 100%; margin-bottom: 6px; }
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 18px; }
+  .bubble.them { align-self: flex-start; background: #1F2C27; }
+  .bubble.me { align-self: flex-end; background: #1E5C45; }
+  .bubble.deva { font-size: 19px; }
+  .script-toggle { align-self: flex-end; display: inline-flex; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.08); margin-top: 4px; }
+  .script-toggle button { border: 0; background: none; color: var(--ink); font: 500 15px var(--text); padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+  .script-toggle button.deva { font-family: var(--deva); }
+  .script-toggle button[aria-pressed="true"] { background: var(--ink); color: #0B0A0E; font-weight: 600; }
+
+  .music { background: radial-gradient(40% 55% at 25% 40%, rgba(200,40,30,.5), transparent 70%), radial-gradient(38% 50% at 75% 75%, rgba(70,140,50,.4), transparent 70%), var(--ground); }
+  .isle-open { border-radius: 36px; padding: 22px 26px; font-family: var(--app); background: radial-gradient(70% 90% at 15% 30%, rgba(200,40,30,.5), transparent 70%), radial-gradient(60% 80% at 85% 90%, rgba(70,130,50,.4), transparent 70%), #0B0A0E; box-shadow: inset 0 0 0 1px var(--edge), 0 40px 90px rgba(0,0,0,.6), 0 0 80px rgba(200,40,30,.22); }
+  .io-top { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--ink-soft); } .io-top b { color: var(--ink); }
+  .io-card { display: flex; gap: 18px; align-items: center; margin-top: 18px; padding: 16px; border-radius: 24px; background: rgba(255,255,255,.06); }
+  .io-card img { width: 104px; height: 104px; border-radius: 14px; }
+  .io-card > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .io-card small { color: var(--ink-soft); }
+  .io-title { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .io-artist { color: var(--ink-soft); font-size: 15px; }
+  .io-bar { margin-top: 14px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); } .io-bar i { display: block; width: 38%; height: 100%; border-radius: 2px; background: var(--ink); }
+
+  .phone { background: radial-gradient(45% 60% at 80% 50%, rgba(25,195,178,.16), transparent 70%); }
+  .phone-frame { justify-self: center; width: 300px; height: 600px; border-radius: 48px; background: radial-gradient(60% 50% at 30% 30%, rgba(107,63,216,.9), transparent 70%), radial-gradient(60% 50% at 70% 75%, rgba(25,195,178,.7), transparent 70%), #08080C; box-shadow: inset 0 0 0 10px #1C1B23, 0 40px 90px rgba(0,0,0,.6); position: relative; }
+  .phone-drop { position: absolute; left: 22px; right: 22px; top: 26px; border-radius: 24px; padding: 14px 16px; display: flex; flex-direction: column; font-size: 15px; }
+  .phone-drop small { color: var(--ink-soft); font-size: 13px; }
+
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+  @media (max-width: 760px) { .views { grid-template-columns: 1fr; } }
+  .views figure { margin: 0; }
+  .views figcaption { margin-top: 12px; color: var(--ink-soft); }
+  .cam { position: relative; aspect-ratio: 3 / 2; border-radius: 18px; overflow: hidden; background: #15131B; }
+  .cam.you { background: #1A1720; box-shadow: inset 0 0 0 10px rgba(255,214,180,.85), inset 0 0 90px 30px rgba(255,190,140,.35); }
+  .cam img { position: absolute; left: 50%; top: 8%; width: 74%; transform: translateX(-50%); z-index: 1; }
+  .face { position: absolute; left: 50%; bottom: -12%; width: 46%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50% 50% 0 0; background: radial-gradient(circle at 50% 30%, #C9A48A 0 22%, transparent 23%), radial-gradient(ellipse at 50% 100%, #3A3F5A 0 60%, transparent 61%); }
+
+  .alarms { background: radial-gradient(50% 60% at 70% 50%, var(--sky-glow, rgba(255,176,112,.18)), transparent 70%); }
+
+  .try { padding-bottom: 0; }
+  .desk { position: relative; margin: 48px auto 0; width: min(1360px, calc(100% - 40px)); height: 720px; border-radius: 22px; overflow: hidden; touch-action: none; user-select: none;
+    background: radial-gradient(36% 44% at 20% 28%, rgba(107,63,216,.6), transparent 70%), radial-gradient(32% 40% at 80% 18%, rgba(25,195,178,.5), transparent 70%), radial-gradient(40% 44% at 62% 92%, rgba(224,87,122,.4), transparent 70%), #0A0A12; box-shadow: inset 0 0 0 1px var(--edge); }
+  .desk:focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }
+  .desk-island { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 10; min-width: 300px; border-radius: 22px; background: #08080C; color: var(--ink); font-family: var(--app); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 30px 80px rgba(0,0,0,.55); overflow: hidden; transition: width .35s cubic-bezier(.2,.9,.3,1.2); }
+  .di-rest { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 16px; } .di-time { margin-left: auto; font-weight: 700; font-size: 15px; }
+  .win { position: absolute; border-radius: 12px; background: #15141B; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.5); overflow: hidden; }
+  .win-bar { height: 32px; display: flex; align-items: center; padding: 0 14px; background: #1C1B23; font: 500 13px var(--app); color: #BDBAB4; }
+  .mail { left: 4%; top: 100px; width: 42%; min-height: 240px; }
+  .mail-text { padding: 18px 20px; font-size: 16px; line-height: 1.7; color: #D6D3CD; } .mail-text b { color: #fff; }
+  .hint { padding: 0 20px 18px; font-size: 14px; color: var(--ink-faint); }
+  .term { right: 4%; top: 100px; width: 44%; }
+  .term pre { margin: 0; padding: 16px 18px; font-size: 14px; line-height: 1.7; color: #BDBAB4; white-space: pre-wrap; }
+  .term .ok { color: var(--mint); } .term .ask { color: #F2B35A; } .term .ask.done { color: #6E6A72; }
+  .wa { right: 4%; top: 360px; width: 44%; height: 220px; background: #0E1A16; } .wa .win-bar { background: #13241E; }
+  .wa-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .lasso { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; }
+  .lasso polyline { fill: rgba(249,163,192,.12); stroke: #F9A3C0; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+  .desk-bar { position: absolute; left: 4%; right: 4%; bottom: 20px; border-radius: 999px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; z-index: 9; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 22px; border: 0; background: rgba(255,255,255,.1); color: var(--ink); font: 600 15px var(--text); cursor: pointer; box-shadow: inset 0 0 0 1px var(--edge); }
+  .chip:hover { background: rgba(255,255,255,.18); }
+  .chip:active { transform: scale(.97); }
+  .alarm-pick { cursor: default; } .alarm-pick b { min-width: 74px; } .alarm-pick input { width: 160px; accent-color: var(--ink); }
+  .dial { position: absolute; z-index: 20; width: 0; height: 0; }
+  .dial :global(button) { position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; border: 0; background: rgba(20,19,28,.9); color: var(--ink); font: 700 13px var(--text); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+  .dial :global(button:hover), .dial :global(button:focus-visible) { background: var(--ink); color: #0B0A0E; }
+  .minute { position: absolute; left: 4%; top: 380px; width: min(480px, 42%); border-radius: 24px; padding: 20px 22px; z-index: 6; }
+  .minute p { margin: 10px 0 14px; font-size: 17px; }
+  @media (max-width: 900px) {
+    .desk { height: 920px; }
+    .mail { left: 4%; right: 4%; width: auto; top: 80px; }
+    .term { left: 4%; right: 4%; width: auto; top: 360px; }
+    .wa { left: 4%; right: 4%; width: auto; top: 560px; height: 160px; }
+    .minute { left: 4%; right: 4%; width: auto; top: 470px; }
+    .desk-island { min-width: 0; width: 92% !important; }
+  }
+
+  .light .two { align-items: start; }
+  .ledger { margin: 0; display: flex; flex-direction: column; gap: 22px; }
+  .ledger div { display: grid; grid-template-columns: 170px 1fr; align-items: baseline; gap: 22px; }
+  .ledger dt { font: 300 clamp(56px, 7.2vw, 104px)/1 var(--display); letter-spacing: -.03em; text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger dd { margin: 0; color: var(--ink-soft); font-size: 18px; }
+  @media (max-width: 600px) { .ledger div { grid-template-columns: 1fr; gap: 4px; } .ledger dt { text-align: left; } }
+
+  .get { text-align: center; background: radial-gradient(50% 70% at 50% 100%, rgba(107,63,216,.3), transparent 70%); }
+  .get .lead { margin: 22px auto 0; }
+</style>
+
+<script>
+  const clock = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const setClocks = () => document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = clock(); });
+  setClocks(); setInterval(setClocks, 30000);
+
+  // The opening: moments drift with the pointer; the real 3D island loads once the page is on screen.
+  const open = document.querySelector('.open') as HTMLElement;
+  const moments = [...document.querySelectorAll<HTMLElement>('.m')];
+  let mx = 0, my = 0;
+  function placeMoments() {
+    const w = open.clientWidth, h = open.clientHeight;
+    for (const el of moments) {
+      const x = +el.dataset.x! * w, y = +el.dataset.y! * h, z = +el.dataset.z!;
+      el.style.transform = `translate(-50%,-50%) translate3d(${(x + mx * z * .9).toFixed(1)}px,${(y + my * z * .9).toFixed(1)}px,${z}px)`;
+    }
+  }
+  open.addEventListener('pointermove', (e) => { const r = open.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width - .5; my = (e.clientY - r.top) / r.height - .5; placeMoments(); });
+  addEventListener('resize', placeMoments); placeMoments();
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canWebGL = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+  if (!reduced && canWebGL && (navigator.hardwareConcurrency ?? 4) >= 4) {
+    const start = () => import('../scripts/island.js').then(({ mountIsland }) => { mountIsland(open, open.querySelector('.gl'), 'Charging 100%'); open.classList.add('gl-on'); }).catch(() => {});
+    if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 1500 }); else setTimeout(start, 600);
+  }
+
+  // Dictation chapter: Roman or Devanagari.
+  document.querySelectorAll<HTMLButtonElement>('.script-toggle button').forEach((b) => b.addEventListener('click', () => {
+    const pick = b.dataset.pick;
+    document.querySelectorAll<HTMLButtonElement>('.script-toggle button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    document.querySelectorAll<HTMLElement>('.dictate [data-script]').forEach((m) => { m.hidden = m.dataset.script !== pick; });
+  }));
+
+  // Alarms chapter: the sky of the visitor's own hour.
+  const hourNow = new Date().getHours();
+  const night = hourNow >= 19 || hourNow < 5;
+  document.querySelectorAll<HTMLImageElement>('[data-sky]').forEach((im) => { im.hidden = (im.dataset.sky === 'night') !== night; });
+  const note = document.querySelector('[data-sky-note]');
+  if (note) note.textContent = night ? `It's ${clock()} where you are, so here it is under the moon.` : `It's ${clock()} where you are, so here it is at dawn.`;
+  if (night) (document.querySelector('.alarms') as HTMLElement).style.setProperty('--sky-glow', 'rgba(170,195,255,.16)');
+
+  import('../scripts/desk.js').then(({ mountDesk }) => mountDesk(document.querySelector('.desk')));
+
+  // Each chapter's parts rise in once as it arrives: heading, then text, then picture.
+  if (!reduced && 'IntersectionObserver' in window) {
+    const parts = document.querySelectorAll('.chapter h2, .chapter .lead, .chapter .aside, .chapter .shot, .chapter .chat, .chapter .isle-open, .chapter .phone-frame, .chapter .views figure, .ledger > div, .chapter .actions');
+    parts.forEach((el, i) => { el.classList.add('rise'); (el as HTMLElement).style.transitionDelay = `${(i % 4) * 80}ms`; });
+    const seen = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); seen.unobserve(e.target); } }), { rootMargin: '0px 0px -10% 0px' });
+    parts.forEach((el) => seen.observe(el));
+  }
+</script>

@@ -1,0 +1,68 @@
+---
+import '@fontsource/funnel-display/300.css';
+import '@fontsource/funnel-display/600.css';
+import '@fontsource/funnel-display/800.css';
+import '@fontsource/funnel-sans/400.css';
+import '@fontsource/funnel-sans/500.css';
+import '@fontsource/funnel-sans/600.css';
+import '@fontsource/anek-devanagari/400.css';
+import '@fontsource/anek-devanagari/600.css';
+import '@fontsource/schibsted-grotesk/600.css';
+import '@fontsource/schibsted-grotesk/700.css';
+import '@fontsource/geist-mono/400.css';
+import '../styles/site.css';
+
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+// Cookie-free page counts: set this to the GoatCounter code once the account exists; empty means no counting.
+const goatcounter = '';
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <meta name="theme-color" content="#05050A">
+  <meta property="og:title" content={title}>
+  <meta property="og:description" content={description}>
+  <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml">
+  {goatcounter && <script data-goatcounter={`https://${goatcounter}.goatcounter.com/count`} async src="//gc.zgo.at/count.js"></script>}
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the content</a>
+  <header class="bar">
+    <a class="mark" href={`${base}/`} aria-label="Shammy, home"><span class="eyes" aria-hidden="true"><i></i><i></i></span>shammy</a>
+    <nav aria-label="Main">
+      <a href={`${base}/#features`}>Features</a>
+      <a href={`${base}/whats-new/`}>What's new</a>
+      <a href={`${base}/privacy/`}>Privacy</a>
+      <a href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">GitHub</a>
+    </nav>
+    <a class="btn small" href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest/download/Shammy-Setup.exe">Download</a>
+  </header>
+  <main id="main"><slot /></main>
+  <footer class="foot">
+    <div class="foot-row">
+      <p class="foot-name">shammy</p>
+      <p>A floating island for Windows 10 and 11. Free, MIT licence.</p>
+    </div>
+    <div class="foot-row small-print">
+      <span>Made by <a href="https://github.com/Roushan-2104">Roushan</a></span>
+      <span><a href={`${base}/whats-new/`}>What's new</a> · <a href={`${base}/privacy/`}>Privacy</a> · <a href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">Source</a></span>
+      <span>The pet is asleep down here. Scroll up to wake it.</span>
+    </div>
+  </footer>
+  <script>
+    // On the smaller pages, each part rises in once as it arrives. The home page brings its own list.
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+      const parts = document.querySelectorAll('.page > :not(.releases):not(.groups), .page .releases > li, .page .group');
+      parts.forEach((el, i) => { el.classList.add('rise'); (el as HTMLElement).style.transitionDelay = `${(i % 4) * 80}ms`; });
+      const seen = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); seen.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+      parts.forEach((el) => seen.observe(el));
+    }
+  </script>
+</body>
+</html>

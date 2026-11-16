@@ -1,0 +1,58 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import Base from '../layouts/Base.astro';
+
+// The same lines the app shows after an update, read from the app's source so the two never disagree.
+const source = fs.readFileSync(path.resolve('../src/Shammy.Core/Updates/WhatsNew.cs'), 'utf8');
+const releases = [...source.matchAll(/\["(\d+\.\d+\.\d+)"\]\s*=\s*new\[\]\s*\{([\s\S]*?)\}/g)].map(([, version, body]) => ({
+  version,
+  lines: [...body.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+}));
+const release = 'https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases';
+---
+<Base title="What's new · Shammy" description="Every Shammy release, in the words the island itself shows after an update.">
+  <section class="page wrap">
+    <div class="head">
+      <div>
+        <h1>What's new.</h1>
+        <p class="lead">These are the lines the island shows you after each update. Shammy updates itself in the background, usually a few MB at a time.</p>
+      </div>
+      <figure class="isle-card update" data-ui aria-label={`The island after updating to ${releases[0].version}`}>
+        <div class="u-top"><span class="isle-eyes" aria-hidden="true"><i></i><i></i></span><b>Updated to {releases[0].version}</b><span class="now">Latest</span></div>
+        <ul>{releases[0].lines.map((l) => <li>{l}</li>)}</ul>
+      </figure>
+    </div>
+    <h2 class="before">Earlier updates.</h2>
+    <ol class="releases">
+      {releases.slice(1).map((r) => (
+        <li>
+          <h2><a href={`${release}/tag/v${r.version}`}>{r.version}</a></h2>
+          <ul>{r.lines.map((l) => <li>{l}</li>)}</ul>
+        </li>
+      ))}
+    </ol>
+    <p class="aside"><a class="link" href={release}>Every release on GitHub</a>, with full notes and downloads.</p>
+  </section>
+</Base>
+
+<style>
+  .page { padding-top: clamp(64px, 10vw, 140px); padding-bottom: 120px; }
+  h1 { font-size: clamp(44px, 6.4vw, 96px); }
+  .lead { margin-top: 24px; }
+  .head { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px 64px; align-items: end; }
+  @media (max-width: 900px) { .head { grid-template-columns: 1fr; } }
+  .update { margin: 0; }
+  .u-top { display: flex; align-items: center; gap: 14px; font-size: 18px; }
+  .update ul { margin-top: 18px; font: 600 16px/1.45 var(--app); color: #DCDAD5; gap: 10px; }
+  .update li { padding-left: 22px; position: relative; }
+  .update li::before { content: ''; position: absolute; left: 0; top: .5em; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
+  .before { margin-top: 112px; font-size: clamp(32px, 3.4vw, 48px); letter-spacing: -.02em; }
+  .releases { list-style: none; margin: 48px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 56px 64px; }
+  .releases > li { display: flex; flex-direction: column; gap: 16px; }
+  .releases h2 { font: 300 clamp(40px, 4vw, 56px)/1 var(--display); letter-spacing: -.03em; display: flex; align-items: center; gap: 14px; font-variant-numeric: tabular-nums; }
+  .releases h2 a { text-decoration: none; }
+  .now { margin-left: auto; font: 600 14px var(--text); letter-spacing: 0; padding: 5px 12px; border-radius: 999px; background: rgba(159,216,194,.15); color: var(--mint); }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 19px; }
+  .aside { margin-top: 56px; color: var(--ink-soft); }
+</style>
