@@ -50,16 +50,16 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
       </div>
     </div>
 
-    <div class="phone" aria-hidden="true" data-ui><div class="ph-screen"><div class="ph-island"><i></i><i></i></div><div class="ph-drop"><b>report.pdf</b><span>From your laptop · tap to open</span></div></div></div>
+    <div class="phone" aria-hidden="true" data-ui hidden><div class="ph-screen"><div class="ph-island"><i></i><i></i></div><div class="ph-drop"><b>report.pdf</b><span>From your laptop · tap to open</span></div></div></div>
     <div class="isle" data-ui><div class="isle-in"></div></div>
 
-    <article class="copy" data-i="1"><h2>Claude asks.<br>You tap Allow.</h2><p class="lead">Your Claude Code sessions live in the island. When one wants to run a command, it asks up there, over whatever app you're in, so you stop missing the moment it needs you.</p></article>
-    <article class="copy" data-i="2"><h2>Talk in Hinglish.<br>It types.</h2><p class="lead">Hold <kbd>Ctrl</kbd> + <kbd>Win</kbd> in any app and talk. Your words show live in the island; let go and they're typed where your cursor is. Say "in Hindi" and it lands in Devanagari.</p></article>
-    <article class="copy" data-i="3"><h2>Your song,<br>in its own colours.</h2><p class="lead">The island takes its light from the cover you're playing. Lyrics scroll in time where the song has them; drag the line to seek, scroll over it for volume.</p></article>
-    <article class="copy" data-i="4"><h2>Your phone<br>joins the island.</h2><p class="lead">Your laptop's notifications drop onto your phone, and your phone's onto the laptop. Send files, links and text across your own Wi-Fi.</p><p class="aside">Shammy Island for Android is coming soon. <a class="link" href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">Watch the repo</a> to hear first.</p></article>
-    <article class="copy" data-i="5"><h2>Read your script.<br>Look at the lens.</h2><p class="lead">Stage puts your script right under the camera and follows your voice. Its ring light lights your face and never shows up in the share.</p></article>
-    <article class="copy" data-i="6"><h2>Alarms in<br>the sky outside.</h2><p class="lead">At 6:30 it's a sunrise. At 2 AM it's the moon, and we don't ask questions. The sky comes up over the first thirty seconds, and one tap stops it.</p><p class="aside" data-sky-note></p></article>
-    <article class="copy wide" data-i="7"><h2>Light enough to forget.</h2>
+    <article class="copy" hidden data-i="1"><h2>Claude asks.<br>You tap Allow.</h2><p class="lead">Your Claude Code sessions live in the island. When one wants to run a command, it asks up there, over whatever app you're in, so you stop missing the moment it needs you.</p></article>
+    <article class="copy" hidden data-i="2"><h2>Talk in Hinglish.<br>It types.</h2><p class="lead">Hold <kbd>Ctrl</kbd> + <kbd>Win</kbd> in any app and talk. Your words show live in the island; let go and they're typed where your cursor is. Say "in Hindi" and it lands in Devanagari.</p></article>
+    <article class="copy" hidden data-i="3"><h2>Your song,<br>in its own colours.</h2><p class="lead">The island takes its light from the cover you're playing. Lyrics scroll in time where the song has them; drag the line to seek, scroll over it for volume.</p></article>
+    <article class="copy" hidden data-i="4"><h2>Your phone<br>joins the island.</h2><p class="lead">Your laptop's notifications drop onto your phone, and your phone's onto the laptop. Send files, links and text across your own Wi-Fi.</p><p class="aside">Shammy Island for Android is coming soon. <a class="link" href="https://github.com/Roushan-2104/Shammy-Notch-For-Windows">Watch the repo</a> to hear first.</p></article>
+    <article class="copy" hidden data-i="5"><h2>Read your script.<br>Look at the lens.</h2><p class="lead">Stage puts your script right under the camera and follows your voice. Its ring light lights your face and never shows up in the share.</p></article>
+    <article class="copy" hidden data-i="6"><h2>Alarms in<br>the sky outside.</h2><p class="lead">At 6:30 it's a sunrise. At 2 AM it's the moon, and we don't ask questions. The sky comes up over the first thirty seconds, and one tap stops it.</p><p class="aside" data-sky-note></p></article>
+    <article class="copy wide" hidden data-i="7"><h2>Light enough to forget.</h2>
       <dl class="ledger">
         <div><dt>90</dt><dd>MB of memory while it sits there. Task Manager says so; we asked it twice.</dd></div>
         <div><dt>0</dt><dd>paid AI services. Plain things are answered on your PC.</dd></div>
@@ -67,9 +67,9 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
         <div><dt>104</dt><dd>MB installer. Updates are usually a few MB, in the background.</dd></div>
       </dl>
     </article>
-    <article class="copy" data-i="8"><h2>Get Shammy.<br>It's free.</h2><p class="lead">It runs on Windows 10 (2004 or later) and 11, and updates itself in the background, usually a few MB at a time.</p><p class="aside"><a class="link" href="#try">Or try it first, right here</a> · <a class="link" href={release}>All releases</a></p></article>
+    <article class="copy" hidden data-i="8"><h2>Get Shammy.<br>It's free.</h2><p class="lead">It runs on Windows 10 (2004 or later) and 11, and updates itself in the background, usually a few MB at a time.</p><p class="aside"><a class="link" href="#try">Or try it first, right here</a> · <a class="link" href={release}>All releases</a></p></article>
 
-    <nav class="rail" aria-label="Chapters">{chapters.map((c, i) => <button type="button" data-go={i + 1}>{c}</button>)}</nav>
+    <nav class="rail" aria-label="Chapters" hidden>{chapters.map((c, i) => <button type="button" data-go={i + 1}>{c}</button>)}</nav>
   </div>
 </section>
 
@@ -353,8 +353,6 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
 </style>
 
 <script>
-  import { mountStory } from '../scripts/story.js';
-
   const clock = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const setClocks = () => document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = clock(); });
   setClocks(); setInterval(setClocks, 30000);
@@ -381,7 +379,8 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
   const note = stage.querySelector('[data-sky-note]');
   if (note) note.textContent = night ? `It's ${clock()} where you are, so here it is under the moon.` : `It's ${clock()} where you are, so here it is in your sky.`;
 
-  const story = mountStory(journey, { reduced, cover: journey.dataset.cover, release: journey.dataset.release, version: journey.dataset.version });
+  // The story and GSAP arrive just after the first screen.
+  const story = import('../scripts/story.js').then(({ mountStory }) => mountStory(journey, { reduced, cover: journey.dataset.cover, release: journey.dataset.release, version: journey.dataset.version }));
 
   // The 3D island arrives once the page is on screen, on machines that can carry it.
   const canWebGL = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
@@ -389,7 +388,8 @@ const chapters = ['Claude', 'Hinglish', 'Music', 'Phone', 'Stage', 'Alarms', 'Li
     const start = () => import('../scripts/island.js').then(({ mountIsland }) => {
       const light = getComputedStyle(stage);
       const world = [0, 1, 2, 3].map((k) => light.getPropertyValue(`--w${k}`).match(/[\d.]+/g)!.map(Number));
-      story.attach(mountIsland(stage, stage.querySelector('.gl'), world));
+      const island = mountIsland(stage, stage.querySelector('.gl'), world);
+      story.then((s) => s.attach(island));
     }).catch(() => {});
     if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 1500 }); else setTimeout(start, 600);
   }
