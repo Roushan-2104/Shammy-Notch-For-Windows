@@ -1,15 +1,6 @@
 // The practice desktop: circle the flight number, hold to talk, answer Claude, ring an alarm in any hour's sky, and
 // open the dial with a middle click. The island at the top answers each one, as Shammy does.
-const SKIES = {
-  dawn: { name: 'Dawn', top: '#1E1626', mid: '#5A2E3A', hor: '#FFB070', core: '#FFF6E6', edge: '#FFA860', glow: '255,186,120', stop: '#FFF1E4', moon: false },
-  day: { name: 'Day', top: '#16304F', mid: '#2F5C88', hor: '#E9C48C', core: '#FFFFFF', edge: '#FFE2A8', glow: '255,236,190', stop: '#FFFFFF', moon: false },
-  sunset: { name: 'Sunset', top: '#170F2E', mid: '#5E1E4C', hor: '#F2504A', core: '#FFE0C8', edge: '#F04A32', glow: '255,110,90', stop: '#FFE9DE', moon: false },
-  night: { name: 'Night', top: '#04050B', mid: '#0A1226', hor: '#1C2C50', core: '#F4F7FF', edge: '#B8C8F0', glow: '170,195,255', stop: '#E9EEFF', moon: true },
-};
-const skyAt = (h) => (h >= 5 && h < 9 ? SKIES.dawn : h >= 9 && h < 16 ? SKIES.day : h >= 16 && h < 19 ? SKIES.sunset : SKIES.night);
-const fmtHour = (h) => `${h % 12 === 0 ? 12 : h % 12}:30 ${h < 12 ? 'AM' : 'PM'}`;
-const ROMAN = ['haan,', 'kal', '6', 'baje', 'cafe', 'pe', 'milte', 'hain'];
-const DEVA = ['हाँ,', 'कल', '6', 'बजे', 'कैफ़े', 'पे', 'मिलते', 'हैं'];
+import { skyAt, fmtHour, ROMAN, DEVA } from './shared.js';
 
 export function mountDesk(desk) {
   if (!desk) return;
@@ -23,10 +14,12 @@ export function mountDesk(desk) {
     clearTimeout(back);
     island.innerHTML = html;
     island.style.width = width ? `${width}px` : '';
+    island.classList.add('open'); desk.dispatchEvent(new CustomEvent('island', { detail: true }));
     if (ms) back = setTimeout(restIsland, ms);
   };
   function restIsland() {
     island.innerHTML = rest; island.style.width = '';
+    island.classList.remove('open'); desk.dispatchEvent(new CustomEvent('island', { detail: false }));
     const t = island.querySelector('[data-clock]');
     if (t) t.textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
@@ -41,6 +34,7 @@ export function mountDesk(desk) {
     const card = desk.querySelector('.minute');
     card.querySelector('[data-minute]').textContent = lines.join(' ');
     card.hidden = false;
+    desk.querySelector('.guide').hidden = true;
   }
 
   // Circle: draw around the flight number with the left button (or a finger).
@@ -50,7 +44,7 @@ export function mountDesk(desk) {
   const local = (e) => { const r = desk.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   desk.addEventListener('pointerdown', (e) => {
     if (e.button === 1) { e.preventDefault(); openDial(...local(e)); return; }
-    if (e.button !== 0 || e.target.closest('button, input, a, .desk-bar, .dial, .minute')) return;
+    if (e.button !== 0 || e.target.closest('button, input, a, label, .taskbar, .flyout, .guide, .dial, .minute, .wa-compose')) return;
     closeDial();
     points = [local(e)];
     desk.setPointerCapture(e.pointerId);
@@ -144,7 +138,11 @@ export function mountDesk(desk) {
     island.querySelector('[data-stop]').focus();
     tried('alarm');
   }
-  desk.querySelector('[data-ring]').addEventListener('click', ring);
+  desk.querySelector('[data-ring]').addEventListener('click', () => { closeFlyout(); ring(); });
+  // The taskbar clock opens a small alarm flyout, as the Windows clock opens the calendar.
+  const flyout = desk.querySelector('.flyout'), clockBtn = desk.querySelector('[data-clock-open]');
+  function closeFlyout() { flyout.hidden = true; clockBtn.setAttribute('aria-expanded', 'false'); }
+  clockBtn.addEventListener('click', () => { flyout.hidden = !flyout.hidden; clockBtn.setAttribute('aria-expanded', String(!flyout.hidden)); if (!flyout.hidden) range.focus(); });
 
   // The dial: a middle click (or the button) opens it where you are; each slice runs that thing.
   const dial = desk.querySelector('.dial');
@@ -169,5 +167,5 @@ export function mountDesk(desk) {
   }
   function closeDial() { dial.hidden = true; }
   desk.querySelector('[data-dial-open]').addEventListener('click', () => { const r = desk.getBoundingClientRect(); openDial(r.width / 2, r.height / 2); });
-  desk.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDial(); restIsland(); } });
+  desk.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDial(); closeFlyout(); restIsland(); } });
 }

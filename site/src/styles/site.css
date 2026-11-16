@@ -92,6 +92,7 @@ p { margin: 0; }
 .desk-island .sky .caps { position: relative; color: rgba(255,255,255,.85); }
 .desk-island .alarm-time { position: relative; font: 300 96px/1 var(--display); letter-spacing: -.045em; margin-top: 6px; }
 .desk-island .alarm-time span { font-size: 28px; margin-left: 10px; }
+@media (max-width: 900px) { .desk-island .sky .body { right: 22px; top: 22px; width: 70px; height: 70px; } .desk-island .sky .body.moon { width: 60px; height: 60px; top: 22px; } .desk-island .alarm-time { font-size: 72px; } }
 .desk-island .stop { position: absolute; left: 26px; bottom: 20px; height: 48px; padding: 0 44px; border-radius: 24px; border: 0; color: #1B0E0A; font: 800 17px var(--app); cursor: pointer; }
 
 /* Parts rise in once as they arrive (pages add the class from script, so nothing hides without it). */
