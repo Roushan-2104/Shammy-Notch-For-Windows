@@ -12,6 +12,7 @@
 </p>
 
 <p align="center">
+  <b><a href="https://roushan-2104.github.io/Shammy-Notch-For-Windows/">Website</a></b> ·
   <b><a href="#install">Install</a></b> ·
   <b><a href="#circle-to-search">Circle to search</a></b> ·
   <b><a href="#dictation">Dictation</a></b> ·
