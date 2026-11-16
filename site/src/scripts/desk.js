@@ -42,8 +42,11 @@ export function mountDesk(desk) {
   const flight = desk.querySelector('.flight');
   let points = null;
   const local = (e) => { const r = desk.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  let lastPointer = 'mouse';
   desk.addEventListener('pointerdown', (e) => {
+    lastPointer = e.pointerType;
     if (e.button === 1) { e.preventDefault(); openDial(...local(e)); return; }
+    if (e.pointerType === 'touch') return;
     if (e.button !== 0 || e.target.closest('button, input, a, label, .taskbar, .flyout, .guide, .dial, .minute, .wa-compose')) return;
     closeDial();
     points = [local(e)];
@@ -67,7 +70,7 @@ export function mountDesk(desk) {
     else show('<div class="pad">Nothing to answer there. Circle the flight number in the email.</div>', 460, 2600);
   });
   function circled() {
-    show(`<div class="pad"><div class="row"><span class="fly">✈</span><div><small>Flight · IndiGo</small><div class="big">6E 2134</div></div></div><div class="row gap"><span class="pill on">Track flight</span><span class="pill">Copy</span><span class="pill">Search</span></div></div>`, 520, 5200);
+    show(`<div class="pad"><div class="row"><span class="fly"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 15.5v-2l-8-5V3.8a1.5 1.5 0 0 0-3 0v4.7l-8 5v2l8-2.5V18l-2 1.5V21l3.5-1 3.5 1v-1.5L13 18v-5z"/></svg></span><div><small>Flight · IndiGo</small><div class="big">6E 2134</div></div></div><div class="row gap"><span class="pill on">Track flight</span><span class="pill">Copy</span><span class="pill">Search</span></div></div>`, 520, 5200);
     tried('circle');
   }
   // Without a pointer: focus the flight number and press Enter, and the ring is drawn for you.
@@ -78,6 +81,7 @@ export function mountDesk(desk) {
     setTimeout(() => lasso.setAttribute('points', ''), 900);
     circled();
   }
+  flight.addEventListener('click', () => { if (lastPointer === 'touch') circleForMe(); });
   flight.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); circleForMe(); } });
   desk.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
 

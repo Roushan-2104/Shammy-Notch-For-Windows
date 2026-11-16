@@ -79,7 +79,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     music(m) {
       const at = Math.round(lerp(64, 70, m)), paused = !!user.paused;
       return { w: 660, html: `<div class="c-music"><img src="${cover}" alt="" width="132" height="132"><div class="c-track"><div class="cap">${paused ? 'Paused' : 'Now playing'}</div><div class="c-song">Night Song</div><div class="c-artist">Nusrat Fateh Ali Khan &amp; Michael Brook</div>
-        <div class="c-bar"><i style="width:${(at / 367 * 100).toFixed(1)}%"></i></div><div class="c-times"><span>${Math.floor(at / 60)}:${String(at % 60).padStart(2, '0')}</span><button type="button" class="play" data-act="play" aria-label="${paused ? 'Play' : 'Pause'}">${paused ? '▶' : '❚❚'}</button><span>6:07</span></div></div></div>` };
+        <div class="c-bar"><i style="width:${(at / 367 * 100).toFixed(1)}%"></i></div><div class="c-times"><span>${Math.floor(at / 60)}:${String(at % 60).padStart(2, '0')}</span><button type="button" class="play" data-act="play" aria-label="${paused ? 'Play' : 'Pause'}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">${paused ? '<path d="M8 5.5v13l10-6.5z"/>' : '<rect x="7" y="5.5" width="3.5" height="13" rx="1"/><rect x="13.5" y="5.5" width="3.5" height="13" rx="1"/>'}</svg></button><span>6:07</span></div></div></div>` };
     },
     phone(m) {
       const p = Math.min(100, Math.floor(m * 112));
@@ -168,8 +168,8 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     else tl.to(pose, { g: 1, duration: was <= 0 ? 1.05 : .2, ease: 'power3.inOut' }, 0);
     // The words for this chapter rise in.
     copies.forEach((c) => {
-      if (+c.dataset.i !== i) { c.hidden = true; return; }
-      c.hidden = false;
+      if (+c.dataset.i !== i) { c.classList.add('away'); return; }
+      c.classList.remove('away');
       gsap.fromTo(c.children, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: .8 * speed, ease: 'power3.out', stagger: .08 * speed, delay: (was <= 0 ? .55 : .3) * speed });
       gsap.set(c, { opacity: 1, y: 0 });
     });
@@ -225,9 +225,10 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     snap: reduced ? false : { snapTo: 1 / LAST, directional: true, delay: .04, duration: { min: .45, max: .9 }, ease: 'power2.inOut' },
     onUpdate: (self) => go(Math.round(self.progress * LAST)),
   });
-  railItems.forEach((b) => b.addEventListener('click', () => {
-    scrollTo({ top: trigger.start + (+b.dataset.go / LAST) * (trigger.end - trigger.start), behavior: reduced ? 'auto' : 'smooth' });
-  }));
+  const goTo = (n) => scrollTo({ top: trigger.start + (n / LAST) * (trigger.end - trigger.start), behavior: reduced ? 'auto' : 'smooth' });
+  railItems.forEach((b) => b.addEventListener('click', () => goTo(+b.dataset.go)));
+  // Tabbing into a chapter's words (a link) brings that chapter on screen.
+  copies.forEach((c) => c.addEventListener('focusin', () => { if (+c.dataset.i !== now) goTo(+c.dataset.i); }));
   addEventListener('resize', () => { measure(); fill(); draw(); });
   ScrollTrigger.addEventListener('refreshInit', measure);
   go(Math.round(trigger.progress * LAST));
