@@ -11,13 +11,11 @@ namespace Shammy.Modules.Stage;
 /// </summary>
 internal sealed class StageMic : IDisposable
 {
-    const int SampleRate = 16000;
-
-    WaveInEvent? _wave;
+    MicCapture? _capture;
     double _loudest;
     long _blocks, _silentBlocks;
 
-    public bool IsOpen => _wave is not null;
+    public bool IsOpen => _capture is not null;
 
     /// <summary>Blocks heard so far, and how many were exact digital silence (what a privacy block sounds like).</summary>
     public long Blocks => Interlocked.Read(ref _blocks);
@@ -39,12 +37,13 @@ internal sealed class StageMic : IDisposable
                 problem = "No microphone found";
                 return false;
             }
-            var wave = new WaveInEvent { WaveFormat = new WaveFormat(SampleRate, 16, 1), BufferMilliseconds = 40, NumberOfBuffers = 3 };
-            int device = Shammy.Core.Settings.DeviceMatch.Find(MicRecorder.DeviceNames(), MicRecorder.PreferredDevice);
-            if (device >= 0) wave.DeviceNumber = device;
-            wave.DataAvailable += OnData;
-            wave.StartRecording();
-            _wave = wave;
+            var capture = MicCapture.Start(Shammy.Core.Settings.DeviceMatch.Find(MicRecorder.DeviceNames(), MicRecorder.PreferredDevice), 3, OnData);
+            if (capture is null)
+            {
+                problem = "Microphone unavailable";
+                return false;
+            }
+            _capture = capture;
             Interlocked.Exchange(ref _blocks, 0);
             Interlocked.Exchange(ref _silentBlocks, 0);
             return true;
@@ -87,20 +86,10 @@ internal sealed class StageMic : IDisposable
 
     public void Close()
     {
-        var wave = _wave;
-        _wave = null;
+        var capture = _capture;
+        _capture = null;
         Volatile.Write(ref _loudest, 0);
-        if (wave is null) return;
-        try
-        {
-            wave.DataAvailable -= OnData;
-            wave.StopRecording();
-            wave.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Stage: closing the microphone failed", ex);
-        }
+        capture?.Stop();
     }
 
     public void Dispose() => Close();

@@ -6,13 +6,13 @@ namespace Shammy.Search;
 /// <summary>Records 16 kHz mono (what Whisper wants) and exposes a live level for the UI.</summary>
 internal sealed class MicRecorder
 {
-    public const int SampleRate = 16000;
+    public const int SampleRate = MicCapture.SampleRate;
     const int MaxSamples = SampleRate * 30;
 
     readonly object _gate = new();
     List<float> _samples = new();
     float[] _chunk = Array.Empty<float>();
-    WaveInEvent? _wave;
+    MicCapture? _capture;
     float _level;
 
     /// <summary>The microphone's name from settings (MicrophoneDeviceId); null records from the Windows default.</summary>
@@ -34,7 +34,7 @@ internal sealed class MicRecorder
     }
 
     public float Level => Volatile.Read(ref _level);
-    public bool IsRecording => _wave is not null;
+    public bool IsRecording => _capture is not null;
 
     public bool Start(out string? error)
     {
@@ -48,13 +48,14 @@ internal sealed class MicRecorder
                 error = "No microphone found";
                 return false;
             }
-            var wave = new WaveInEvent { WaveFormat = new WaveFormat(SampleRate, 16, 1), BufferMilliseconds = 40, NumberOfBuffers = 4 };
             // The chosen microphone (settings), or the Windows default when it's unset or unplugged.
-            int device = Shammy.Core.Settings.DeviceMatch.Find(DeviceNames(), PreferredDevice);
-            if (device >= 0) wave.DeviceNumber = device;
-            wave.DataAvailable += OnData;
-            wave.StartRecording();
-            _wave = wave;
+            var capture = MicCapture.Start(Shammy.Core.Settings.DeviceMatch.Find(DeviceNames(), PreferredDevice), 4, OnData);
+            if (capture is null)
+            {
+                error = "Microphone unavailable";
+                return false;
+            }
+            _capture = capture;
             return true;
         }
         catch (Exception ex)
@@ -96,21 +97,9 @@ internal sealed class MicRecorder
 
     public float[] Stop()
     {
-        var wave = _wave;
-        _wave = null;
-        if (wave is not null)
-        {
-            try
-            {
-                wave.DataAvailable -= OnData;
-                wave.StopRecording();
-                wave.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("Stopping microphone failed", ex);
-            }
-        }
+        var capture = _capture;
+        _capture = null;
+        capture?.Stop();
         Volatile.Write(ref _level, 0);
         lock (_gate)
         {
