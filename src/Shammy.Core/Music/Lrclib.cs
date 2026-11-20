@@ -26,6 +26,9 @@ public static class Lrclib
         @"\s*[\(\[][^\)\]]*\b(?:official|lyrics?|audio|video|visuali[sz]er|remaster(?:ed)?|hd|4k|mv|m/v|live)\b[^\)\]]*[\)\]]", Opts, MatchTimeout);
     static readonly Regex Feat = new(@"\s*[\(\[]?\s*\b(?:feat\.?|ft\.?|featuring)\s.*$", Opts, MatchTimeout);
 
+    /// <summary>The exact lookup (<see cref="GetUrl"/>) needs a title and an artist; without either LRCLIB answers 400.</summary>
+    public static bool CanGet(string track, string artist) => !string.IsNullOrWhiteSpace(track) && !string.IsNullOrWhiteSpace(artist);
+
     public static string GetUrl(string track, string artist, TimeSpan duration)
     {
         var url = "https://lrclib.net/api/get?track_name=" + Uri.EscapeDataString(track) + "&artist_name=" + Uri.EscapeDataString(artist);

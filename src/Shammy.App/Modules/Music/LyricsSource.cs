@@ -49,13 +49,16 @@ internal sealed class LyricsSource
             return Lrclib.PickBest(records, duration);
         }
 
-        // Exact lookup first (fast, and right for clean titles from music apps)...
-        if (await TryAsync(Lrclib.GetUrl(title, artist, duration)).ConfigureAwait(false) is { } hit) return Lrclib.ToLyrics(hit);
+        // Exact lookup first (fast, and right for clean titles from music apps). It needs both a title and an artist:
+        // LRCLIB answers 400 without one, and players such as a browser tab often report no artist...
+        if (Lrclib.CanGet(title, artist) && await TryAsync(Lrclib.GetUrl(title, artist, duration)).ConfigureAwait(false) is { } hit)
+            return Lrclib.ToLyrics(hit);
 
         // ...then with video-title noise and featured artists removed...
         var (track, lead) = Lrclib.Clean(title, artist);
         if (track.Length == 0) return TrackLyrics.None;
-        if (!track.Equals(title, StringComparison.OrdinalIgnoreCase) || !lead.Equals(artist, StringComparison.OrdinalIgnoreCase))
+        if (Lrclib.CanGet(track, lead) &&
+            (!track.Equals(title, StringComparison.OrdinalIgnoreCase) || !lead.Equals(artist, StringComparison.OrdinalIgnoreCase)))
         {
             if (await TryAsync(Lrclib.GetUrl(track, lead, duration)).ConfigureAwait(false) is { } hit2) return Lrclib.ToLyrics(hit2);
         }
@@ -77,7 +80,9 @@ internal sealed class LyricsSource
             // LRCLIB asks clients to identify themselves.
             request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
             using var response = await _ctx.Http.SendAsync(request).ConfigureAwait(false);
-            if (response.StatusCode == HttpStatusCode.NotFound) return new List<LrclibRecord>();
+            // 400 is LRCLIB refusing a lookup it can't make (a missing field): as good as "not found", so the
+            // fuzzy search still gets its turn.
+            if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest) return new List<LrclibRecord>();
             // LRCLIB answers 503 "server busy" under load, and reliably so for exact lookups it can't
             // satisfy from its own database; retry once, then move on to the next kind of lookup.
             if (response.StatusCode == HttpStatusCode.ServiceUnavailable)

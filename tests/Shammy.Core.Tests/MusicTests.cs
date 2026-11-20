@@ -217,6 +217,14 @@ public class LrclibTests
     }
 
     [Theory]
+    [InlineData("Kesariya", "Arijit Singh", true)]
+    [InlineData("Kesariya", "", false)]   // a browser tab with no artist: LRCLIB answers 400
+    [InlineData("Kesariya", "  ", false)]
+    [InlineData("", "Arijit Singh", false)]
+    public void Exact_lookup_needs_a_title_and_an_artist(string track, string artist, bool can) =>
+        Assert.Equal(can, Lrclib.CanGet(track, artist));
+
+    [Theory]
     [InlineData("Kaahe Mose", "Garvit Soni, Priyansh Srivastava & Garvit-Priyansh", "Kaahe Mose", "Garvit Soni")]
     [InlineData("Coldplay - Yellow (Official Video)", "Coldplay", "Yellow", "Coldplay")]
     [InlineData("Yellow [Remastered 2011]", "Coldplay - Topic", "Yellow", "Coldplay")]
