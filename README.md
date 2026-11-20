@@ -199,9 +199,13 @@ An alarm opens the island into **the sky of the hour it rings**: a sunrise befor
 **Shammy Island** (Android 11 and later) draws the same pet around your phone's camera and links it to Shammy over your own Wi-Fi, or your phone's hotspot. Click the **phone button** at the top of the open island to pair, or to get the app with a QR code: straight from this laptop, or from GitHub.
 
 - **One list of notifications.** Your phone's and your laptop's together, newest first, each with a little phone or laptop beside it and **All · Phone · Laptop** to narrow it down. Dismiss one on either device and it's gone from both. Type `reply on my way` to answer the phone's latest message from your keyboard. Each side has its own soft chime, so you can tell by ear where it came from.
-- **Laptop notifications on the phone** drop a short two-line card from the notch, then wait in the phone's list.
+- **Calm on the phone.** A phone notification shows only its app's icon beside the camera; calls, one-time codes and your favourite people still drop a card. Laptop notifications drop a short two-line card, then wait in the phone's list.
+- **Your phone from the notch.** The phone's battery, Sound / Vibrate / Silent, Do Not Disturb, **Find my phone** (it rings, even on silent), what's playing on the phone with its cover and keys, and a ringing call's **Answer / Decline** (the audio stays on the phone).
+- **Copy here, paste there.** Text you copy on the laptop is on your phone's clipboard too (not what password managers mark private, and not while your screen is shared; a switch in Settings turns it off). Copy on the phone and a **Send** button drops from the notch for a few seconds. A one-time code that reaches your phone is copied on the laptop for you.
+- **Links and files both ways.** Share from any phone app to **Send to laptop**: links open in your browser, files land in `Downloads\Shammy`. Drop files, links, text or pictures (straight from your browser too) on the notch's **Phone** target and they reach the phone. Each side tells you when the other's battery runs low.
+- **Music in the phone's notch.** The cover beside the camera and little bars in its colours that move for a few seconds when you look, then rest.
 - **Your phone as a remote.** What's playing on your laptop (with its cover), play, skip and volume; your timers, calls and downloads with their own button; **Lock** and **Sleep** (tap twice); and Claude Code's **Allow / Deny**, from an unlocked phone only.
-- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key (Android asks the first time).
+- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key. Android asks the first time; after that it updates quietly while the screen is off.
 - **Paired like Bluetooth.** Both screens show the same 6 digits and you confirm on both; after that, a small green dot on the island says your phone is online.
 
 <table>
@@ -380,7 +384,7 @@ Something of yours under the island? Click the **small tab under it** and it sli
 - **Notifications:** clicking one opens the app, not the exact chat.
 - **Exclusive-fullscreen games** can draw over a timer or alarm that breaks through fullscreen; you still hear its chime.
 - **The Copilot key** replaces Windows' Copilot/Search action while Shammy runs.
-- **Shammy Island** is installed from the QR code (Android asks you to allow installing it once); it isn't on the Play Store. Linking from anywhere (outside your Wi-Fi) needs a small relay you host yourself (`tools/relay/relay.py`). The first time Shammy listens for your phone, Windows asks once to allow it on your network.
+- **Shammy Island** is installed from the QR code (Android asks you to allow installing it once); it isn't on the Play Store. In some countries (India among them) Google Play Protect blocks apps that use Accessibility when they're installed from a browser; install it over USB instead (`adb install ShammyIsland.apk`), once: later updates come through Shammy. Switching silent and Do Not Disturb from the laptop needs the phone's "Do Not Disturb access" (a step in the app's checklist). Linking from anywhere (outside your Wi-Fi) needs a small relay you host yourself (`tools/relay/relay.py`). The first time Shammy listens for your phone, Windows asks once to allow it on your network.
 
 </details>
 

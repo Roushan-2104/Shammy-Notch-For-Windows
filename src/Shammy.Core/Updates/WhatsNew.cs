@@ -17,6 +17,12 @@ public static class WhatsNew
 
     public static readonly IReadOnlyDictionary<string, string[]> Notes = new Dictionary<string, string[]>
     {
+        ["1.7.0"] = new[]
+        {
+            "Run your phone from the notch: calls, music, ringer",
+            "Copy on your laptop, paste on your phone",
+            "Drop links, text and pictures from your browser",
+        },
         ["1.6.0"] = new[]
         {
             "After a crash, Shammy offers to send a report",
@@ -152,6 +158,7 @@ public static class WhatsNew
     public static readonly IReadOnlyDictionary<string, (string Label, string CardId)> Links = new Dictionary<string, (string, string)>
     {
         ["1.5.0"] = ("Get it for your phone", "phone"),
+        ["1.7.0"] = ("Get it for your phone", "phone"),
     };
 
     /// <summary>
