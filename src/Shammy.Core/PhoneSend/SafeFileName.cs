@@ -108,7 +108,7 @@ public static class SafeFileName
         ".exe", ".com", ".scr", ".pif", ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
         ".hta", ".msi", ".msp", ".msix", ".appx", ".appinstaller", ".cpl", ".dll", ".jar", ".lnk", ".url", ".reg",
         ".inf", ".scf", ".library-ms", ".searchconnector-ms", ".settingcontent-ms", ".application", ".gadget",
-        ".msc", ".diagcab", ".chm", ".iso", ".img", ".vhd", ".vhdx",
+        ".msc", ".diagcab", ".chm", ".iso", ".img", ".vhd", ".vhdx", ".appref-ms", ".website", ".xll", ".wsc", ".theme", ".themepack",
     };
 
     /// <summary>

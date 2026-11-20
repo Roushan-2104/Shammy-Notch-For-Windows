@@ -157,7 +157,7 @@ internal static class PhoneSources
         if (data is null) return Copied.None;
         try
         {
-            if (ClipPrivacy.ShouldSkip(false, ClipboardModule.Flag(data, ClipPrivacy.HistoryFormat), ClipboardModule.Flag(data, ClipPrivacy.CloudFormat)))
+            if (ClipPrivacy.ShouldSkip(ClipNative.HasFormat(ClipPrivacy.ExcludeFormat), ClipboardModule.Flag(data, ClipPrivacy.HistoryFormat), ClipboardModule.Flag(data, ClipPrivacy.CloudFormat)))
                 return Copied.None;
             if (data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files)
             {

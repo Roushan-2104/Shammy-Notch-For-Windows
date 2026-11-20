@@ -61,19 +61,18 @@ public class DragPlanTests
     }
 
     [Fact]
-    public void FilesThenHandedOverFilesThenALinkThenText()
+    public void HandedOverFilesThenALinkThenText()
     {
         var image = new List<VirtualFile> { new("cat.jpg", 10) };
         var shortcut = new List<VirtualFile> { new("Example Domain.url", 80) };
-        Assert.Equal(DragKind.Files, DragPlan.Choose(true, image, "https://e.com/", "x"));
         // an image from a page also carries its address: it's still the image
-        Assert.Equal(DragKind.VirtualFiles, DragPlan.Choose(false, image, "https://e.com/cat.jpg", null));
+        Assert.Equal(DragKind.VirtualFiles, DragPlan.Choose(image, "https://e.com/cat.jpg", null));
         // a dragged link: the browser's own .url stands for the link
-        Assert.Equal(DragKind.Link, DragPlan.Choose(false, shortcut, "https://example.com/", null));
-        Assert.Equal(DragKind.VirtualFiles, DragPlan.Choose(false, shortcut, null, null));
-        Assert.Equal(DragKind.Link, DragPlan.Choose(false, [], "https://example.com/", "Example"));
-        Assert.Equal(DragKind.Text, DragPlan.Choose(false, [], null, "some words"));
-        Assert.Equal(DragKind.None, DragPlan.Choose(false, [], null, "   "));
+        Assert.Equal(DragKind.Link, DragPlan.Choose(shortcut, "https://example.com/", null));
+        Assert.Equal(DragKind.VirtualFiles, DragPlan.Choose(shortcut, null, null));
+        Assert.Equal(DragKind.Link, DragPlan.Choose([], "https://example.com/", "Example"));
+        Assert.Equal(DragKind.Text, DragPlan.Choose([], null, "some words"));
+        Assert.Equal(DragKind.None, DragPlan.Choose([], null, "   "));
     }
 
     [Fact]

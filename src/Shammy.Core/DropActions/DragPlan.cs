@@ -5,8 +5,8 @@ using Shammy.Core.PhoneSend;
 
 namespace Shammy.Core.DropActions;
 
-/// <summary>What a drag onto the notch carries, best first: real files, files a browser hands over, a link, or text.</summary>
-public enum DragKind { None, Files, VirtualFiles, Link, Text }
+/// <summary>What a drag with no file on disk carries, best first: files a browser hands over, a link, or text.</summary>
+public enum DragKind { None, VirtualFiles, Link, Text }
 
 /// <summary>One file in a FileGroupDescriptorW: its name, and its size when the source said.</summary>
 public sealed record VirtualFile(string Name, long? Size);
@@ -63,9 +63,8 @@ public static class DragPlan
     /// What to do with a drag. A single ".url" a browser hands over for a dragged link is the link itself (a shortcut we
     /// write from the checked address, never the browser's file); any other handed-over file is a file.
     /// </summary>
-    public static DragKind Choose(bool fileDrop, IReadOnlyList<VirtualFile> virtualFiles, string? link, string? text)
+    public static DragKind Choose(IReadOnlyList<VirtualFile> virtualFiles, string? link, string? text)
     {
-        if (fileDrop) return DragKind.Files;
         if (link is not null && virtualFiles.Count == 1 && IsShortcut(virtualFiles[0].Name)) return DragKind.Link;
         if (virtualFiles.Count > 0) return DragKind.VirtualFiles;
         if (link is not null) return DragKind.Link;

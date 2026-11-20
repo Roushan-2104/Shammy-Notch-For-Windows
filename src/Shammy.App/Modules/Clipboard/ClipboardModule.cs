@@ -174,7 +174,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
 
         try
         {
-            if (ClipPrivacy.ShouldSkip(false, Flag(data, ClipPrivacy.HistoryFormat), Flag(data, ClipPrivacy.CloudFormat))) return;
+            if (ClipPrivacy.ShouldSkip(ClipNative.HasFormat(ClipPrivacy.ExcludeFormat), Flag(data, ClipPrivacy.HistoryFormat), Flag(data, ClipPrivacy.CloudFormat))) return;
 
             var source = ClipCardText.SourceName(ClipNative.ProcessName(owner));
             if (data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files)

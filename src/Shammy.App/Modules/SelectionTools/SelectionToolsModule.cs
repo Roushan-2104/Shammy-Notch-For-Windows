@@ -241,7 +241,7 @@ internal static class ClipboardText
             {
                 if (!System.Windows.Clipboard.ContainsText()) return "";
                 if (System.Windows.Clipboard.GetDataObject() is { } data
-                    && ClipPrivacy.ShouldSkip(false, ClipboardModule.Flag(data, ClipPrivacy.HistoryFormat), ClipboardModule.Flag(data, ClipPrivacy.CloudFormat)))
+                    && ClipPrivacy.ShouldSkip(ClipNative.HasFormat(ClipPrivacy.ExcludeFormat), ClipboardModule.Flag(data, ClipPrivacy.HistoryFormat), ClipboardModule.Flag(data, ClipPrivacy.CloudFormat)))
                     return "";
                 var text = System.Windows.Clipboard.GetText() ?? "";
                 return text.Length <= MaxText ? text : "";

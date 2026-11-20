@@ -47,8 +47,10 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     System.Windows.Threading.DispatcherTimer? _autoClip;
     string? _pendingClip;
 
-    /// <summary>The hash of the text the phone last sent (UI thread), so it never goes straight back.</summary>
-    int? _fromPhone;
+    /// <summary>The hash of the text the phone last sent, and when (UI thread): for a few seconds it never goes straight back.</summary>
+    (int Hash, DateTime At)? _fromPhone;
+
+    static readonly TimeSpan EchoFor = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Text copied in another app (the clipboard module has already left out password managers' copies and Shammy's
@@ -57,7 +59,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     void OnLaptopCopy(string text)
     {
         if (!Online || !_ctx.Settings.ShareClipboardWithPhone || text.Length > LinkShare.MaxClip || text.Trim().Length == 0
-            || PrivacyState.Presenting || text.GetHashCode() == _fromPhone) return;
+            || PrivacyState.Presenting || _fromPhone is { } f && f.Hash == text.GetHashCode() && DateTime.UtcNow - f.At < EchoFor) return;
         _pendingClip = text;
         _autoClip?.Stop();
         _autoClip = UiDelay.After(ClipSettle, SendAutoClip, _ctx.Ui);
@@ -159,7 +161,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     void TakeClip(string text)
     {
         if (text.Length == 0) return;
-        _fromPhone = text.GetHashCode();
+        _fromPhone = (text.GetHashCode(), DateTime.UtcNow);
         if (!SelectionTools.ClipboardText.TrySet(text, secret: true))
         {
             _ctx.ShowMessage(CopyGlyph, "The clipboard is busy", error: true);

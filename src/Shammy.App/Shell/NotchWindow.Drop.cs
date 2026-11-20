@@ -99,33 +99,43 @@ public partial class NotchWindow
     /// </summary>
     internal string DropData(IDataObject data, Core.DropActions.DropAction? target)
     {
-        var files = data.GetDataPresent(DataFormats.FileDrop) ? data.GetData(DataFormats.FileDrop) as string[] : null;
-        if (files is not { Length: > 0 } && BrowserDrop.Read(data) is { } dragged)
+        try
         {
-            // a link or words on Send to phone go as a link or copied text, not as a file
-            if (target == Core.DropActions.DropAction.Phone && dragged.Text is { } text && Modules.Connect.Links.Phone is { } phone)
+            var files = data.GetDataPresent(DataFormats.FileDrop) ? data.GetData(DataFormats.FileDrop) as string[] : null;
+            if (files is not { Length: > 0 } && BrowserDrop.Read(data) is { } dragged)
             {
-                phone.SendText(text);
-                Recompute();
-                return "phone: " + dragged.Kind.ToString().ToLowerInvariant();
+                // a link or words on Send to phone go as a link or copied text, not as a file
+                if (target == Core.DropActions.DropAction.Phone && dragged.Text is { } text && Modules.Connect.Links.Phone is { } phone)
+                {
+                    phone.SendText(text);
+                    Recompute();
+                    return "phone: " + dragged.Kind.ToString().ToLowerInvariant();
+                }
+                files = BrowserDrop.Save(dragged, target is null or Core.DropActions.DropAction.Shelf or Core.DropActions.DropAction.Phone);
             }
-            files = BrowserDrop.Save(dragged);
+            if (files is { Length: > 0 })
+            {
+                if (target is null or Core.DropActions.DropAction.Shelf)
+                {
+                    FilesDropped?.Invoke(files);
+                    ExpandTo(shelf: true);
+                }
+                else
+                {
+                    DropZone.RaiseDropped(target.Value, files);
+                    Recompute();
+                }
+                return $"{(target ?? Core.DropActions.DropAction.Shelf).ToString().ToLowerInvariant()}: {string.Join(" | ", files.Select(Path.GetFileName))}";
+            }
+            Recompute();
+            return "nothing taken";
         }
-        if (files is { Length: > 0 })
+        catch (Exception ex)
         {
-            if (target is null or Core.DropActions.DropAction.Shelf)
-            {
-                FilesDropped?.Invoke(files);
-                ExpandTo(shelf: true);
-            }
-            else
-            {
-                DropZone.RaiseDropped(target.Value, files);
-                Recompute();
-            }
-            return $"{(target ?? Core.DropActions.DropAction.Shelf).ToString().ToLowerInvariant()}: {string.Join(" | ", files.Select(Path.GetFileName))}";
+            // whatever the source app handed over, the notch leaves its drop look
+            Log.Warn($"A drop failed ({ex.GetType().Name})");
+            Recompute();
+            return "error: " + ex.GetType().Name;
         }
-        Recompute();
-        return "nothing taken";
     }
 }

@@ -127,7 +127,7 @@ internal static class SettingsCatalog
         ("CopyPreviewEnabled", Clipboard, "Copy preview", 1, "A peek of what you copy, in the notch."),
         // Connections
         ("AgentsAskInNotch", Connections, "Ask me in the notch", 1, "Allow and Deny drop from the notch when Claude Code needs an OK."),
-        ("ShareClipboardWithPhone", Connections, "Share clipboard with your phone", 1, "Text you copy here is on your linked phone too. Never passwords."),
+        ("ShareClipboardWithPhone", Connections, "Share clipboard with your phone", 1, "Text you copy here is on your linked phone too. Skips what password managers mark private."),
         // Units & language
         ("Use24Hour", Units, "Clock", 1, "12-hour, 24-hour, or as Windows has it."),
         ("TemperatureUnit", Units, "Temperature", 1, "Weather and conversions use this."),

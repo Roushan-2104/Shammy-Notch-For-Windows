@@ -29,7 +29,7 @@ internal partial class SettingsView
         CalendarRows();
         ClaudeCodeRows();
         Section("Your phone", "");
-        SwitchRow("Share clipboard with your phone", "Text you copy here is on your linked phone too. Never passwords, nothing while you share your screen.",
+        SwitchRow("Share clipboard with your phone", "Text you copy here is on your linked phone too. Skips what password managers mark private, and nothing goes while you share your screen.",
             nameof(AppSettings.ShareClipboardWithPhone), "Clipboard shared with your phone", "Clipboard stays on this laptop", words: "phone island universal clipboard copy");
     }
 

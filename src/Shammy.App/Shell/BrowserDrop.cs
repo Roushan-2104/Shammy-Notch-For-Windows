@@ -44,7 +44,7 @@ internal static class BrowserDrop
             var url = Words(data, UrlW, Encoding.Unicode) ?? Words(data, Url, Encoding.Latin1);
             var text = data.GetDataPresent(DataFormats.UnicodeText) ? data.GetData(DataFormats.UnicodeText) as string : null;
             var link = DragPlan.LinkFrom(url, text);
-            var kind = DragPlan.Choose(false, files.Select(f => f.File).ToList(), link, text);
+            var kind = DragPlan.Choose(files.Select(f => f.File).ToList(), link, text);
             return kind switch
             {
                 DragKind.VirtualFiles => new Dragged(kind, null, files, data),
@@ -73,8 +73,11 @@ internal static class BrowserDrop
     static string? Words(IDataObject data, string format, Encoding encoding) =>
         data.GetDataPresent(format) && data.GetData(format) is MemoryStream ms ? encoding.GetString(ms.ToArray()).TrimEnd('\0') : null;
 
-    /// <summary>The drag as files in Shammy's folder: what the browser handed over, a link's shortcut or a note. Empty on failure.</summary>
-    public static string[] Save(Dragged d)
+    /// <summary>
+    /// The drag as files in Shammy's folder: what the browser handed over, or (only for the Shelf or the phone) a link's
+    /// shortcut or a note. What couldn't be saved is left out; empty when nothing could.
+    /// </summary>
+    public static string[] Save(Dragged d, bool shelfOrPhone)
     {
         var dir = Modules.SelectionTools.CircleSend.Folder;
         try
@@ -82,39 +85,52 @@ internal static class BrowserDrop
             Directory.CreateDirectory(dir);
             switch (d.Kind)
             {
-                case DragKind.Link:
+                case DragKind.Link when shelfOrPhone:
                     return [Write(dir, DragPlan.LinkName(d.Text!, d.Files.Select(f => f.File).ToList()), Encoding.UTF8.GetBytes(DragPlan.Shortcut(d.Text!)))];
-                case DragKind.Text:
+                case DragKind.Text when shelfOrPhone:
                     return [Write(dir, DragPlan.NoteName(d.Text!), new UTF8Encoding(false).GetBytes(d.Text + Environment.NewLine))];
                 case DragKind.VirtualFiles:
-                    var saved = new List<string>();
-                    long budget = DragPlan.MaxVirtualBytes;
-                    foreach (var (index, file) in d.Files)
-                    {
-                        if (file.Size > budget || ReadContents(d.Data, index, budget) is not { } bytes)
-                        {
-                            Log.Info("A dragged file was over the size limit or unreadable; skipped");
-                            continue;
-                        }
-                        budget -= bytes.Length;
-                        var temp = Path.Combine(dir, $".shammy-{Guid.NewGuid():N}.tmp");
-                        File.WriteAllBytes(temp, bytes);
-                        try { saved.Add(SafeFileName.MoveIn(temp, dir, SafeFileName.Sanitize(file.Name))); }
-                        catch
-                        {
-                            try { File.Delete(temp); }
-                            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-                            throw;
-                        }
-                    }
-                    return saved.ToArray();
+                    return SaveHandedOver(d, dir);
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException or InvalidDataException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Log.Warn("Saving a drag failed", ex);
+            Log.Warn($"Saving a drag failed ({ex.GetType().Name})");
         }
         return [];
+    }
+
+    /// <summary>Each handed-over file streamed into its own temp file, then kept like a received one; one failing skips only itself.</summary>
+    static string[] SaveHandedOver(Dragged d, string dir)
+    {
+        var saved = new List<string>();
+        long budget = DragPlan.MaxVirtualBytes;
+        foreach (var (index, file) in d.Files)
+        {
+            if (file.Size > budget) continue;
+            var temp = Path.Combine(dir, $".shammy-{Guid.NewGuid():N}.tmp");
+            try
+            {
+                long written;
+                using (var to = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    written = CopyContents(d.Data, index, file.Size, budget, to);
+                if (written < 0)
+                {
+                    File.Delete(temp);
+                    Log.Info("A dragged file was over the size limit or unreadable; skipped");
+                    continue;
+                }
+                budget -= written;
+                saved.Add(SafeFileName.MoveIn(temp, dir, SafeFileName.Sanitize(file.Name)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException or InvalidCastException or InvalidDataException)
+            {
+                try { File.Delete(temp); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+                Log.Warn($"Saving a dragged file failed ({ex.GetType().Name})");
+            }
+        }
+        return saved.ToArray();
     }
 
     /// <summary>Our own small file (a shortcut or a note), under a free name.</summary>
@@ -126,12 +142,13 @@ internal static class BrowserDrop
     }
 
     /// <summary>
-    /// Item <paramref name="index"/>'s bytes through COM (WPF's data object can't ask for one item of FileContents), or
-    /// null past <paramref name="budget"/> bytes.
+    /// Item <paramref name="index"/>'s bytes through COM (WPF's data object can't ask for one item of FileContents),
+    /// written to <paramref name="to"/> as they come; returns how many, or -1 when it's unreadable, empty while the
+    /// descriptor promised bytes, or past <paramref name="budget"/>.
     /// </summary>
-    static byte[]? ReadContents(IDataObject data, int index, long budget)
+    static long CopyContents(IDataObject data, int index, long? size, long budget, Stream to)
     {
-        if (data is not IComDataObject com) return null;
+        if (data is not IComDataObject com) return -1;
         var format = new FORMATETC
         {
             cfFormat = unchecked((short)DataFormats.GetDataFormat(Contents).Id),
@@ -140,34 +157,49 @@ internal static class BrowserDrop
             tymed = TYMED.TYMED_ISTREAM | TYMED.TYMED_HGLOBAL,
         };
         com.GetData(ref format, out var medium);
+        var buffer = new byte[64 * 1024];
         try
         {
             if (medium.tymed == TYMED.TYMED_HGLOBAL)
             {
-                long size = (long)GlobalSize(medium.unionmember);
-                if (size > budget) return null;
-                var bytes = new byte[size];
+                // the block can be bigger than the file (rounded up): the descriptor's size wins when it gives one
+                long length = (long)GlobalSize(medium.unionmember);
+                if (size is > 0 and var s) length = Math.Min(length, s);
+                if (length <= 0 || length > budget) return -1;
                 var at = GlobalLock(medium.unionmember);
-                try { Marshal.Copy(at, bytes, 0, bytes.Length); }
+                if (at == IntPtr.Zero) return -1;
+                try
+                {
+                    for (long done = 0; done < length;)
+                    {
+                        int n = (int)Math.Min(buffer.Length, length - done);
+                        Marshal.Copy(at + (nint)done, buffer, 0, n);
+                        to.Write(buffer, 0, n);
+                        done += n;
+                    }
+                }
                 finally { GlobalUnlock(medium.unionmember); }
-                return bytes;
+                return length;
             }
-            if (medium.tymed != TYMED.TYMED_ISTREAM) return null;
+            if (medium.tymed != TYMED.TYMED_ISTREAM) return -1;
             var stream = (IStream)Marshal.GetObjectForIUnknown(medium.unionmember);
             var read = Marshal.AllocCoTaskMem(sizeof(int));
             try
             {
-                using var into = new MemoryStream();
-                var buffer = new byte[64 * 1024];
+                // from the start, in case the source handed over a stream it had already read
+                try { stream.Seek(0, 0, IntPtr.Zero); }
+                catch (COMException) { }
+                long written = 0;
                 while (true)
                 {
                     stream.Read(buffer, buffer.Length, read);
                     int n = Marshal.ReadInt32(read);
                     if (n <= 0) break;
-                    if (into.Length + n > budget) return null;
-                    into.Write(buffer, 0, n);
+                    written += n;
+                    if (written > budget) return -1;
+                    to.Write(buffer, 0, n);
                 }
-                return into.ToArray();
+                return written == 0 && size > 0 ? -1 : written;
             }
             finally
             {
