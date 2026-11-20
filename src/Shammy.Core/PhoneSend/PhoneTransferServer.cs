@@ -431,25 +431,7 @@ public sealed class PhoneTransferServer : IDisposable
                     Touch();
                 }, ct);
             }
-            // Mark-of-the-Web: whatever arrives over the network gets SmartScreen / Protected View checks
-            // when opened, exactly like a browser download. The stream moves with the file on rename.
-            try { File.WriteAllText(temp + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n"); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException) { }
-            name = SafeFileName.NeutralizeExecutable(name);
-            // Pick the final name only now, and retry if another upload took it in the meantime.
-            for (int attempt = 0; ; attempt++)
-            {
-                var final = SafeFileName.MakeUnique(dir, name, p => File.Exists(p) || Directory.Exists(p));
-                if (!SafeFileName.IsDirectlyInside(dir, final)) throw new InvalidDataException("Bad upload path");
-                try
-                {
-                    File.Move(temp, final, overwrite: false);
-                    return final;
-                }
-                catch (IOException) when (attempt < 5 && File.Exists(final))
-                {
-                }
-            }
+            return SafeFileName.MoveIn(temp, dir, name);
         }
         catch
         {
@@ -459,7 +441,8 @@ public sealed class PhoneTransferServer : IDisposable
         }
     }
 
-    static long? FreeSpace(string dir)
+    /// <summary>Free bytes on the drive holding <paramref name="dir"/>, or null when Windows won't say.</summary>
+    public static long? FreeSpace(string dir)
     {
         try
         {

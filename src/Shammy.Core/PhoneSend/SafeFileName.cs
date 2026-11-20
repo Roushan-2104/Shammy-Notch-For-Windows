@@ -119,6 +119,32 @@ public static class SafeFileName
     public static string NeutralizeExecutable(string fileName) =>
         Executable.Contains(Path.GetExtension(fileName)) ? fileName + ".blocked" : fileName;
 
+    /// <summary>
+    /// Moves a received temp file into <paramref name="directory"/> as <paramref name="name"/> (already sanitized) and
+    /// returns where it went. Mark-of-the-Web first: whatever arrives over the network gets SmartScreen / Protected View
+    /// checks when opened, exactly like a browser download (the stream moves with the file). Programs are neutralized,
+    /// and the final name is picked only now, retrying a few times if something else took it in the meantime.
+    /// </summary>
+    public static string MoveIn(string temp, string directory, string name)
+    {
+        try { File.WriteAllText(temp + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n"); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException) { }
+        name = NeutralizeExecutable(name);
+        for (int attempt = 0; ; attempt++)
+        {
+            var final = MakeUnique(directory, name, p => File.Exists(p) || Directory.Exists(p));
+            if (!IsDirectlyInside(directory, final)) throw new InvalidDataException("Bad upload path");
+            try
+            {
+                File.Move(temp, final, overwrite: false);
+                return final;
+            }
+            catch (IOException) when (attempt < 5 && File.Exists(final))
+            {
+            }
+        }
+    }
+
     /// <summary>True when <paramref name="path"/> resolves to a file directly inside <paramref name="directory"/>.</summary>
     public static bool IsDirectlyInside(string directory, string path)
     {

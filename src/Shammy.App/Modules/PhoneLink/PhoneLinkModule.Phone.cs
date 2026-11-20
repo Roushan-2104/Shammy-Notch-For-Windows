@@ -22,7 +22,7 @@ namespace Shammy.Modules.PhoneLink;
 /// </summary>
 internal sealed partial class PhoneLinkModule
 {
-    const string PhoneGlyph = "";
+    const string PhoneGlyph = "\uE8EA";
     static readonly TimeSpan FindFor = TimeSpan.FromSeconds(60), PeekFor = TimeSpan.FromSeconds(12);
     static readonly string[] RingerNames = ["Sound", "Vibrate", "Silent"];
 
@@ -121,7 +121,7 @@ internal sealed partial class PhoneLinkModule
                 OnPhoneMedia(PhoneMedia.From(m));
                 break;
             case "clip":
-                TakeClip(m["text"] is JsonValue v && v.TryGetValue<string>(out var text) ? text[..Math.Min(text.Length, LinkShare.MaxClip)] : "");
+                TakeClip(m["text"] is JsonValue v && v.TryGetValue<string>(out var text) ? LinkShare.CapClip(text) : "");
                 break;
             case "link":
                 OpenLink(LinkSession.Text(m, "url"));
@@ -244,8 +244,14 @@ internal sealed partial class PhoneLinkModule
     {
         // the call already answered (or declined) here: its notification changing is no new call
         if (key == _answeredKey) return;
-        _callKey = key;
         var who = PrivacyState.Presenting || caller.Length == 0 ? "Phone call" : caller;
+        // dialers post a ringing call again and again under the same key: the card on show just follows
+        if (key == _callKey && _callCard is { } open && ReferenceEquals(_ctx.Notch.OpenCardContent, open))
+        {
+            open.Title = who;
+            return;
+        }
+        _callKey = key;
         var card = _callCard = new PhonePeek(PhoneIcon, "Call on your phone", who, "Audio stays on the phone",
             ("Decline", () => AnswerCall(false)), ("Answer", () => AnswerCall(true)));
         _ctx.ShowCard(card, PhonePeek.CardWidth, PhonePeek.CardHeight, interactive: false);
@@ -365,7 +371,6 @@ internal sealed partial class PhoneLinkModule
         public void TakeDrop(IDataObject data)
         {
             if (data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files && Connect.Links.Phone is { } send) _ = send.SendAsync(files);
-            m.FillPhoneSheet();
         }
     }
 }

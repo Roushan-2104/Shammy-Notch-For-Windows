@@ -8,27 +8,44 @@ namespace Shammy.Core.Tests;
 /// <summary>The smart round's pure parts (21 Nov): names, links, file checks, battery nudges and the new messages.</summary>
 public class PhoneLinkShareTests
 {
-    [Theory]
-    [InlineData("photo.jpg", "photo.jpg")]
-    [InlineData("../../Windows/evil.exe", "evil.exe")]
-    [InlineData("C:\\Users\\x\\notes.txt", "notes.txt")]
-    [InlineData("a<b>c:d|e?f*g\"h.pdf", "a_b_c_d_e_f_g_h.pdf")]
-    [InlineData("tab\there.txt", "tab_here.txt")]
-    [InlineData("  report.pdf. . ", "report.pdf")]
-    [InlineData(".hidden", "hidden")]
-    [InlineData("CON.txt", "_CON.txt")]
-    [InlineData("nul", "_nul")]
-    [InlineData("..", "file")]
-    [InlineData("", "file")]
-    [InlineData(null, "file")]
-    public void NamesAreCleanedToAPlainFileName(string? name, string clean) => Assert.Equal(clean, LinkShare.CleanName(name));
+    [Fact]
+    public void ReceivedFilesAreNamedAndKeptLikeBrowserUploads()
+    {
+        // names go through SafeFileName: leaf only, spoofing characters gone, device names defused
+        Assert.Equal("evil.exe", IncomingFile.Start(Start(5, name: "../../evil.exe"))!.Name);
+        Assert.Equal("invoicefdp.exe", IncomingFile.Start(Start(5, name: "invoice\u202Efdp.exe"))!.Name);
+        Assert.Equal("_nul .txt", IncomingFile.Start(Start(5, name: "nul .txt"))!.Name);
+        Assert.Equal("file", IncomingFile.Start(Start(5, name: ".."))!.Name);
+        Assert.Equal("a_b.txt", LinkShare.FileStart("x", "a:b.txt", 1)["name"]!.GetValue<string>());
+
+        var dir = Directory.CreateTempSubdirectory("shammy-link-").FullName;
+        try
+        {
+            string Arrive(string name)
+            {
+                var temp = Path.Combine(dir, $".shammy-{Guid.NewGuid():N}.tmp");
+                File.WriteAllText(temp, name);
+                return Path.GetFileName(PhoneSend.SafeFileName.MoveIn(temp, dir, name));
+            }
+            Assert.Equal("a.txt", Arrive("a.txt"));
+            Assert.Equal("a (1).txt", Arrive("a.txt"));
+            Assert.Equal("a.txt", File.ReadAllText(Path.Combine(dir, "a.txt")));
+            Assert.Equal("link.lnk.blocked", Arrive("link.lnk"));
+            Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 
     [Fact]
-    public void LongNamesKeepTheirExtension()
+    public void CopiedTextIsCappedWithoutSplittingAnEmoji()
     {
-        var clean = LinkShare.CleanName(new string('x', 300) + ".jpeg");
-        Assert.Equal(120, clean.Length);
-        Assert.EndsWith(".jpeg", clean);
+        Assert.Equal("hi", LinkShare.CapClip("hi"));
+        Assert.Equal(LinkShare.MaxClip, LinkShare.CapClip(new string('a', 20000)).Length);
+        var emoji = new string('a', LinkShare.MaxClip - 1) + "\U0001F600";
+        Assert.Equal(LinkShare.MaxClip - 1, LinkShare.CapClip(emoji).Length);
     }
 
     [Theory]
@@ -47,6 +64,7 @@ public class PhoneLinkShareTests
     [Fact]
     public void LinksAreCappedAt2048()
     {
+        Assert.Equal("https://example.com/", LinkShare.Url("  HTTPS://Example.com  "));
         var url = "https://example.com/" + new string('a', 2048);
         Assert.Null(LinkShare.Url(url));
         Assert.NotNull(LinkShare.Url(url[..LinkShare.MaxUrl]));
@@ -102,7 +120,6 @@ public class PhoneLinkShareTests
         Assert.Null(IncomingFile.Start(Start(5, id: "")));
         Assert.Null(IncomingFile.Start(new JsonObject { ["t"] = "file", ["id"] = "x", ["name"] = "a", ["size"] = "big" }));
         Assert.NotNull(IncomingFile.Start(Start(LinkShare.MaxFile)));
-        Assert.Equal("evil.exe", IncomingFile.Start(Start(5, name: "..\\..\\evil.exe"))!.Name);
 
         var start = LinkShare.FileStart("id1", "Holiday.JPG", 1234);
         Assert.Equal("file", start["t"]!.GetValue<string>());

@@ -508,7 +508,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                         _ = _ctx.Ui.BeginInvoke(() => OnPhoneSays(m));
                         break;
                     case "file" or "fileChunk" or "fileEnd":
-                        TakeFile(m);
+                        TakeFile(m, s);
                         break;
                     // "pong" and anything newer: ignored (§5).
                 }
@@ -517,7 +517,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         finally
         {
             stop.Cancel();
-            DropIncoming();
+            DropIncoming(s);
             _ = _ctx.Ui.BeginInvoke(() =>
             {
                 if (!ReferenceEquals(_live, s)) return;

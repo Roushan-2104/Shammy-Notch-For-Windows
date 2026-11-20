@@ -28,6 +28,10 @@ internal sealed class OtpModule : IShammyModule
     ModuleContext _ctx = null!;
     string? _code, _app;
     bool _copied, _auto;
+
+    // the code copied by itself last (only its hash: codes aren't kept past their pill), and when (UI thread)
+    int? _autoCode;
+    DateTime _autoAt;
     OtpContent? _content;
 
     public string Name => "otp";
@@ -71,11 +75,12 @@ internal sealed class OtpModule : IShammyModule
     {
         try
         {
-            if (Offer(n.Title, n.Body, n.AppName) && n.IsFromPhone && !PrivacyState.Presenting)
-            {
-                _auto = true; // first, so the pill the copy refreshes says "Code copied"
-                _auto = Copy();
-            }
+            if (!Offer(n.Title, n.Body, n.AppName) || !n.IsFromPhone || PrivacyState.Presenting) return;
+            // the same notification posted again: never over whatever was copied since
+            if (_code?.GetHashCode() == _autoCode && DateTime.UtcNow - _autoAt < Shown) return;
+            _auto = true; // first, so the pill the copy refreshes says "Code copied"
+            _auto = Copy();
+            if (_auto) (_autoCode, _autoAt) = (_code!.GetHashCode(), DateTime.UtcNow);
         }
         catch (Exception ex) { _ctx.Warn("Looking for a code failed", ex); }
     }

@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+using Shammy.Core.PhoneSend;
 
 namespace Shammy.Core.PhoneLink;
 
 /// <summary>
 /// Copied text, links and files between the laptop and the phone (§5 `clip`, `link`, `file`, `fileChunk`, `fileEnd`):
-/// the caps, a received name made safe, and the checks a received file must pass before it's kept.
+/// the caps, and the checks a received file must pass before it's kept (names go through <see cref="SafeFileName"/>, like
+/// files uploaded from the phone's browser).
 /// </summary>
 public static class LinkShare
 {
@@ -15,34 +17,9 @@ public static class LinkShare
     /// <summary>Pieces of a file or the app update: base64 of it stays well under a 64 KB frame.</summary>
     public const int Chunk = 36 * 1024;
 
-    static readonly HashSet<string> Reserved = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    };
-
-    /// <summary>
-    /// A plain file name from whatever the other side sent: no folders, no characters Windows refuses, no reserved
-    /// device name, no trailing dots or spaces, at most 120 characters (the extension kept); "file" when nothing is left.
-    /// </summary>
-    public static string CleanName(string? name)
-    {
-        var s = name ?? "";
-        int cut = s.LastIndexOfAny(['/', '\\']);
-        if (cut >= 0) s = s[(cut + 1)..];
-        var bad = Path.GetInvalidFileNameChars();
-        s = new string(s.Select(c => char.IsControl(c) || bad.Contains(c) || c is ':' or '*' or '?' or '"' or '<' or '>' or '|' ? '_' : c).ToArray());
-        s = s.Trim().TrimEnd('.', ' ').TrimStart('.', ' ');
-        if (s.Length > 120)
-        {
-            var ext = Path.GetExtension(s);
-            if (ext.Length > 16) ext = "";
-            s = s[..(120 - ext.Length)].TrimEnd('.', ' ') + ext;
-        }
-        var stem = s.Split('.')[0];
-        if (Reserved.Contains(stem)) s = "_" + s;
-        return s.Length == 0 ? "file" : s;
-    }
+    /// <summary>Copied text capped at <see cref="MaxClip"/>, never splitting an emoji in half.</summary>
+    public static string CapClip(string text) =>
+        text.Length <= MaxClip ? text : text[..(char.IsHighSurrogate(text[MaxClip - 1]) ? MaxClip - 1 : MaxClip)];
 
     /// <summary>A link that may open in a browser: an absolute http(s) address up to 2048 characters with nothing hidden in it; else null.</summary>
     public static string? Url(string? url)
@@ -50,7 +27,7 @@ public static class LinkShare
         var u = (url ?? "").Trim();
         if (u.Length is 0 or > MaxUrl || u.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))) return null;
         if (!Uri.TryCreate(u, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || uri.Host.Length == 0) return null;
-        return u;
+        return uri.AbsoluteUri;
     }
 
     /// <summary>The type the phone files it under (MediaStore needs one); anything else is a plain download.</summary>
@@ -74,7 +51,7 @@ public static class LinkShare
     /// <summary>The start of a file (`file`) as the sender writes it.</summary>
     public static JsonObject FileStart(string id, string name, long size) => new()
     {
-        ["t"] = "file", ["id"] = id, ["name"] = CleanName(name), ["size"] = size, ["mime"] = Mime(name),
+        ["t"] = "file", ["id"] = id, ["name"] = SafeFileName.Sanitize(name), ["size"] = size, ["mime"] = Mime(name),
     };
 }
 
@@ -91,7 +68,7 @@ public sealed class IncomingFile : IDisposable
 
     public string Id { get; }
 
-    /// <summary>The cleaned name.</summary>
+    /// <summary>The sanitized name (not yet made unique or neutralized: <see cref="SafeFileName.MoveIn"/> does that).</summary>
     public string Name { get; }
 
     public long Size { get; }
@@ -104,7 +81,7 @@ public sealed class IncomingFile : IDisposable
         var id = LinkSession.Text(m, "id");
         long size = m["size"] is JsonValue v && v.TryGetValue<long>(out long n) ? n : -1;
         if (id.Length is 0 or > 64 || size is < 0 or > LinkShare.MaxFile) return null;
-        return new IncomingFile(id, LinkShare.CleanName(LinkSession.Text(m, "name")), size);
+        return new IncomingFile(id, SafeFileName.Sanitize(LinkSession.Text(m, "name")), size);
     }
 
     /// <summary>Takes piece <paramref name="i"/>; false when it's out of order or goes past the size (drop the transfer).</summary>

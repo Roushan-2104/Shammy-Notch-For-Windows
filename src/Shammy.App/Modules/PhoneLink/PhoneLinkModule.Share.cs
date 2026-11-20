@@ -14,16 +14,14 @@ namespace Shammy.Modules.PhoneLink;
 /// <summary>
 /// Copied text, links and files both ways over the link (your answers, 21 Nov). From the phone: copied text lands on
 /// this clipboard (private: no clipboard history), a link opens in the default browser (http/https only), a file lands
-/// in Downloads\Shammy (name cleaned, never overwriting, kept only if its size and SHA-256 match) with Open / Show in
-/// folder. To the phone: Send to phone goes over the link while the phone is online (PhoneSend asks
+/// in Downloads\Shammy (kept only if its size and SHA-256 match, then named, marked and neutralized like an upload from
+/// the phone's browser: SafeFileName.MoveIn) with Open / Show in folder. To the phone: Send to phone goes over the link while the phone is online (PhoneSend asks
 /// <see cref="Connect.IIslandLink"/>), and "Send clipboard" on the Your phone card. One file at a time each way.
 /// Nothing sent or received is logged.
 /// </summary>
 internal sealed partial class PhoneLinkModule : Connect.IIslandLink
 {
-    const string LinkGlyph = "", CopyGlyph = "";
-
-    static string IncomingDir => Path.Combine(Path.GetTempPath(), "Shammy", "phone-in");
+    const string LinkGlyph = "\uE774", CopyGlyph = "\uE8C8";
 
     bool Connect.IIslandLink.Online => Online;
 
@@ -38,7 +36,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
             _ctx.ShowMessage(LinkGlyph, "Link sent to your phone");
             return;
         }
-        Send(new JsonObject { ["t"] = "clip", ["text"] = text[..Math.Min(text.Length, LinkShare.MaxClip)] });
+        Send(new JsonObject { ["t"] = "clip", ["text"] = text });
         _ctx.ShowMessage(CopyGlyph, "On your phone's clipboard");
     }
 
@@ -122,6 +120,10 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
 
     // ---- From the phone ------------------------------------------------------------------------------
 
+    static readonly TimeSpan LinkGap = TimeSpan.FromSeconds(5);
+    static readonly long Headroom = 1L << 30;
+    DateTime _linkOpenedAt;
+
     void TakeClip(string text)
     {
         if (text.Length == 0) return;
@@ -134,9 +136,27 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
         _ctx.Info("Copied text from the phone");
     }
 
+    /// <summary>
+    /// A shared link opens in the default browser: at most one every 5 s (more just say so), and while the screen is
+    /// shared or recorded only when you press Open. Never over a ringing call's card.
+    /// </summary>
     void OpenLink(string raw)
     {
         if (LinkShare.Url(raw) is not { } url) return;
+        var now = DateTime.UtcNow;
+        if (now - _linkOpenedAt < LinkGap)
+        {
+            _ctx.ShowMessage(LinkGlyph, "Another link from your phone, not opened");
+            return;
+        }
+        _linkOpenedAt = now;
+        if (!PrivacyState.Presenting) Browse(url);
+        else if (_callKey is not null) _ctx.ShowMessage(LinkGlyph, "A link from your phone, not opened while sharing");
+        else ShowPeek(PhoneChoiceSheet.Icons.Globe, "A link", "Opens in your browser", ("Not now", () => { }), ("Open", () => Browse(url)));
+    }
+
+    void Browse(string url)
+    {
         if (!_ctx.Open(url))
         {
             _ctx.ShowMessage(LinkGlyph, "Couldn't open the link from your phone", error: true);
@@ -146,13 +166,17 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
         _ctx.Info("Opened a link from the phone");
     }
 
+    static string ReceivedDir => Path.Combine(Native.KnownFolder(Native.DownloadsFolder)
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"), "Shammy");
+
     readonly object _fileLock = new();
 
-    // under _fileLock: the file coming in (one at a time), written as its pieces arrive
-    (IncomingFile File, FileStream To, string Temp)? _incoming;
+    // under _fileLock: the file coming in (one at a time) and the session it came on (null: the test pipe), written as
+    // its pieces arrive into a hidden temp file next to where it will be kept
+    (IncomingFile File, FileStream To, string Temp, LinkSession? From)? _incoming;
 
     /// <summary>`file`, `fileChunk`, `fileEnd` (on the read loop, in order, so pieces are written as they come).</summary>
-    void TakeFile(JsonObject m)
+    void TakeFile(JsonObject m, LinkSession? from)
     {
         lock (_fileLock)
         {
@@ -163,13 +187,22 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
                 {
                     if (IncomingFile.Start(m) is not { } f) return;
                     // still one at a time: a new start means the sender gave up on the last one
-                    DropIncoming();
-                    Directory.CreateDirectory(IncomingDir);
-                    var temp = Path.Combine(IncomingDir, Path.GetRandomFileName());
-                    _incoming = (f, new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None), temp);
+                    DropIncoming(null, any: true);
+                    var dir = ReceivedDir;
+                    Directory.CreateDirectory(dir);
+                    if (PhoneTransferServer.FreeSpace(dir) is { } free && free < f.Size + Headroom)
+                    {
+                        f.Dispose();
+                        _ctx.Info("Refused a file from the phone: the disk is nearly full");
+                        _ = _ctx.Ui.BeginInvoke(() => _ctx.ShowMessage(PhoneGlyph, "No room for a file from your phone", error: true));
+                        return;
+                    }
+                    // not ".part": the Downloads watcher would take it for a browser download
+                    var temp = Path.Combine(dir, $".shammy-{Guid.NewGuid():N}.tmp");
+                    _incoming = (f, new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None), temp, from);
                     return;
                 }
-                if (_incoming is not { } inc || LinkSession.Text(m, "id") != inc.File.Id) return;
+                if (_incoming is not { } inc || !ReferenceEquals(inc.From, from) || LinkSession.Text(m, "id") != inc.File.Id) return;
                 if (t == "fileChunk")
                 {
                     int i = m["i"] is JsonValue iv && iv.TryGetValue<int>(out int n) ? n : -1;
@@ -179,60 +212,36 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
                 }
                 else if (t == "fileEnd")
                 {
-                    bool whole = inc.File.Complete(LinkSession.Text(m, "sha256"));
                     inc.To.Dispose();
-                    _incoming = null;
-                    inc.File.Dispose();
-                    if (!whole)
+                    if (!inc.File.Complete(LinkSession.Text(m, "sha256")))
                     {
-                        File.Delete(inc.Temp);
+                        DropIncoming(from);
                         _ctx.Info("A file from the phone didn't match its size or SHA-256; dropped");
                         _ = _ctx.Ui.BeginInvoke(() => _ctx.ShowMessage(PhoneGlyph, "A file from your phone didn't arrive whole", error: true));
                         return;
                     }
-                    var kept = Keep(inc.Temp, inc.File.Name);
+                    var kept = SafeFileName.MoveIn(inc.Temp, ReceivedDir, inc.File.Name);
+                    _incoming = null;
+                    inc.File.Dispose();
                     _ctx.Info($"Received a file from the phone ({inc.File.Size / 1024} KB)");
                     _ = _ctx.Ui.BeginInvoke(() => ShowReceived(kept));
                 }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or InvalidOperationException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or InvalidOperationException or InvalidDataException)
             {
-                DropIncoming();
+                DropIncoming(from);
                 _ctx.Info($"Receiving a file from the phone stopped ({ex.GetType().Name})");
                 _ = _ctx.Ui.BeginInvoke(() => _ctx.ShowMessage(PhoneGlyph, "A file from your phone didn't arrive", error: true));
             }
         }
     }
 
-    /// <summary>Moves a checked file into Downloads\Shammy under its cleaned name, never over another, marked as from elsewhere.</summary>
-    static string Keep(string temp, string name)
-    {
-        var dir = Path.Combine(Native.KnownFolder(Native.DownloadsFolder)
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"), "Shammy");
-        Directory.CreateDirectory(dir);
-        string kept;
-        while (true)
-        {
-            kept = DropPlan.Unique(dir, Path.GetFileNameWithoutExtension(name), Path.GetExtension(name), File.Exists);
-            try
-            {
-                File.Move(temp, kept, overwrite: false);
-                break;
-            }
-            catch (IOException) when (File.Exists(kept)) { /* taken a moment ago: the next free name */ }
-        }
-        // like a browser download, so Windows asks before running anything that came from the phone
-        try { File.WriteAllText(kept + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n"); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException) { }
-        return kept;
-    }
-
-    /// <summary>The connection ended mid-file (or a piece was wrong): what came so far goes.</summary>
-    void DropIncoming()
+    /// <summary>The connection ended mid-file (or a piece was wrong): what came so far goes, but only that session's.</summary>
+    void DropIncoming(LinkSession? from, bool any = false)
     {
         lock (_fileLock)
         {
-            if (_incoming is not { } inc) return;
+            if (_incoming is not { } inc || !any && !ReferenceEquals(inc.From, from)) return;
             _incoming = null;
             inc.To.Dispose();
             inc.File.Dispose();
@@ -243,16 +252,28 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
 
     void ShowReceived(string path)
     {
+        var name = PrivacyState.Presenting ? "A file" : Path.GetFileName(path);
+        // a ringing call keeps its card
+        if (_callKey is not null)
+        {
+            _ctx.ShowMessage(PhoneGlyph, $"{name} from your phone is in Downloads\\Shammy", seconds: 5);
+            return;
+        }
+        var size = File.Exists(path) ? DropPlan.Size(new FileInfo(path).Length) : "";
+        ShowPeek(PhoneChoiceSheet.Icons.File, name, $"{size} · Downloads\\Shammy",
+            ("Show in folder", () => _ctx.Open("explorer.exe", $"/select,\"{path}\"")), ("Open", () => _ctx.Open(path)));
+    }
+
+    /// <summary>A card from the phone for 12 s; each button closes it first.</summary>
+    void ShowPeek(string icon, string title, string line, (string Text, Action Click) quiet, (string Text, Action Click) primary)
+    {
         PhonePeek? card = null;
         void Close()
         {
             if (card is not null && ReferenceEquals(_ctx.Notch.OpenCardContent, card)) _ctx.CloseCard();
         }
-        var size = File.Exists(path) ? DropPlan.Size(new FileInfo(path).Length) : "";
-        card = new PhonePeek(PhoneChoiceSheet.Icons.File, "From your phone", PrivacyState.Presenting ? "A file" : Path.GetFileName(path),
-            $"{size} · Downloads\\Shammy",
-            ("Show in folder", () => { Close(); _ctx.Open("explorer.exe", $"/select,\"{path}\""); }),
-            ("Open", () => { Close(); _ctx.Open(path); }));
+        card = new PhonePeek(icon, "From your phone", title, line,
+            (quiet.Text, () => { Close(); quiet.Click(); }), (primary.Text, () => { Close(); primary.Click(); }));
         _ctx.ShowCard(card, PhonePeek.CardWidth, PhonePeek.CardHeight, interactive: false);
         UiDelay.After(PeekFor, Close, _ctx.Ui);
     }
@@ -275,14 +296,18 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     {
         Connect.Links.Island = this;
         // leftovers of a transfer cut short when Shammy last closed
-        try { if (Directory.Exists(IncomingDir)) Directory.Delete(IncomingDir, recursive: true); }
+        try
+        {
+            if (Directory.Exists(ReceivedDir))
+                foreach (var left in Directory.EnumerateFiles(ReceivedDir, ".shammy-*.tmp")) File.Delete(left);
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     void StopShare()
     {
         if (Connect.Links.Island == this) Connect.Links.Island = null;
-        DropIncoming();
+        DropIncoming(null, any: true);
     }
 
     void StartShareTests()
@@ -300,12 +325,12 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
             if (!File.Exists(path)) return "error: usage phonelink-fake-file <path>[|bad]";
             var bytes = File.ReadAllBytes(path);
             var id = "fake" + Environment.TickCount64;
-            TakeFile(LinkShare.FileStart(id, Path.GetFileName(path), bytes.Length));
+            TakeFile(LinkShare.FileStart(id, Path.GetFileName(path), bytes.Length), null);
             int pieces = 0;
             for (int at = 0; at < bytes.Length; at += LinkShare.Chunk, pieces++)
-                TakeFile(new JsonObject { ["t"] = "fileChunk", ["id"] = id, ["i"] = pieces, ["data"] = Convert.ToBase64String(bytes[at..Math.Min(at + LinkShare.Chunk, bytes.Length)]) });
+                TakeFile(new JsonObject { ["t"] = "fileChunk", ["id"] = id, ["i"] = pieces, ["data"] = Convert.ToBase64String(bytes[at..Math.Min(at + LinkShare.Chunk, bytes.Length)]) }, null);
             var sha = Convert.ToHexString(SHA256.HashData(p.Length > 1 ? new byte[] { 1 } : bytes));
-            TakeFile(new JsonObject { ["t"] = "fileEnd", ["id"] = id, ["sha256"] = sha });
+            TakeFile(new JsonObject { ["t"] = "fileEnd", ["id"] = id, ["sha256"] = sha }, null);
             return $"fed {pieces} pieces";
         });
     }

@@ -65,7 +65,7 @@ internal interface IIslandLink
     /// <summary>Sends a file (up to 50 MB) over the link and says so in the notch; completes when it's sent or failed.</summary>
     Task SendFileAsync(string path);
 
-    /// <summary>A link goes as a link (the phone offers Open), any other text to the phone's clipboard.</summary>
+    /// <summary>A link goes as a link (the phone offers Open), any other text (up to 16,000 characters) to the phone's clipboard.</summary>
     void SendText(string text);
 }
 

@@ -21,7 +21,8 @@ internal sealed class PhonePeek : Grid
         Width = CardWidth;
         Height = CardHeight;
         Background = Brushes.Transparent;
-        Describe = $"{kicker} | {title} | {line}";
+        _kicker = kicker;
+        _line = line;
 
         var rows = new Grid { Margin = new Thickness(16, 14, 16, 16) };
         rows.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
@@ -47,9 +48,9 @@ internal sealed class PhonePeek : Grid
         });
         var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         words.Children.Add(ScreenKit.Label(kicker));
-        var big = Views.WallParts.PopupTitle(title);
-        big.Margin = new Thickness(0, 3, 0, 0);
-        words.Children.Add(big);
+        _title.Text = title;
+        _title.Margin = new Thickness(0, 3, 0, 0);
+        words.Children.Add(_title);
         if (line.Length > 0)
         {
             var quietLine = ScreenKit.Text(line, 12.5, Weight.Regular, ScreenKit.Fg2);
@@ -69,9 +70,25 @@ internal sealed class PhonePeek : Grid
         buttons.VerticalAlignment = VerticalAlignment.Bottom;
         SetRow(buttons, 1);
         rows.Children.Add(buttons);
-        AutomationProperties.SetName(this, line.Length > 0 ? $"{kicker}. {title}. {line}" : $"{kicker}. {title}");
+        SpeakAs();
     }
 
+    readonly TextBlock _title = Views.WallParts.PopupTitle("");
+    readonly string _kicker, _line;
+
+    /// <summary>The big line; changes in place (a ringing call posted again).</summary>
+    public string Title
+    {
+        get => _title.Text;
+        set
+        {
+            _title.Text = value;
+            SpeakAs();
+        }
+    }
+
+    void SpeakAs() => AutomationProperties.SetName(this, _line.Length > 0 ? $"{_kicker}. {Title}. {_line}" : $"{_kicker}. {Title}");
+
     /// <summary>What the card says, for the test pipe.</summary>
-    public string Describe { get; }
+    public string Describe => $"{_kicker} | {Title} | {_line}";
 }

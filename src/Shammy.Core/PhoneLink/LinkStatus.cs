@@ -35,8 +35,8 @@ public sealed record PhoneMedia(bool Has, string Title, string Artist, bool Play
 /// <summary>Battery both ways: when the laptop tells the phone, and when the phone's level is worth a nudge.</summary>
 public static class LinkStatus
 {
-    /// <summary>The phone nudges at these levels, once each per discharge.</summary>
-    public static readonly IReadOnlyList<int> NudgeLevels = [20, 10];
+    /// <summary>The phone nudges at these levels, once each per discharge (lowest first).</summary>
+    public static readonly IReadOnlyList<int> NudgeLevels = [10, 20];
 
     /// <summary>
     /// The level to nudge about now, or null: the lowest of 20 % / 10 % the battery is at or below that wasn't nudged
@@ -45,7 +45,7 @@ public static class LinkStatus
     public static int? Nudge(int percent, bool charging, int lastNudged)
     {
         if (charging) return null;
-        foreach (var level in NudgeLevels.OrderBy(l => l))
+        foreach (var level in NudgeLevels)
             if (percent <= level && level < lastNudged) return level;
         return null;
     }
