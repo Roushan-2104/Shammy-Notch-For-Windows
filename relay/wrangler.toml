@@ -10,7 +10,7 @@ PRIVATE_REPO = "Roushan-2104/shammy-reports"
 binding = "DB"
 database_name = "shammy-relay"
 # Paste the id that `npx wrangler d1 create shammy-relay` prints.
-database_id = "PASTE-DATABASE-ID-HERE"
+database_id = "753236d3-b572-45b1-a6cf-229a23064d21"
 
 [triggers]
 # The daily digest: 15:30 UTC is 9:00 PM in India.

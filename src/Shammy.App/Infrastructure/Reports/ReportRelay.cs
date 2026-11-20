@@ -10,8 +10,8 @@ namespace Shammy.Infrastructure.Reports;
 /// </summary>
 internal static class ReportRelay
 {
-    /// <summary>The relay's address (relay/README.md, step 5); empty until it's set up, and then nothing can be sent.</summary>
-    const string Relay = "";
+    /// <summary>The relay's address (relay/README.md); empty would mean nothing can be sent.</summary>
+    const string Relay = "https://shammy-relay.sroushan2104.workers.dev";
 
     /// <summary>Test pipe only: SHAMMY_RELAY points a test copy at a local stand-in, so a test never files a real issue.</summary>
     public static string Address { get; } =
