@@ -37,9 +37,10 @@ public partial class NotchWindow
     /// <summary>The card on the island now (see <see cref="ShowCard"/>), or null when no card is open.</summary>
     internal object? OpenCardContent => _cardOpen ? CardHost.Content : null;
 
-    /// <summary>The open card, when it takes this drag itself (see <see cref="ICardDrop"/>).</summary>
+    /// <summary>The open card (or the open notch's card sheet), when it takes this drag itself (see <see cref="ICardDrop"/>).</summary>
     ICardDrop? CardTaking(DragEventArgs e) =>
-        !_dragging && _searchMode is null && !_fullscreen && OpenCardContent is ICardDrop card && card.AcceptsDrop(e.Data) ? card : null;
+        !_dragging && _searchMode is null && !_fullscreen
+        && (OpenCardContent ?? (_mode == NotchMode.Expanded ? Expanded.OpenSheet : null)) is ICardDrop card && card.AcceptsDrop(e.Data) ? card : null;
 
     // ---- Drag and drop onto the shelf -----------------------------------------------------------
 

@@ -13,7 +13,8 @@ namespace Shammy.Modules.Otp;
 /// shows the code big with a Copy circle for two minutes, the pet in its ninja mask. Copying marks the code private
 /// so neither Shammy's clipboard history nor Windows' (Win+V) keeps it, and a minute later the clipboard is
 /// emptied if it still holds the code. While the screen is shared or recorded, or always with "Always hide message
-/// text", the digits are hidden. The code is never written to the log.
+/// text", the digits are hidden. A code from the linked phone is copied at once the same private way, with "Code copied"
+/// on its pill, except while the screen is shared or recorded. The code is never written to the log.
 /// Pipes: otp-test "App|text", otp-state, otp-copy, otp-clear-now.
 /// </summary>
 internal sealed class OtpModule : IShammyModule
@@ -26,7 +27,7 @@ internal sealed class OtpModule : IShammyModule
 
     ModuleContext _ctx = null!;
     string? _code, _app;
-    bool _copied;
+    bool _copied, _auto;
     OtpContent? _content;
 
     public string Name => "otp";
@@ -68,7 +69,14 @@ internal sealed class OtpModule : IShammyModule
 
     void OnArrived(Notifications.ShammyNotification n)
     {
-        try { Offer(n.Title, n.Body, n.AppName); }
+        try
+        {
+            if (Offer(n.Title, n.Body, n.AppName) && n.IsFromPhone && !PrivacyState.Presenting)
+            {
+                _auto = true; // first, so the pill the copy refreshes says "Code copied"
+                _auto = Copy();
+            }
+        }
         catch (Exception ex) { _ctx.Warn("Looking for a code failed", ex); }
     }
 
@@ -77,7 +85,7 @@ internal sealed class OtpModule : IShammyModule
         if (!_ctx.Settings.OtpEnabled || OtpFinder.Find(title, body) is not { } code) return false;
         _code = code;
         _app = app;
-        _copied = false;
+        _copied = _auto = false;
         var content = _content = new OtpContent(this);
         _ctx.Post(new Activity(ActivityId, ActivityKind.Custom, Priority, content, DateTime.UtcNow + Shown) { Click = () => Copy() });
         // Once its pill has gone, the code isn't kept either (unless a newer code took its place).
@@ -97,7 +105,7 @@ internal sealed class OtpModule : IShammyModule
         if (_ctx.Get(ActivityId) is { } a) _ctx.Post(a);
     });
 
-    internal string Label => _copied ? "Copied" : string.IsNullOrWhiteSpace(_app) ? "Code" : _app!;
+    internal string Label => _copied ? _auto ? "Code copied" : "Copied" : string.IsNullOrWhiteSpace(_app) ? "Code" : _app!;
 
     /// <summary>
     /// Whether the digits are hidden: while the screen is shared or recorded, and always with Settings' "Always

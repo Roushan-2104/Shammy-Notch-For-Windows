@@ -363,6 +363,9 @@ public partial class ExpandedView : UserControl
     /// <summary>Whether a card sheet is open (the island is the card's own size, with no top bar).</summary>
     internal bool SheetOpen => _sheet is not null && _openId is not null;
 
+    /// <summary>The card sheet open now (the Your phone card takes dropped files), or null.</summary>
+    internal CardSheet? OpenSheet => SheetOpen ? _sheet : null;
+
     /// <summary>Back on a Wall detail's art panel, top-left, over the artwork.</summary>
     void AddBack(WallDetail detail)
     {

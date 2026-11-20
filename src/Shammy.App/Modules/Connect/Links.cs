@@ -57,6 +57,18 @@ internal interface IPhoneLink
     Task SendAsync(IReadOnlyList<string> paths);
 }
 
+/// <summary>What the phone link offers Send to phone: Shammy Island over the encrypted link, while it's online.</summary>
+internal interface IIslandLink
+{
+    bool Online { get; }
+
+    /// <summary>Sends a file (up to 50 MB) over the link and says so in the notch; completes when it's sent or failed.</summary>
+    Task SendFileAsync(string path);
+
+    /// <summary>A link goes as a link (the phone offers Open), any other text to the phone's clipboard.</summary>
+    void SendText(string text);
+}
+
 /// <summary>What Stage offers others: open with a given text as the script (circle to search's "put it on Stage").</summary>
 internal interface IStageLink
 {
@@ -82,6 +94,8 @@ internal static class Links
     public static IClipboardLink? Clipboard { get; set; }
 
     public static IPhoneLink? Phone { get; set; }
+
+    public static IIslandLink? Island { get; set; }
 
     public static ICalendarLink? Calendar { get; set; }
 

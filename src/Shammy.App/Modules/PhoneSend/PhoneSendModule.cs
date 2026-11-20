@@ -3,6 +3,7 @@ using System.Text;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Shammy.Core.Clipboard;
+using Shammy.Core.PhoneLink;
 using Shammy.Core.PhoneSend;
 using Shammy.Shelf;
 using Shammy.Views.Cards;
@@ -14,7 +15,8 @@ namespace Shammy.Modules.PhoneSend;
 /// download the file, or upload files back into Downloads. No app, no cloud, no account.
 /// "Send this to my phone" with nothing named asks what to send: what you copied, your last screenshot,
 /// the shelf, the page in your browser, or a file from the PC. Links and short text skip the server and
-/// go in the QR code itself.
+/// go in the QR code itself. While Shammy Island is linked and online, files (up to 50 MB), links and text go over
+/// its encrypted link instead (PhoneLinkModule.Share.cs), with no QR code.
 /// </summary>
 internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
 {
@@ -52,7 +54,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
         {
             var path = arg.Trim().Trim('"');
             if (path.Length == 0) return "error: usage phone-send <path>";
-            return Send(path) is { } error ? "error: " + error : _transfer!.Url;
+            return Send(path) is { } error ? "error: " + error : _transfer?.Url ?? "sending over the link";
         });
         ctx.AddPipeCommand("phone-stop", _ =>
         {
@@ -99,6 +101,14 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
         if (_ctx is null) return "Not ready";
         _transfer?.Stop();
         _transfer = null;
+        // Linked: over Shammy Island's encrypted link; the QR code stays for a phone without it, and for big files.
+        if (Connect.Links.Island is { Online: true } island && File.Exists(path) && Size(path) <= LinkShare.MaxFile)
+        {
+            CloseSheet();
+            CloseQr();
+            _ = island.SendFileAsync(path).ContinueWith(_ => DeleteIfTemp(path), TaskScheduler.Default);
+            return null;
+        }
         try
         {
             var transfer = PhoneTransfer.Start(_ctx, path);
@@ -172,6 +182,12 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
     {
         if (_ctx is null) return "error: not ready";
         text = text.Trim();
+        if (Connect.Links.Island is { Online: true } island && text.Length <= LinkShare.MaxClip)
+        {
+            CloseSheet();
+            island.SendText(text);
+            return "sent over the link";
+        }
         switch (PhoneText.Route(text))
         {
             case PhoneTextRoute.QrLink:
@@ -316,6 +332,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
             case PhoneChoiceKind.Shelf:
                 return PickShelf(s);
             case PhoneChoiceKind.BrowserPage when s.PageUrl is { } url:
+                if (Connect.Links.Island is { Online: true }) return SendText(url);
                 return ShowQr(url, PhoneText.LinkPreview(url, 90), "Web page", "Scan with your phone's camera to open this page",
                     "QR code: scan it with your phone's camera to open the page", "page");
             case PhoneChoiceKind.PcFile:
@@ -518,7 +535,7 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
         // The card waits behind this confirmation and appears when it clears.
         return Send(item.Path) is { } error
             ? new CommandResult(PhoneGlyph, error, item.Name, IsError: true)
-            : new CommandResult(PhoneGlyph, "Scan to send to your phone", item.Name);
+            : new CommandResult(PhoneGlyph, _transfer is null ? "Sending to your phone" : "Scan to send to your phone", item.Name);
     }
 
     Task Connect.IPhoneLink.SendAsync(IReadOnlyList<string> paths) => SendDroppedAsync(paths);

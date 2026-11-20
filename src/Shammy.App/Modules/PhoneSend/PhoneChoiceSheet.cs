@@ -14,7 +14,7 @@ namespace Shammy.Modules.PhoneSend;
 /// the accent tint). Each row is a real button, named for screen readers; Tab and Enter work, and so do the number
 /// keys. Esc or Back goes back a step, or closes. The shelf's files open as a second step in the same sheet.
 /// </summary>
-internal sealed class PhoneChoiceSheet : CardSheet
+internal class PhoneChoiceSheet : CardSheet
 {
     public const double SheetWidth = Ui.Tokens.PopupWidth;
 
@@ -46,10 +46,13 @@ internal sealed class PhoneChoiceSheet : CardSheet
         FocusVisualStyle = null;
         BodyGap = 12;
         BackRequested = GoBack;
-        Body.Children.Add(_rows);
+        Body.Children.Add(new StackPanel { Children = { Top, _rows } });
         PreviewKeyDown += OnKey;
         Loaded += (_, _) => FocusFirst();
     }
+
+    /// <summary>Anything above the rows (the linked phone's battery, controls and music); empty by default.</summary>
+    public StackPanel Top { get; } = new();
 
     /// <summary>The rows on screen now, top to bottom.</summary>
     public IReadOnlyList<Row> Rows => _current;

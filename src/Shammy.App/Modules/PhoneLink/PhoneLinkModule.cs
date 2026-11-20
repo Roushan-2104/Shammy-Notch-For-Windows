@@ -19,6 +19,7 @@ namespace Shammy.Modules.PhoneLink;
 /// the window is open. Shared-file workaround: phone notifications enter through NotificationService.InjectForTest,
 /// the only way in for a module.
 /// The phone is also a remote for this laptop: see PhoneLinkModule.Remote.cs.
+/// The phone's own state, controls, music and calls: PhoneLinkModule.Phone.cs; text, links and files both ways: .Share.cs.
 /// Pipes: phonelink-state, phonelink-pair, phonelink-reply "text", phonelink-beacon.
 /// </summary>
 internal sealed partial class PhoneLinkModule : IShammyModule
@@ -98,6 +99,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         StartRemote();
         StartCard();
         StartSync();
+        StartPhone();
+        StartShare();
         if (_store.Phone is not null) Listen();
     }
 
@@ -107,6 +110,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         StopRemote();
         StopCard();
         StopSync();
+        StopPhone();
+        StopShare();
         StopBeacon();
         StopListening();
         _identity.Dispose();
@@ -470,8 +475,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                         break;
                     case "notif":
                         var n = (Key: LinkSession.Text(m, "key"), App: LinkSession.Text(m, "app"), Title: LinkSession.Text(m, "title"),
-                            Text: LinkSession.Text(m, "text"), CanReply: m["canReply"]?.GetValue<bool>() == true);
-                        if (n.Key.Length > 0) _ = _ctx.Ui.BeginInvoke(() => ShowPhoneNotification(n.Key, n.App, n.Title, n.Text, n.CanReply));
+                            Text: LinkSession.Text(m, "text"), CanReply: m["canReply"]?.GetValue<bool>() == true, Kind: LinkSession.Text(m, "kind"));
+                        if (n.Key.Length > 0) _ = _ctx.Ui.BeginInvoke(() => ShowPhoneNotification(n.Key, n.App, n.Title, n.Text, n.CanReply, n.Kind));
                         break;
                     case "notifGone":
                         var key = LinkSession.Text(m, "key");
@@ -499,6 +504,12 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                         var what = LinkSession.Text(m, "what");
                         _ = _ctx.Ui.BeginInvoke(() => Do(what));
                         break;
+                    case "status" or "phoneMedia" or "clip" or "link":
+                        _ = _ctx.Ui.BeginInvoke(() => OnPhoneSays(m));
+                        break;
+                    case "file" or "fileChunk" or "fileEnd":
+                        TakeFile(m);
+                        break;
                     // "pong" and anything newer: ignored (§5).
                 }
             }
@@ -506,6 +517,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         finally
         {
             stop.Cancel();
+            DropIncoming();
             _ = _ctx.Ui.BeginInvoke(() =>
             {
                 if (!ReferenceEquals(_live, s)) return;
@@ -527,6 +539,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
     void Send(JsonObject message)
     {
+        Note(message);
         if (_live is not { } s) return;
         _ = Task.Run(async () =>
         {
@@ -537,8 +550,13 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
     // ---- Notifications both ways -----------------------------------------------------------------
 
-    void ShowPhoneNotification(string key, string app, string title, string text, bool canReply)
+    void ShowPhoneNotification(string key, string app, string title, string text, bool canReply, string kind)
     {
+        if (kind == "call")
+        {
+            ShowCall(key, title.Length > 0 ? title : app);
+            return;
+        }
         DropPhoneNotification(key);
         var name = app.Length > 0 ? app : "Phone";
         var n = new ShammyNotification
@@ -559,6 +577,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
     void DropPhoneNotification(string key)
     {
+        CallGone(key);
         if (!_shown.Remove(key, out var n)) return;
         _ctx.Services.Notifications.History.Remove(n);
         if (_replyKey == key) _replyKey = null;

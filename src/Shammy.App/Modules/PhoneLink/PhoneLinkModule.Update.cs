@@ -12,8 +12,6 @@ namespace Shammy.Modules.PhoneLink;
 /// </summary>
 internal sealed partial class PhoneLinkModule
 {
-    const int UpdateChunk = 36 * 1024; // base64 of it stays well under a 64 KB frame
-
     static string BundledApk => Path.Combine(AppContext.BaseDirectory, "Assets", "Phone", "ShammyIsland.apk");
 
     /// <summary>The bundled app's versionCode (written next to it when it's bundled), or 0.</summary>
@@ -47,12 +45,8 @@ internal sealed partial class PhoneLinkModule
         {
             try
             {
-                for (int i = 0, at = 0; at < apk.Length; i++, at += UpdateChunk)
-                {
-                    var piece = apk[at..Math.Min(at + UpdateChunk, apk.Length)];
-                    await s.SendAsync(new JsonObject { ["t"] = "chunk", ["i"] = i, ["data"] = Convert.ToBase64String(piece) }, CancellationToken.None);
-                }
-                await s.SendAsync(new JsonObject { ["t"] = "chunkEnd" }, CancellationToken.None);
+                await SendPiecesAsync(s, new MemoryStream(apk), (i, data) => new JsonObject { ["t"] = "chunk", ["i"] = i, ["data"] = data });
+                await SendNowAsync(s, new JsonObject { ["t"] = "chunkEnd" });
                 _ctx.Info($"Sent Shammy Island to the phone ({apk.Length / 1024} KB)");
             }
             catch (Exception ex) when (ex is IOException or ObjectDisposedException or System.Net.Sockets.SocketException)

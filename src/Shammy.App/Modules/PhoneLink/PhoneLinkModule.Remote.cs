@@ -50,7 +50,9 @@ internal sealed partial class PhoneLinkModule
     {
         _sentMoments.Clear();
         _sentMedia = "";
+        _sentStatus = null;
         ShowOnline(true);
+        SendStatus();
         // where to find this laptop when the phone is away from its network (or "" for nowhere)
         Send(new JsonObject { ["t"] = "relay", ["at"] = _store.Relay ?? "", ["room"] = _store.Relay is null ? "" : RelayRoom() });
         SendMedia();
@@ -61,6 +63,7 @@ internal sealed partial class PhoneLinkModule
     void OnDisconnected()
     {
         _refresh?.Stop();
+        ForgetPhone();
         ShowOnline(false);
         // the phone's notifications stay in the list and stay linked (a reconnect continues the sync); no reply target
         _replyKey = null;

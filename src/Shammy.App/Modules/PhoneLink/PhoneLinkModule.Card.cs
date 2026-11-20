@@ -9,8 +9,9 @@ namespace Shammy.Modules.PhoneLink;
 
 /// <summary>
 /// The phone button in the open notch's top bar (your call, 16 Nov) and the card it opens: whether the phone is online
-/// (a green dot there and on the resting notch), pairing, and getting Shammy Island onto a phone with a QR code, from
-/// this laptop over Wi-Fi or from GitHub. Also the falling chime that says "from your phone".
+/// (a green dot there and on the resting notch), the linked phone's battery, controls and music (.Phone.cs), pairing,
+/// and getting Shammy Island onto a phone with a QR code, from this laptop over Wi-Fi or from GitHub. Also the falling
+/// chime that says "from your phone".
 /// </summary>
 internal sealed partial class PhoneLinkModule
 {
@@ -58,7 +59,7 @@ internal sealed partial class PhoneLinkModule
 
     FrameworkElement BuildPhoneSheet()
     {
-        var sheet = new PhoneChoiceSheet(() => _ctx.OpenCard("home"));
+        var sheet = new PhoneCard(this, () => _ctx.OpenCard("home"));
         sheet.TitleText.Text = "Your phone";
         _phoneSheet = sheet;
         FillPhoneSheet();
@@ -74,7 +75,7 @@ internal sealed partial class PhoneLinkModule
         if (_phoneSheet is not { } sheet) return;
         bool paired = _store.Phone is not null;
         string name = _store.PhoneName ?? "your phone";
-        string status = !paired ? "not linked" : _live is not null ? $"{name} · online" : $"{name} · away";
+        string status = !paired ? "not linked" : Online ? $"{name} · online" : $"{name} · away";
         var rows = new List<PhoneChoiceSheet.Row>();
         if (paired)
         {
@@ -88,6 +89,7 @@ internal sealed partial class PhoneLinkModule
         }
         // linked, nothing is "the thing to do" (least of all Unpair): no row is tinted
         sheet.Show(status, rows, accentFirst: !paired);
+        FillPhoneTop();
     }
 
     /// <summary>The two ways to get the app onto a phone, as rows.</summary>
