@@ -540,6 +540,8 @@ internal sealed class PhoneSendModule : IShammyModule, Connect.IPhoneLink
 
     Task Connect.IPhoneLink.SendAsync(IReadOnlyList<string> paths) => SendDroppedAsync(paths);
 
+    void Connect.IPhoneLink.SendText(string text) => SendText(text);
+
     public void Dispose()
     {
         if (Connect.Links.Phone == this) Connect.Links.Phone = null;

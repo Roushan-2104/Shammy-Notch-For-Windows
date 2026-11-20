@@ -15,8 +15,9 @@ namespace Shammy.Modules.PhoneLink;
 /// Copied text, links and files both ways over the link (your answers, 21 Nov). From the phone: copied text lands on
 /// this clipboard (private: no clipboard history), a link opens in the default browser (http/https only), a file lands
 /// in Downloads\Shammy (kept only if its size and SHA-256 match, then named, marked and neutralized like an upload from
-/// the phone's browser: SafeFileName.MoveIn) with Open / Show in folder. To the phone: Send to phone goes over the link while the phone is online (PhoneSend asks
-/// <see cref="Connect.IIslandLink"/>), and "Send clipboard" on the Your phone card. One file at a time each way.
+/// the phone's browser: SafeFileName.MoveIn) with Open / Show in folder. To the phone: Send to phone goes over the link
+/// while the phone is online (PhoneSend asks <see cref="Connect.IIslandLink"/>), "Send clipboard" on the Your phone
+/// card, and (unless switched off in Settings) whatever text you copy, silently. One file at a time each way.
 /// Nothing sent or received is logged.
 /// </summary>
 internal sealed partial class PhoneLinkModule : Connect.IIslandLink
@@ -38,6 +39,37 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
         }
         Send(new JsonObject { ["t"] = "clip", ["text"] = text });
         _ctx.ShowMessage(CopyGlyph, "On your phone's clipboard");
+    }
+
+    // ---- Shared clipboard (Settings › Connections › Share clipboard with your phone) ----------------------
+
+    static readonly TimeSpan ClipSettle = TimeSpan.FromMilliseconds(300);
+    System.Windows.Threading.DispatcherTimer? _autoClip;
+    string? _pendingClip;
+
+    /// <summary>The hash of the text the phone last sent (UI thread), so it never goes straight back.</summary>
+    int? _fromPhone;
+
+    /// <summary>
+    /// Text copied in another app (the clipboard module has already left out password managers' copies and Shammy's
+    /// own, like codes): after 300 ms of quiet it's on the phone's clipboard too, silently (`clip` with `auto`).
+    /// </summary>
+    void OnLaptopCopy(string text)
+    {
+        if (!Online || !_ctx.Settings.ShareClipboardWithPhone || text.Length > LinkShare.MaxClip || text.Trim().Length == 0
+            || PrivacyState.Presenting || text.GetHashCode() == _fromPhone) return;
+        _pendingClip = text;
+        _autoClip?.Stop();
+        _autoClip = UiDelay.After(ClipSettle, SendAutoClip, _ctx.Ui);
+    }
+
+    void SendAutoClip()
+    {
+        var text = _pendingClip;
+        _pendingClip = null;
+        _autoClip = null;
+        if (text is null || !Online || !_ctx.Settings.ShareClipboardWithPhone || PrivacyState.Presenting) return;
+        Send(new JsonObject { ["t"] = "clip", ["text"] = text, ["auto"] = true });
     }
 
     /// <summary>"Send clipboard" on the Your phone card: what you copied, to the phone's clipboard.</summary>
@@ -127,6 +159,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     void TakeClip(string text)
     {
         if (text.Length == 0) return;
+        _fromPhone = text.GetHashCode();
         if (!SelectionTools.ClipboardText.TrySet(text, secret: true))
         {
             _ctx.ShowMessage(CopyGlyph, "The clipboard is busy", error: true);
@@ -295,6 +328,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     void StartShare()
     {
         Connect.Links.Island = this;
+        Connect.Links.TextCopied += OnLaptopCopy;
         // leftovers of a transfer cut short when Shammy last closed
         try
         {
@@ -307,6 +341,8 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     void StopShare()
     {
         if (Connect.Links.Island == this) Connect.Links.Island = null;
+        Connect.Links.TextCopied -= OnLaptopCopy;
+        _autoClip?.Stop();
         DropIncoming(null, any: true);
     }
 
@@ -315,6 +351,8 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
         _ctx.AddPipeCommand("phonelink-sent", arg => arg.Trim() is { Length: > 0 } t
             ? _lastSent.TryGetValue(t, out var json) ? json : "none"
             : string.Join(" ", _lastSent.Keys.Order()));
+        // a copy in another app, as the clipboard module passes it on (or use clipboard-copy for the whole path)
+        _ctx.AddPipeCommand("phonelink-fake-copy", text => { OnLaptopCopy(text); return _pendingClip is null ? "skipped" : "sending in 300 ms"; });
         _ctx.AddPipeCommand("phonelink-fake-clip", text => { OnPhoneSays(new JsonObject { ["t"] = "clip", ["text"] = text }); return "clip taken"; });
         _ctx.AddPipeCommand("phonelink-fake-link", url => { OnPhoneSays(new JsonObject { ["t"] = "link", ["url"] = url.Trim() }); return "link taken"; });
         // "path" or "path|bad" (a wrong SHA-256): the file as the phone would send it

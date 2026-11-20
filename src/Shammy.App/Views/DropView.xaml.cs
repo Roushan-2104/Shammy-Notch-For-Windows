@@ -252,7 +252,7 @@ public partial class DropView : UserControl
         _files = data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.FileDrop) is string[] f ? f : Array.Empty<string>();
         _chipText.Text = _files.Length switch
         {
-            0 => "File",
+            0 => BrowserDrop.Label(data),
             1 => Path.GetFileName(_files[0].TrimEnd('\\', '/')),
             _ => $"{_files.Length} items",
         };

@@ -187,6 +187,7 @@ internal sealed class ClipboardModule : IShammyModule, Connect.IClipboardLink
             else if (data.GetDataPresent(DataFormats.UnicodeText) && data.GetData(DataFormats.UnicodeText) is string text
                      && !string.IsNullOrWhiteSpace(text))
             {
+                Connect.Links.Copied(text);
                 // A copied 100 MB log mustn't sit in memory for a day or be re-split on every panel refresh;
                 // the preview only ever needs the start.
                 if (text.Length <= MaxHistoryText)

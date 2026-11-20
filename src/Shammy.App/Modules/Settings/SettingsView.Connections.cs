@@ -22,12 +22,15 @@ internal partial class SettingsView
 {
     // ---- Connections -----------------------------------------------------------------------------
 
-    /// <summary>What Shammy connects to: Google Calendar and Claude Code.</summary>
+    /// <summary>What Shammy connects to: Google Calendar, Claude Code and your phone.</summary>
     void Connections()
     {
         Section("Google Calendar", "");
         CalendarRows();
         ClaudeCodeRows();
+        Section("Your phone", "");
+        SwitchRow("Share clipboard with your phone", "Text you copy here is on your linked phone too. Never passwords, nothing while you share your screen.",
+            nameof(AppSettings.ShareClipboardWithPhone), "Clipboard shared with your phone", "Clipboard stays on this laptop", words: "phone island universal clipboard copy");
     }
 
     /// <summary>Claude Code: the connection (the one button that edits Claude Code's settings) and the Allow/Deny cards.</summary>

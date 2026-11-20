@@ -55,6 +55,9 @@ internal interface IPhoneLink
 {
     /// <summary>Shows the QR card: one file as is, several or a folder as one zip. Reports problems itself.</summary>
     Task SendAsync(IReadOnlyList<string> paths);
+
+    /// <summary>A link or text: over Shammy Island's link while it's online, else as a QR code (long text as a file).</summary>
+    void SendText(string text);
 }
 
 /// <summary>What the phone link offers Send to phone: Shammy Island over the encrypted link, while it's online.</summary>
@@ -96,6 +99,11 @@ internal static class Links
     public static IPhoneLink? Phone { get; set; }
 
     public static IIslandLink? Island { get; set; }
+
+    /// <summary>Text copied in another app, read by the clipboard module after its privacy checks (the phone link shares it).</summary>
+    public static event Action<string>? TextCopied;
+
+    internal static void Copied(string text) => TextCopied?.Invoke(text);
 
     public static ICalendarLink? Calendar { get; set; }
 

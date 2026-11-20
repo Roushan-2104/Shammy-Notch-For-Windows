@@ -32,6 +32,7 @@ internal sealed class DropActionsModule : IShammyModule
         });
         ctx.AddPipeCommand("shelf-action", ShelfActionTest);
         ctx.AddPipeCommand("drop-test", DropTest);
+        ctx.AddPipeCommand("drop-browser", DropBrowserTest);
         ctx.AddPipeCommand("drop-state", _ => $"last={_last} hovered={ctx.Notch.DropZone.Hovered?.ToString() ?? "-"}");
     }
 
@@ -137,6 +138,39 @@ internal sealed class DropActionsModule : IShammyModule
         {
             return "error: " + ex.Message;
         }
+    }
+
+    /// <summary>
+    /// "drop-browser phone link https://example.com", "… shelf text some words", "… shelf image C:\a.png": a browser's
+    /// drag (a link, selected words, or an image handed over as a virtual file) dropped on a target, through the real drop path.
+    /// </summary>
+    string DropBrowserTest(string arg)
+    {
+        var p = arg.Trim().Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length < 3 || DropPlan.ParseAction(p[0]) is not { } action) return "error: usage drop-browser <shelf|phone|compress|convert> <link|text|image> <value>";
+        var data = new System.Windows.DataObject();
+        switch (p[1])
+        {
+            case "link":
+                data.SetData("UniformResourceLocatorW", new MemoryStream(System.Text.Encoding.Unicode.GetBytes(p[2] + "\0")));
+                data.SetText(p[2]);
+                break;
+            case "text":
+                data.SetText(p[2]);
+                break;
+            case "image":
+                var path = p[2].Trim('"');
+                if (!File.Exists(path)) return "error: image not found";
+                var d = new byte[4 + 592];
+                d[0] = 1;
+                System.Text.Encoding.Unicode.GetBytes(Path.GetFileName(path)).CopyTo(d, 4 + 72);
+                data.SetData("FileGroupDescriptorW", new MemoryStream(d));
+                data.SetData("FileContents", new MemoryStream(File.ReadAllBytes(path)));
+                break;
+            default:
+                return "error: usage drop-browser <shelf|phone|compress|convert> <link|text|image> <value>";
+        }
+        return $"accepted={Shammy.Shell.BrowserDrop.Accepts(data)} {_ctx.Notch.DropData(data, action)}";
     }
 
     /// <summary>

@@ -56,7 +56,8 @@ public partial class NotchWindow
             return;
         }
         // A tab a module opened for you (held for 8 s) mustn't block dropping files; only a shelf drag does.
-        bool files = e.Data.GetDataPresent(DataFormats.FileDrop) && _searchMode is null && _holdOpen - (_held ? 1 : 0) == 0;
+        // Files, and what a browser drags (an image, a link, selected words: see BrowserDrop).
+        bool files = BrowserDrop.Accepts(e.Data) && _searchMode is null && _holdOpen - (_held ? 1 : 0) == 0;
         e.Effects = files ? DragDropEffects.Copy | DragDropEffects.Link : DragDropEffects.None;
         e.Handled = true;
         if (files && !_dragging)
@@ -88,8 +89,29 @@ public partial class NotchWindow
         }
         _dragging = false;
         // The drop zone knows which of its targets (Shelf, phone, compress, convert) the files landed on.
-        var target = DropZone.TakeTarget();
-        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+        DropData(e.Data, DropZone.TakeTarget());
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// What was dropped on <paramref name="target"/> (null: the Shelf): files as they are, a browser's drag as files in
+    /// Shammy's folder, or a link or words on Send to phone as a link or copied text. Says what happened (the test pipe).
+    /// </summary>
+    internal string DropData(IDataObject data, Core.DropActions.DropAction? target)
+    {
+        var files = data.GetDataPresent(DataFormats.FileDrop) ? data.GetData(DataFormats.FileDrop) as string[] : null;
+        if (files is not { Length: > 0 } && BrowserDrop.Read(data) is { } dragged)
+        {
+            // a link or words on Send to phone go as a link or copied text, not as a file
+            if (target == Core.DropActions.DropAction.Phone && dragged.Text is { } text && Modules.Connect.Links.Phone is { } phone)
+            {
+                phone.SendText(text);
+                Recompute();
+                return "phone: " + dragged.Kind.ToString().ToLowerInvariant();
+            }
+            files = BrowserDrop.Save(dragged);
+        }
+        if (files is { Length: > 0 })
         {
             if (target is null or Core.DropActions.DropAction.Shelf)
             {
@@ -101,11 +123,9 @@ public partial class NotchWindow
                 DropZone.RaiseDropped(target.Value, files);
                 Recompute();
             }
+            return $"{(target ?? Core.DropActions.DropAction.Shelf).ToString().ToLowerInvariant()}: {string.Join(" | ", files.Select(Path.GetFileName))}";
         }
-        else
-        {
-            Recompute();
-        }
-        e.Handled = true;
+        Recompute();
+        return "nothing taken";
     }
 }

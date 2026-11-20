@@ -256,6 +256,11 @@ internal sealed class AppSettings
     /// </summary>
     public bool AgentsAskInNotch { get; set; } = true;
 
+    // ---- The phone (Shammy Island) -------------------------------------------------------------------
+
+    /// <summary>Text copied on this laptop is on the linked phone's clipboard too (never passwords, nothing while sharing).</summary>
+    public bool ShareClipboardWithPhone { get; set; } = true;
+
     /// <summary>Raised (with the property name) after the settings card or pipe changed a setting.</summary>
     public event Action<string>? Changed;
 
