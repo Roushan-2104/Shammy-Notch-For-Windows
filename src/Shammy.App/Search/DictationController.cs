@@ -53,6 +53,7 @@ internal sealed class DictationController
     bool _byCtrlWin, _latched, _shown, _hindi;
     string _live = "";
     LiveWordsPacer _pacer = new(0);
+    Task? _partial;
     int _spokeFrom;
     long _nextLookMs;
     CancellationTokenSource? _cts;
@@ -307,7 +308,7 @@ internal sealed class DictationController
         }
         _spokeFrom = heard.Length;
         _pacer.Sent(now);
-        _ = PartialAsync(heard, _session);
+        _partial = PartialAsync(heard, _session);
     }
 
     async Task PartialAsync(float[] heard, int session)
@@ -367,6 +368,9 @@ internal sealed class DictationController
             ShowMessage("Didn’t hear anything", "Nothing was typed.");
             return;
         }
+        // Gnani takes one request per key at a time: let the last live-words ask finish before the real one.
+        if (_partial is { IsCompleted: false } partial) await Task.WhenAny(partial, Task.Delay(Core.OnlineVoice.GnaniApi.SttTimeout));
+        if (session != _session) return;
         await WriteDownAsync(heard, session, retried: false);
     }
 

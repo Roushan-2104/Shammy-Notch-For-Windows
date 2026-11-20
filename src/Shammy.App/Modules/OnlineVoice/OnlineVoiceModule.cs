@@ -500,7 +500,15 @@ internal sealed class OnlineVoiceModule : IShammyModule
             var options = devanagari
                 ? new SttOptions(Format: GnaniApi.SttDevanagariFormat, LanguageCode: GnaniApi.SttHindiLanguages)
                 : new SttOptions(LanguageCode: _listenNeedsLanguage ? GnaniApi.SttAutoLanguage : null);
-            var reply = await _client.TranscribeAsync(GnaniApi.Stt(options, key, wav.Length), wav, limit.Token);
+            var request = GnaniApi.Stt(options, key, wav.Length);
+            var reply = await _client.TranscribeAsync(request, wav, limit.Token);
+            // Gnani runs one request per key at a time: the last live-words ask may still be finishing when you let
+            // go. Waiting for it beats losing the whole dictation to "429 Busy"; try again within the same time limit.
+            for (int retry = 0; !partial && retry < 3 && reply.Error is { Problem: GnaniProblem.Busy }; retry++)
+            {
+                await Task.Delay(BusyRetryAfter, limit.Token);
+                reply = await _client.TranscribeAsync(request, wav, limit.Token);
+            }
             if (reply.Ok)
             {
                 // Counts only: the log isn't a transcript archive.
