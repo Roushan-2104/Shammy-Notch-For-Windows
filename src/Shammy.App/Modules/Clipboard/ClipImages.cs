@@ -42,7 +42,9 @@ internal static class ClipImages
         var pixels = new byte[stride * src.PixelHeight];
         src.CopyPixels(pixels, stride, 0);
         var hash = Convert.ToHexString(SHA256.HashData(pixels))[..20];
-        var png = EncodePng(image);
+        // Encode from the pixels, not the image: a copied PNG is a decoded frame whose decoder belongs to the UI
+        // thread even when frozen, and encoding it here threw "a different thread owns it", so the copy was lost.
+        var png = EncodePng(BitmapSource.Create(src.PixelWidth, src.PixelHeight, 96, 96, src.Format, null, pixels, stride));
         return (hash, new ClipImage(png, Decode(png, ThumbWidth)));
     }
 
