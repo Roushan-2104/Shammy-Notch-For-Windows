@@ -179,7 +179,8 @@ internal sealed class CalendarModule : IShammyModule, Connect.ICalendarLink
         var errorBefore = _lastError;
         try
         {
-            using var response = await Http.Value.GetAsync(url);
+            // Waking from sleep, the fetch fires before names resolve: wait for the network like the ambient feeds.
+            using var response = await Ambient.AmbientNet.WhenReachableAsync(() => Http.Value.GetAsync(url));
             if (!response.IsSuccessStatusCode)
             {
                 // Never log the address itself: it grants read access to the whole calendar.

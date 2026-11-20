@@ -115,7 +115,31 @@ internal static class AmbientNet
     public static bool IsOnline => NetworkInterface.GetIsNetworkAvailable();
 
     /// <summary>GET as text; throws on non-success so callers count it as a failure.</summary>
-    public static async Task<string> GetAsync(HttpClient http, string url, bool browserAgent = false, CancellationToken ct = default)
+    public static Task<string> GetAsync(HttpClient http, string url, bool browserAgent = false, CancellationToken ct = default) =>
+        WhenReachableAsync(() => GetOnceAsync(http, url, browserAgent, ct), ct);
+
+    /// <summary>
+    /// Runs a request, and runs it again (5 s, then 15 s later) when the server couldn't be reached at all. Just
+    /// after the PC wakes, Windows reports the network as up before names resolve, so refreshes that fire at once
+    /// failed with "No such host is known" and waited for their next turn. Other failures are thrown at once.
+    /// </summary>
+    public static async Task<T> WhenReachableAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await work().ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (attempt < 2 && !ct.IsCancellationRequested && ex.HttpRequestError is
+                HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError or HttpRequestError.SecureConnectionError)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 5 : 15), ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    static async Task<string> GetOnceAsync(HttpClient http, string url, bool browserAgent, CancellationToken ct)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
