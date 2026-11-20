@@ -17,6 +17,11 @@ public static class WhatsNew
 
     public static readonly IReadOnlyDictionary<string, string[]> Notes = new Dictionary<string, string[]>
     {
+        ["1.5.1"] = new[]
+        {
+            "Fixed: Shammy closing when you start talking",
+            "Quick taps of the talk key free the mic properly",
+        },
         ["1.5.0"] = new[]
         {
             "New: Shammy Island links your Android phone",
