@@ -139,6 +139,7 @@ internal static class SettingsCatalog
         ("PinToScreenEdge", Advanced, "Pin to the very top edge", 1, "The notch sits on the screen’s edge, over a top taskbar."),
         ("VoiceLanguage", Advanced, "Detect voice language", 1, "Listens for Hindi and other languages on this PC. Slower."),
         ("DisabledModules", Advanced, "Features turned off (on next start)", 1, "Whole features, off from the next start."),
+        ("OfferReports", Advanced, "Offer to send a report after a problem", 1, "You see every report before it’s sent."),
     };
 
     /// <summary>Module tray toggles that are settings too (the rest, like Live captions, are actions).</summary>

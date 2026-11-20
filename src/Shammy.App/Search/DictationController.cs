@@ -225,6 +225,13 @@ internal sealed class DictationController
     bool Start(string howToFinish, bool byCtrlWin, FocusProbe.Focus? focus = null, bool latched = false)
     {
         if (_phase != Phase.Idle) return false;
+        // Safe mode: dictation crashed Shammy twice today; it's off until the next update or Settings turns it on.
+        if (Infrastructure.Reports.ProblemWatch.IsPaused(Core.Reports.ProblemPlace.Dictation))
+        {
+            ShowMessage("Dictation is paused", "It closed Shammy twice today · back after the next update", "Settings",
+                () => Modules.Settings.SettingsModule.OpenAt?.Invoke(Modules.Settings.SettingsCatalog.Advanced));
+            return false;
+        }
         CloseCard();
         _retry = null;
         // Dictation types into other apps; Shammy's own boxes have the talk key.

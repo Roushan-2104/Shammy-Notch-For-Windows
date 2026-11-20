@@ -13,9 +13,22 @@ internal static class Log
     static string? _file;
     static bool _capped;
 
+    /// <summary>A warning or error that came with an exception, after it's written (Reports.ProblemWatch counts them).</summary>
+    public static event Action<string, Exception>? Problem;
+
     public static void Info(string message) => Write("INFO", message);
-    public static void Warn(string message, Exception? ex = null) => Write("WARN", ex is null ? message : $"{message}: {ex}");
-    public static void Error(string message, Exception? ex = null) => Write("ERROR", ex is null ? message : $"{message}: {ex}");
+
+    public static void Warn(string message, Exception? ex = null)
+    {
+        Write("WARN", ex is null ? message : $"{message}: {ex}");
+        if (ex is not null) Problem?.Invoke(message, ex);
+    }
+
+    public static void Error(string message, Exception? ex = null)
+    {
+        Write("ERROR", ex is null ? message : $"{message}: {ex}");
+        if (ex is not null) Problem?.Invoke(message, ex);
+    }
 
     static void Write(string level, string message)
     {

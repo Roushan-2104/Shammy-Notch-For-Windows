@@ -381,6 +381,12 @@ internal sealed partial class ShammyHost : IDisposable
                     Log.Info($"Module disabled: {module.Name}");
                     return;
                 }
+                if (Infrastructure.Reports.ProblemWatch.IsModulePaused(type.Namespace))
+                {
+                    module.Dispose();
+                    Log.Info($"Module paused by safe mode: {module.Name}");
+                    return;
+                }
                 module.Start(new Modules.ModuleContext(module.Name, _ui, services, _notch, _activities, _modules));
                 Own(module);
                 Log.Info($"Module started: {module.Name}");

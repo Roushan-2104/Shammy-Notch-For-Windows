@@ -33,10 +33,15 @@ public partial class App : Application
             if (recent.Count >= 10)
             {
                 Log.Error("Too many UI errors in a minute; exiting");
+                Infrastructure.Reports.ProblemWatch.RecordFatal(args.Exception);
                 Shutdown(2);
             }
         };
-        AppDomain.CurrentDomain.UnhandledException += (_, args) => Log.Error("Fatal exception", args.ExceptionObject as Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            Log.Error("Fatal exception", args.ExceptionObject as Exception);
+            if (args.ExceptionObject is Exception ex) Infrastructure.Reports.ProblemWatch.RecordFatal(ex);
+        };
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
             Log.Error("Unobserved task exception", args.Exception);
@@ -49,6 +54,8 @@ public partial class App : Application
         Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = 60 });
 
         Log.Info($"Shammy {typeof(App).Assembly.GetName().Version} starting on {Environment.OSVersion}");
+        // Before anything else starts: safe mode decides here what stays off after a crash.
+        Infrastructure.Reports.ProblemWatch.BeginRun(typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
         try
         {
             _host = new ShammyHost(AppSettings.Load());
@@ -58,6 +65,7 @@ public partial class App : Application
         {
             // Without the notch there's nothing to show; don't linger as an invisible process.
             Log.Error("Startup failed", ex);
+            Infrastructure.Reports.ProblemWatch.RecordFatal(ex);
             MessageBox.Show($"Shammy couldn't start:\n\n{ex.Message}\n\nDetails are in {Paths.Logs}", "Shammy",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
@@ -67,6 +75,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _host?.Dispose();
+        // Only a run that got going has a mark (a second copy exits before; a failed start keeps it for its report).
+        if (_host is not null) Infrastructure.Reports.ProblemWatch.EndRun();
         _instance?.Dispose();
         Log.Info("Shammy exited");
         base.OnExit(e);

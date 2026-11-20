@@ -202,6 +202,9 @@ internal sealed class AppSettings
     /// <summary>The version that last told the user what's new; a newer one shows its note once.</summary>
     public string? LastRunVersion { get; set; }
 
+    /// <summary>After a crash, or an error that keeps repeating, offer to send a report (shown in full before it's sent).</summary>
+    public bool OfferReports { get; set; } = true;
+
     /// <summary>A ringing alarm swells from quiet to full over 30 s; off rings at full volume straight away.</summary>
     public bool AlarmGentleWake { get; set; } = true;
 

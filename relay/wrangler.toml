@@ -1,0 +1,19 @@
+name = "shammy-relay"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+PUBLIC_REPO = "Roushan-2104/Shammy-Notch-For-Windows"
+PRIVATE_REPO = "Roushan-2104/shammy-reports"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shammy-relay"
+# Paste the id that `npx wrangler d1 create shammy-relay` prints.
+database_id = "PASTE-DATABASE-ID-HERE"
+
+[triggers]
+# The daily digest: 15:30 UTC is 9:00 PM in India.
+crons = ["30 15 * * *"]
+
+# GITHUB_TOKEN is a secret, never in this file: npx wrangler secret put GITHUB_TOKEN

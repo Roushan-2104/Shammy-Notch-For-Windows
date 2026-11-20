@@ -147,6 +147,29 @@ internal partial class SettingsView
             }, label));
         }
 
+        // Safe mode's switched-off features, only while there are any.
+        var paused = Infrastructure.Reports.ProblemWatch.Paused;
+        if (paused.Count > 0)
+        {
+            Section("Paused features", "");
+            foreach (var (key, feature) in paused)
+            {
+                var name = feature.Name;
+                bool module = Core.Reports.ProblemPlace.ModuleNamespace(key) is not null;
+                Row(name, $"Paused {feature.SinceUtc.ToLocalTime():MMM d} · it closed Shammy twice that day. Back on by itself after the next update.",
+                    ScreenKit.Primary("Turn on", () =>
+                    {
+                        Infrastructure.Reports.ProblemWatch.Resume(key);
+                        Say(module ? $"{name} on after a restart" : $"{name} is back on");
+                        BuildPanel(keepScroll: true);
+                    }, 30, 12, padding: 14), words: "safe mode paused crash");
+            }
+        }
+
+        Section("Problem reports", "");
+        SwitchRow("Offer to send a report after a problem", "After a crash, or an error that keeps repeating. You see every report before it’s sent.",
+            nameof(AppSettings.OfferReports), "Shammy offers to send reports", "Shammy won’t offer reports", words: "crash error report bug");
+
         Section("Features", "Turned-off features stay off from the next start.");
         foreach (var name in _modules().Where(m => m != SettingsModule.ModuleName).OrderBy(FeatureName, StringComparer.CurrentCultureIgnoreCase))
         {
@@ -165,7 +188,7 @@ internal partial class SettingsView
     /// <summary>Features switched elsewhere: Live cricket, Morning brief, Codes, the Wheel, Eye breaks and water, Claude Code, Online voice, Text snippets.</summary>
     static readonly HashSet<string> HasOwnSwitch = new(StringComparer.OrdinalIgnoreCase)
     {
-        "cricket", "brief", "otp", "wheel", "nudges", "agents", "onlinevoice", "snippets",
+        "cricket", "brief", "otp", "wheel", "nudges", "agents", "onlinevoice", "snippets", "reports",
     };
 
     static readonly Dictionary<string, (string Name, string Hint)> Features = new(StringComparer.OrdinalIgnoreCase)
@@ -199,6 +222,7 @@ internal partial class SettingsView
         ["prompter"] = ("Stage", "Your script under the camera, paced by your voice."),
         ["quick"] = ("Laptop", "Wi-Fi, Bluetooth, power mode, keep awake, lock and sleep."),
         ["record"] = ("Screen recording", "Record the screen from the notch."),
+        ["reports"] = ("Problem reports", "Offers to send a report after a crash, and safe mode’s note."),
         ["screenshot"] = ("Screenshots", "Saves and offers what you capture."),
         ["selection"] = ("Selection tools", "Convert prices, read QR codes."),
         ["snippets"] = ("Text snippets", "Text that expands as you type."),

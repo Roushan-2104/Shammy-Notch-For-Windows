@@ -357,13 +357,15 @@ Something of yours under the island? Click the **small tab under it** and it sli
   - **Open in ChatGPT** opens chatgpt.com in your browser only when you tap it;
   - a spoken answer goes to Gnani to be voiced, only when you asked by voice and a key is saved;
   - "weather in &lt;city&gt;" sends only that city name to Open-Meteo (no account, no key);
-  - the calendar is read only from Google, at the secret address you pasted.
+  - the calendar is read only from Google, at the secret address you pasted;
+  - after a crash, or an error that repeats 5 times in a day, Shammy offers to send a report and shows exactly what it holds first: the error, the part of Shammy, versions, the last 30 log lines and your note if you add one. Your name, PC name, file paths, links, emails and long numbers are removed before you see it. It's sent only when you tap **Send**, to Shammy's own relay, which files it on GitHub: the full report privately for the developer, and a summary with a count (no log lines, no notes) in public [issues](https://github.com/Roushan-2104/Shammy-Notch-For-Windows/issues). Settings › Advanced › **Offer to send a report** turns the offers off.
 - **Captions, recordings and Stage:** captions come from Windows' Live Captions on your PC; recordings go only to your Videos folder; Stage and its ring light are hidden from screen shares and recordings.
 - **One-time codes:** copied privately (no clipboard history, no cloud clipboard), cleared after a minute, hidden while you share your screen, and never written to the log.
 - **Sharing your screen:** while you share your whole screen or record it, message text, meeting titles, reminders, notes and clipboard text are hidden.
 - **Camera:** the mirror's camera runs only while the mirror is open on screen.
 - **Your data:** clipboard history, notes, snippets and your calendar's address are encrypted with Windows DPAPI under your account; unpinned clipboard items are forgotten after 24 hours.
 - **Logs** never contain what you said, searched, dictated or copied, and are kept for 3 days.
+- **Safe mode:** if one feature closes Shammy twice in a day, it's paused on your PC until the next update (or until you turn it back on in Settings › Advanced). Everything else keeps working.
 - **Phone transfers** stay on your local network, behind a random one-time link; received programs are renamed `.blocked`.
 - **Claude Code** talks to Shammy only on your own PC, through a local address with a random token.
 - **Your phone (Shammy Island)** talks only to the laptop it paired with: end-to-end encrypted with fresh keys for every connection, each device's identity checked on every reconnect, and no server in between. Pairing needs the same 6 digits confirmed on both screens. Nothing listens on the network unless a phone is paired or you've opened the 2-minute pairing window. Anything that acts on the laptop (Claude's Allow, Lock, Sleep) needs your phone unlocked. Hiding Android's own banners is optional, and **Restore all** puts every app back.
