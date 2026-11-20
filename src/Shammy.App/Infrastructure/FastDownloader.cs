@@ -8,7 +8,7 @@ namespace Shammy.Infrastructure;
 
 /// <summary>
 /// The updater's web requests, made quicker on awkward connections. Velopack opens a brand-new connection for
-/// every request, and an update check asks GitHub about each recent release in turn; where a connection first
+/// every request, and a check and its download make several (each GitHub download redirects); where a connection first
 /// tries an address that leads nowhere (see <see cref="ConnectOrder"/>), every one of those requests waited
 /// about twenty seconds and the check ran out of time. Here all requests share one pool of connections, so a
 /// server is connected to once, and each connection tries the working kind of address first.

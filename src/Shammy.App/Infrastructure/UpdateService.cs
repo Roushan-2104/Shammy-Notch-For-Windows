@@ -16,7 +16,12 @@ namespace Shammy.Infrastructure;
 /// </summary>
 internal sealed class UpdateService : IDisposable
 {
-    const string RepoUrl = "https://github.com/Roushan-2104/Shammy-Notch-For-Windows";
+    /// <summary>
+    /// The newest release's files, read as plain downloads (releases.win.json, then its packages). Not GitHub's API:
+    /// that allows 60 unsigned requests an hour per internet address, and on a shared address (common with Indian
+    /// providers) other people use them up, so checks failed with "403 rate limit exceeded" for hours.
+    /// </summary>
+    const string LatestDownload = "https://github.com/Roushan-2104/Shammy-Notch-For-Windows/releases/latest/download/";
     static readonly TimeSpan FirstCheck = TimeSpan.FromSeconds(45);
     // Generous: on a slow connection one small request to GitHub can take over 20 s, and a check makes a few.
     static readonly TimeSpan CheckLimit = TimeSpan.FromMinutes(2);
@@ -38,7 +43,7 @@ internal sealed class UpdateService : IDisposable
         var testFault = CommandServer.IsEnabled ? Environment.GetEnvironmentVariable("SHAMMY_UPDATE_FAULT") : null;
         IUpdateSource source = Directory.Exists(testFeed)
             ? new SimpleFileSource(new DirectoryInfo(testFeed))
-            : new GithubSource(RepoUrl, null, false, new FastDownloader());
+            : new SimpleWebSource(LatestDownload, new FastDownloader());
         _source = source is SimpleFileSource ? "local test feed" : "GitHub";
         if (!string.IsNullOrEmpty(testFault)) source = new FaultySource(source, testFault);
         _manager = new UpdateManager(source);
@@ -115,7 +120,7 @@ internal sealed class UpdateService : IDisposable
         }
         catch (Exception ex)
         {
-            // Offline, GitHub rate limits, a release mid-upload.
+            // Offline, or GitHub unreachable.
             Log.Warn("Update check failed", ex);
             result = UpdateText.Failed(ex.GetType().Name);
         }
