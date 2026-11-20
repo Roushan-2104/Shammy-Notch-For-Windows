@@ -180,6 +180,10 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         try
         {
             var theirs = WaitForPairedAsync(s, limit.Token);
+            // Cancelled on the laptop (or timed out), nobody awaits this any more; the connection closing then
+            // ends it with an error that was reported as an unobserved task exception. Expected, so observe it.
+            _ = theirs.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             // The phone cancelling closes the connection, which ends the wait with an error: close the card at once.
             if (await Task.WhenAny(tap.Task, theirs) == theirs) await theirs;
             if (!await tap.Task.WaitAsync(limit.Token))
