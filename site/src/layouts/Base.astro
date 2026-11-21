@@ -74,9 +74,10 @@ const image = new URL(`${base}/og.jpg`, Astro.site).href;
     </div>
   </footer>
   <script>
-    // On the smaller pages, each part rises in once as it arrives. The home page brings its own list.
+    // Each part of a page rises in once as it arrives.
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-      const parts = document.querySelectorAll('.page > :not(.releases):not(.groups), .page .releases > li, .page .group');
+      // The home page's first screen is left alone, so it paints at once.
+      const parts = document.querySelectorAll('.page > :not(.releases):not(.groups):not(.hero), .page .releases > li, .page .group');
       parts.forEach((el, i) => { el.classList.add('rise'); (el as HTMLElement).style.transitionDelay = `${(i % 4) * 80}ms`; });
       const seen = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); seen.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
       parts.forEach((el) => seen.observe(el));
