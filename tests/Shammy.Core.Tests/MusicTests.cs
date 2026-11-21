@@ -269,6 +269,8 @@ public class LrclibTests
         Assert.True(NotMusic.Is("Chrome._crx_hnpfjngllnfapefoaidbinmjnm", "WhatsApp", ""));
         Assert.True(NotMusic.Is("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App", "Voice message", "Riya"));
         Assert.True(NotMusic.Is(null, " telegram ", null));
+        Assert.True(NotMusic.Is("Chrome", "(3) WhatsApp", ""));                    // unread messages in the page title
+        Assert.False(NotMusic.Is("Chrome", "(3) Some Song", ""));
         Assert.False(NotMusic.Is("Chrome", "WhatsApp", "Seyi Vibez"));             // a real song called that
         Assert.False(NotMusic.Is("Spotify.exe", "Kho Sa Gaya Hoon", "OutStation"));
         Assert.False(NotMusic.Is("ZoomPlayer", "Movie", ""));                      // Zoom Player is a media player

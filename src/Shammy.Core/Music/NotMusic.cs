@@ -24,10 +24,10 @@ public static class NotMusic
         return string.IsNullOrWhiteSpace(artist) && IsAppName(title);
     }
 
-    /// <summary>The title is nothing but a chat app's name ("WhatsApp", " whatsapp ").</summary>
+    /// <summary>The title is nothing but a chat app's name ("WhatsApp", " whatsapp ", "(3) WhatsApp" with unread messages).</summary>
     public static bool IsAppName(string? title)
     {
-        var t = title?.Trim() ?? "";
+        var t = System.Text.RegularExpressions.Regex.Replace(title?.Trim() ?? "", @"^\(\d+\)\s*", "");
         return t.Length > 0 && Apps.Any(a => t.Equals(a, StringComparison.OrdinalIgnoreCase));
     }
 }

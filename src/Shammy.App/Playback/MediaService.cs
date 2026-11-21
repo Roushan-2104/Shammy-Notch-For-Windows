@@ -75,14 +75,11 @@ internal sealed class MediaService : IDisposable
     }
 
     /// <summary>
-    /// An id that belongs to one app ("Chrome._crx_…" for an installed web app, "Spotify.exe"), not a whole browser
-    /// whose every tab shares it ("Chrome", "MSEdge"): only those are remembered as not music.
+    /// An installed web app ("Chrome._crx_…"), the only kind remembered as not music: a browser's own id is shared by
+    /// all its tabs (and Firefox's is a hash), so one WhatsApp Web sound must never hide YouTube in it for the run.
+    /// Desktop chat apps are caught by their id in <see cref="NotMusic"/> anyway.
     /// </summary>
-    static bool IsOneApp(string id) =>
-        id.Length > 0 && (id.Contains("_crx_", StringComparison.OrdinalIgnoreCase) ||
-            !(id.StartsWith("Chrome", StringComparison.OrdinalIgnoreCase) || id.StartsWith("MSEdge", StringComparison.OrdinalIgnoreCase) ||
-              id.Contains("Firefox", StringComparison.OrdinalIgnoreCase) || id.Contains("Brave", StringComparison.OrdinalIgnoreCase) ||
-              id.Contains("Opera", StringComparison.OrdinalIgnoreCase)));
+    static bool IsOneApp(string id) => id.Contains("_crx_", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Windows' current session, unless it's a chat app: then a player that's playing, else the one already shown,
