@@ -4,17 +4,28 @@ import Base from '../layouts/Base.astro';
 import { RELEASE, SETUP, APK } from '../site';
 import dictation from '../captures/dictation.png';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+// The hero's island plays these in turn; the chips under it pick one.
+const moments = [
+  { kind: 'claude', label: 'Claude asks', short: 'Claude wants to run npm test', say: 'Claude Code wants to run a command. Allow it from the top of your screen, without leaving your app.' },
+  { kind: 'talk', label: 'You talk', short: 'Dictating…', say: 'Hold Ctrl + Win and talk in English, Hinglish or Hindi. It types where your cursor is.' },
+  { kind: 'phone', label: 'Your phone', short: 'Riya: kal milte hain?', say: "A WhatsApp on your phone shows up on your laptop, and your laptop's on your phone." },
+  { kind: 'time', label: 'The rest', short: 'Claude is done', say: "The rest of the time it's a clock and a small pet, in about 90 MB." },
+];
 ---
 <Base title="Shammy, the island Windows was missing" description="A small island at the top of Windows. It holds Claude Code's questions, types what you say in Hinglish or Hindi, and brings your phone in. About 90 MB, free.">
 <div class="page home">
 
 <section class="hero" aria-labelledby="hero-title">
+  <p class="eyebrow"><span class="isle-eyes" aria-hidden="true"><i></i><i></i></span>Free for Windows. No Mac required.</p>
   <h1 id="hero-title">Your PC finally has a notch. It floats.</h1>
   <div class="stage">
     <canvas class="gl" aria-hidden="true"></canvas>
-    <div class="css-island" aria-hidden="true"><span class="isle-eyes"><i></i><i></i></span><span class="ci-status">Claude is done</span><span class="ci-time" data-clock></span></div>
+    <div class="css-island" aria-hidden="true"><span class="isle-eyes"><i></i><i></i></span><span class="ci-status" data-ci>{moments[0].short}</span><span class="ci-time" data-clock></span></div>
   </div>
-  <p class="lead">A small island at the top of Windows. It holds Claude Code's questions, types what you say in Hinglish or Hindi, and brings your phone's notifications to your laptop. Free, in about 90&nbsp;MB.</p>
+  <div class="moments" role="group" aria-label="What the island shows">
+    {moments.map((m, i) => <button type="button" class="chip" data-kind={m.kind} data-short={m.short} data-say={m.say} aria-pressed={i === 0 ? 'true' : 'false'}>{m.label}</button>)}
+  </div>
+  <p class="lead say" data-line>{moments[0].say}</p>
   <div class="actions">
     <a class="btn" href={SETUP}>Download for Windows</a>
     <a class="link" href={APK}>Get the Android app</a>
@@ -128,7 +139,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   .ci-status::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 10px; border-radius: 50%; background: #3BD16F; }
   .ci-time { font-weight: 700; font-size: 21px; padding-left: 16px; box-shadow: inset 1px 0 0 rgba(255,255,255,.18); white-space: nowrap; }
   @media (max-width: 520px) { .ci-status { display: none; } .ci-time { margin-left: auto; box-shadow: none; } }
-  .hero .lead { margin: 4px auto 0; text-wrap: balance; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 22px; padding: 8px 16px 8px 12px; border-radius: 999px; font-size: 15px; color: var(--ink-soft); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--edge); }
+  .eyebrow .isle-eyes i { width: 6px; height: 10px; border-radius: 3px; }
+  .moments { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+  .chip { height: 44px; padding: 0 18px; border: 0; border-radius: 22px; background: rgba(255,255,255,.05); color: var(--ink-soft); font: 500 15px var(--text); cursor: pointer; box-shadow: inset 0 0 0 1px var(--edge); transition: background .2s ease, color .2s ease; }
+  .chip:hover { background: rgba(255,255,255,.1); color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: #0B0A0E; box-shadow: none; }
+  .hero .lead { margin: 22px auto 0; min-height: 3em; max-width: 30em; text-wrap: balance; }
+  @media (max-width: 600px) { .hero .lead { min-height: 4.5em; } }
   .actions { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center; justify-content: center; margin-top: 28px; }
   .meta { margin-top: 16px; font-size: 15px; color: var(--ink-faint); }
 
@@ -197,6 +215,29 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   // The glass island arrives once the page is on screen, on machines that can carry it. Until then, and on the
   // rest, the flat island stands in.
   const stage = document.querySelector('.stage') as HTMLElement;
+  let gl: { show(kind: string): void } | null = null;
+
+  // The island plays one moment after another until someone picks one; the chips and the line under them follow.
+  const chips = [...document.querySelectorAll<HTMLButtonElement>('.chip')];
+  const say = document.querySelector('[data-line]') as HTMLElement, ci = document.querySelector('[data-ci]') as HTMLElement;
+  const current = () => chips.find((c) => c.getAttribute('aria-pressed') === 'true') ?? chips[0];
+  const pick = (chip: HTMLButtonElement) => {
+    chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+    say.textContent = chip.dataset.say!;
+    ci.textContent = chip.dataset.short!;
+    gl?.show(chip.dataset.kind!);
+  };
+  let cycle = reduced ? 0 : window.setInterval(() => {
+    if (document.hidden || stage.getBoundingClientRect().bottom < 0) return;
+    pick(chips[(chips.indexOf(current()) + 1) % chips.length]);
+  }, 4200);
+  // Picking a chip, or moving to one with the keyboard, stops the cycle for good.
+  const stop = () => { clearInterval(cycle); cycle = 0; };
+  chips.forEach((c) => {
+    c.addEventListener('click', () => { stop(); pick(c); });
+    c.addEventListener('focus', stop);
+  });
+
   const canWebGL = (() => {
     try {
       const probe = document.createElement('canvas').getContext('webgl2');
@@ -206,7 +247,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   })();
   if (canWebGL && (navigator.hardwareConcurrency ?? 4) >= 4) {
     const start = () => import('../scripts/island.js').then(({ mountIsland }) => {
-      mountIsland(stage, stage.querySelector('.gl'), { reduced });
+      gl = mountIsland(stage, stage.querySelector('.gl'), { reduced, kind: current().dataset.kind });
       stage.classList.add('gl-on');
     }).catch(() => { /* the flat island stays */ });
     if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 1200 }); else setTimeout(start, 400);

@@ -7,6 +7,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 const W = 6.2, H = 0.84, R = H / 2;
 const FW = 1240, FH = 168;
 const FACE = '"Schibsted Grotesk", "Segoe UI", sans-serif';
+const MONO = '"Geist Mono", Consolas, monospace';
+const FADE = 450;
 
 function pillPath(g, x, y, w, h) {
   const r = h / 2;
@@ -15,7 +17,8 @@ function pillPath(g, x, y, w, h) {
   g.arc(x + r, y + r, r, Math.PI / 2, Math.PI * 1.5); g.closePath();
 }
 
-export function mountIsland(host, canvas, { ground = '#05050A', status = 'Claude is done', reduced = false } = {}) {
+// Returns { show(kind) }: kind is 'claude', 'talk', 'phone' or 'time'.
+export function mountIsland(host, canvas, { ground = '#05050A', kind: first = 'claude', reduced = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -61,6 +64,7 @@ export function mountIsland(host, canvas, { ground = '#05050A', status = 'Claude
   const faceCanvas = document.createElement('canvas'); faceCanvas.width = FW; faceCanvas.height = FH;
   const faceTex = new THREE.CanvasTexture(faceCanvas); faceTex.colorSpace = THREE.SRGBColorSpace;
   let blinking = false;
+  let kind = first, prev = null, changedAt = -Infinity;
   function drawFace(t) {
     const g = faceCanvas.getContext('2d');
     g.clearRect(0, 0, FW, FH);
@@ -76,23 +80,66 @@ export function mountIsland(host, canvas, { ground = '#05050A', status = 'Claude
     g.fillStyle = rim; g.fillRect(90, FH - 5, FW - 180, 3);
     g.restore();
 
+    // The eyes glance toward what's new while the island changes.
+    const p = Math.min(1, (t - changedAt) / FADE);
+    const glance = Math.sin(p * Math.PI) * 10;
     g.fillStyle = '#F4F3F0';
     const eh = blinking ? 10 : 68;
-    for (const x of [96, 162]) { g.beginPath(); g.roundRect(x - 23, 84 - eh / 2, 46, eh, 23); g.fill(); }
+    for (const x of [96, 162]) { g.beginPath(); g.roundRect(x - 23 + glance, 84 - eh / 2, 46, eh, 23); g.fill(); }
 
-    const [time, ampm = ''] = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).split(' ');
     g.textBaseline = 'middle'; g.textAlign = 'left';
-    g.font = `700 58px ${FACE}`; const tw = g.measureText(time).width;
-    g.font = `600 30px ${FACE}`; const aw = g.measureText(ampm).width;
-    const right = FW - 96, timeX = right - aw - 10 - tw;
-    g.font = `700 58px ${FACE}`; g.fillStyle = '#F4F3F0'; g.fillText(time, timeX, 88);
-    g.font = `600 30px ${FACE}`; g.fillStyle = '#A9A7A2'; g.fillText(ampm, right - aw, 97);
-    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(timeX - 30, 64, 2, 42);
-    g.font = `600 44px ${FACE}`;
-    const sx = timeX - 60 - g.measureText(status).width;
-    g.fillStyle = '#F4F3F0'; g.fillText(status, sx, 88);
-    g.fillStyle = '#3BD16F'; g.beginPath(); g.arc(sx - 26, 86, 10, 0, Math.PI * 2); g.fill();
+    if (p < 1 && prev) { g.globalAlpha = 1 - p; drawMoment(g, prev, t, -18 * p); }
+    g.globalAlpha = p; drawMoment(g, kind, t, 18 * (1 - p));
+    g.globalAlpha = 1;
     faceTex.needsUpdate = true;
+  }
+
+  // What the island shows, after the eyes: one moment at a time. dy slides it in from below.
+  function drawMoment(g, which, t, dy) {
+    const right = FW - 96, y = 86 + dy;
+    const dot = (x, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill(); };
+    if (which === 'claude') {
+      dot(262, '#F2B35A');
+      g.font = `700 42px ${FACE}`; g.fillStyle = '#F4F3F0'; g.fillText('Claude Code', 288, y);
+      const cx = 288 + g.measureText('Claude Code').width + 28;
+      g.font = `400 36px ${MONO}`; const cw = g.measureText('npm test').width;
+      g.fillStyle = 'rgba(255,255,255,0.09)'; g.beginPath(); g.roundRect(cx, y - 32, cw + 44, 64, 16); g.fill();
+      g.fillStyle = '#E9E6F2'; g.fillText('npm test', cx + 22, y + 2);
+      g.font = `700 36px ${FACE}`; const aw = g.measureText('Allow').width + 64;
+      g.fillStyle = '#9FD8C2'; g.beginPath(); g.roundRect(right - aw, y - 36, aw, 72, 36); g.fill();
+      g.fillStyle = '#0B0A0E'; g.fillText('Allow', right - aw + 32, y + 1);
+    } else if (which === 'talk') {
+      dot(262, `rgba(255,90,90,${0.6 + 0.4 * Math.sin(t / 220)})`);
+      g.font = `600 44px ${FACE}`; g.fillStyle = '#F4F3F0';
+      const said = 'kal 7 baje milte hain?';
+      g.fillText(said, 288, y);
+      const end = 288 + g.measureText(said).width + 8;
+      if (Math.floor(t / 500) % 2 === 0) { g.fillStyle = '#9FD8C2'; g.fillRect(end, y - 24, 4, 48); }
+      g.fillStyle = 'rgba(244,243,240,0.8)';
+      for (let i = 0; i < 5; i++) {
+        const h = 16 + 34 * Math.abs(Math.sin(t / 180 + i * 1.3));
+        g.beginPath(); g.roundRect(right - 140 + i * 28, y - h / 2, 12, h, 6); g.fill();
+      }
+    } else if (which === 'phone') {
+      g.fillStyle = '#1F6E4E'; g.beginPath(); g.roundRect(240, y - 30, 60, 60, 16); g.fill();
+      g.font = `700 42px ${FACE}`; g.fillStyle = '#F4F3F0'; g.fillText('Riya', 326, y);
+      const mx = 326 + g.measureText('Riya').width + 22;
+      g.font = `500 40px ${FACE}`; g.fillStyle = '#D9D6E2'; g.fillText('kal milte hain?', mx, y);
+      g.font = `600 28px ${FACE}`; const lw = g.measureText('FROM YOUR PHONE').width;
+      g.fillStyle = '#A9A7A2'; g.fillText('FROM YOUR PHONE', right - lw, y);
+    } else {
+      const [time, ampm = ''] = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).split(' ');
+      g.font = `700 58px ${FACE}`; const tw = g.measureText(time).width;
+      g.font = `600 30px ${FACE}`; const aw = g.measureText(ampm).width;
+      const timeX = right - aw - 10 - tw;
+      g.font = `700 58px ${FACE}`; g.fillStyle = '#F4F3F0'; g.fillText(time, timeX, y + 2);
+      g.font = `600 30px ${FACE}`; g.fillStyle = '#A9A7A2'; g.fillText(ampm, right - aw, y + 11);
+      g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(timeX - 30, y - 22, 2, 42);
+      g.font = `600 44px ${FACE}`;
+      const sx = timeX - 60 - g.measureText('Claude is done').width;
+      g.fillStyle = '#F4F3F0'; g.fillText('Claude is done', sx, y + 2);
+      dot(sx - 26, '#3BD16F');
+    }
   }
   const face = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, depthWrite: false }));
   face.position.z = 0.19; face.renderOrder = 2;
@@ -146,4 +193,13 @@ export function mountIsland(host, canvas, { ground = '#05050A', status = 'Claude
   if (reduced) setInterval(() => { if (visible && !document.hidden) draw(performance.now()); }, 15000);
   resize();
   wake();
+
+  return {
+    show(next) {
+      if (next === kind) return;
+      prev = kind; kind = next;
+      changedAt = reduced ? -Infinity : performance.now();
+      if (reduced) { drawFace(0); renderer.render(scene, camera); }
+    },
+  };
 }
