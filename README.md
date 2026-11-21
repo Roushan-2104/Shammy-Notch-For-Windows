@@ -205,7 +205,7 @@ An alarm opens the island into **the sky of the hour it rings**: a sunrise befor
 - **Links and files both ways.** Share from any phone app to **Send to laptop**: links open in your browser, files land in `Downloads\Shammy`. Drop files, links, text or pictures (straight from your browser too) on the notch's **Phone** target and they reach the phone. Each side tells you when the other's battery runs low.
 - **Music in the phone's notch.** The cover beside the camera and little bars in its colours that move for a few seconds when you look, then rest.
 - **Your phone as a remote.** What's playing on your laptop (with its cover), play, skip and volume; your timers, calls and downloads with their own button; **Lock** and **Sleep** (tap twice); and Claude Code's **Allow / Deny**, from an unlocked phone only.
-- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key. Android asks the first time; after that it updates quietly while the screen is off.
+- **It keeps itself up to date.** Each Shammy update brings the newest Shammy Island and hands it to your phone over the link; the phone installs it only if it's signed by Shammy Island's own key. When it's ready, the notch offers **Install**; one tap and it's in (Android asks the first time, and in some countries Play Protect asks every time, since the app isn't from the Play Store).
 - **Paired like Bluetooth.** Both screens show the same 6 digits and you confirm on both; after that, a small green dot on the island says your phone is online.
 
 <table>
