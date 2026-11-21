@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Shammy.Core.Music;
 using Shammy.Infrastructure;
 using Windows.Media.Control;
 
@@ -55,8 +56,57 @@ internal sealed class MediaService : IDisposable
     public async Task StartAsync()
     {
         _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-        _manager.CurrentSessionChanged += (_, _) => Post(() => Attach(_manager.GetCurrentSession()));
-        Attach(_manager.GetCurrentSession());
+        _manager.CurrentSessionChanged += (_, _) => Post(() => Attach(Pick()));
+        // With nothing shown (say, only a chat app was "playing"), a player that appears later is picked up.
+        _manager.SessionsChanged += (_, _) => Post(() =>
+        {
+            if (_session is null) Attach(Pick());
+        });
+        Attach(Pick());
+    }
+
+    /// <summary>Apps found this run to be chat or call apps, not music (<see cref="NotMusic"/>).</summary>
+    readonly HashSet<string> _notMusic = new(StringComparer.OrdinalIgnoreCase);
+
+    bool IsNotMusic(GlobalSystemMediaTransportControlsSession s)
+    {
+        var id = s.SourceAppUserModelId ?? "";
+        return _notMusic.Contains(id) || NotMusic.Is(id, null, null);
+    }
+
+    /// <summary>
+    /// An id that belongs to one app ("Chrome._crx_…" for an installed web app, "Spotify.exe"), not a whole browser
+    /// whose every tab shares it ("Chrome", "MSEdge"): only those are remembered as not music.
+    /// </summary>
+    static bool IsOneApp(string id) =>
+        id.Length > 0 && (id.Contains("_crx_", StringComparison.OrdinalIgnoreCase) ||
+            !(id.StartsWith("Chrome", StringComparison.OrdinalIgnoreCase) || id.StartsWith("MSEdge", StringComparison.OrdinalIgnoreCase) ||
+              id.Contains("Firefox", StringComparison.OrdinalIgnoreCase) || id.Contains("Brave", StringComparison.OrdinalIgnoreCase) ||
+              id.Contains("Opera", StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Windows' current session, unless it's a chat app: then a player that's playing, else the one already shown,
+    /// else any other player (a paused Spotify stays on the card).
+    /// </summary>
+    GlobalSystemMediaTransportControlsSession? Pick()
+    {
+        if (_manager is null) return null;
+        try
+        {
+            var current = _manager.GetCurrentSession();
+            if (current is null) return null;
+            if (!IsNotMusic(current)) return current;
+            var players = _manager.GetSessions().Where(s => !IsNotMusic(s)).ToList();
+            var shownId = _session?.SourceAppUserModelId;
+            return players.FirstOrDefault(s => s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                ?? players.FirstOrDefault(s => shownId is not null && s.SourceAppUserModelId == shownId)
+                ?? players.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Listing media sessions failed", ex);
+            return null;
+        }
     }
 
     /// <summary>Test pipe only: a made-up song, so screenshots don't show what's really playing on this PC.</summary>
@@ -130,6 +180,24 @@ internal sealed class MediaService : IDisposable
         {
             var props = await session.TryGetMediaPropertiesAsync();
             if (version != _propertiesVersion || props is null) return;
+            var artist = string.IsNullOrEmpty(props.Artist) ? props.AlbumArtist ?? "" : props.Artist;
+            if (NotMusic.Is(session.SourceAppUserModelId, props.Title, artist))
+            {
+                // A chat app's "track" (WhatsApp's web app reports one titled "WhatsApp"): never shown as music.
+                var id = session.SourceAppUserModelId ?? "";
+                if (IsOneApp(id))
+                {
+                    _notMusic.Add(id);
+                    Attach(Pick());
+                    return;
+                }
+                // A plain browser tab: the id is the whole browser's, so only this track is hidden; the next one
+                // (a properties change) is looked at afresh.
+                Title = Artist = "";
+                Art = null;
+                Changed?.Invoke();
+                return;
+            }
 
             ImageSource? art = null;
             var color = Colors.White;
@@ -154,7 +222,7 @@ internal sealed class MediaService : IDisposable
             if (version != _propertiesVersion) return;
             // Title and artwork change together, so nothing sees a new song with the old song's colour.
             Title = props.Title ?? "";
-            Artist = string.IsNullOrEmpty(props.Artist) ? props.AlbumArtist ?? "" : props.Artist;
+            Artist = artist;
             Art = art;
             ArtColor = color;
         }

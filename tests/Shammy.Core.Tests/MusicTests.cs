@@ -263,6 +263,44 @@ public class LrclibTests
     }
 
     [Fact]
+    public void A_chat_app_is_not_music()
+    {
+        // WhatsApp's web app: "playing" a track titled "WhatsApp", no artist (its id is Chrome's, so the title decides).
+        Assert.True(NotMusic.Is("Chrome._crx_hnpfjngllnfapefoaidbinmjnm", "WhatsApp", ""));
+        Assert.True(NotMusic.Is("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App", "Voice message", "Riya"));
+        Assert.True(NotMusic.Is(null, " telegram ", null));
+        Assert.False(NotMusic.Is("Chrome", "WhatsApp", "Seyi Vibez"));             // a real song called that
+        Assert.False(NotMusic.Is("Spotify.exe", "Kho Sa Gaya Hoon", "OutStation"));
+        Assert.False(NotMusic.Is("ZoomPlayer", "Movie", ""));                      // Zoom Player is a media player
+    }
+
+    [Fact]
+    public void A_bare_title_is_not_worth_a_lyrics_search()
+    {
+        Assert.False(Lrclib.WorthSearching("WhatsApp", "", TimeSpan.Zero));
+        Assert.False(Lrclib.WorthSearching("WhatsApp", "", TimeSpan.FromSeconds(135)));
+        Assert.False(Lrclib.WorthSearching("Some Tab", "", TimeSpan.Zero));
+        Assert.False(Lrclib.WorthSearching("", "Arijit Singh", TimeSpan.Zero));
+        Assert.True(Lrclib.WorthSearching("Tum Hi Ho", "Arijit Singh", TimeSpan.Zero));
+        Assert.True(Lrclib.WorthSearching("Tum Hi Ho", "", TimeSpan.FromSeconds(262)));
+    }
+
+    [Fact]
+    public void Search_results_must_be_able_to_be_this_track()
+    {
+        var right = new LrclibRecord("Tum Hi Ho", "Arijit Singh", 262, false, null, "[00:01.00] a");
+        var other = new LrclibRecord("Tum Se Hi", "Mohit Chauhan", 262, false, null, "[00:01.00] b");
+        var longer = new LrclibRecord("Tum Hi Ho (Unplugged)", "Arijit Singh", 320, false, null, "[00:01.00] c");
+        var all = new[] { other, right, longer };
+
+        Assert.Equal(new[] { right, longer }, Lrclib.SearchMatches(all, "Tum Hi Ho", "Arijit Singh", TimeSpan.FromSeconds(262)));
+        // No artist to check: the length has to be close as well.
+        Assert.Equal(new[] { right }, Lrclib.SearchMatches(all, "tum hi ho!", "", TimeSpan.FromSeconds(270)));
+        Assert.Empty(Lrclib.SearchMatches(all, "Tum Hi Ho", "", TimeSpan.Zero));
+        Assert.Empty(Lrclib.SearchMatches(all, "", "Arijit Singh", TimeSpan.Zero));
+    }
+
+    [Fact]
     public void PickBest_prefers_synced_lyrics_with_a_matching_duration()
     {
         var plain = new LrclibRecord("S", "A", 220, false, "words", null);

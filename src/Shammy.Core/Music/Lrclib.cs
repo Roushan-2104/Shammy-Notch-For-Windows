@@ -78,6 +78,34 @@ public static class Lrclib
         return (t.Trim(), lead.Length > 0 ? lead : a);
     }
 
+    /// <summary>
+    /// Whether a fuzzy search is worth making for this (cleaned) track. A bare title with no artist and no length
+    /// is too little to go on: the search returns whatever song shares the word, as "WhatsApp" did.
+    /// </summary>
+    public static bool WorthSearching(string track, string artist, TimeSpan duration) =>
+        !string.IsNullOrWhiteSpace(track) && !NotMusic.IsAppName(track) &&
+        (!string.IsNullOrWhiteSpace(artist) || duration > TimeSpan.Zero);
+
+    /// <summary>
+    /// Keeps the search results that can be this track: the title must match (one contains the other, ignoring case
+    /// and punctuation), and with no artist to check, the length must be close too.
+    /// </summary>
+    public static IEnumerable<LrclibRecord> SearchMatches(IEnumerable<LrclibRecord> records, string track, string artist, TimeSpan duration)
+    {
+        var want = Letters(track);
+        if (want.Length == 0) yield break;
+        bool noArtist = string.IsNullOrWhiteSpace(artist);
+        foreach (var r in records)
+        {
+            var got = Letters(r.Track);
+            if (got.Length == 0 || !(want.Contains(got, StringComparison.Ordinal) || got.Contains(want, StringComparison.Ordinal))) continue;
+            if (noArtist && (r.Duration <= 0 || Math.Abs(r.Duration - duration.TotalSeconds) > 30)) continue;
+            yield return r;
+        }
+    }
+
+    static string Letters(string s) => new string(s.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
     public static LrclibRecord? ParseRecord(JsonElement e)
     {
         if (e.ValueKind != JsonValueKind.Object) return null;

@@ -41,12 +41,12 @@ internal sealed class LyricsSource
     async Task<TrackLyrics> FetchAsync(string title, string artist, TimeSpan duration)
     {
         int answered = 0;
-        async Task<LrclibRecord?> TryAsync(string url)
+        async Task<LrclibRecord?> TryAsync(string url, Func<List<LrclibRecord>, IEnumerable<LrclibRecord>>? keep = null)
         {
             var records = await GetRecordsAsync(url).ConfigureAwait(false);
             if (records is null) return null;
             answered++;
-            return Lrclib.PickBest(records, duration);
+            return Lrclib.PickBest(keep is null ? records : keep(records), duration);
         }
 
         // Exact lookup first (fast, and right for clean titles from music apps). It needs both a title and an artist:
@@ -63,8 +63,10 @@ internal sealed class LyricsSource
             if (await TryAsync(Lrclib.GetUrl(track, lead, duration)).ConfigureAwait(false) is { } hit2) return Lrclib.ToLyrics(hit2);
         }
 
-        // ...then a fuzzy search.
-        if (await TryAsync(Lrclib.SearchUrl((track + " " + lead).Trim())).ConfigureAwait(false) is { } hit3) return Lrclib.ToLyrics(hit3);
+        // ...then a fuzzy search, only with enough to go on, keeping only results that can be this track.
+        if (!Lrclib.WorthSearching(track, lead, duration)) return TrackLyrics.None;
+        if (await TryAsync(Lrclib.SearchUrl((track + " " + lead).Trim()), r => Lrclib.SearchMatches(r, track, lead, duration)).ConfigureAwait(false) is { } hit3)
+            return Lrclib.ToLyrics(hit3);
 
         // Only a real "not found" is cached; if the server never answered, let a later look retry.
         if (answered == 0) throw new HttpRequestException("LRCLIB is busy");
