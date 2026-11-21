@@ -80,11 +80,11 @@ public static class Lrclib
 
     /// <summary>
     /// Whether a fuzzy search is worth making for this (cleaned) track. A bare title with no artist and no length
-    /// is too little to go on: the search returns whatever song shares the word, as "WhatsApp" did.
+    /// is too little to go on: the search returns whatever song shares the word, as "WhatsApp" did. (With a length,
+    /// a title like "Signal" can be a real song, and <see cref="SearchMatches"/> then checks the length.)
     /// </summary>
     public static bool WorthSearching(string track, string artist, TimeSpan duration) =>
-        !string.IsNullOrWhiteSpace(track) && !NotMusic.IsAppName(track) &&
-        (!string.IsNullOrWhiteSpace(artist) || duration > TimeSpan.Zero);
+        !string.IsNullOrWhiteSpace(track) && (!string.IsNullOrWhiteSpace(artist) || duration > TimeSpan.Zero);
 
     /// <summary>
     /// Keeps the search results that can be this track: the title must match (one contains the other, ignoring case

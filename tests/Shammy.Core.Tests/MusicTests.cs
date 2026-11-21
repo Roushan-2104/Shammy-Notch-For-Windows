@@ -274,13 +274,16 @@ public class LrclibTests
         Assert.False(NotMusic.Is("Chrome", "WhatsApp", "Seyi Vibez"));             // a real song called that
         Assert.False(NotMusic.Is("Spotify.exe", "Kho Sa Gaya Hoon", "OutStation"));
         Assert.False(NotMusic.Is("ZoomPlayer", "Movie", ""));                      // Zoom Player is a media player
+        // A real song with a chat app's name and no artist (TWICE's "Signal" in a browser tab) has a length.
+        Assert.False(NotMusic.Is("Chrome", "Signal", "", TimeSpan.FromSeconds(196)));
+        Assert.True(NotMusic.Is("Chrome", "Signal", "", TimeSpan.Zero));
     }
 
     [Fact]
     public void A_bare_title_is_not_worth_a_lyrics_search()
     {
         Assert.False(Lrclib.WorthSearching("WhatsApp", "", TimeSpan.Zero));
-        Assert.False(Lrclib.WorthSearching("WhatsApp", "", TimeSpan.FromSeconds(135)));
+        Assert.True(Lrclib.WorthSearching("Signal", "", TimeSpan.FromSeconds(196)));   // a length: SearchMatches checks it
         Assert.False(Lrclib.WorthSearching("Some Tab", "", TimeSpan.Zero));
         Assert.False(Lrclib.WorthSearching("", "Arijit Singh", TimeSpan.Zero));
         Assert.True(Lrclib.WorthSearching("Tum Hi Ho", "Arijit Singh", TimeSpan.Zero));

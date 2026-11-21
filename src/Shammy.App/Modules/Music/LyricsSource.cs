@@ -23,18 +23,33 @@ internal sealed class LyricsSource
     public bool TryGetCached(string title, string artist, out TrackLyrics lyrics)
     {
         lyrics = TrackLyrics.None;
-        if (!_cache.TryGetValue(Key(title, artist), out var task) || !task.IsCompletedSuccessfully) return false;
-        lyrics = task.Result;
+        var key = Key(title, artist);
+        // A "none" found without the length doesn't count: the lookup with it may still find them.
+        if (!(Done(key, out var task) || (Done(key + NoLength, out task) && task!.Result.Kind != LyricsKind.None))) return false;
+        lyrics = task!.Result;
         return true;
+
+        bool Done(string k, out Task<TrackLyrics>? t) => _cache.TryGetValue(k, out t) && t.IsCompletedSuccessfully;
     }
+
+    // A lookup made before the length was known is kept apart, so one made with it never waits on the weaker one.
+    const string NoLength = "\n?";
 
     public Task<TrackLyrics> GetAsync(string title, string artist, TimeSpan duration)
     {
-        var key = Key(title, artist);
+        var key = Key(title, artist) + (duration > TimeSpan.Zero ? "" : NoLength);
         var task = _cache.GetOrAdd(key, _ => Task.Run(() => FetchAsync(title, artist, duration)));
         // Failures (offline, server busy) aren't cached, so the next track change or "lyrics" retries.
         _ = task.ContinueWith(t => _cache.TryRemove(new KeyValuePair<string, Task<TrackLyrics>>(key, t)),
             CancellationToken.None, TaskContinuationOptions.NotOnRanToCompletion, TaskScheduler.Default);
+        // Neither is "none" found before the track's length was known: browsers report it late, and with it the
+        // search can find what a bare title couldn't.
+        if (duration <= TimeSpan.Zero)
+            _ = task.ContinueWith(t =>
+                {
+                    if (t.Result.Kind == LyricsKind.None) _cache.TryRemove(new KeyValuePair<string, Task<TrackLyrics>>(key, t));
+                },
+                CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
         return task;
     }
 

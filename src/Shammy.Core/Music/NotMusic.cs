@@ -18,10 +18,11 @@ public static class NotMusic
     static readonly string[] AppIds = { "whatsapp", "telegram", "signal", "discord", "slack", "teams", "zoom.us", "skype" };
 
     /// <param name="appId">Windows' id for the app behind the media session; null when unknown.</param>
-    public static bool Is(string? appId, string? title, string? artist)
+    /// <param name="duration">The track's length; a real song called "Signal" (TWICE) has one, a chat app's page doesn't.</param>
+    public static bool Is(string? appId, string? title, string? artist, TimeSpan duration = default)
     {
         if (!string.IsNullOrEmpty(appId) && AppIds.Any(a => appId.Contains(a, StringComparison.OrdinalIgnoreCase))) return true;
-        return string.IsNullOrWhiteSpace(artist) && IsAppName(title);
+        return string.IsNullOrWhiteSpace(artist) && duration <= TimeSpan.Zero && IsAppName(title);
     }
 
     /// <summary>The title is nothing but a chat app's name ("WhatsApp", " whatsapp ", "(3) WhatsApp" with unread messages).</summary>

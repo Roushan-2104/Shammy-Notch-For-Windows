@@ -39,6 +39,8 @@ internal sealed class MusicModule : IShammyModule
     DateTime _deviceUsed;
 
     string _trackKey = "";
+    /// <summary>The current track's lyrics were looked up before its length was known.</summary>
+    bool _lyricsWithoutLength;
     int _trackVersion;
     Color? _glow;
     string? _glowTrack, _glowPending;
@@ -238,6 +240,11 @@ internal sealed class MusicModule : IShammyModule
             _trackKey = key;
             LoadLyricsForCurrentTrack(debounce: true);
         }
+        else if (_lyricsWithoutLength && m.HasSession && m.Duration > TimeSpan.Zero)
+        {
+            // The length came after the lookup (browsers report it late): look again with it.
+            LoadLyricsForCurrentTrack(debounce: false);
+        }
         _panel.OnMediaChanged();
         WatchForHeard();
         if (_card.IsRelevant != _cardRelevant)
@@ -286,6 +293,7 @@ internal sealed class MusicModule : IShammyModule
     {
         var m = Media;
         int version = ++_trackVersion;
+        _lyricsWithoutLength = false;
         if (!m.HasSession)
         {
             _panel.ShowStatus("\uE8D6", "Nothing playing", "");
@@ -306,9 +314,10 @@ internal sealed class MusicModule : IShammyModule
             if (debounce) await Task.Delay(700);
             if (version != _trackVersion) return;
             TrackLyrics lyrics;
+            var length = Media.Duration;
             try
             {
-                lyrics = await _lyrics.GetAsync(title, artist, Media.Duration);
+                lyrics = await _lyrics.GetAsync(title, artist, length);
             }
             catch (Exception ex)
             {
@@ -317,6 +326,8 @@ internal sealed class MusicModule : IShammyModule
                 return;
             }
             if (version != _trackVersion) return;
+            // Nothing found before the length was known: look again once it comes.
+            _lyricsWithoutLength = length <= TimeSpan.Zero && lyrics.Kind == LyricsKind.None;
             _panel.ShowLyrics(lyrics, track);
             _panel.OnMediaChanged();
         }

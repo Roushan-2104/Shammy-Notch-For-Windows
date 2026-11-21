@@ -4,6 +4,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Shammy.Core.Music;
 using Shammy.Infrastructure;
+using Windows.Foundation;
 using Windows.Media.Control;
 
 namespace Shammy.Playback;
@@ -60,9 +61,24 @@ internal sealed class MediaService : IDisposable
         // With nothing shown (say, only a chat app was "playing"), a player that appears later is picked up.
         _manager.SessionsChanged += (_, _) => Post(() =>
         {
+            // A hidden tab whose browser closed is forgotten, so it can't keep a later tab of that browser in second place.
+            if (_hidden is { } hidden && !StillListed(hidden)) Unhide();
             if (_session is null) Attach(Pick());
         });
         Attach(Pick());
+    }
+
+    bool StillListed(GlobalSystemMediaTransportControlsSession s)
+    {
+        try
+        {
+            return _manager?.GetSessions().Any(o => SameApp(o, s)) ?? false;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Listing media sessions failed", ex);
+            return true;
+        }
     }
 
     /// <summary>Apps found this run to be chat or call apps, not music (<see cref="NotMusic"/>).</summary>
@@ -92,7 +108,14 @@ internal sealed class MediaService : IDisposable
         {
             var current = _manager.GetCurrentSession();
             if (current is null) return null;
-            if (!IsNotMusic(current)) return current;
+            if (!IsNotMusic(current))
+            {
+                // A browser tab hidden for now (WhatsApp Web in a plain tab) stays current in Windows' eyes; a player
+                // that's actually playing wins over it. With none, the tab stays attached so its next track is seen.
+                if (_hidden is null || current.SourceAppUserModelId != _hidden.SourceAppUserModelId) return current;
+                return _manager.GetSessions().FirstOrDefault(s => !IsNotMusic(s) && s.SourceAppUserModelId != _hidden.SourceAppUserModelId &&
+                    s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing) ?? current;
+            }
             var players = _manager.GetSessions().Where(s => !IsNotMusic(s)).ToList();
             var shownId = _session?.SourceAppUserModelId;
             return players.FirstOrDefault(s => s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
@@ -103,6 +126,73 @@ internal sealed class MediaService : IDisposable
         {
             Log.Warn("Listing media sessions failed", ex);
             return null;
+        }
+    }
+
+    /// <summary>A plain browser tab whose track is a chat app's page, hidden until it shows something else.</summary>
+    GlobalSystemMediaTransportControlsSession? _hidden;
+
+    /// <summary>Stops watching the hidden tab; set only while another player is shown in its place.</summary>
+    Action? _unwatchHidden;
+
+    void Hide(GlobalSystemMediaTransportControlsSession session)
+    {
+        Unhide();
+        _hidden = session;
+    }
+
+    void Unhide()
+    {
+        StopWatchingHidden();
+        _hidden = null;
+    }
+
+    static bool SameApp(GlobalSystemMediaTransportControlsSession? a, GlobalSystemMediaTransportControlsSession? b) =>
+        a is not null && b is not null && (ReferenceEquals(a, b) || a.SourceAppUserModelId == b.SourceAppUserModelId);
+
+    /// <summary>
+    /// While another player is shown, the hidden tab's own changes are watched (when it's the one attached, its usual
+    /// handlers already look at every new track).
+    /// </summary>
+    void WatchHidden()
+    {
+        var s = _hidden;
+        if (s is null || _unwatchHidden is not null || SameApp(s, _session)) return;
+        TypedEventHandler<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs> onProps = (_, _) => Post(() => _ = RecheckHiddenAsync(s));
+        TypedEventHandler<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs> onTimeline = (_, _) => Post(() => _ = RecheckHiddenAsync(s));
+        s.MediaPropertiesChanged += onProps;
+        s.TimelinePropertiesChanged += onTimeline;
+        _unwatchHidden = () =>
+        {
+            s.MediaPropertiesChanged -= onProps;
+            s.TimelinePropertiesChanged -= onTimeline;
+        };
+    }
+
+    void StopWatchingHidden()
+    {
+        _unwatchHidden?.Invoke();
+        _unwatchHidden = null;
+    }
+
+    /// <summary>The hidden tab moved on (a new track, or its length arrived): if it's music now, it's shown again.</summary>
+    async Task RecheckHiddenAsync(GlobalSystemMediaTransportControlsSession s)
+    {
+        if (!ReferenceEquals(s, _hidden)) return;
+        try
+        {
+            var props = await s.TryGetMediaPropertiesAsync();
+            if (props is null || !ReferenceEquals(s, _hidden)) return;
+            var t = s.GetTimelineProperties();
+            var length = t is null ? TimeSpan.Zero : t.EndTime - t.StartTime;
+            var artist = string.IsNullOrEmpty(props.Artist) ? props.AlbumArtist ?? "" : props.Artist;
+            if (NotMusic.Is(s.SourceAppUserModelId, props.Title, artist, length)) return;
+            Unhide();
+            Attach(Pick());
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Re-checking a hidden media session failed", ex);
         }
     }
 
@@ -133,6 +223,8 @@ internal sealed class MediaService : IDisposable
         }
 
         _session = session;
+        if (SameApp(_hidden, session)) StopWatchingHidden();
+        else WatchHidden();
         if (session is null)
         {
             Title = Artist = "";
@@ -164,7 +256,11 @@ internal sealed class MediaService : IDisposable
     void OnTimelineChanged(GlobalSystemMediaTransportControlsSession s, TimelinePropertiesChangedEventArgs e) =>
         Post(() =>
         {
+            bool hadLength = Duration > TimeSpan.Zero;
             RefreshTimeline();
+            // Whether there's a length decides whether a chat app's name is a song ("Signal") or a page ("WhatsApp"),
+            // and the length can come before or after the title: look again when it appears or goes.
+            if (hadLength != Duration > TimeSpan.Zero) _ = RefreshPropertiesAsync();
             Changed?.Invoke();
         });
 
@@ -178,7 +274,7 @@ internal sealed class MediaService : IDisposable
             var props = await session.TryGetMediaPropertiesAsync();
             if (version != _propertiesVersion || props is null) return;
             var artist = string.IsNullOrEmpty(props.Artist) ? props.AlbumArtist ?? "" : props.Artist;
-            if (NotMusic.Is(session.SourceAppUserModelId, props.Title, artist))
+            if (NotMusic.Is(session.SourceAppUserModelId, props.Title, artist, Duration))
             {
                 // A chat app's "track" (WhatsApp's web app reports one titled "WhatsApp"): never shown as music.
                 var id = session.SourceAppUserModelId ?? "";
@@ -188,13 +284,17 @@ internal sealed class MediaService : IDisposable
                     Attach(Pick());
                     return;
                 }
-                // A plain browser tab: the id is the whole browser's, so only this track is hidden; the next one
-                // (a properties change) is looked at afresh.
+                // A plain browser tab: the id is the whole browser's, so only this track is hidden. The tab is
+                // watched for its next track (or a length arriving late), and a player that's playing takes over.
                 Title = Artist = "";
                 Art = null;
-                Changed?.Invoke();
+                Hide(session);
+                var other = Pick();
+                if (other is not null && other.SourceAppUserModelId != id) Attach(other);
+                else Changed?.Invoke();
                 return;
             }
+            if (SameApp(session, _hidden)) Unhide();
 
             ImageSource? art = null;
             var color = Colors.White;
@@ -274,5 +374,9 @@ internal sealed class MediaService : IDisposable
 
     void Post(Action a) => _ui.BeginInvoke(a);
 
-    public void Dispose() => Attach(null);
+    public void Dispose()
+    {
+        Unhide();
+        Attach(null);
+    }
 }
