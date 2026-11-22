@@ -368,6 +368,16 @@ internal sealed partial class AgentsModule
 
     static string Minutes(TimeSpan t) => t.TotalMinutes < 1 ? "under a minute" : $"{(int)Math.Round(t.TotalMinutes)} min";
 
+    /// <summary>
+    /// This session's own window (its terminal, or the Claude app) is the one in front. Sessions sharing a window (tabs
+    /// of one terminal, the Claude app) all count as in front then: you're on Claude, so Claude asks you itself.
+    /// </summary>
+    bool SessionInFront(string sessionId) =>
+        _windows.TryGetValue(sessionId, out var hwnd) && hwnd != IntPtr.Zero && hwnd == Interop.FrontWindow.Handle;
+
+    /// <summary>Questions whose session window was in front at the last tick (handed back if it still is).</summary>
+    readonly HashSet<PendingAsk> _frontOnce = new();
+
     /// <summary>One of the sessions' own windows is in front: you're looking at Claude already.</summary>
     bool InFrontNow()
     {
