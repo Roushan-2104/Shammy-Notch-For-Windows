@@ -219,7 +219,8 @@ internal sealed partial class AgentsModule
         if (view.Mode is WingMode.Permission or WingMode.Question && WingAsk is { } ask && !ReferenceEquals(ask, _chimedFor))
         {
             _chimedFor = ask;
-            NotchSound.Play(PingKind.Notification);
+            // Silent in a call, a meeting or Focus, like the quiet peeks.
+            if (!QuietState.IsQuiet) NotchSound.Play(PingKind.Notification);
         }
         w.SetExcluded(_ctx.Notch.ExcludedFromCapture);
         w.Show(view);

@@ -107,7 +107,7 @@ internal sealed class StepsWing : Window
         _slab.HorizontalAlignment = HorizontalAlignment.Right;
         _slab.RenderTransformOrigin = new Point(1, 0);
         _slab.RenderTransform = new TransformGroup { Children = { _pop, _slide } };
-        _slab.Effect = _glow;
+
         // A simple dot in the gap between the wing and the island, level with the island's middle; it comes and goes
         // with the slab.
         _dot.Width = _dot.Height = 5;
@@ -1003,10 +1003,14 @@ internal sealed class StepsWing : Window
         _pop.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(380)) { EasingFunction = ease });
     }
 
+    /// <summary>The red glow for a failed step. The effect is on only while it shows: left on, every frame of the
+    /// turning spark would redraw a shadow over the whole slab.</summary>
     void Glow()
     {
         var a = new DoubleAnimation(0, 0.9, TimeSpan.FromMilliseconds(420)) { AutoReverse = true, RepeatBehavior = new RepeatBehavior(3) };
         if (!MotionPrefs.Lively) a = new DoubleAnimation(0.9, 0, TimeSpan.FromMilliseconds(1600));
+        a.Completed += (_, _) => _slab.Effect = null;
+        _slab.Effect = _glow;
         _glow.BeginAnimation(DropShadowEffect.OpacityProperty, a);
     }
 

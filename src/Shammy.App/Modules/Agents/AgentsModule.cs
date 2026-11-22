@@ -583,18 +583,23 @@ internal sealed partial class AgentsModule : IShammyModule
             // on a card nobody can see. The wing breaks in over full screen, so it gets a minute before handing back.
             var unseen = WingAsks && _ctx.Notch.IsFullscreen ? UnseenFullscreen : UnseenLimit;
             if (_ctx.Notch.IsFullscreen && !WingAsks) PassBack(_asks);
-            // You went to the session's own window while its question was up in the wing: Claude asks there now. Two
-            // ticks in a row, so a quick Alt-Tab past it doesn't count.
-            else if (WingAsks)
+            else
             {
-                var front = _asks.Where(a => SessionInFront(a.Request.SessionId)).ToList();
-                var there = front.Where(_frontOnce.Contains).ToList();
-                _frontOnce.Clear();
-                _frontOnce.UnionWith(front.Except(there));
-                if (there.Count > 0) PassBack(there);
+                // You went to the session's own window while its question was up in the wing: Claude asks there now.
+                // Two ticks in a row, so a quick Alt-Tab past it doesn't count.
+                if (WingAsks)
+                {
+                    var front = _asks.Where(a => SessionInFront(a.Request.SessionId)).ToList();
+                    var there = front.Where(_frontOnce.Contains).ToList();
+                    _frontOnce.Clear();
+                    _frontOnce.UnionWith(front.Except(there));
+                    if (there.Count > 0) PassBack(there);
+                }
+                // A question nobody has seen (over a game, or nowhere to show it) goes back after a while either way.
+                if (_asks.Count > 0 && !_asks[0].Shown && Now - _asks[0].ArrivedUtc > unseen) PassBack(_asks.Take(1));
             }
-            else if (!_asks[0].Shown && Now - _asks[0].ArrivedUtc > unseen) PassBack(_asks.Take(1));
         }
+        else _frontOnce.Clear();
         if (_asks.Count > 0)
         {
             _card.Tick(Now);
