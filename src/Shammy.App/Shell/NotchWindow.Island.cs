@@ -360,15 +360,19 @@ public partial class NotchWindow
     /// <summary>Once the island has settled (or moved), tell other windows where it is (see <see cref="IslandBounds"/>).</summary>
     void PublishBounds(double w, double h, bool settled)
     {
-        if (!settled || (!_boundsDirty && w == _publishedSize.W && h == _publishedSize.H)) return;
+        double reach = _chrome.Reach;
+        if (!settled || (!_boundsDirty && w == _publishedSize.W && h == _publishedSize.H && reach == _publishedReach)) return;
         if (PresentationSource.FromVisual(Root) is null) return;
         _boundsDirty = false;
         _publishedSize = (w, h);
+        _publishedReach = reach;
         try
         {
             var a = Root.PointToScreen(new Point(Cx - w / 2, 0));
             var b = Root.PointToScreen(new Point(Cx + w / 2, h));
-            IslandBounds.Set(h > 0.5 && !_tucked ? new Rect(a, b) : Rect.Empty, Monitor);
+            // The circle and dot beside the island, in screen pixels (so a wing on the right keeps clear of them).
+            double reachPx = reach > 0 ? Root.PointToScreen(new Point(Cx + w / 2 + reach, 0)).X - b.X : 0;
+            IslandBounds.Set(h > 0.5 && !_tucked ? new Rect(a, b) : Rect.Empty, Monitor, reachPx);
         }
         catch (InvalidOperationException)
         {
@@ -377,6 +381,7 @@ public partial class NotchWindow
     }
 
     (double W, double H) _publishedSize = (-1, -1);
+    double _publishedReach;
 
     internal string DescribeIsland() =>
         $"gap={_gap * _scale:0.##} glass={(Shape.Glass is not null ? "on" : "off")} {_glass.Describe()} transparency={_transparency} batterySaver={_batterySaver} " +

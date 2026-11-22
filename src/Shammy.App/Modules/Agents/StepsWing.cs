@@ -67,6 +67,11 @@ internal sealed class StepsWing : Window
 
     readonly Border _slab = new();
     readonly Ellipse _dot = new();
+    WingSide _side = WingSide.Left;
+    double _dotHalf = 18;
+    bool _dragging, _moved;
+    Native.POINT _dragFrom;
+    Native.RECT _windowFrom;
     readonly ScaleTransform _pop = new(1, 1);
     readonly TranslateTransform _slide = new();
     bool _hiding;
@@ -121,6 +126,8 @@ internal sealed class StepsWing : Window
         Content = room;
 
         SizeChanged += (_, _) => Placed?.Invoke();
+        // Dragged to a screen with another scale: the same size in DIPs, a different one in pixels; placed again.
+        DpiChanged += (_, _) => Placed?.Invoke();
         SourceInitialized += (_, _) =>
         {
             _hwnd = new WindowInteropHelper(this).Handle;
@@ -139,6 +146,13 @@ internal sealed class StepsWing : Window
     public event Action? Dismissed;              // "Later" on an end-of-reply question
     /// <summary>The wing's size changed: the module places it again beside the island.</summary>
     public event Action? Placed;
+    /// <summary>The wing was dragged and let go: its slab's left, right and top edges (device pixels).</summary>
+    public event Action<int, int, int>? Dropped;
+    /// <summary>A double-click on its top line: back beside the notch, on the left.</summary>
+    public event Action? DockHome;
+
+    /// <summary>Being dragged: nothing moves or redraws it meanwhile.</summary>
+    public bool IsDragging => _dragging;
 
     /// <summary>The margin around the slab (DIPs) that holds the glow; the module places the slab, not the window.</summary>
     public const double GlowRoom = 12;
@@ -146,8 +160,89 @@ internal sealed class StepsWing : Window
     public bool IsTyping => _typing;
 
     /// <summary>Puts the dot level with the middle of the closed island (<paramref name="islandHalf"/> DIPs below its top).</summary>
-    public void SetDotLevel(double islandHalf) =>
-        _dot.Margin = new Thickness(0, GlowRoom + islandHalf - 2.5, GlowRoom - Gap / 2 - 2.5, 0);
+    public void SetDotLevel(double islandHalf)
+    {
+        _dotHalf = islandHalf;
+        double side = GlowRoom - Gap / 2 - 2.5, top = GlowRoom + islandHalf - 2.5;
+        _dot.Margin = _side == WingSide.Right ? new Thickness(side, top, 0, 0) : new Thickness(0, top, side, 0);
+    }
+
+    /// <summary>
+    /// Snapped to the notch's left (the slab held to the window's right, next to the notch), its right (held left), or
+    /// floating (held left, so it grows rightwards from where it was put, with no dot).
+    /// </summary>
+    public void SetSide(WingSide side)
+    {
+        if (_side == side) return;
+        _side = side;
+        _slab.HorizontalAlignment = side == WingSide.Left ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        _slab.RenderTransformOrigin = new Point(side == WingSide.Left ? 1 : 0, 0);
+        _dot.Visibility = side == WingSide.Free ? Visibility.Collapsed : Visibility.Visible;
+        _dot.HorizontalAlignment = side == WingSide.Right ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        SetDotLevel(_dotHalf);
+        // The slide arrow points the other way now: redrawn at once (later, if you're typing or dragging).
+        if (IsVisible && !_typing && !_dragging) Build();
+        else _signature = "";
+    }
+
+    /// <summary>Which way it slides out of the notch: away from it on either side; floating, it only fades and grows.</summary>
+    double SlideFrom => _side switch { WingSide.Left => 1, WingSide.Right => -1, _ => 0 };
+
+    /// <summary>
+    /// Makes <paramref name="top"/> (the top line) the handle to drag the wing by. A double-click sends it home; the
+    /// buttons on it still work as buttons.
+    /// </summary>
+    void Grip(FrameworkElement top)
+    {
+        if (top is Panel { Background: null } panel) panel.Background = Brushes.Transparent;
+        top.Cursor = Cursors.SizeAll;
+        top.MouseLeftButtonDown += (_, e) =>
+        {
+            if (OnAButton(e.OriginalSource as DependencyObject, top) || _hwnd == IntPtr.Zero) return;
+            e.Handled = true;
+            if (e.ClickCount == 2)
+            {
+                DockHome?.Invoke();
+                return;
+            }
+            Native.GetCursorPos(out _dragFrom);
+            Native.GetWindowRect(_hwnd, out _windowFrom);
+            _dragging = true;
+            _moved = false;
+            top.CaptureMouse();
+        };
+        top.MouseMove += (_, _) =>
+        {
+            if (!_dragging) return;
+            Native.GetCursorPos(out var at);
+            int dx = at.X - _dragFrom.X, dy = at.Y - _dragFrom.Y;
+            // A few pixels of wobble is still a click.
+            if (!_moved && Math.Abs(dx) + Math.Abs(dy) < 5) return;
+            _moved = true;
+            PlaceAt(_windowFrom.Left + dx, _windowFrom.Top + dy);
+        };
+        top.MouseLeftButtonUp += (_, _) => EndDrag(top);
+        top.LostMouseCapture += (_, _) => EndDrag(top);
+    }
+
+    void EndDrag(UIElement top)
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        if (top.IsMouseCaptured) top.ReleaseMouseCapture();
+        // Hidden mid-drag (the island opened): nothing was really dropped.
+        if (!_moved || !IsVisible || _hiding) return;
+        var a = _slab.PointToScreen(new Point(0, 0));
+        var b = _slab.PointToScreen(new Point(_slab.ActualWidth, 0));
+        Dropped?.Invoke((int)Math.Round(a.X), (int)Math.Round(b.X), (int)Math.Round(a.Y));
+    }
+
+    static bool OnAButton(DependencyObject? from, DependencyObject top)
+    {
+        for (var d = from; d is not null && d != top; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d is Pressable or System.Windows.Controls.Primitives.ButtonBase or TextBox) return true;
+        return false;
+    }
 
     public WingView View => _view;
 
@@ -185,7 +280,7 @@ internal sealed class StepsWing : Window
         // Rebuilt only when what's drawn changed: the clock alone ticks in place, so hovers and clicks aren't lost and
         // the running step keeps pulsing. While you type your own answer nothing redraws under you.
         string signature = Signature(view);
-        if (!_typing && signature != _signature)
+        if (!_typing && !_dragging && signature != _signature)
         {
             _signature = signature;
             Build();
@@ -286,6 +381,7 @@ internal sealed class StepsWing : Window
         var slide = SlideButton(slideIn: true);
         Grid.SetColumn(slide, 2);
         head.Children.Add(slide);
+        Grip(head);
         stack.Children.Add(head);
 
         var items = ThreadItems();
@@ -432,6 +528,7 @@ internal sealed class StepsWing : Window
             row.Children.Add(tag);
         }
         row.Children.Add(SlideButton(slideIn: false));
+        Grip(row);
         return row;
     }
 
@@ -443,6 +540,7 @@ internal sealed class StepsWing : Window
         words.Margin = new Thickness(8, 0, 0, 0);
         words.MaxWidth = FullWidth - 60;
         row.Children.Add(words);
+        Grip(row);
         return row;
     }
 
@@ -524,6 +622,7 @@ internal sealed class StepsWing : Window
             Grid.SetColumn(p, 1);
             head.Children.Add(p);
         }
+        Grip(head);
         return head;
     }
 
@@ -743,7 +842,8 @@ internal sealed class StepsWing : Window
     {
         var arrow = new Path
         {
-            Data = Geometry.Parse(slideIn ? "M4.5,2.5 L8,6 L4.5,9.5" : "M7.5,2.5 L4,6 L7.5,9.5"),
+            // It points towards the notch to slide in (away to slide out): mirrored on the notch's right.
+            Data = Geometry.Parse(slideIn != (_side == WingSide.Right) ? "M4.5,2.5 L8,6 L4.5,9.5" : "M7.5,2.5 L4,6 L7.5,9.5"),
             Stroke = ScreenKit.Fg, StrokeThickness = 1.6, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
             Width = 12, Height = 12,
         };
@@ -837,7 +937,7 @@ internal sealed class StepsWing : Window
         // From wherever it is: shown again halfway through fading out, it turns round instead of starting over.
         bool fresh = _slab.Opacity < 0.02;
         _slab.BeginAnimation(OpacityProperty, To(fresh ? 0 : _slab.Opacity, 1, 200));
-        _slide.BeginAnimation(TranslateTransform.XProperty, To(fresh ? 22 : _slide.X, 0, 280));
+        _slide.BeginAnimation(TranslateTransform.XProperty, To(fresh ? 22 * SlideFrom : _slide.X, 0, 280));
         _pop.BeginAnimation(ScaleTransform.ScaleXProperty, To(fresh ? 0.94 : _pop.ScaleX, 1, 280));
         _pop.BeginAnimation(ScaleTransform.ScaleYProperty, To(fresh ? 0.94 : _pop.ScaleY, 1, 280));
     }
@@ -863,7 +963,7 @@ internal sealed class StepsWing : Window
             Hide();
         };
         _slab.BeginAnimation(OpacityProperty, fade);
-        _slide.BeginAnimation(TranslateTransform.XProperty, To(_slide.X, 16, 170, new CubicEase { EasingMode = EasingMode.EaseIn }));
+        _slide.BeginAnimation(TranslateTransform.XProperty, To(_slide.X, 16 * SlideFrom, 170, new CubicEase { EasingMode = EasingMode.EaseIn }));
     }
 
     /// <summary>A new look settles in: a soft fade and a hint of growth from the island's side.</summary>

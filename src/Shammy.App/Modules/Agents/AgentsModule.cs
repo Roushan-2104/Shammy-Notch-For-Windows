@@ -29,6 +29,13 @@ internal sealed class AgentsStore
 
     /// <summary>The steps wing is slid in to one line (the user's choice, kept).</summary>
     public bool WingSlidIn { get; set; }
+
+    /// <summary>Where the steps wing sits (beside the notch, or where it was dropped), kept across restarts.</summary>
+    public WingSide WingSide { get; set; }
+
+    /// <summary>A floating wing's slab top-left corner (screen pixels).</summary>
+    public int WingX { get; set; }
+    public int WingY { get; set; }
 }
 
 /// <summary>

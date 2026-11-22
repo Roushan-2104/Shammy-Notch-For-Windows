@@ -196,6 +196,8 @@ internal sealed partial class AgentsModule
         };
         w.Dismissed += DismissEndQuestion;
         w.Placed += PlaceWing;
+        w.Dropped += OnWingDropped;
+        w.DockHome += () => SetWingSide(WingSide.Left);
         return w;
     }
 
@@ -390,16 +392,67 @@ internal sealed partial class AgentsModule
         return false;
     }
 
-    /// <summary>The slab's right edge a little left of the island, level with its top.</summary>
+    /// <summary>
+    /// Puts the wing where it lives: snapped beside the notch on its left or right (level with its top, the dot in the
+    /// gap), or floating where it was dropped. A floating wing whose screen is gone comes back beside the notch.
+    /// </summary>
     void PlaceWing()
     {
-        if (_wing is not { IsVisible: true } w) return;
+        if (_wing is not { IsVisible: true } w || w.IsDragging) return;
         var island = IslandBounds.Screen;
         if (island.IsEmpty) return;
         double px = VisualTreeHelper.GetDpi(w).DpiScaleX;
         int width = (int)Math.Round(w.ActualWidth * px), margin = (int)Math.Round(StepsWing.GlowRoom * px), gap = (int)Math.Round(StepsWing.Gap * px);
+        var side = Enum.IsDefined(_store.WingSide) ? _store.WingSide : WingSide.Left;
+        if (side == WingSide.Free && Interop.Native.MonitorFromPoint(new Interop.Native.POINT(_store.WingX + 8, _store.WingY + 8), 0) == IntPtr.Zero) side = WingSide.Left;
+        w.SetSide(side);
         w.SetDotLevel(Math.Min(island.Height / px, 40) / 2);
-        w.PlaceAt((int)Math.Round(island.Left) - gap - width + margin, (int)Math.Round(island.Top) - margin);
+        int top = (int)Math.Round(island.Top) - margin;
+        switch (side)
+        {
+            // Past the action circle and dot beside the island, if they're out.
+            case WingSide.Right: w.PlaceAt((int)Math.Round(island.Right + IslandBounds.RightReach) + gap - margin, top); break;
+            case WingSide.Free:
+            {
+                // Kept whole on its screen (a smaller screen, or dropped half off the edge, never strands it).
+                var mon = Interop.Native.MonitorFromPoint(new Interop.Native.POINT(_store.WingX + 8, _store.WingY + 8), Interop.Native.MONITOR_DEFAULTTONEAREST);
+                var work = Interop.Native.MonitorInfo(mon).rcWork;
+                var (x, y) = WingDock.Clamp(_store.WingX, _store.WingY, width - 2 * margin, (int)Math.Round(w.ActualHeight * px) - 2 * margin,
+                    work.Left, work.Top, work.Right, work.Bottom);
+                w.PlaceAt(x - margin, y - margin);
+                break;
+            }
+            default: w.PlaceAt((int)Math.Round(island.Left) - gap - width + margin, top); break;
+        }
+    }
+
+    /// <summary>Let go after a drag: snapped to the notch's side it was dropped near, or left floating where it is.</summary>
+    void OnWingDropped(int left, int right, int top)
+    {
+        var island = IslandBounds.Screen;
+        if (_wing is null) return;
+        if (island.IsEmpty)
+        {
+            // Nowhere to snap to: back where it was.
+            PlaceWing();
+            return;
+        }
+        double px = VisualTreeHelper.GetDpi(_wing).DpiScaleX;
+        var side = WingDock.Decide(left, right, top, island.Left, island.Right, island.Top, WingDock.Snap * px, IslandBounds.RightReach);
+        if (side == WingSide.Free)
+        {
+            _store.WingX = left;
+            _store.WingY = top;
+        }
+        SetWingSide(side, force: true);
+    }
+
+    void SetWingSide(WingSide side, bool force = false)
+    {
+        if (_store.WingSide == side && !force) return;
+        _store.WingSide = side;
+        _ctx.Save(_store);
+        PlaceWing();
     }
 
     // ---- Test pipe -----------------------------------------------------------------------------------
@@ -426,7 +479,29 @@ internal sealed partial class AgentsModule
             }
             case "type" when parts.Length > 1: AnswerQuestion(parts[1]); break;
             case "refresh": RefreshWing(); break;
-            default: return "error: agents-wing state|in|out|allow|deny|pick <n>[,<n>]|type <text>|later|refresh";
+            case "dock" when parts.Length > 1:
+            {
+                // "dock left|right" or "dock free <x> <y>" (screen pixels of the slab's top-left).
+                var d = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (!Enum.TryParse<WingSide>(d[0], ignoreCase: true, out var side)) return "error: dock left|right|free <x> <y>";
+                if (side == WingSide.Free)
+                {
+                    if (d.Length < 3 || !int.TryParse(d[1], out int x) || !int.TryParse(d[2], out int y)) return "error: dock free <x> <y>";
+                    _store.WingX = x;
+                    _store.WingY = y;
+                }
+                SetWingSide(side, force: true);
+                break;
+            }
+            case "drop" when parts.Length > 1:
+            {
+                // "drop <left> <right> <top>": as if dragged there and let go.
+                var d = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out int v) ? v : int.MinValue).ToArray();
+                if (d.Length < 3 || d.Contains(int.MinValue)) return "error: drop <left> <right> <top>";
+                OnWingDropped(d[0], d[1], d[2]);
+                break;
+            }
+            default: return "error: agents-wing state|in|out|allow|deny|pick <n>[,<n>]|type <text>|later|refresh|dock <side>|drop <l> <r> <t>";
         }
         return WingState();
     }
@@ -436,7 +511,7 @@ internal sealed partial class AgentsModule
         var steps = string.Join(" | ", _feed.Recent(4).Select(s => $"{s.Text}{(s.Failed ? "(failed)" : "")}{(s.Finished ? "" : "(running)")}"));
         var list = _sessions.Live.Select(s => _tasks.For(s.Id)).FirstOrDefault(l => l.Count > 0) ?? Array.Empty<AgentTask>();
         var tasks = string.Join(" | ", list.Select(t => $"{t.Mark}:{t.Text}"));
-        return $"wing={(_wing?.Describe() ?? "none")} on={WingOn} slidIn={WingSlidIn} steps=[{steps}] tasks=[{tasks}] " +
+        return $"wing={(_wing?.Describe() ?? "none")} on={WingOn} slidIn={WingSlidIn} side={_store.WingSide} steps=[{steps}] tasks=[{tasks}] " +
                $"end=\"{_endQuestion?.Text ?? ""}\" island={IslandBounds.Screen} lastAnswer={LastAnswerShort()}";
     }
 
