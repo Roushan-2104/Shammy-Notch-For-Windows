@@ -56,7 +56,7 @@ internal sealed class StepsWing : Window
     public const double FullWidth = 300, MinFullWidth = 210, LineMaxWidth = 320, Gap = 10;
 
     static readonly Brush Soft = Ui.Tokens.Brush("#12FFFFFF"),
-        Amber = Ui.Tokens.Brush("#F2A65A"), Red = Ui.Tokens.Brush("#FF8A8A"), RedText = Ui.Tokens.Brush("#FFB3B3"),
+        Red = Ui.Tokens.Brush("#FF8A8A"), RedText = Ui.Tokens.Brush("#FFB3B3"),
         Green = Ui.Tokens.Brush("#3F8F5F"), Blue = Ui.Tokens.Brush("#7FB8FF"), Dim = Ui.Tokens.Brush("#6B6B73");
 
     /// <summary>Session tag colours: told apart by lightness as well as hue.</summary>
@@ -463,18 +463,18 @@ internal sealed class StepsWing : Window
     UIElement PermissionBody()
     {
         var stack = new StackPanel();
-        stack.Children.Add(Text(_view.Label, 12, Weight.SemiBold, Amber));
-        var title = Text(_view.Title, 14, Weight.SemiBold, ScreenKit.Fg);
-        title.Margin = new Thickness(0, 6, 0, 0);
+        stack.Children.Add(AskHead());
+        var title = Text(_view.Title, 15, Weight.SemiBold, ScreenKit.Fg);
+        title.Margin = new Thickness(0, 9, 0, 0);
         stack.Children.Add(title);
         if (_view.Detail.Length > 0)
         {
             stack.Children.Add(new Border
             {
-                Margin = new Thickness(0, 8, 0, 0),
-                Padding = new Thickness(10, 7, 10, 7),
-                CornerRadius = new CornerRadius(8),
-                Background = Soft,
+                Margin = new Thickness(0, 9, 0, 0),
+                Padding = new Thickness(11, 8, 11, 8),
+                CornerRadius = new CornerRadius(10),
+                Background = Group,
                 Child = new TextBlock
                 {
                     Text = _view.Detail, FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 12,
@@ -489,29 +489,57 @@ internal sealed class StepsWing : Window
         System.Windows.Automation.AutomationProperties.SetName(allow, "Allow");
         var buttons = ScreenKit.Row(8, deny, allow);
         buttons.HorizontalAlignment = HorizontalAlignment.Right;
-        buttons.Margin = new Thickness(0, 10, 0, 0);
+        buttons.Margin = new Thickness(0, 12, 0, 0);
         stack.Children.Add(buttons);
         return stack;
     }
 
+    /// <summary>
+    /// The top line of a question: the spark, who's asking ("Claude asks", "Claude needs your OK") in bold, where, dimmer,
+    /// and on the right how far through Claude's questions this is ("2 of 3").
+    /// </summary>
+    UIElement AskHead()
+    {
+        var head = new Grid();
+        head.ColumnDefinitions.Add(new ColumnDefinition());
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var who = new StackPanel { Orientation = Orientation.Horizontal };
+        who.Children.Add(ClaudeMark(14));
+        var parts = _view.Label.Split(" · ", 2);
+        var asker = Text(parts[0].Replace("Claude asks you", "Claude asks"), 12, Weight.SemiBold, ScreenKit.Fg);
+        asker.Margin = new Thickness(8, 0, 0, 0);
+        who.Children.Add(asker);
+        if (parts.Length > 1)
+        {
+            var where = Text("· " + parts[1], 12, Weight.Regular, ScreenKit.Fg2);
+            where.Margin = new Thickness(5, 0, 0, 0);
+            where.MaxWidth = 120;
+            who.Children.Add(where);
+        }
+        head.Children.Add(who);
+        if (_view.Progress.Length > 0)
+        {
+            var p = Text(_view.Progress, 12, Weight.Regular, ScreenKit.Fg2);
+            p.Margin = new Thickness(8, 0, 0, 0);
+            Grid.SetColumn(p, 1);
+            head.Children.Add(p);
+        }
+        return head;
+    }
+
+    /// <summary>
+    /// One of Claude's questions: the question, then its choices as one rounded list with thin lines between them, each
+    /// with its number on the left (a label: the wing never takes your keyboard), and "Type my own answer…" as the
+    /// last row. A multiple choice ticks rows and sends them together.
+    /// </summary>
     UIElement QuestionBody()
     {
         var stack = new StackPanel();
-        var top = new Grid();
-        top.ColumnDefinitions.Add(new ColumnDefinition());
-        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        top.Children.Add(Text(_view.Label, 12, Weight.SemiBold, Amber));
-        if (_view.Progress.Length > 0)
-        {
-            var p = Text(_view.Progress, 11, Weight.Regular, ScreenKit.Fg2);
-            Grid.SetColumn(p, 1);
-            top.Children.Add(p);
-        }
-        stack.Children.Add(top);
-        var title = Text(_view.Title, 14, Weight.SemiBold, ScreenKit.Fg);
+        stack.Children.Add(AskHead());
+        var title = Text(_view.Title, 15, Weight.SemiBold, ScreenKit.Fg);
         title.TextWrapping = TextWrapping.Wrap;
         title.TextTrimming = TextTrimming.None;
-        title.Margin = new Thickness(0, 6, 0, 4);
+        title.Margin = new Thickness(0, 9, 0, 0);
         stack.Children.Add(title);
 
         if (_typing)
@@ -519,11 +547,13 @@ internal sealed class StepsWing : Window
             stack.Children.Add(TypingBox());
             return stack;
         }
+        var list = new StackPanel();
         for (int i = 0; i < _view.Options.Count; i++)
         {
             int index = i;
             var (label, description) = _view.Options[i];
-            stack.Children.Add(Option(label, description, first: i == 0, picked: _picked.Contains(i), () =>
+            if (i > 0) list.Children.Add(Divider());
+            list.Children.Add(Choice((i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), label, description, _picked.Contains(i), () =>
             {
                 if (!_view.MultiSelect)
                 {
@@ -535,50 +565,82 @@ internal sealed class StepsWing : Window
                 Build();
             }));
         }
-        stack.Children.Add(Option("Something else…", "Type your own answer", first: false, picked: false, StartTyping));
+        if (_view.Options.Count > 0) list.Children.Add(Divider());
+        list.Children.Add(Choice("✎", "Type my own answer…", "", false, StartTyping, own: true));
+        // The first and last rows' hover follows the list's rounded corners.
+        var rows = list.Children.OfType<Pressable>().ToList();
+        Round(rows[0], new CornerRadius(14, 14, rows.Count == 1 ? 14 : 0, rows.Count == 1 ? 14 : 0));
+        if (rows.Count > 1) Round(rows[^1], new CornerRadius(0, 0, 14, 14));
+        stack.Children.Add(new Border
+        {
+            Margin = new Thickness(0, 12, 0, 0),
+            CornerRadius = new CornerRadius(14),
+            Background = Group,
+            Child = list,
+        });
         if (_view.MultiSelect)
         {
-            var done = ScreenKit.Primary("Send", () =>
+            var done = ScreenKit.Primary(_picked.Count > 0 ? $"Send {_picked.Count}" : "Send", () =>
             {
                 var labels = _picked.OrderBy(i => i).Where(i => i < _view.Options.Count).Select(i => _view.Options[i].Label).ToList();
                 if (labels.Count > 0) Chosen?.Invoke(labels);
             }, 32, 12.5, null, 16);
             done.HorizontalAlignment = HorizontalAlignment.Right;
-            done.Margin = new Thickness(0, 8, 0, 0);
+            done.Margin = new Thickness(0, 10, 0, 0);
             stack.Children.Add(done);
         }
         return stack;
     }
 
-    UIElement Option(string label, string description, bool first, bool picked, Action click)
+    static readonly Brush Group = Ui.Tokens.Brush("#0DFFFFFF"), ListLine = Ui.Tokens.Brush("#12FFFFFF"), Badge = Ui.Tokens.Brush("#14FFFFFF"),
+        BadgeOn = Ui.Tokens.Brush("#F4F4F5"), BadgeOnInk = Ui.Tokens.Brush("#141416");
+
+    /// <summary>A row's hover and its ticked fill both follow the list's rounded corner.</summary>
+    static void Round(Pressable row, CornerRadius r)
     {
-        var words = new StackPanel();
-        var l = Text(label, 13, Weight.Medium, ScreenKit.Fg);
+        row.CornerRadius = r;
+        if (row.Child is Border fill) fill.CornerRadius = r;
+    }
+
+    static UIElement Divider() => new Border { Height = 1, Background = ListLine, Margin = new Thickness(42, 0, 0, 0) };
+
+    /// <summary>A row of the list: its number (or ✎) in a small square, the choice, and its description under it.</summary>
+    UIElement Choice(string key, string label, string description, bool picked, Action click, bool own = false)
+    {
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        var badge = new Border
+        {
+            Width = 20, Height = 20, CornerRadius = new CornerRadius(6), Background = picked ? BadgeOn : Badge,
+            VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 10, 0),
+            Child = new TextBlock
+            {
+                Text = key, FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = picked ? BadgeOnInk : ScreenKit.Fg2,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+        row.Children.Add(badge);
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var l = Text(label, 13, own ? Weight.Regular : Weight.SemiBold, own ? ScreenKit.Fg2 : ScreenKit.Fg);
         l.TextWrapping = TextWrapping.Wrap;
         l.TextTrimming = TextTrimming.None;
         words.Children.Add(l);
         if (description.Length > 0)
         {
-            var d = Text(description, 11, Weight.Regular, ScreenKit.Fg2);
+            var d = Text(description, 11.5, Weight.Regular, ScreenKit.Fg2);
             d.TextWrapping = TextWrapping.Wrap;
             d.TextTrimming = TextTrimming.None;
             words.Children.Add(d);
         }
-        var box = new Border
-        {
-            Margin = new Thickness(0, 6, 0, 0),
-            Padding = new Thickness(12, 8, 12, 8),
-            CornerRadius = new CornerRadius(12),
-            BorderThickness = new Thickness(1),
-            BorderBrush = picked || first ? Blue : Ui.Tokens.Brush("#1FFFFFFF"),
-            Background = picked ? Ui.Tokens.Brush("#267FB8FF") : Ui.Tokens.Brush("#0AFFFFFF"),
-            Child = words,
-        };
-        var press = Tap(box, click, 12);
+        Grid.SetColumn(words, 1);
+        row.Children.Add(words);
+        var press = Tap(new Border { Padding = new Thickness(12, 10, 12, 10), Background = picked ? Group : Brushes.Transparent, Child = row }, click, 0);
+        // A full-width row in a flat list stays put when pressed (shrinking would pull it off the lines between rows).
+        press.PressScale = 1;
         System.Windows.Automation.AutomationProperties.SetName(press, label);
         return press;
     }
-
     TextBox? _box;
     IntPtr _returnTo;
 
@@ -656,15 +718,15 @@ internal sealed class StepsWing : Window
     UIElement EndQuestionBody()
     {
         var stack = new StackPanel();
-        stack.Children.Add(Text(_view.Label, 12, Weight.SemiBold, Amber));
-        var title = Text(_view.Title, 14, Weight.SemiBold, ScreenKit.Fg);
+        stack.Children.Add(AskHead());
+        var title = Text(_view.Title, 14, Weight.Medium, ScreenKit.Fg);
         title.TextWrapping = TextWrapping.Wrap;
         title.TextTrimming = TextTrimming.None;
-        title.Margin = new Thickness(0, 6, 0, 0);
+        title.Margin = new Thickness(0, 9, 0, 0);
         stack.Children.Add(title);
         var later = ScreenKit.Secondary("Later", () => Dismissed?.Invoke(), 32, fontSize: 12.5, background: ScreenKit.Tile);
         later.Padding = new Thickness(14, 0, 14, 0);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
         buttons.Children.Add(later);
         if (_view.CanOpen)
         {
@@ -675,7 +737,6 @@ internal sealed class StepsWing : Window
         stack.Children.Add(buttons);
         return stack;
     }
-
     // ---- Small parts ----------------------------------------------------------------------------------
 
     UIElement SlideButton(bool slideIn)

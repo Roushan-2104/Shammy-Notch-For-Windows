@@ -5,7 +5,7 @@ namespace Shammy.Infrastructure;
 /// <summary>
 /// The island's surface, shared so the pieces beside it (the steps wing, the calendar, the dot between them) are made of
 /// the same glass. The fill is live (never frozen): when the island's colour changes (a new wallpaper) it repaints
-/// everything that uses them. UI thread only.
+/// everything that uses it. UI thread only.
 /// </summary>
 internal static class IslandSurface
 {
