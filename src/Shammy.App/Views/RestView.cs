@@ -194,7 +194,6 @@ internal sealed class RestView : Grid
         if (old is not null)
         {
             var fade = new DoubleAnimation(0, duration) { EasingFunction = ease };
-            Timeline.SetDesiredFrameRate(fade, 20);
             fade.Completed += (_, _) => _glanceHost.Children.Remove(old);
             old.BeginAnimation(OpacityProperty, fade);
             ((TranslateTransform)old.RenderTransform).BeginAnimation(TranslateTransform.YProperty, Lean(new DoubleAnimation(-8, duration) { EasingFunction = ease }));
@@ -302,10 +301,9 @@ internal sealed class RestView : Grid
         }
     }
 
-    /// <summary>The notch is a layered, software-rendered window: every frame costs CPU, so small motions run at 20 fps.</summary>
-    static AnimationTimeline Lean(AnimationTimeline a)
-    {
-        Timeline.SetDesiredFrameRate(a, 20);
-        return a;
-    }
+    /// <summary>
+    /// The glance swap: a short one-off motion, so it runs at the screen's own rate (it used to be held to 20 fps, which
+    /// showed as steps beside the island's 60 fps springs). Only endless ambient motion is kept slow.
+    /// </summary>
+    static AnimationTimeline Lean(AnimationTimeline a) => a;
 }

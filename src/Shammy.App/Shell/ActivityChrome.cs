@@ -428,6 +428,17 @@ internal sealed class ActivityChrome
     /// </summary>
     Geometry Liquid(double right, double rowH, double h, double p)
     {
+        // Settled (nothing moved since the last frame): the same shape again, not rebuilt.
+        if (_liquidCache is { } last && _liquidKey == (right, rowH, h, p)) return last;
+        _liquidKey = (right, rowH, h, p);
+        return _liquidCache = BuildLiquid(right, rowH, h, p);
+    }
+
+    (double, double, double, double) _liquidKey = (double.NaN, 0, 0, 0);
+    Geometry? _liquidCache;
+
+    Geometry BuildLiquid(double right, double rowH, double h, double p)
+    {
         double scale = 0.25 + 0.75 * p;
         double left = right + Gap - 16 * (1 - p);
         double top = Math.Max(0, (rowH - CircleSize) / 2);

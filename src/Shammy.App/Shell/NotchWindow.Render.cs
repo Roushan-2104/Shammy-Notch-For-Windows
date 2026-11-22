@@ -34,6 +34,12 @@ public partial class NotchWindow
             ShadowShape.Update(w, h);
             Edge.UpdateShape(w, h, r, Shape.Geometry);
             ContentHost.Clip = Shape.Geometry;
+            // The waves soften as the island opens (and come back as it closes) with the height, not in one step.
+            if (_waves is not null)
+            {
+                double waves = WavesOpacityAt(h);
+                if (Math.Abs(Shape.WavesOpacity - waves) > 0.004) Shape.WavesOpacity = waves;
+            }
 
             // The hit area reaches up through the gap to the top of the screen, so throwing the pointer at the top
             // edge still lands on the island; beside and below it a small margin counts too.
@@ -50,7 +56,16 @@ public partial class NotchWindow
             double o = layer.Opacity.Value, swap = layer.Swap.Value;
             layer.El.Opacity = o * (0.2 + 0.8 * swap);
             layer.Scale.ScaleX = layer.Scale.ScaleY = layer.Size.Value;
-            if (!layer.Active && o <= 0.003 && layer.El.Visibility == Visibility.Visible) layer.El.Visibility = Visibility.Collapsed;
+            if (!layer.Active && o <= 0.003 && layer.El.Visibility == Visibility.Visible)
+            {
+                layer.El.Visibility = Visibility.Collapsed;
+                // The open island goes back to its first page once it has faded out, not while you can still see it.
+                if (layer == _expanded && _firstPageWhenHidden)
+                {
+                    _firstPageWhenHidden = false;
+                    Expanded.FirstPage();
+                }
+            }
         }
 
         // The tab floats just under the island; its larger invisible pad starts at the island's edge.
@@ -83,7 +98,7 @@ public partial class NotchWindow
         bool settled = _w.IsSettled && _h.IsSettled && _shadow.IsSettled;
         if (settled)
         {
-            double want = (_spec.H + _gap + ShadowPad) * _scale;
+            double want = WindowHeightFor(_spec.H);
             if (Math.Abs(Height - want) > 0.5) Height = want;
         }
         PublishBounds(w, h, settled && _tuck.IsSettled);
@@ -152,7 +167,14 @@ public partial class NotchWindow
 
     void EnsureWindowHeight(double contentHeight)
     {
-        double want = (contentHeight + _gap + ShadowPad) * _scale;
+        double want = WindowHeightFor(contentHeight);
         if (want > Height) Height = want;
     }
+
+    /// <summary>
+    /// The window's height for an island this tall, rounded up to a step of 32 (device-independent pixels). Every resize of the layered window
+    /// reallocates its surface and can cost a frame as an animation starts; in steps, most changes (the pill to a song,
+    /// one card to the next) need no resize at all. The few spare pixels are transparent, so clicks pass through them.
+    /// </summary>
+    double WindowHeightFor(double contentHeight) => Math.Ceiling((contentHeight + _gap + ShadowPad) * _scale / 32) * 32;
 }

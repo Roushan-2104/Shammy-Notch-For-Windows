@@ -189,8 +189,8 @@ internal sealed class ActivityView : Grid
         if (line.Length == 0) return;
         _line.Text = line;
         if (!MotionPrefs.Lively) return;
+        // A short one-off fade runs at the screen's rate (only the endless ambient pulses are kept slow).
         var fade = new DoubleAnimation(0.15, 1, TimeSpan.FromMilliseconds(260)) { FillBehavior = FillBehavior.Stop };
-        Timeline.SetDesiredFrameRate(fade, 20);
         _line.BeginAnimation(OpacityProperty, fade);
     }
 

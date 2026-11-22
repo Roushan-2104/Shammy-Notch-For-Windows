@@ -65,6 +65,9 @@ internal sealed class StepsWing : Window
 
     readonly Border _slab = new();
     readonly ScaleTransform _pop = new(1, 1);
+    readonly TranslateTransform _slide = new();
+    bool _hiding;
+    string _lastTop = "";
     readonly DropShadowEffect _glow = new() { Color = Color.FromRgb(0xFF, 0x6B, 0x6B), BlurRadius = 22, ShadowDepth = 0, Opacity = 0 };
     IntPtr _hwnd;
     WingView _view = new();
@@ -82,15 +85,19 @@ internal sealed class StepsWing : Window
         ShowInTaskbar = false;
         ShowActivated = false;
         Topmost = true;
-        SizeToContent = SizeToContent.WidthAndHeight;
+        // A fixed width with the slab held to the right: the window never grows sideways, so changing between the one
+        // line and the full wing never makes it jump (it only grows downwards, from its top).
+        SizeToContent = SizeToContent.Height;
+        Width = LineMaxWidth + 2 * GlowRoom;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
         _slab.Background = Slab;
         _slab.BorderBrush = Edge;
         _slab.BorderThickness = new Thickness(1);
         _slab.CornerRadius = new CornerRadius(18);
+        _slab.HorizontalAlignment = HorizontalAlignment.Right;
         _slab.RenderTransformOrigin = new Point(1, 0);
-        _slab.RenderTransform = _pop;
+        _slab.RenderTransform = new TransformGroup { Children = { _pop, _slide } };
         _slab.Effect = _glow;
         // Room for the glow, so it isn't cut at the window's edge.
         Content = new Border { Padding = new Thickness(12), Child = _slab };
@@ -141,7 +148,7 @@ internal sealed class StepsWing : Window
         if (view.Mode == WingMode.Hidden)
         {
             StopTyping();
-            if (IsVisible) Hide();
+            if (IsVisible && !_hiding) Disappear();
             return;
         }
         bool asking = view.Mode is WingMode.Permission or WingMode.Question or WingMode.EndQuestion;
@@ -160,18 +167,27 @@ internal sealed class StepsWing : Window
         {
             _signature = signature;
             Build();
+            // A new look (one line to the full wing, working to done) settles in instead of snapping.
+            if (moved && !newQuestion && IsVisible && !_hiding) Morph();
         }
         else if (_clock is not null) _clock.Text = view.Clock;
-        if (!IsVisible)
+        if (!IsVisible || _hiding)
         {
-            // Laid out and placed before it's seen, so it never flashes at the wrong spot.
-            Opacity = 0;
-            base.Show();
-            UpdateLayout();
-            Placed?.Invoke();
-            Opacity = 1;
+            bool fresh = !IsVisible;
+            _hiding = false;
+            IsHitTestVisible = true;
+            if (fresh)
+            {
+                // Laid out and placed before it's seen, so it never flashes at the wrong spot.
+                Opacity = 0;
+                base.Show();
+                UpdateLayout();
+                Placed?.Invoke();
+                Opacity = 1;
+            }
+            Appear();
         }
-        if (newQuestion) Pop();
+        else if (newQuestion) Pop();
         if (view.FailedCount > _glowFor)
         {
             _glowFor = view.FailedCount;
@@ -246,7 +262,11 @@ internal sealed class StepsWing : Window
 
         double[] fade = { 1, 0.78, 0.55, 0.36, 0.25 };
         for (int i = 0; i < _view.Steps.Count; i++)
-            stack.Children.Add(StepRow(_view.Steps[i], fade[Math.Min(i, fade.Length - 1)]));
+        {
+            var row = StepRow(_view.Steps[i], fade[Math.Min(i, fade.Length - 1)]);
+            if (i == 0 && NewTop()) Arrive(row);
+            stack.Children.Add(row);
+        }
         if (_view.Steps.Count == 0) stack.Children.Add(Margin8(Text("Getting started…", 13, Weight.Regular, ScreenKit.Fg2)));
         return stack;
     }
@@ -300,6 +320,7 @@ internal sealed class StepsWing : Window
         var words = Text(s?.Text ?? _view.Header, 13, Weight.Regular, s?.Failed == true ? RedText : ScreenKit.Fg);
         words.Margin = new Thickness(8, 0, 8, 0);
         words.MaxWidth = LineMaxWidth - 110;
+        if (NewTop()) Arrive(words);
         row.Children.Add(words);
         if (s is not null)
         {
@@ -635,6 +656,81 @@ internal sealed class StepsWing : Window
     {
         if (e is FrameworkElement f) f.Margin = new Thickness(0, 6, 0, 2);
         return e;
+    }
+
+    static IEasingFunction EaseOut => new CubicEase { EasingMode = EasingMode.EaseOut };
+
+    static DoubleAnimation To(double from, double to, double ms, IEasingFunction? ease = null) =>
+        new(from, to, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease ?? EaseOut };
+
+    /// <summary>It slides out of the island's side and fades in.</summary>
+    void Appear()
+    {
+        if (!MotionPrefs.Lively)
+        {
+            _slab.BeginAnimation(OpacityProperty, null);
+            _slide.BeginAnimation(TranslateTransform.XProperty, null);
+            _slab.Opacity = 1;
+            _slide.X = 0;
+            return;
+        }
+        // From wherever it is: shown again halfway through fading out, it turns round instead of starting over.
+        bool fresh = _slab.Opacity < 0.02;
+        _slab.BeginAnimation(OpacityProperty, To(fresh ? 0 : _slab.Opacity, 1, 200));
+        _slide.BeginAnimation(TranslateTransform.XProperty, To(fresh ? 22 : _slide.X, 0, 280));
+        _pop.BeginAnimation(ScaleTransform.ScaleXProperty, To(fresh ? 0.94 : _pop.ScaleX, 1, 280));
+        _pop.BeginAnimation(ScaleTransform.ScaleYProperty, To(fresh ? 0.94 : _pop.ScaleY, 1, 280));
+    }
+
+    /// <summary>It slides back into the island and fades, then the window hides.</summary>
+    void Disappear()
+    {
+        if (!MotionPrefs.Lively)
+        {
+            Hide();
+            return;
+        }
+        _hiding = true;
+        // Fading out, it no longer takes clicks.
+        IsHitTestVisible = false;
+        var fade = To(_slab.Opacity, 0, 170, new CubicEase { EasingMode = EasingMode.EaseIn });
+        fade.Completed += (_, _) =>
+        {
+            if (!_hiding) return;
+            _hiding = false;
+            Hide();
+        };
+        _slab.BeginAnimation(OpacityProperty, fade);
+        _slide.BeginAnimation(TranslateTransform.XProperty, To(_slide.X, 16, 170, new CubicEase { EasingMode = EasingMode.EaseIn }));
+    }
+
+    /// <summary>A new look settles in: a soft fade and a hint of growth from the island's side.</summary>
+    void Morph()
+    {
+        if (!MotionPrefs.Lively) return;
+        _slab.BeginAnimation(OpacityProperty, To(0.55, 1, 180));
+        _pop.BeginAnimation(ScaleTransform.ScaleXProperty, To(0.97, 1, 220));
+        _pop.BeginAnimation(ScaleTransform.ScaleYProperty, To(0.97, 1, 220));
+    }
+
+    /// <summary>The newest step changed since the last draw (only then does it get its arrival).</summary>
+    bool NewTop()
+    {
+        string top = _view.Steps.Count > 0 ? _view.Steps[0].SessionId + "\n" + _view.Steps[0].Text : "";
+        if (top == _lastTop) return false;
+        bool had = _lastTop.Length > 0;
+        _lastTop = top;
+        return had && top.Length > 0;
+    }
+
+    /// <summary>A step that just arrived eases down into its place at the top.</summary>
+    static void Arrive(UIElement row)
+    {
+        if (!MotionPrefs.Lively) return;
+        var move = new TranslateTransform(0, -6);
+        row.RenderTransform = move;
+        row.BeginAnimation(OpacityProperty, To(0, row.Opacity, 240));
+        move.BeginAnimation(TranslateTransform.YProperty, To(-6, 0, 260));
     }
 
     void Pop()

@@ -103,6 +103,9 @@ internal sealed class CalendarWing : Window
 
     public bool IsOpen { get; private set; }
 
+    /// <summary>Its window handle, so the notch can move it together with the island.</summary>
+    public IntPtr Handle => _hwnd;
+
     /// <summary>For the test pipe: "open month=2026-11 selected=2026-11-15 events=2 scale=0.88".</summary>
     public string Describe() => IsOpen
         ? string.Create(Inv, $"open month={_month:yyyy-MM} selected={_selected:yyyy-MM-dd} events={DayItems(_selected).Count} scale={_scale:0.##}")

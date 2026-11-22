@@ -13,7 +13,6 @@ namespace Shammy.Shell;
 /// </summary>
 internal sealed class EdgeLight : FrameworkElement
 {
-    static readonly TimeSpan Frame = TimeSpan.FromMilliseconds(33);
     const double FadeIn = 0.15, FadeOut = 0.6;
 
     /// <summary>The line itself, and a faint wider light under it.</summary>
@@ -23,8 +22,8 @@ internal sealed class EdgeLight : FrameworkElement
     /// <summary>How bright the state colour gets at the top of a breath (flashes and holds go to full).</summary>
     const double AmbientPeak = 0.75;
 
-    readonly DispatcherTimer _tick;
-    readonly System.Diagnostics.Stopwatch _clock = new();
+    /// <summary>Its frames come from the app's frame clock, in step with the screen and the island's springs.</summary>
+    readonly Motion.FrameTicker _tick;
     readonly RimBrush _flash = new(), _ambient = new();
     Geometry _edge = Geometry.Empty, _island = Geometry.Empty;
     Color? _hold, _state;
@@ -34,12 +33,7 @@ internal sealed class EdgeLight : FrameworkElement
     public EdgeLight()
     {
         IsHitTestVisible = false;
-        _tick = new DispatcherTimer(Frame, DispatcherPriority.Render, (_, _) =>
-        {
-            double dt = Math.Min(0.1, _clock.Elapsed.TotalSeconds);
-            _clock.Restart();
-            Advance(dt);
-        }, Dispatcher);
+        _tick = new Motion.FrameTicker(dt => Advance(Math.Min(0.1, dt)));
     }
 
     public double CenterX { get; set; }
@@ -126,7 +120,6 @@ internal sealed class EdgeLight : FrameworkElement
     void Run()
     {
         if (!_enabled || _tick.IsEnabled) return;
-        _clock.Restart();
         _tick.Start();
     }
 

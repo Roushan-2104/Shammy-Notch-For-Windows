@@ -47,6 +47,9 @@ public partial class NotchWindow
         if (mode == NotchMode.Compact) PrepareCompact();
         if (mode == NotchMode.Notification && _activity?.Payload is NotificationPayload p)
         {
+            // The next message taking the place of one on show dims through the change instead of cutting to it.
+            if (_mode == NotchMode.Notification && !ReferenceEquals(_shownNotification, p.Notification)) DipThrough(_notification);
+            _shownNotification = p.Notification;
             NotificationCard.Show(p.Notification, p.More);
             _stackDepth = PopupStack<ShammyNotification>.Peeking(p.More);
         }
@@ -129,7 +132,15 @@ public partial class NotchWindow
             FoldCalendar(animate: mode != NotchMode.Hidden, withIsland: true);
             // Leaving the open island (Stage taking over, a card, closing) means it reopens on the home page, even when
             // its view never got hidden on the way. (Resetting on the way back in missed the Stage case: checked live.)
-            Expanded.FirstPage();
+            // It happens once the open island has faded out (ApplyVisuals), so you never see it jump to page one.
+            _firstPageWhenHidden = true;
+        }
+        else if (_firstPageWhenHidden)
+        {
+            _firstPageWhenHidden = false;
+            // Already gone (hidden, tucked) without fading: it reopens on the home page. Back before it had finished
+            // fading, it simply stays on the page you left: no jump on a quick reopen.
+            if (_expanded.El.Visibility != Visibility.Visible) Expanded.FirstPage();
         }
         var spec = SpecFor(mode);
         bool grow = spec.W * spec.H > _spec.W * _spec.H + 1;
@@ -166,6 +177,24 @@ public partial class NotchWindow
         UpdateTuckTab();
         Animator.Kick();
     }
+
+    ShammyNotification? _shownNotification;
+    ImageSource? _bubbleArt;
+    Border? _bubbleDisc;
+
+    /// <summary>
+    /// Content changing in place on a layer that's on show (a card replacing a card, the next message): it dims and
+    /// comes back through the change, as the pet's pill already does, so nothing hard-cuts.
+    /// </summary>
+    void DipThrough(Layer layer)
+    {
+        if (!MotionPrefs.Lively || layer.Opacity.Value < 0.5) return;
+        layer.Swap.Snap(0);
+        layer.Swap.AnimateTo(1, 0.3, 1);
+    }
+
+    /// <summary>The open island should go back to its first page once it has faded out.</summary>
+    bool _firstPageWhenHidden;
 
     void SetLayerActive(Layer layer, bool active, bool grow)
     {
@@ -215,13 +244,16 @@ public partial class NotchWindow
         {
             BubbleContent.Content = _secondary!.Kind switch
             {
-                ActivityKind.NowPlaying when _services.Media.Art is { } art => new Border
-                {
-                    Width = 20,
-                    Height = 20,
-                    CornerRadius = new CornerRadius(10),
-                    Background = new ImageBrush(art) { Stretch = Stretch.UniformToFill },
-                },
+                // The same artwork keeps the same little disc (rebuilding it on every update redrew it each time).
+                ActivityKind.NowPlaying when _services.Media.Art is { } art => ReferenceEquals(_bubbleArt, art) && _bubbleDisc is not null
+                    ? _bubbleDisc
+                    : _bubbleDisc = new Border
+                    {
+                        Width = 20,
+                        Height = 20,
+                        CornerRadius = new CornerRadius(10),
+                        Background = new ImageBrush(_bubbleArt = art) { Stretch = Stretch.UniformToFill },
+                    },
                 ActivityKind.NowPlaying => CompactView.Glyph("", 13, Brushes.White),
                 ActivityKind.Downloading => new Spinner { Width = 16, Height = 16, Stroke = Ui.Tokens.Res("AccentBrush") },
                 ActivityKind.Custom when _secondary.Payload is Modules.ICompactContent c && c.BuildBubble() is { } bubble => bubble,

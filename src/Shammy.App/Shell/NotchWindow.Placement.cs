@@ -44,7 +44,7 @@ public partial class NotchWindow
         _scale = scale;
         Root.LayoutTransform = new ScaleTransform(scale, scale);
         Width = WindowWidth * scale;
-        Height = Math.Max(Height, (_spec.H + _gap + ShadowPad) * scale);
+        Height = Math.Max(Height, WindowHeightFor(_spec.H));
         Reposition();
         ApplyVisuals(force: true);
     }
