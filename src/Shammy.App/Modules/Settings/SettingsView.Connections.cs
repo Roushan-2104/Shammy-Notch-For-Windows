@@ -71,79 +71,12 @@ internal partial class SettingsView
             Show();
         };
         row.Unloaded += (_, _) => Shammy.Modules.Agents.AgentsLink.Changed -= Show;
-        ClaudeSignInRow();
         SwitchRow("Ask me in the notch", "Allow and Deny drop from the notch when Claude Code needs an OK. Off shows status only.",
             nameof(AppSettings.AgentsAskInNotch), "Asking in the notch", "Status only", words: "claude allow deny");
         SwitchRow("Claude's steps beside the notch", "While you're in another app, a small wing shows Claude Code's task list and last few steps, and its questions pop out there.",
             nameof(AppSettings.AgentsStepsWing), "Showing the steps", "Off", words: "claude steps progress wing questions");
     }
 
-    /// <summary>
-    /// Shows only when Claude Code is installed but signed out: Sign in starts Claude Code's own sign-in, which opens the
-    /// browser. Shammy only asks Claude Code whether it's signed in; the account and its token stay Claude Code's.
-    /// </summary>
-    void ClaudeSignInRow()
-    {
-        const string SignedOut = "Claude Code is signed out, so it can’t work. Sign in opens your browser.";
-        TextBlock hint = null!;
-        string? exe = null;
-        Pressable button = null!;
-        Border row = null!;
-        button = ScreenKit.Secondary("Sign in", () =>
-        {
-            if (exe is null || Shammy.Modules.Agents.ClaudeCli.SignIn is not null) return;
-            if (Shammy.Modules.Agents.ClaudeCli.StartSignIn(exe) is not { } signIn)
-            {
-                SetHint("Claude Code’s sign-in couldn’t be opened. Run “claude auth login” in a terminal.");
-                return;
-            }
-            _ = Follow(signIn);
-        });
-        button.MinWidth = 96;
-        System.Windows.Automation.AutomationProperties.SetName(button, "Sign in to Claude Code");
-        row = Row("Claude Code sign-in", "", button, out hint, words: "claude code sign in login account");
-        row.Visibility = Visibility.Collapsed;
-
-        void SetHint(string text)
-        {
-            hint.Text = text;
-            hint.Visibility = Visibility.Visible;
-        }
-
-        // Settings rebuilds its rows often (a tab, a search, a switch): a sign-in already under way carries on in
-        // the new row instead of offering a second one.
-        row.Loaded += async (_, _) =>
-        {
-            exe = Shammy.Modules.Agents.ClaudeCli.Find();
-            if (exe is null) return;
-            if (Shammy.Modules.Agents.ClaudeCli.SignIn is { } running)
-            {
-                row.Visibility = Visibility.Visible;
-                await Follow(running);
-                return;
-            }
-            if (await Shammy.Modules.Agents.ClaudeCli.SignedInAsync(exe) != false || !row.IsLoaded) return;
-            SetHint(SignedOut);
-            Dim(button, true);
-            row.Visibility = Visibility.Visible;
-        };
-
-        async Task Follow(Task<bool> signIn)
-        {
-            Dim(button, false);
-            SetHint("Finish in your browser…");
-            bool ok = await signIn;
-            if (!row.IsLoaded) return;
-            if (ok)
-            {
-                SetHint("Signed in to Claude Code.");
-                button.Visibility = Visibility.Collapsed;
-                return;
-            }
-            Dim(button, true);
-            SetHint("Not signed in yet. Press Sign in to try again.");
-        }
-    }
     void CalendarRows()
     {
         var link = Links.Calendar;
