@@ -204,6 +204,18 @@ public static class PetActivities
             ? ""
             : title.Trim();
 
+    /// <summary>
+    /// A quiet peek's one line: who it's from and the first words ("Riya: are you joining at 8?"), cut to fit;
+    /// only who while the screen may be seen.
+    /// </summary>
+    public static string PeekValue(string title, string body, string appName, bool presenting, int max = 44)
+    {
+        string who = NotifyValue(title, appName, presenting);
+        string words = presenting ? "" : string.Join(" ", (body ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        string line = who.Length > 0 && words.Length > 0 ? $"{who}: {words}" : who.Length > 0 ? who : words;
+        return line.Length <= max ? line : line[..(max - 1)].TrimEnd() + "…";
+    }
+
     /// <summary>"12:41" or "1:02:03": a call or recording's running time.</summary>
     public static string Clock(TimeSpan elapsed) => Productivity.TimeFormat.Elapsed(elapsed);
 }

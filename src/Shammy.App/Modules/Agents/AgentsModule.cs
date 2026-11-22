@@ -53,8 +53,12 @@ internal sealed partial class AgentsModule : IShammyModule
     public const string ModuleName = "agents";
     const string CardId = "agents", MainId = "agents.main", OtherId = "agents.other", DoneId = "agents.done";
 
-    /// <summary>Working sits just above music; waiting on you with no card to answer on is worth more; "Done" is a moment.</summary>
-    const int WorkingPriority = 24, WaitingPriority = 46, DonePriority = 44;
+    /// <summary>
+    /// Only without the steps wing does Claude show on the island at all: working sits just under music (a song keeps
+    /// the island), waiting on you with no card to answer on is worth more, and "Done" is a moment. With the wing on,
+    /// Claude never takes the island: the wing shows it all.
+    /// </summary>
+    const int WorkingPriority = 18, WaitingPriority = 46, DonePriority = 44;
 
     readonly AgentSessions _sessions = new();
     readonly List<PendingAsk> _asks = new();
@@ -388,11 +392,13 @@ internal sealed partial class AgentsModule : IShammyModule
 
     void Sync(bool force = false)
     {
-        var live = _sessions.Live;
+        // With the steps wing on, Claude lives in the wing alone: nothing of it on the island.
+        var live = WingOn ? Array.Empty<AgentSession>() : _sessions.Live;
         string key = string.Join("|", live.Take(2).Select(s => $"{s.Id}:{s.State}:{CanOpen(s.Id)}"));
         if (force || key != _posted)
         {
             _posted = key;
+            if (WingOn) _ctx.Remove(DoneId);
             // Ties go to the newest post, so the session that owns the row is posted last.
             if (live.Count > 1) PostLive(OtherId, ref _other, live[1]);
             else
@@ -430,6 +436,8 @@ internal sealed partial class AgentsModule : IShammyModule
 
     void PostDone(AgentSession s)
     {
+        // Done shows in the wing alone while it's on.
+        if (WingOn) return;
         string session = s.Id;
         var content = new AgentPetContent(this, session, finished: true);
         _ctx.Post(new Activity(DoneId, ActivityKind.Custom, DonePriority, content, DateTime.UtcNow + AgentSessions.DoneStays)

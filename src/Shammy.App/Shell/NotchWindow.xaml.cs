@@ -699,6 +699,8 @@ public partial class NotchWindow : Window
         }, this, a.Id);
         Color? color = a switch
         {
+            // A quiet peek (a call, a meeting, focus) stays quiet: no flash of the edge either.
+            { Kind: ActivityKind.Notification, Payload: NotificationPayload { Peek: true } } => null,
             { Kind: ActivityKind.Notification } => Ui.Tokens.Accent.Color,
             { Kind: ActivityKind.Charging } => Green,
             { Kind: ActivityKind.LowBattery } => Red,

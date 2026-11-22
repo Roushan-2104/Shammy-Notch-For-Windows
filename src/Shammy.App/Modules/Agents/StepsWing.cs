@@ -205,9 +205,14 @@ internal sealed class StepsWing : Window
         string.Join("\u001e", v.Steps.Select(s => $"{s.Text}{s.Failed}{s.Running}{s.Tag}{s.TagColor}")),
         string.Join("\u001e", v.Options.Select(o => o.Label + o.Description)));
 
+    /// <summary>The turning Claude marks on show: stopped when the wing is redrawn, so no endless clock is left ticking.</summary>
+    static readonly List<RotateTransform> Spins = new();
+
     void Build()
     {
         _clock = null;
+        foreach (var spin in Spins) spin.BeginAnimation(RotateTransform.AngleProperty, null);
+        Spins.Clear();
         _slab.Width = _view.Mode == WingMode.Line ? double.NaN : FullWidth;
         _slab.MaxWidth = LineMaxWidth;
         _slab.CornerRadius = new CornerRadius(_view.Mode == WingMode.Line ? 17 : 18);
@@ -233,7 +238,12 @@ internal sealed class StepsWing : Window
         head.ColumnDefinitions.Add(new ColumnDefinition());
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        head.Children.Add(Text(_view.Header, 12, Weight.SemiBold, ScreenKit.Fg));
+        var title = new StackPanel { Orientation = Orientation.Horizontal };
+        title.Children.Add(ClaudeMark(15));
+        var header = Text(_view.Header, 12, Weight.SemiBold, ScreenKit.Fg);
+        header.Margin = new Thickness(7, 0, 0, 0);
+        title.Children.Add(header);
+        head.Children.Add(title);
         var clock = _clock = Text(_view.Clock, 12, Weight.Regular, ScreenKit.Fg2);
         clock.Margin = new Thickness(8, 0, 8, 0);
         Grid.SetColumn(clock, 1);
@@ -316,7 +326,7 @@ internal sealed class StepsWing : Window
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Height = 36 };
         var s = _view.Steps.FirstOrDefault();
-        row.Children.Add(Dot(s?.Failed == true ? Red : Blue));
+        row.Children.Add(s?.Failed == true ? Dot(Red) : ClaudeMark(18));
         var words = Text(s?.Text ?? _view.Header, 13, Weight.Regular, s?.Failed == true ? RedText : ScreenKit.Fg);
         words.Margin = new Thickness(8, 0, 8, 0);
         words.MaxWidth = LineMaxWidth - 110;
@@ -335,7 +345,7 @@ internal sealed class StepsWing : Window
     UIElement HintRow()
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(Dot(Blue));
+        row.Children.Add(ClaudeMark(16));
         var words = Text(_view.Title, 13, Weight.SemiBold, ScreenKit.Fg);
         words.Margin = new Thickness(8, 0, 0, 0);
         row.Children.Add(words);
@@ -640,6 +650,37 @@ internal sealed class StepsWing : Window
         var p = new Pressable(Brushes.Transparent, Ui.Tokens.Brush("#0FFFFFFF")) { Child = child, CornerRadius = new CornerRadius(radius) };
         p.Click += click;
         return p;
+    }
+
+    static readonly Brush Clay = Ui.Tokens.Brush("#E8956B");
+
+    /// <summary>
+    /// Claude's mark, slowly turning while it works: a four-point spark with a small companion dot. The turn is an
+    /// ambient motion, so it's held to a gentle frame rate (this window is redrawn for every frame it moves).
+    /// </summary>
+    static UIElement ClaudeMark(double size)
+    {
+        var spark = new Path
+        {
+            Data = Geometry.Parse("M10,2.5 L11.6,6.9 L16,8.5 L11.6,10.1 L10,14.5 L8.4,10.1 L4,8.5 L8.4,6.9 Z M15.5,13.6 A1.4,1.4 0 1 1 15.49,13.6 Z"),
+            Fill = Clay,
+            Stretch = Stretch.Uniform,
+            Width = size,
+            Height = size,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransformOrigin = new Point(0.5, 0.5),
+        };
+        System.Windows.Automation.AutomationProperties.SetName(spark, "Claude is working");
+        if (MotionPrefs.Lively)
+        {
+            var turn = new RotateTransform();
+            spark.RenderTransform = turn;
+            Spins.Add(turn);
+            var spin = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(2.8)) { RepeatBehavior = RepeatBehavior.Forever };
+            Timeline.SetDesiredFrameRate(spin, 24);
+            turn.BeginAnimation(RotateTransform.AngleProperty, spin);
+        }
+        return spark;
     }
 
     static UIElement Dot(Brush fill) => new Ellipse { Width = 7, Height = 7, Fill = fill, VerticalAlignment = VerticalAlignment.Center };

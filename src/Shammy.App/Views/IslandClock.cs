@@ -60,10 +60,34 @@ internal sealed class IslandClock : StackPanel
     public bool ShowDate => _date is not null;
 
     /// <summary>What it shows ("3:24 pm", "3:24 pm Sun 15 Nov"), for tests and the log.</summary>
-    public string Text => (_time.Text + (_ampm.Text.Length > 0 ? " " + _ampm.Text : "") + (_date is null ? "" : " " + _date.Text)).Trim();
+    public string Text => (_time.Text + (_ampm.Text.Length > 0 && _ampm.Visibility == Visibility.Visible ? " " + _ampm.Text : "") + (_date is null ? "" : " " + _date.Text)).Trim();
+
+    string? _timer;
+
+    /// <summary>
+    /// A running timer's countdown ("12:40") in the time's place while a song keeps the island; null puts the time back.
+    /// Called once a second by the pet's refresh, so it never needs its own tick.
+    /// </summary>
+    public void ShowTimer(string? countdown)
+    {
+        if (_timer == countdown) return;
+        _timer = countdown;
+        _time.Foreground = countdown is null ? Ui.Tokens.Res("WallText") : TimerInk;
+        Refresh();
+    }
+
+    static readonly System.Windows.Media.Brush TimerInk = Ui.Tokens.Brush("#F5B97A");
 
     public void Refresh()
     {
+        if (_timer is { } countdown)
+        {
+            _time.Text = countdown;
+            _ampm.Visibility = Visibility.Collapsed;
+            if (_date is not null) _date.Text = "";
+            _tick.Stop();
+            return;
+        }
         var now = DateTime.Now;
         var (time, suffix) = ClockPreference.Parts(now.Hour, now.Minute);
         _time.Text = time;

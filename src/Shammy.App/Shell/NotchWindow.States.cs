@@ -32,7 +32,8 @@ public partial class NotchWindow
                 : NotchMode.Hidden;
         else if (_dragging) mode = NotchMode.Drop;
         else if (_cardOpen) mode = NotchMode.Card;
-        else if (_activity?.Kind == ActivityKind.Notification && !_hoverExpanded)
+        // A quiet peek (a call, a meeting, focus) is the pet's one line, not the card.
+        else if (_activity is { Kind: ActivityKind.Notification, Payload: not NotificationPayload { Peek: true } } && !_hoverExpanded)
             mode = NotchMode.Notification;
         else if (_hoverExpanded) mode = NotchMode.Expanded;
         else if (_peeking) mode = NotchMode.Peek;

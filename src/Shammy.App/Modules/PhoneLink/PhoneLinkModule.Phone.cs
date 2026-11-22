@@ -256,7 +256,36 @@ internal sealed partial class PhoneLinkModule
             ("Decline", () => AnswerCall(false)), ("Answer", () => AnswerCall(true)));
         _ctx.ShowCard(card, PhonePeek.CardWidth, PhonePeek.CardHeight, interactive: false);
         PlayPhoneChime();
+        PauseMusicForCall();
         _ctx.Info("A call is ringing on the phone");
+    }
+
+    /// <summary>Music on the laptop that Shammy paused for a ringing call (and so may start again).</summary>
+    bool _pausedForCall;
+    /// <summary>Which app's music was paused, so only that one is started again.</summary>
+    string _pausedApp = "";
+
+    /// <summary>A call rings: music playing on the laptop pauses, so you can hear it and talk.</summary>
+    void PauseMusicForCall()
+    {
+        var media = _ctx.Services.Media;
+        if (_pausedForCall || !media.IsPlaying) return;
+        _pausedForCall = true;
+        _pausedApp = media.SourceApp;
+        media.TogglePlayPause();
+    }
+
+    /// <summary>
+    /// Declined from the notch: the music comes back. After a call you answered it stays paused (Shammy can't tell
+    /// when that call ends); start it again whenever you like.
+    /// </summary>
+    void ResumeMusicAfterCall(bool answered)
+    {
+        if (!_pausedForCall) return;
+        _pausedForCall = false;
+        var media = _ctx.Services.Media;
+        // Only the app that was paused, and only if Windows still shows it (pausing can move it on to another one).
+        if (!answered && media.HasSession && !media.IsPlaying && media.SourceApp == _pausedApp) media.TogglePlayPause();
     }
 
     string AnswerCall(bool answer)
@@ -264,6 +293,7 @@ internal sealed partial class PhoneLinkModule
         if (_callKey is not { } key) return "error: no call";
         PhoneDo(answer ? "answer" : "decline", new JsonObject { ["key"] = key });
         _answeredKey = key;
+        ResumeMusicAfterCall(answered: answer);
         CloseCall();
         return answer ? "answered" : "declined";
     }
@@ -272,12 +302,20 @@ internal sealed partial class PhoneLinkModule
     void CallGone(string key)
     {
         if (key == _answeredKey) _answeredKey = null;
-        if (key == _callKey) CloseCall();
+        if (key == _callKey)
+        {
+            // Stopped ringing on the phone: missed, declined there, or picked up there. Shammy can't tell which, so
+            // the music stays paused (starting it again in the middle of a call would be worse).
+            _pausedForCall = false;
+            CloseCall();
+        }
     }
 
     void CloseCall()
     {
         _callKey = null;
+        // However it ended (answered, declined, gone, the phone dropped): nothing left to start again.
+        _pausedForCall = false;
         if (_callCard is { } c && ReferenceEquals(_ctx.Notch.OpenCardContent, c)) _ctx.CloseCard();
         _callCard = null;
     }

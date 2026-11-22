@@ -35,6 +35,9 @@ internal sealed class MediaService : IDisposable
     public ImageSource? Art { get; private set; }
     public Color ArtColor { get; private set; } = Colors.White;
     public bool IsPlaying { get; private set; }
+
+    /// <summary>The app behind the session shown ("Spotify.exe", "Chrome"), empty for none.</summary>
+    public string SourceApp => _session?.SourceAppUserModelId ?? "";
     public TimeSpan Duration { get; private set; }
     public bool CanSeek { get; private set; }
     public bool CanSkipNext { get; private set; }
