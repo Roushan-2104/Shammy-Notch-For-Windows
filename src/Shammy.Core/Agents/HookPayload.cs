@@ -33,6 +33,18 @@ public sealed record AgentEvent(AgentEventKind Kind, string SessionId, string Cw
     IReadOnlyDictionary<string, string> Fields)
 {
     public string Field(string name) => Fields.TryGetValue(name, out var v) ? v : "";
+
+    /// <summary>Claude Code's id for this tool call (ties a PreToolUse to its PostToolUse); empty when there was none.</summary>
+    public string ToolUseId { get; init; } = "";
+
+    /// <summary>
+    /// The tool's whole input as JSON, kept only for the tools whose input is a structure the wing reads (Claude's
+    /// questions, its task list); empty otherwise.
+    /// </summary>
+    public string Input { get; init; } = "";
+
+    /// <summary>The text of Claude's final reply (Stop's "last_assistant_message"), cut to a sane length.</summary>
+    public string LastMessage { get; init; } = "";
 }
 
 /// <summary>
@@ -52,11 +64,20 @@ public static class HookPayload
         "command", "file_path", "notebook_path", "path", "url", "pattern", "query", "description", "skill", "subagent_type",
     };
 
+    /// <summary>Tools whose whole input is kept (<see cref="AgentEvent.Input"/>): small structures the wing reads.</summary>
+    public static readonly IReadOnlySet<string> KeepInput = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "AskUserQuestion", "TodoWrite", "TaskCreate", "TaskUpdate",
+    };
+
+    /// <summary>Largest kept input (a question list or a task list is far smaller).</summary>
+    public const int MaxInput = 64 * 1024;
+
     /// <summary>Null when it isn't a hook payload (no JSON object, or no usable session id).</summary>
     public static AgentEvent? Parse(ReadOnlySpan<byte> utf8)
     {
         if (utf8.Length >= 3 && utf8[0] == 0xEF && utf8[1] == 0xBB && utf8[2] == 0xBF) utf8 = utf8[3..];
-        string session = "", cwd = "", hookEvent = "", tool = "", notification = "";
+        string session = "", cwd = "", hookEvent = "", tool = "", notification = "", toolUseId = "", input = "", lastMessage = "";
         var fields = new Dictionary<string, string>(StringComparer.Ordinal);
         try
         {
@@ -75,6 +96,14 @@ public static class HookPayload
                     case JsonTokenType.PropertyName when depth == 2 && inToolInput:
                         toolField = reader.GetString();
                         break;
+                    case JsonTokenType.StartObject when depth == 1 && name == "tool_input" && KeepInput.Contains(tool):
+                    {
+                        // The whole object, as text: the wing reads its structure. A cut-off one is left out.
+                        long from = reader.TokenStartIndex;
+                        if (reader.TrySkip() && reader.BytesConsumed - from <= MaxInput)
+                            input = System.Text.Encoding.UTF8.GetString(utf8[(int)from..(int)reader.BytesConsumed]);
+                        break;
+                    }
                     case JsonTokenType.StartObject when depth == 1:
                         inToolInput = name == "tool_input";
                         break;
@@ -89,6 +118,8 @@ public static class HookPayload
                             case "hook_event_name": hookEvent = Cut(reader.GetString(), 64); break;
                             case "tool_name": tool = Cut(reader.GetString(), 200); break;
                             case "notification_type": notification = Cut(reader.GetString(), 64); break;
+                            case "tool_use_id": toolUseId = Cut(reader.GetString(), MaxId); break;
+                            case "last_assistant_message": lastMessage = Cut(reader.GetString()); break;
                         }
                         break;
                     case JsonTokenType.String when depth == 2 && inToolInput && toolField is not null && ToolFields.Contains(toolField):
@@ -107,7 +138,12 @@ public static class HookPayload
         }
 
         if (session.Length is 0 or > MaxId || session.Any(char.IsControl) || hookEvent.Length == 0) return null;
-        return new AgentEvent(Kind(hookEvent, notification), session, cwd, hookEvent, tool, fields);
+        return new AgentEvent(Kind(hookEvent, notification), session, cwd, hookEvent, tool, fields)
+        {
+            ToolUseId = toolUseId,
+            Input = input,
+            LastMessage = lastMessage,
+        };
     }
 
     static string Cut(string? value, int max = MaxField)

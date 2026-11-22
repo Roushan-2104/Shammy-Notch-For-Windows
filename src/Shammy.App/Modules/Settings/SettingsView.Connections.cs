@@ -73,6 +73,8 @@ internal partial class SettingsView
         row.Unloaded += (_, _) => Shammy.Modules.Agents.AgentsLink.Changed -= Show;
         SwitchRow("Ask me in the notch", "Allow and Deny drop from the notch when Claude Code needs an OK. Off shows status only.",
             nameof(AppSettings.AgentsAskInNotch), "Asking in the notch", "Status only", words: "claude allow deny");
+        SwitchRow("Claude's steps beside the notch", "While you're in another app, a small wing shows Claude Code's task list and last few steps, and its questions pop out there.",
+            nameof(AppSettings.AgentsStepsWing), "Showing the steps", "Off", words: "claude steps progress wing questions");
     }
 
     void CalendarRows()

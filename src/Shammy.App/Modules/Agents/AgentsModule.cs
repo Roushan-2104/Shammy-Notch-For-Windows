@@ -26,6 +26,9 @@ internal sealed class AgentsStore
 
     public string SeenDay { get; set; } = "";
     public List<string> SeenIds { get; set; } = new();
+
+    /// <summary>The steps wing is slid in to one line (the user's choice, kept).</summary>
+    public bool WingSlidIn { get; set; }
 }
 
 /// <summary>
@@ -45,7 +48,7 @@ internal sealed class AgentsStore
 /// "agents-connect" / "agents-disconnect" (the real thing, but only on a path given this way); "agents-advance
 /// &lt;seconds&gt;"; "agents-window &lt;session&gt;" (treat the front window as that session's); "agents-open &lt;session&gt;".
 /// </summary>
-internal sealed class AgentsModule : IShammyModule
+internal sealed partial class AgentsModule : IShammyModule
 {
     public const string ModuleName = "agents";
     const string CardId = "agents", MainId = "agents.main", OtherId = "agents.other", DoneId = "agents.done";
@@ -106,9 +109,10 @@ internal sealed class AgentsModule : IShammyModule
 
         _card = new ApprovalCard(() => AnswerCard(true), () => AnswerCard(false));
         // the phone link answers from the phone's notch through the same path as the card's buttons
-        AgentsLink.Waiting = () => _asks.Count > 0
-            ? (_asks[0].ArrivedUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture), AgentText.CardLabel(_asks[0].Request.Cwd),
-               AgentText.Wants(_asks[0].Request.ToolName), AgentText.Detail(_asks[0].Request))
+        // (Claude's own questions need their choices, which the phone can't show: those stay on the laptop.)
+        AgentsLink.Waiting = () => _asks.FirstOrDefault(a => !IsQuestion(a)) is { } first
+            ? (first.ArrivedUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture), AgentText.CardLabel(first.Request.Cwd),
+               AgentText.Wants(first.Request.ToolName), AgentText.Detail(first.Request))
             : null;
         AgentsLink.Answer = AnswerCard;
         _tick.Tick += (_, _) => Tick();
@@ -159,6 +163,7 @@ internal sealed class AgentsModule : IShammyModule
         AgentsLink.View = View;
         AgentsLink.Press = Press;
         ctx.Settings.Changed += OnSettingChanged;
+        InitWing();
 
         // Start-up never touches Claude Code's settings: it only opens the door the user already connected.
         if (_store.Connected && Endpoint is not null)
@@ -181,6 +186,7 @@ internal sealed class AgentsModule : IShammyModule
         _asks.Clear();
         _listener?.Dispose();
         _listener = null;
+        DisposeWing();
     }
 
     // ---- Listening ---------------------------------------------------------------------------------
@@ -269,7 +275,9 @@ internal sealed class AgentsModule : IShammyModule
     void OnEvent(AgentEvent e)
     {
         if (_disposed) return;
-        var change = _sessions.Apply(e, Now, Today);
+        NoteForWing(e);
+        // A tool starting says nothing new about the session (its end does); it only introduces one heard of late.
+        var change = e.HookEvent == "PreToolUse" && _sessions.Find(e.SessionId) is not null ? AgentChange.None : _sessions.Apply(e, Now, Today);
         if (change == AgentChange.Removed)
         {
             _windows.TryRemove(e.SessionId, out _);
@@ -277,14 +285,16 @@ internal sealed class AgentsModule : IShammyModule
             {
                 ask.Answer.TrySetResult(AgentText.NoDecision);
                 _asks.Remove(ask);
+                _questions.Remove(ask);
             }
             if (_ctx.Get(DoneId)?.Payload is AgentPetContent done && done.SessionId == e.SessionId) _ctx.Remove(DoneId);
         }
         else if (change == AgentChange.Finished && _sessions.Find(e.SessionId) is { } finished) PostDone(finished);
         else if (change == AgentChange.Working && _ctx.Get(DoneId)?.Payload is AgentPetContent stale && stale.SessionId == e.SessionId) _ctx.Remove(DoneId);
         RememberSeen();
-        // A tool finishing while it works (the common event) changes nothing on screen.
+        // A tool finishing while it works (the common event) changes nothing on the island; the wing shows each step.
         if (change != AgentChange.None) Sync();
+        else RefreshWing();
     }
 
     void OnAsk(PendingAsk ask)
@@ -300,7 +310,9 @@ internal sealed class AgentsModule : IShammyModule
         RememberSeen();
         // No card: switched off, a question only the terminal can answer, or a fullscreen app in front. The
         // hook gets "no decision" at once, so Claude Code's own prompt appears without any wait.
-        if (!_ctx.Settings.AgentsAskInNotch || !AgentText.CanAnswer(e.ToolName) || _ctx.Notch.IsFullscreen)
+        // The wing takes Allow/Deny and Claude's own questions, even over a fullscreen app (a question breaks in).
+        bool wing = WingTakes(ask);
+        if (!wing && (!_ctx.Settings.AgentsAskInNotch || !AgentText.CanAnswer(e.ToolName) || _ctx.Notch.IsFullscreen))
         {
             ask.Answer.TrySetResult(AgentText.NoDecision);
             Sync();
@@ -321,6 +333,7 @@ internal sealed class AgentsModule : IShammyModule
     void EndAsk(PendingAsk ask, bool answered)
     {
         _asks.Remove(ask);
+        _questions.Remove(ask);
         _sessions.Release(ask.Request.SessionId, answered, Now);
         Sync();
     }
@@ -328,7 +341,9 @@ internal sealed class AgentsModule : IShammyModule
     /// <summary>Allow or Deny on the card: answers the one request it shows. Returns what the hook will print.</summary>
     string AnswerCard(bool allow)
     {
-        if (_card.Ask is not { } ask || !_asks.Contains(ask)) return "error: no request waiting";
+        // The card's request, or (the wing or the phone answering) the oldest Allow/Deny waiting.
+        var ask = _card.Ask is { } shown && _asks.Contains(shown) ? shown : _asks.FirstOrDefault(a => !IsQuestion(a));
+        if (ask is null) return "error: no request waiting";
         string json = allow ? AgentText.AllowJson : AgentText.DenyJson;
         // Too late (it timed out a moment ago): nothing is printed and Claude Code asks in its own window.
         if (!ask.Answer.TrySetResult(json)) json = AgentText.NoDecision;
@@ -338,6 +353,13 @@ internal sealed class AgentsModule : IShammyModule
 
     void OnSettingChanged(string name)
     {
+        if (name == nameof(AppSettings.AgentsStepsWing))
+        {
+            // Off with a question up in the wing: hand it back to Claude Code.
+            if (!WingOn) PassBack(_asks.Where(IsQuestion));
+            Sync(force: true);
+            return;
+        }
         if (name != nameof(AppSettings.AgentsAskInNotch) || _ctx.Settings.AgentsAskInNotch) return;
         // Switched off with a card up: hand the questions back to Claude Code.
         PassBack(_asks);
@@ -383,6 +405,7 @@ internal sealed class AgentsModule : IShammyModule
         _agentsCard?.Refresh();
         _ctx.CardsChanged();
         ShowCardIfNeeded();
+        RefreshWing();
         UpdateTimer();
     }
 
@@ -454,6 +477,9 @@ internal sealed class AgentsModule : IShammyModule
     /// <summary>A request whose card couldn't be put on screen for this long goes back to Claude Code's own prompt.</summary>
     static readonly TimeSpan UnseenLimit = TimeSpan.FromSeconds(15);
 
+    /// <summary>The same, for the wing breaking in over a fullscreen app (it may be drawn over by a game).</summary>
+    static readonly TimeSpan UnseenFullscreen = TimeSpan.FromSeconds(60);
+
     /// <summary>
     /// Puts the oldest unanswered request on the card. It shows over quiet mode (the user set the agent going and it
     /// is waiting on them), never over a fullscreen app, and never on top of another card such as a ringing alarm:
@@ -462,7 +488,8 @@ internal sealed class AgentsModule : IShammyModule
     void ShowCardIfNeeded()
     {
         AgentsLink.RaiseAskChanged();
-        if (_asks.Count == 0)
+        // The wing asks instead: the island's card stays away.
+        if (_asks.Count == 0 || WingAsks)
         {
             if (_cardUp && _card.Parent is not null) _ctx.CloseCard();
             _cardUp = false;
@@ -497,6 +524,7 @@ internal sealed class AgentsModule : IShammyModule
         {
             ask.Answer.TrySetResult(AgentText.NoDecision);
             _asks.Remove(ask);
+            _questions.Remove(ask);
             _sessions.Release(ask.Request.SessionId, answered: false, Now);
         }
         Sync();
@@ -505,7 +533,9 @@ internal sealed class AgentsModule : IShammyModule
     void UpdateTimer()
     {
         // A second while a request waits (its clock); otherwise now and then, to forget silent sessions.
-        var interval = _asks.Count > 0 ? TimeSpan.FromSeconds(1) : _sessions.Count > 0 ? TimeSpan.FromSeconds(20) : TimeSpan.Zero;
+        // The wing follows which window is in front and its clock, so a second while it has anything to show.
+        bool wingBusy = WingOn && (_sessions.Live.Count > 0 || _endQuestion is not null || _wing is { IsVisible: true });
+        var interval = _asks.Count > 0 || wingBusy ? TimeSpan.FromSeconds(1) : _sessions.Count > 0 ? TimeSpan.FromSeconds(20) : TimeSpan.Zero;
         if (interval == TimeSpan.Zero)
         {
             _tick.Stop();
@@ -521,14 +551,16 @@ internal sealed class AgentsModule : IShammyModule
         if (_sessions.Sweep(Now) > 0)
         {
             foreach (var id in _windows.Keys.Where(id => _sessions.Find(id) is null).ToList()) _windows.TryRemove(id, out _);
+            foreach (var id in _tagColors.Keys.Concat(_tasks.Sessions).Distinct().Where(id => _sessions.Find(id) is null).ToList()) ForgetForWing(id);
             Sync();
         }
         if (_asks.Count > 0)
         {
             // A fullscreen app came to the front, or something else holds the notch: don't keep Claude Code waiting
-            // on a card nobody can see.
-            if (_ctx.Notch.IsFullscreen) PassBack(_asks);
-            else if (!_asks[0].Shown && Now - _asks[0].ArrivedUtc > UnseenLimit) PassBack(_asks.Take(1));
+            // on a card nobody can see. The wing breaks in over full screen, so it gets a minute before handing back.
+            var unseen = WingAsks && _ctx.Notch.IsFullscreen ? UnseenFullscreen : UnseenLimit;
+            if (_ctx.Notch.IsFullscreen && !WingAsks) PassBack(_asks);
+            else if (!_asks[0].Shown && Now - _asks[0].ArrivedUtc > unseen) PassBack(_asks.Take(1));
         }
         if (_asks.Count > 0)
         {
@@ -537,6 +569,7 @@ internal sealed class AgentsModule : IShammyModule
         }
         _main?.Refresh();
         _other?.Refresh();
+        RefreshWing();
         UpdateTimer();
     }
 
@@ -597,6 +630,8 @@ internal sealed class AgentsModule : IShammyModule
         StopListener();
         _sessions.Clear();
         _windows.Clear();
+        _questions.Clear();
+        ClearWing();
         _ctx.Remove(DoneId);
         Sync(force: true);
         _ctx.Info("disconnected from Claude Code");
@@ -633,7 +668,7 @@ internal sealed class AgentsModule : IShammyModule
     {
         var words = arg.Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
         if (words.Length < 2)
-            return "error: usage agents-fake prompt|tool|permission|needs|idle|stop|fail|end|gone|timeout <session> [tool] [detail]";
+            return "error: usage agents-fake prompt|pretool|tool|toolfail|todo|permission|question|needs|idle|stop|stopq|fail|end|gone|timeout <session> [tool] [detail]";
         string kind = words[0].ToLowerInvariant(), session = words[1];
         string tool = words.Length > 2 ? words[2] : kind == "permission" ? "Bash" : "";
         string detail = words.Length > 3 ? words[3] : "";
@@ -649,8 +684,11 @@ internal sealed class AgentsModule : IShammyModule
         string? hookEvent = kind switch
         {
             "prompt" => "UserPromptSubmit",
-            "tool" => "PostToolUse",
-            "permission" => "PermissionRequest",
+            "tool" or "todo" => "PostToolUse",
+            "pretool" => "PreToolUse",
+            "toolfail" => "PostToolUseFailure",
+            "permission" or "question" => "PermissionRequest",
+            "stopq" => "Stop",
             "needs" or "idle" => "Notification",
             "stop" => "Stop",
             "fail" => "StopFailure",
@@ -669,7 +707,24 @@ internal sealed class AgentsModule : IShammyModule
         };
         if (kind is "needs") payload["notification_type"] = "permission_prompt";
         if (kind is "idle") payload["notification_type"] = "idle_prompt";
-        if (tool.Length > 0)
+        // A start and its end with the same tool and detail are the same call.
+        if (kind is "tool" or "pretool" or "toolfail") payload["tool_use_id"] = $"fake-{session}-{tool}-{detail}".GetHashCode().ToString("x8", CultureInfo.InvariantCulture);
+        // "stopq <session> <tool-ignored> <message>": a reply that ends on a question.
+        if (kind is "stopq") payload["last_assistant_message"] = (tool + " " + detail).Trim().Replace("\\n", "\n");
+        if (kind is "question")
+        {
+            // "question <session> <header> <question>": Claude's own question with two choices (and a multiple choice).
+            payload["tool_name"] = "AskUserQuestion";
+            payload["tool_input"] = JsonDocument.Parse(AgentJson.Questions(
+                (detail.Length > 0 ? detail : "Which side should the hero picture sit on?", tool.Length > 0 ? tool : "Hero", new[] { "Right side", "Left side" }, false),
+                ("Which pages should change?", "Pages", new[] { "Home", "Download", "Phone" }, true))).RootElement;
+        }
+        else if (kind is "todo")
+        {
+            payload["tool_name"] = "TodoWrite";
+            payload["tool_input"] = JsonDocument.Parse("""{"todos":[{"content":"Find the cause","status":"completed","activeForm":"Finding the cause"},{"content":"Fix the music card","status":"in_progress","activeForm":"Fixing the music card"},{"content":"Run the tests","status":"pending","activeForm":"Running the tests"}]}""").RootElement;
+        }
+        else if (tool.Length > 0 && kind is not "stopq")
         {
             payload["tool_name"] = tool;
             string field = tool switch
