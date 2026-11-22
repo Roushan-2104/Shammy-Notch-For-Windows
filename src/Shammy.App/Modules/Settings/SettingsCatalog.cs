@@ -76,6 +76,7 @@ internal static class SettingsCatalog
         ("GesturesEnabled", Notch, "Gestures", 1, "Scroll over the notch for volume, swipe sideways to skip a track."),
         ("TuckAwayEnabled", Notch, "Tuck-away tab", 1, "A small tab under the notch slides it away for a few seconds."),
         ("NowLineEnabled", Notch, "Right now line", 1, "One line at the top of the open notch with what matters this minute."),
+        ("BlendWithScreen", Notch, "Blend with the screen", 1, "The island takes on the colours around it; nothing is kept, and it stops while you share."),
         ("NotchSize", Notch, "Notch size", 1, "Makes everything in the notch larger or smaller."),
         ("Motion", Notch, "Motion", 1, "Calm stops the bounce, the spinning record and the pet’s extras."),
         ("Palette", Notch, "Palette", 1, "The island’s waves, buttons and highlights. Album takes the colours of the song playing."),

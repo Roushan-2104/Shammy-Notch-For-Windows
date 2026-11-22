@@ -59,7 +59,7 @@ public partial class NotchWindow
             ? lives.FirstOrDefault(l => l.State.Costume == PetCostume.Timer && !l.State.Done && l.State.Value.Length > 0)
             : null;
         if (timer is not null && ReferenceEquals(_petDot, timer)) _petDot = null;
-        _activityView.Clock.ShowTimer(timer?.State.Value);
+        _activityView.Clock.ShowTimer(timer?.State.Value, timer?.State.Progress);
         bool changed = _activityView.Show(_petOwner, _services.Settings.PetEnabled);
         // A different activity took the pill while it was up: its content blurs through the change.
         if (changed && _petShowing && _mode == NotchMode.Compact && _petCompact.Opacity.Value > 0.9 && MotionPrefs.Lively)

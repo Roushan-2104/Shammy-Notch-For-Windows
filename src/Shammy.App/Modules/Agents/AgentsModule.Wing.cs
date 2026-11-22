@@ -336,11 +336,13 @@ internal sealed partial class AgentsModule
         return new WingView
         {
             Mode = WingSlidIn ? WingMode.Line : WingMode.Full,
-            Header = live.Count == 1 ? "Claude · working" : $"Claude · {live.Count} working",
+            // The spark already says Claude: the header only says where (or how many).
+            Header = live.Count == 1 ? AgentText.Folder(newest.Cwd) is { Length: > 0 } project ? project : "Working" : $"{live.Count} sessions",
             Clock = TimeFormat.Elapsed(now - newest.TurnStarted),
             Tasks = TaskWindow(_tasks.For(taskOwner)),
             Steps = recent,
             SessionId = newest.Id,
+            Live = live.Count,
             FailedCount = _failedSteps,
         };
     }
@@ -352,7 +354,7 @@ internal sealed partial class AgentsModule
         string tag = AgentText.Folder(_sessions.Find(s.SessionId)?.Cwd);
         if (tag.Length == 0) tag = "Claude";
         if (tag.Length > 14) tag = tag[..13] + "…";
-        return new WingStep(s.Text, s.Kind, tag, TagColor(s.SessionId), s.Failed, !s.Finished, s.SessionId);
+        return new WingStep(s.Text, tag, TagColor(s.SessionId), s.Failed, !s.Finished, s.SessionId);
     }
 
     /// <summary>At most four tasks, kept around the one underway (the list can be long).</summary>
@@ -396,6 +398,7 @@ internal sealed partial class AgentsModule
         if (island.IsEmpty) return;
         double px = VisualTreeHelper.GetDpi(w).DpiScaleX;
         int width = (int)Math.Round(w.ActualWidth * px), margin = (int)Math.Round(StepsWing.GlowRoom * px), gap = (int)Math.Round(StepsWing.Gap * px);
+        w.SetDotLevel(Math.Min(island.Height / px, 40) / 2);
         w.PlaceAt((int)Math.Round(island.Left) - gap - width + margin, (int)Math.Round(island.Top) - margin);
     }
 

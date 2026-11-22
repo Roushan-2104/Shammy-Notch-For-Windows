@@ -36,6 +36,8 @@ internal partial class SettingsView
             nameof(AppSettings.TuckAwayEnabled), "Tuck-away tab on", "Tuck-away tab off", words: "hide");
         SwitchRow("Right now line", "One line at the top of the open notch with what matters this minute: a meeting soon, Claude waiting, a timer, new messages.",
             nameof(AppSettings.NowLineEnabled), "Right now line on", "Right now line off");
+        SwitchRow("Blend with the screen", "The island takes on the colours around it. It looks at a thin strip under the notch every few seconds, keeps nothing, and stops while you share your screen.",
+            nameof(AppSettings.BlendWithScreen), "Blending on", "Plain dark glass", words: "tint colour glass match background");
 
         LookAndPlace();
         HiddenApps();

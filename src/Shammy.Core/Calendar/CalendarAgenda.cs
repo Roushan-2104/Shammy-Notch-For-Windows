@@ -373,6 +373,12 @@ public static class CalendarWingFit
     public const double Width = 352, Neck = 14, Margin = 8, MinScale = 0.7;
 
     /// <summary>
+    /// How many of the chosen day's plans fit under a month of <paramref name="weeks"/> rows in the island-high slab
+    /// (270 at scale 1; 250 inside its margins): the month takes 39 + 21 a week, the plans' heading 26, each plan 24.
+    /// </summary>
+    public static int PlansThatFit(int weeks) => weeks >= 6 ? 2 : 3;
+
+    /// <summary>
     /// The wing's scale: the island's own, or smaller when <paramref name="room"/> (the screen less the island and one
     /// margin, in DIPs: what the neck and the wing share) is short of it.
     /// shortcut: below <see cref="MinScale"/> it stays at that size and runs off the screen's edge.

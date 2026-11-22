@@ -17,7 +17,7 @@ namespace Shammy.Modules.Agents;
 /// <summary>What the steps wing shows right now; the module builds it, the wing only draws it.</summary>
 internal enum WingMode { Hidden, Line, Full, Hint, Done, Permission, Question, EndQuestion }
 
-internal sealed record WingStep(string Text, StepKind Kind, string Tag, int TagColor, bool Failed, bool Running, string SessionId);
+internal sealed record WingStep(string Text, string Tag, int TagColor, bool Failed, bool Running, string SessionId);
 
 internal sealed record WingView
 {
@@ -39,6 +39,8 @@ internal sealed record WingView
     /// <summary>Which question this is (the ask and, for several, which of them): a new one starts afresh.</summary>
     public string Key { get; init; } = "";
     public bool CanOpen { get; init; }
+    /// <summary>How many sessions are working (a step's project tag shows only when it's more than one).</summary>
+    public int Live { get; init; }
     /// <summary>A step just failed: the wing glows briefly (once per failure).</summary>
     public int FailedCount { get; init; }
 }
@@ -51,9 +53,9 @@ internal sealed record WingView
 /// </summary>
 internal sealed class StepsWing : Window
 {
-    public const double FullWidth = 330, LineMaxWidth = 340, Gap = 8;
+    public const double FullWidth = 300, MinFullWidth = 210, LineMaxWidth = 320, Gap = 10;
 
-    static readonly Brush Slab = Ui.Tokens.Brush("#F20B0B0D"), Edge = Ui.Tokens.Brush("#1FFFFFFF"), Soft = Ui.Tokens.Brush("#12FFFFFF"),
+    static readonly Brush Soft = Ui.Tokens.Brush("#12FFFFFF"),
         Amber = Ui.Tokens.Brush("#F2A65A"), Red = Ui.Tokens.Brush("#FF8A8A"), RedText = Ui.Tokens.Brush("#FFB3B3"),
         Green = Ui.Tokens.Brush("#3F8F5F"), Blue = Ui.Tokens.Brush("#7FB8FF"), Dim = Ui.Tokens.Brush("#6B6B73");
 
@@ -64,6 +66,7 @@ internal sealed class StepsWing : Window
     };
 
     readonly Border _slab = new();
+    readonly Ellipse _dot = new();
     readonly ScaleTransform _pop = new(1, 1);
     readonly TranslateTransform _slide = new();
     bool _hiding;
@@ -91,16 +94,31 @@ internal sealed class StepsWing : Window
         Width = LineMaxWidth + 2 * GlowRoom;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        _slab.Background = Slab;
-        _slab.BorderBrush = Edge;
+        // The island's own glass, tinted by the screen like it (live brushes: they follow the island's colour).
+        _slab.Background = IslandSurface.Fill;
+        _slab.BorderBrush = IslandSurface.Rim;
         _slab.BorderThickness = new Thickness(1);
         _slab.CornerRadius = new CornerRadius(18);
         _slab.HorizontalAlignment = HorizontalAlignment.Right;
         _slab.RenderTransformOrigin = new Point(1, 0);
         _slab.RenderTransform = new TransformGroup { Children = { _pop, _slide } };
         _slab.Effect = _glow;
+        // A simple dot in the gap between the wing and the island, level with the island's middle; it comes and goes
+        // with the slab.
+        _dot.Width = _dot.Height = 5;
+        _dot.Fill = IslandSurface.Fill;
+        _dot.Stroke = IslandSurface.Rim;
+        _dot.StrokeThickness = 1;
+        _dot.HorizontalAlignment = HorizontalAlignment.Right;
+        _dot.VerticalAlignment = VerticalAlignment.Top;
+        _dot.IsHitTestVisible = false;
+        _dot.SetBinding(OpacityProperty, new System.Windows.Data.Binding(nameof(Opacity)) { Source = _slab });
+        SetDotLevel(18);
         // Room for the glow, so it isn't cut at the window's edge.
-        Content = new Border { Padding = new Thickness(12), Child = _slab };
+        var room = new Grid();
+        room.Children.Add(new Border { Padding = new Thickness(GlowRoom), Child = _slab });
+        room.Children.Add(_dot);
+        Content = room;
 
         SizeChanged += (_, _) => Placed?.Invoke();
         SourceInitialized += (_, _) =>
@@ -126,6 +144,10 @@ internal sealed class StepsWing : Window
     public const double GlowRoom = 12;
 
     public bool IsTyping => _typing;
+
+    /// <summary>Puts the dot level with the middle of the closed island (<paramref name="islandHalf"/> DIPs below its top).</summary>
+    public void SetDotLevel(double islandHalf) =>
+        _dot.Margin = new Thickness(0, GlowRoom + islandHalf - 2.5, GlowRoom - Gap / 2 - 2.5, 0);
 
     public WingView View => _view;
 
@@ -200,21 +222,24 @@ internal sealed class StepsWing : Window
 
     /// <summary>Everything drawn except the clock.</summary>
     static string Signature(WingView v) => string.Join("\u001f",
-        v.Mode, v.Key, v.Header, v.Label, v.Title, v.Detail, v.Progress, v.CanOpen, v.MultiSelect, v.SessionId,
+        v.Mode, v.Key, v.Live, v.Header, v.Label, v.Title, v.Detail, v.Progress, v.CanOpen, v.MultiSelect, v.SessionId,
         string.Join("\u001e", v.Tasks.Select(t => t.Mark + t.Text)),
         string.Join("\u001e", v.Steps.Select(s => $"{s.Text}{s.Failed}{s.Running}{s.Tag}{s.TagColor}")),
         string.Join("\u001e", v.Options.Select(o => o.Label + o.Description)));
 
-    /// <summary>The turning Claude marks on show: stopped when the wing is redrawn, so no endless clock is left ticking.</summary>
-    static readonly List<RotateTransform> Spins = new();
+    /// <summary>The endless motions on show (the turning spark, the breathing node): stopped when the wing is redrawn,
+    /// so no clock is left ticking on parts that are gone.</summary>
+    static readonly List<Action> Loops = new();
 
     void Build()
     {
         _clock = null;
-        foreach (var spin in Spins) spin.BeginAnimation(RotateTransform.AngleProperty, null);
-        Spins.Clear();
-        _slab.Width = _view.Mode == WingMode.Line ? double.NaN : FullWidth;
-        _slab.MaxWidth = LineMaxWidth;
+        StopLoops();
+        // Questions keep a set width (their words wrap); everything else is only as wide as its words.
+        bool asking = _view.Mode is WingMode.Permission or WingMode.Question or WingMode.EndQuestion;
+        _slab.Width = asking ? FullWidth : double.NaN;
+        _slab.MinWidth = _view.Mode == WingMode.Full ? MinFullWidth : 0;
+        _slab.MaxWidth = _view.Mode == WingMode.Line ? LineMaxWidth : FullWidth;
         _slab.CornerRadius = new CornerRadius(_view.Mode == WingMode.Line ? 17 : 18);
         _slab.Padding = _view.Mode == WingMode.Line ? new Thickness(14, 0, 4, 0) : new Thickness(16, 12, 14, 12);
         _slab.Child = _view.Mode switch
@@ -231,93 +256,160 @@ internal sealed class StepsWing : Window
 
     // ---- Working: the task list on top, the last few steps below ---------------------------------------
 
+    /// <summary>A point on the thread: done (a small filled node), now (Claude's clay, glowing), next (hollow), failed (red).</summary>
+    enum Node { Done, Now, Next, Failed }
+
+    sealed record ThreadItem(string Text, Node Node, string Sub, WingStep? Step);
+
+    /// <summary>
+    /// Working: the spark, where and how long, then the work as a thread. With a task list the thread is the plan (done,
+    /// the one underway with its latest step under it, what's next); without one it's the last few steps, oldest first,
+    /// the newest at the bottom. Only as wide as its words need.
+    /// </summary>
     UIElement FullBody()
     {
         var stack = new StackPanel();
         var head = new Grid();
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition());
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var title = new StackPanel { Orientation = Orientation.Horizontal };
-        title.Children.Add(ClaudeMark(15));
-        var header = Text(_view.Header, 12, Weight.SemiBold, ScreenKit.Fg);
-        header.Margin = new Thickness(7, 0, 0, 0);
+        title.Children.Add(ClaudeMark(16));
+        var header = Text(_view.Header, 13, Weight.SemiBold, ScreenKit.Fg);
+        header.Margin = new Thickness(8, 0, 0, 0);
+        header.MaxWidth = 150;
         title.Children.Add(header);
-        head.Children.Add(title);
         var clock = _clock = Text(_view.Clock, 12, Weight.Regular, ScreenKit.Fg2);
-        clock.Margin = new Thickness(8, 0, 8, 0);
-        Grid.SetColumn(clock, 1);
-        head.Children.Add(clock);
+        clock.Margin = new Thickness(7, 1, 10, 0);
+        title.Children.Add(clock);
+        head.Children.Add(title);
         var slide = SlideButton(slideIn: true);
         Grid.SetColumn(slide, 2);
         head.Children.Add(slide);
         stack.Children.Add(head);
 
-        if (_view.Tasks.Count > 0)
+        var items = ThreadItems();
+        if (items.Count == 0)
         {
-            var tasks = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-            foreach (var t in _view.Tasks)
-            {
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
-                row.Children.Add(TaskIcon(t.Mark));
-                var words = Text(t.Text, 13, Weight.Regular, t.Mark == TaskMark.Now ? ScreenKit.Fg : ScreenKit.Fg2);
-                words.Margin = new Thickness(8, 0, 0, 0);
-                words.MaxWidth = FullWidth - 60;
-                row.Children.Add(words);
-                tasks.Children.Add(row);
-            }
-            stack.Children.Add(tasks);
-            stack.Children.Add(new Border { Height = 1, Background = Soft, Margin = new Thickness(0, 8, 0, 4) });
+            stack.Children.Add(Margin8(Text("Getting started…", 13, Weight.Regular, ScreenKit.Fg2)));
+            return stack;
         }
-
-        double[] fade = { 1, 0.78, 0.55, 0.36, 0.25 };
-        for (int i = 0; i < _view.Steps.Count; i++)
-        {
-            var row = StepRow(_view.Steps[i], fade[Math.Min(i, fade.Length - 1)]);
-            if (i == 0 && NewTop()) Arrive(row);
-            stack.Children.Add(row);
-        }
-        if (_view.Steps.Count == 0) stack.Children.Add(Margin8(Text("Getting started…", 13, Weight.Regular, ScreenKit.Fg2)));
+        stack.Children.Add(Thread(items));
         return stack;
     }
 
-    UIElement StepRow(WingStep s, double opacity)
+    List<ThreadItem> ThreadItems()
     {
-        var grid = new Grid { Opacity = opacity };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
+        var latest = _view.Steps.FirstOrDefault();
+        var items = new List<ThreadItem>();
+        if (_view.Tasks.Count > 0)
+        {
+            foreach (var t in _view.Tasks)
+            {
+                var node = t.Mark switch { TaskMark.Done => Node.Done, TaskMark.Now => Node.Now, _ => Node.Next };
+                // The latest step sits under the task underway (in red if it failed).
+                string sub = node == Node.Now && latest is not null ? latest.Text : "";
+                if (node == Node.Now && latest?.Failed == true) node = Node.Failed;
+                items.Add(new ThreadItem(t.Text, node, sub, node is Node.Now or Node.Failed ? latest : null));
+            }
+            return items;
+        }
+        // Oldest first, so the thread reads downwards and the newest step glows at its end.
+        for (int i = _view.Steps.Count - 1; i >= 0; i--)
+        {
+            var s = _view.Steps[i];
+            var node = s.Failed ? Node.Failed : i == 0 && s.Running ? Node.Now : Node.Done;
+            items.Add(new ThreadItem(s.Text, node, "", s));
+        }
+        return items;
+    }
+
+    /// <summary>The thread: a thin line down the left with a node per item; the rows beside it.</summary>
+    UIElement Thread(List<ThreadItem> items)
+    {
+        // A tag only says something when more than one session is working.
+        bool tags = _view.Live > 1;
+        bool newTop = NewTop();
+        var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.Children.Add(new Border
+        for (int i = 0; i < items.Count; i++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var line = new Rectangle { Width = 2, RadiusX = 1, RadiusY = 1, Fill = Thread_, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 11, 0, 11) };
+        Grid.SetRowSpan(line, items.Count);
+        grid.Children.Add(line);
+
+        for (int i = 0; i < items.Count; i++)
         {
-            Width = 22, Height = 22, CornerRadius = new CornerRadius(7), Background = Soft,
-            Child = StepIcon(s.Kind, s.Running),
-        });
-        var words = Text(s.Text, 13, Weight.Regular, s.Failed ? RedText : ScreenKit.Fg);
-        words.Margin = new Thickness(9, 0, 6, 0);
-        Grid.SetColumn(words, 1);
-        grid.Children.Add(words);
-        if (s.Failed)
-        {
-            var failed = Text("failed", 11, Weight.SemiBold, Red);
-            failed.Margin = new Thickness(0, 0, 6, 0);
-            Grid.SetColumn(failed, 2);
-            grid.Children.Add(failed);
+            var it = items[i];
+            var node = NodeMark(it.Node);
+            Grid.SetRow(node, i);
+            grid.Children.Add(node);
+
+            bool lit = it.Node is Node.Now or Node.Failed;
+            var words = new StackPanel { Margin = new Thickness(8, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
+            var text = Text(it.Text, 13, lit ? Weight.SemiBold : Weight.Regular,
+                it.Node == Node.Failed ? RedText : it.Node == Node.Next ? ScreenKit.Fg2 : ScreenKit.Fg);
+            if (it.Node == Node.Done) text.Opacity = 0.72;
+            words.Children.Add(text);
+            if (it.Sub.Length > 0 && it.Sub != it.Text) words.Children.Add(Text(it.Sub, 11.5, Weight.Regular, it.Node == Node.Failed ? Red : ScreenKit.Fg2));
+            UIElement row = words;
+            if (lit && newTop) Arrive(words);
+            if (it.Step is { } s)
+            {
+                // A tap takes you to that session's window.
+                var press = Tap(words, () => StepClicked?.Invoke(s.SessionId), 8);
+                System.Windows.Automation.AutomationProperties.SetName(press, it.Text);
+                row = press;
+            }
+            Grid.SetRow(row, i);
+            Grid.SetColumn(row, 1);
+            grid.Children.Add(row);
+
+            if (tags && it.Step is { } st)
+            {
+                var tag = Text(st.Tag, 11, Weight.SemiBold, TagColors[st.TagColor % TagColors.Length]);
+                Grid.SetRow(tag, i);
+                Grid.SetColumn(tag, 2);
+                grid.Children.Add(tag);
+            }
         }
-        var tag = new Border
+        return grid;
+    }
+
+    static readonly Brush Thread_ = Ui.Tokens.Brush("#24FFFFFF"), DoneNode = Ui.Tokens.Brush("#A3A3AD"), NowHalo = MakeHalo();
+
+    static Brush MakeHalo()
+    {
+        var b = new RadialGradientBrush(Color.FromArgb(0x80, 0xD9, 0x77, 0x57), Color.FromArgb(0, 0xD9, 0x77, 0x57));
+        b.Freeze();
+        return b;
+    }
+
+    /// <summary>Stops the endless motions on show (the turning spark).</summary>
+    static void StopLoops()
+    {
+        foreach (var stop in Loops) stop();
+        Loops.Clear();
+    }
+
+    static FrameworkElement NodeMark(Node node)
+    {
+        if (node != Node.Now)
         {
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(7, 2, 7, 2),
-            Background = Ui.Tokens.Brush("#14FFFFFF"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = Text(s.Tag, 11, Weight.SemiBold, TagColors[s.TagColor % TagColors.Length]),
-        };
-        Grid.SetColumn(tag, 3);
-        grid.Children.Add(tag);
-        // A tap takes you to that session's window.
-        var press = Tap(grid, () => StepClicked?.Invoke(s.SessionId), 9); press.Padding = new Thickness(6, 4, 6, 4); press.Margin = new Thickness(-6, 0, -6, 0);
-        System.Windows.Automation.AutomationProperties.SetName(press, s.Text + " · " + s.Tag);
-        return press;
+            return new Ellipse
+            {
+                Width = 7, Height = 7, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 8.5, 0, 0),
+                Fill = node == Node.Done ? DoneNode : node == Node.Failed ? Red : IslandSurface.Fill,
+                Stroke = node == Node.Next ? Dim : null, StrokeThickness = 1.4,
+            };
+        }
+        // Underway: a clay node with a soft, still halo (the turning spark is the motion; one is enough).
+        var g = new Grid { Width = 16, Height = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 4, 0, 0) };
+        g.Children.Add(new Ellipse { Width = 16, Height = 16, Fill = NowHalo });
+        g.Children.Add(new Ellipse { Width = 9, Height = 9, Fill = Clay });
+        return g;
     }
 
     // ---- Slid in: one line beside the island ----------------------------------------------------------
@@ -329,10 +421,11 @@ internal sealed class StepsWing : Window
         row.Children.Add(s?.Failed == true ? Dot(Red) : ClaudeMark(18));
         var words = Text(s?.Text ?? _view.Header, 13, Weight.Regular, s?.Failed == true ? RedText : ScreenKit.Fg);
         words.Margin = new Thickness(8, 0, 8, 0);
-        words.MaxWidth = LineMaxWidth - 110;
+        words.MaxWidth = LineMaxWidth - 90;
         if (NewTop()) Arrive(words);
         row.Children.Add(words);
-        if (s is not null)
+        // Which project, only when more than one is working.
+        if (s is not null && _view.Live > 1)
         {
             var tag = Text(s.Tag, 11, Weight.SemiBold, TagColors[s.TagColor % TagColors.Length]);
             tag.Margin = new Thickness(0, 0, 6, 0);
@@ -348,6 +441,7 @@ internal sealed class StepsWing : Window
         row.Children.Add(ClaudeMark(16));
         var words = Text(_view.Title, 13, Weight.SemiBold, ScreenKit.Fg);
         words.Margin = new Thickness(8, 0, 0, 0);
+        words.MaxWidth = FullWidth - 60;
         row.Children.Add(words);
         return row;
     }
@@ -356,7 +450,7 @@ internal sealed class StepsWing : Window
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new Ellipse { Width = 20, Height = 20, Fill = _view.Label == "error" ? Red : Green, VerticalAlignment = VerticalAlignment.Center });
-        var words = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
+        var words = new StackPanel { Margin = new Thickness(10, 0, 0, 0), MaxWidth = FullWidth - 60 };
         words.Children.Add(Text(_view.Title, 14, Weight.SemiBold, ScreenKit.Fg));
         if (_view.Detail.Length > 0) words.Children.Add(Text(_view.Detail, 12, Weight.Regular, ScreenKit.Fg2));
         row.Children.Add(words);
@@ -598,53 +692,6 @@ internal sealed class StepsWing : Window
         return press;
     }
 
-    static UIElement TaskIcon(TaskMark mark)
-    {
-        var g = new Grid { Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center };
-        switch (mark)
-        {
-            case TaskMark.Done:
-                g.Children.Add(new Ellipse { Fill = Green });
-                g.Children.Add(new Path { Data = Geometry.Parse("M4,7.2 L6,9.2 L10,4.8"), Stroke = Brushes.White, StrokeThickness = 1.6 });
-                break;
-            case TaskMark.Now:
-                g.Children.Add(new Ellipse { Stroke = Blue, StrokeThickness = 1.6, Margin = new Thickness(1) });
-                g.Children.Add(new Ellipse { Fill = Blue, Width = 5, Height = 5 });
-                break;
-            default:
-                g.Children.Add(new Ellipse { Stroke = Dim, StrokeThickness = 1.4, Margin = new Thickness(1) });
-                break;
-        }
-        return g;
-    }
-
-    static UIElement StepIcon(StepKind kind, bool running)
-    {
-        string data = kind switch
-        {
-            StepKind.Read => "M3,1.5 L7,1.5 L9,3.5 L9,10.5 L3,10.5 Z",
-            StepKind.Edit => "M2,10 L3,7 L8,2 L10,4 L5,9 Z",
-            StepKind.Run => "M2,3 L5,6 L2,9 M6.5,9.5 L10,9.5",
-            StepKind.Find => "M7.5,7.5 L10,10 M8.2,5 A3.2,3.2 0 1 1 1.8,5 A3.2,3.2 0 1 1 8.2,5",
-            StepKind.Web => "M6,1.5 A4.5,4.5 0 1 1 6,10.5 A4.5,4.5 0 1 1 6,1.5 M1.5,6 L10.5,6",
-            StepKind.Ask => "M4.4,4.4 A1.7,1.7 0 1 1 7.4,5.5 C6.8,5.9 6.5,6.2 6.5,6.8 M6.5,9 L6.5,9.2",
-            StepKind.Helper => "M6,2 L6,10 M2,6 L10,6",
-            _ => "M3,3 L9,3 L9,9 L3,9 Z",
-        };
-        var path = new Path
-        {
-            Data = Geometry.Parse(data), Stroke = Ui.Tokens.Brush("#D4D4D8"), StrokeThickness = 1.2,
-            StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
-            Width = 12, Height = 12,
-        };
-        if (running && MotionPrefs.Lively)
-        {
-            var pulse = new DoubleAnimation(1, 0.35, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
-            path.BeginAnimation(OpacityProperty, pulse);
-        }
-        return path;
-    }
-
     static Pressable Tap(UIElement child, Action click, double radius)
     {
         var p = new Pressable(Brushes.Transparent, Ui.Tokens.Brush("#0FFFFFFF")) { Child = child, CornerRadius = new CornerRadius(radius) };
@@ -652,7 +699,18 @@ internal sealed class StepsWing : Window
         return p;
     }
 
-    static readonly Brush Clay = Ui.Tokens.Brush("#E8956B");
+    /// <summary>Claude's clay (from Anthropic's press kit).</summary>
+    static readonly Brush Clay = Ui.Tokens.Brush("#D97757");
+
+    /// <summary>The Claude Spark, Anthropic's official mark (press kit, "Claude Spark - Clay.svg"), drawn as is.</summary>
+    static readonly Geometry ClaudeSpark = Freeze(Geometry.Parse(
+        "M18.7657 62.4437L37.1822 52.1167L37.4857 51.2122L37.1822 50.7085H36.2715L33.1852 50.5208L22.6615 50.2391L13.5545 49.8636L4.70044 49.3942L2.47428 48.9248L0.399902 46.1553L0.602281 44.794L2.47428 43.5266L5.15579 43.7613L11.0754 44.1837L19.98 44.794L26.4055 45.1695L35.9679 46.1553H37.4857L37.6881 45.545L37.1822 45.1695L36.7774 44.794L27.5692 38.5508L17.6021 31.9791L12.3908 28.1769L9.60812 26.2524L8.19147 24.4686L7.58433 20.5256L10.1141 17.7091L13.5545 17.9438L14.4146 18.1785L17.9056 20.8542L25.343 26.6279L35.0572 33.7629L36.4739 34.9364L37.0443 34.5514L37.1316 34.2792L36.4739 33.1996L31.212 23.6706L25.596 13.9539L23.0663 9.91695L22.4086 7.52296C22.1538 6.51831 22.0038 5.68714 22.0038 4.65957L24.8877 0.716544L26.5067 0.200195L30.4025 0.716544L32.0215 2.12477L34.4501 7.66379L38.3458 16.3478L44.4172 28.1769L46.188 31.6975L47.1493 34.9364L47.5035 35.9222H48.1106V35.3589L48.6166 28.6933L49.5273 20.5256L50.438 10.0108L50.7415 7.05356L52.2088 3.48605L55.1433 1.56148L57.42 2.64112L59.292 5.31674L59.039 7.05356L57.926 14.2824L55.7504 25.5952L54.3337 33.1996H55.1433L56.1046 32.2138L59.9497 27.1442L66.3752 19.0704L69.2085 15.8784L72.5478 12.3579L74.6728 10.668H78.7203L81.6548 15.0804L80.3394 19.6337L76.1906 24.8911L72.7502 29.3504L67.8172 35.9595L64.7562 41.2734L65.0307 41.7118L65.7681 41.6489L76.8989 39.255L82.9197 38.1753L90.1041 36.9549L93.3422 38.457L93.6963 40.006L92.4315 43.151L84.7411 45.0287L75.7353 46.8594L62.3244 50.0164L62.1759 50.1358L62.3512 50.3958L68.399 50.9432L70.9794 51.084H77.3037L89.0922 51.9759L92.1785 53.9944L93.9999 56.4822L93.6963 58.4068L88.9404 60.8008L82.5655 59.2987L67.6401 55.7312L62.5301 54.4638H61.8217V54.8862L66.0717 59.064L73.9139 66.1051L83.6786 75.2116L84.1845 77.4648L82.9197 79.2485L81.6042 79.0608L73.0032 72.5829L69.6639 69.6726L62.1759 63.3356H61.67V63.9928L63.3902 66.5276L72.5478 80.2812L73.0032 84.5059L72.3454 85.8672L69.9675 86.7121L67.3871 86.2427L61.9735 78.6852L56.4587 70.2359L52.0064 62.6315L51.4687 62.971L48.8189 91.2654L47.6047 92.7206L44.7714 93.8002L42.3934 92.0164L41.1286 89.1061L42.3934 83.3324L43.9113 75.8219L45.1255 69.8604L46.2386 62.4437L46.9184 59.9661L46.8583 59.8003L46.3153 59.8916L40.7238 67.5603L32.2239 79.0608L25.4948 86.2427L23.8758 86.8999L21.0931 85.4447L21.3461 82.863L22.9145 80.5629L32.2239 68.7338L37.8399 61.3641L41.4594 57.1337L41.4242 56.5218L41.2244 56.5048L16.489 72.6299L12.0873 73.1932L10.1647 71.4094L10.4176 68.4991L11.3283 67.5603L18.7657 62.4437Z"));
+
+    static Geometry Freeze(Geometry g)
+    {
+        g.Freeze();
+        return g;
+    }
 
     /// <summary>
     /// Claude's mark, slowly turning while it works: a four-point spark with a small companion dot. The turn is an
@@ -662,7 +720,7 @@ internal sealed class StepsWing : Window
     {
         var spark = new Path
         {
-            Data = Geometry.Parse("M10,2.5 L11.6,6.9 L16,8.5 L11.6,10.1 L10,14.5 L8.4,10.1 L4,8.5 L8.4,6.9 Z M15.5,13.6 A1.4,1.4 0 1 1 15.49,13.6 Z"),
+            Data = ClaudeSpark,
             Fill = Clay,
             Stretch = Stretch.Uniform,
             Width = size,
@@ -675,7 +733,7 @@ internal sealed class StepsWing : Window
         {
             var turn = new RotateTransform();
             spark.RenderTransform = turn;
-            Spins.Add(turn);
+            Loops.Add(() => turn.BeginAnimation(RotateTransform.AngleProperty, null));
             var spin = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(2.8)) { RepeatBehavior = RepeatBehavior.Forever };
             Timeline.SetDesiredFrameRate(spin, 24);
             turn.BeginAnimation(RotateTransform.AngleProperty, spin);
@@ -726,6 +784,8 @@ internal sealed class StepsWing : Window
     /// <summary>It slides back into the island and fades, then the window hides.</summary>
     void Disappear()
     {
+        // Nothing keeps turning behind a hidden wing.
+        StopLoops();
         if (!MotionPrefs.Lively)
         {
             Hide();

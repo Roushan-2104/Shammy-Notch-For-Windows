@@ -82,7 +82,7 @@ public partial class NotchWindow
         // Placed before it shows, so it never flashes at the window's default spot.
         _wing.PlaceAt(_windowPx.X + (int)Math.Round((Cx + Expanded.Width / 2) * _scale * px) - 1, _windowPx.Y + (int)Math.Round(_gap * _scale * px));
         // Its own height in its units, so on screen it's exactly as tall (and as round) as the island.
-        _wing.Pour(scale, Expanded.Height * _scale / scale, _spec.R * _scale / scale, Shape.Fill, ExcludedFromCapture);
+        _wing.Pour(scale, Expanded.Height * _scale / scale, _spec.R * _scale / scale, ExcludedFromCapture);
         PlaceWing();
         Expanded.SetCalendarOpen(true);
         SlideTo((CalendarWingFit.Neck + CalendarWingFit.Width) * scale / 2);

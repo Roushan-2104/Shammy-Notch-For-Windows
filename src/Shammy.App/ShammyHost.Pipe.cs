@@ -293,6 +293,8 @@ internal sealed partial class ShammyHost
             case "repaint": _notch.RepaintAll(); return "ok";
             // "island-part waves|rim|chrome on|off": hide one part of the island's drawing, to find which draws a glitch.
             case "island-part": return _notch.SetPartForTest(arg);
+            // "island-tint [state|r,g,b|off]": the screen tint, or as if the screen behind were this colour.
+            case "island-tint": return _notch.TintCommand(arg);
             case "view": return _notch.OpenView(arg.Trim(), hold: true) ? "ok" : "error: no such view";
             case "type": _search.OpenTyping(); return "ok";
             case "search": _ = _search.SearchTextAsync(arg); return "ok";

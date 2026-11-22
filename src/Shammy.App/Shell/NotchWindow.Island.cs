@@ -25,7 +25,7 @@ public partial class NotchWindow
     /// with: the plain colour, or the glass's own colour around the closed island so they match it. Not frozen, so a
     /// new wallpaper repaints them.
     /// </summary>
-    readonly SolidColorBrush _islandFill = new(PlainIsland);
+    readonly SolidColorBrush _islandFill = IslandSurface.Fill;
 
     /// <summary>Room for the island's shadow, the tab under it and the cards peeking below a message.</summary>
     const double ShadowPad = 36;
@@ -95,6 +95,7 @@ public partial class NotchWindow
             StopAmbient();
             _ambientSlow.Stop();
         };
+        InitTint();
     }
 
     // ---- What's going on ---------------------------------------------------------------------------
@@ -145,6 +146,7 @@ public partial class NotchWindow
             RenderWaves();
         }
         ApplyLook();
+        UpdateTintWatch();
     }
 
     /// <summary>The rim's state colour: music in the album's colour, focus blue, a live microphone red, a meeting soon green.</summary>
@@ -157,13 +159,15 @@ public partial class NotchWindow
     }
 
     /// <summary>Push the plan to the island: glass or plain tint, waves shown (softer on an open slab) or not.</summary>
-    void ApplyLook()
+    void ApplyLook(bool tintChanged = false)
     {
         if (_waves is null) return;
         var glass = _plan.Glass ? _glass.Image : null;
         double waves = WavesOpacityAt(_h.Value);
-        var fill = glass is null ? PlainIsland : _glass.Average;
+        // The pieces beside the island (and the steps wing, the calendar) take the same colour, tint and all.
+        var fill = SurfaceColour(glass is not null);
         if (_islandFill.Color != fill) _islandFill.Color = fill;
+        if (tintChanged) Shape.InvalidateVisual();
         // While the island glides beside the calendar, the glass (read where the window was) is held still against the
         // wallpaper, so it lines up again when it's remade at the end instead of jumping.
         var rect = new Rect((_wingShift - _glassAtShift) / _scale, -_gap, WindowWidth, GlassHeight);
