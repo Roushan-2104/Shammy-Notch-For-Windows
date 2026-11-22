@@ -94,7 +94,7 @@ internal sealed class StepsWing : Window
         Width = LineMaxWidth + 2 * GlowRoom;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        // The island's own glass, tinted by the screen like it (live brushes: they follow the island's colour).
+        // The island's own glass (a live brush: it follows the island's colour).
         _slab.Background = IslandSurface.Fill;
         _slab.BorderBrush = IslandSurface.Rim;
         _slab.BorderThickness = new Thickness(1);

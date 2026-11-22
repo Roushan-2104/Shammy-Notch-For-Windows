@@ -95,7 +95,6 @@ public partial class NotchWindow
             StopAmbient();
             _ambientSlow.Stop();
         };
-        InitTint();
     }
 
     // ---- What's going on ---------------------------------------------------------------------------
@@ -146,7 +145,6 @@ public partial class NotchWindow
             RenderWaves();
         }
         ApplyLook();
-        UpdateTintWatch();
     }
 
     /// <summary>The rim's state colour: music in the album's colour, focus blue, a live microphone red, a meeting soon green.</summary>
@@ -159,15 +157,13 @@ public partial class NotchWindow
     }
 
     /// <summary>Push the plan to the island: glass or plain tint, waves shown (softer on an open slab) or not.</summary>
-    void ApplyLook(bool tintChanged = false)
+    void ApplyLook()
     {
         if (_waves is null) return;
         var glass = _plan.Glass ? _glass.Image : null;
         double waves = WavesOpacityAt(_h.Value);
-        // The pieces beside the island (and the steps wing, the calendar) take the same colour, tint and all.
-        var fill = SurfaceColour(glass is not null);
+        var fill = glass is null ? PlainIsland : _glass.Average;
         if (_islandFill.Color != fill) _islandFill.Color = fill;
-        if (tintChanged) Shape.InvalidateVisual();
         // While the island glides beside the calendar, the glass (read where the window was) is held still against the
         // wallpaper, so it lines up again when it's remade at the end instead of jumping.
         var rect = new Rect((_wingShift - _glassAtShift) / _scale, -_gap, WindowWidth, GlassHeight);

@@ -16,7 +16,7 @@ namespace Shammy.Modules.Calendar;
 
 /// <summary>
 /// The calendar wing (the "glass month"): tap the date in the open island's header and a slab of the island's own
-/// tinted glass, as tall as the island, opens on its right with a small dot in the gap between them. On top, the month
+/// glass, as tall as the island, opens on its right with a small dot in the gap between them. On top, the month
 /// with its day numbers: today a filled light pill, the chosen day outlined, days gone by dimmer, small dots under
 /// days with plans in the plans' colours. Below, the chosen day's plans with their times (finished ones faded, "in 3h"
 /// and Join today). Its own small topmost window, never activated (the island keeps the keyboard); the notch places it
@@ -112,7 +112,7 @@ internal sealed class CalendarWing : Window
 
     /// <summary>
     /// Opens the wing on today. <paramref name="height"/> and <paramref name="radius"/> are the island's, in the wing's
-    /// own units. The slab is the island's own tinted glass (<see cref="IslandSurface"/>).
+    /// own units. The slab is the island's own glass (<see cref="IslandSurface"/>).
     /// </summary>
     public void Pour(double scale, double height, double radius, bool excludeFromCapture)
     {

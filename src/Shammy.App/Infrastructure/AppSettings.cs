@@ -262,12 +262,6 @@ internal sealed class AppSettings
     /// </summary>
     public bool AgentsStepsWing { get; set; } = true;
 
-    /// <summary>
-    /// The island takes on the colour of what's on the screen around it (a strip under it, looked at every few seconds,
-    /// never kept and never while the screen is shared). Off, it's the plain dark glass.
-    /// </summary>
-    public bool BlendWithScreen { get; set; } = true;
-
     // ---- The phone (Shammy Island) -------------------------------------------------------------------
 
     /// <summary>Text copied on this laptop is on the linked phone's clipboard too (never passwords, nothing while sharing).</summary>

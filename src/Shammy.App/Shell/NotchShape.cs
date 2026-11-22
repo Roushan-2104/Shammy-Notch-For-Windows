@@ -42,47 +42,6 @@ internal sealed class NotchShape : FrameworkElement
     /// <summary>Draw the faint light hairline round the island (off for the shadow's copy).</summary>
     public bool Edge { get; set; } = true;
 
-    /// <summary>The colour of what's behind the island: a little in its glass, a line of it round the edge, a soft halo outside.</summary>
-    public Shammy.Core.Notch.ScreenTint Tint
-    {
-        get => _tint;
-        set
-        {
-            if (_tint == value) return;
-            _tint = value;
-            _tintBrush = Frozen(value.Glass, value.GlassAlpha);
-            _rimPen = FrozenPen(value.Rim, value.RimAlpha, 1);
-            // The soft edge: three wide, faint strokes under the island; the fill covers their inner halves.
-            _halo = value.HaloAlpha <= 0 ? Array.Empty<Pen>() : new[]
-            {
-                FrozenPen(value.Halo, value.HaloAlpha * 0.35, 22),
-                FrozenPen(value.Halo, value.HaloAlpha * 0.55, 13),
-                FrozenPen(value.Halo, value.HaloAlpha * 0.8, 6),
-            }.OfType<Pen>().ToArray();
-        }
-    }
-
-    Shammy.Core.Notch.ScreenTint _tint = Shammy.Core.Notch.ScreenTint.None;
-    Brush? _tintBrush;
-    Pen? _rimPen;
-    Pen[] _halo = Array.Empty<Pen>();
-
-    static Brush? Frozen(Shammy.Core.Music.Rgb c, double alpha)
-    {
-        if (alpha <= 0.003) return null;
-        var b = new SolidColorBrush(Color.FromArgb((byte)Math.Round(alpha * 255), c.R, c.G, c.B));
-        b.Freeze();
-        return b;
-    }
-
-    static Pen? FrozenPen(Shammy.Core.Music.Rgb c, double alpha, double thickness)
-    {
-        if (Frozen(c, alpha) is not { } brush) return null;
-        var pen = new Pen(brush, thickness) { LineJoin = PenLineJoin.Round };
-        pen.Freeze();
-        return pen;
-    }
-
     public void Update(double width, double height, double radius)
     {
         _geometry = Build(CenterX, width, height, radius);
@@ -93,7 +52,6 @@ internal sealed class NotchShape : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         if (_geometry.IsEmpty()) return;
-        if (Edge) foreach (var pen in _halo) dc.DrawGeometry(null, pen, _geometry);
         if (Glass is { } glass)
         {
             // An opaque base under the glass: the glass is a touch see-through, and the island must look the same
@@ -107,7 +65,6 @@ internal sealed class NotchShape : FrameworkElement
         {
             dc.DrawGeometry(Fill, null, _geometry);
         }
-        if (_tintBrush is not null) dc.DrawGeometry(_tintBrush, null, _geometry);
         if (Waves is { } waves && WavesOpacity > 0.003 && !_bounds.IsEmpty)
         {
             dc.PushClip(_geometry);
@@ -116,7 +73,7 @@ internal sealed class NotchShape : FrameworkElement
             dc.Pop();
             dc.Pop();
         }
-        if (Edge) dc.DrawGeometry(null, _rimPen ?? Hairline, _geometry);
+        if (Edge) dc.DrawGeometry(null, Hairline, _geometry);
     }
 
     static Pen MakeHairline()
