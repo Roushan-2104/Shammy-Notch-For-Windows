@@ -70,6 +70,31 @@ p { margin: 0; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+/* What the practice desktop's island shows (added by script, so not scoped). */
+.desk-island .pad { padding: 16px 20px; font-size: 16px; }
+.desk-island .row { display: flex; align-items: center; gap: 10px; }
+.desk-island .row.gap { gap: 8px; margin-top: 12px; }
+.desk-island small { color: #BDBAB4; font-size: 14px; }
+.desk-island .caps { text-transform: uppercase; letter-spacing: .1em; font-size: 13px; }
+.desk-island .big { font: 700 30px var(--app); letter-spacing: -.01em; }
+.desk-island .fly { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; } .desk-island .fly svg { width: 22px; height: 22px; }
+.desk-island .pill { height: 44px; padding: 0 18px; border-radius: 22px; border: 0; background: rgba(255,255,255,.1); color: var(--ink); font: 600 14px var(--app); display: inline-flex; align-items: center; cursor: pointer; }
+.desk-island .pill.on { background: #C98C8C; color: #1B0E0E; }
+.desk-island button.pill:hover { filter: brightness(1.15); }
+.desk-island .live { width: 9px; height: 9px; border-radius: 50%; background: #E57B7B; }
+.desk-island .said { margin-top: 10px; font-size: 22px; min-height: 30px; }
+.desk-island .said.deva { font-family: var(--deva); }
+.desk-island .caret { color: #E57B7B; }
+.desk-island .cmd { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.06); font: 400 16px var(--mono); }
+.desk-island .sky { position: relative; height: 280px; padding: 20px 26px; color: #fff; overflow: hidden; }
+.desk-island .sky .body { position: absolute; right: 90px; top: 70px; width: 130px; height: 130px; border-radius: 50%; }
+.desk-island .sky .body.moon { width: 90px; height: 90px; top: 50px; -webkit-mask: radial-gradient(circle at 78% 30%, transparent 42%, #000 43%); mask: radial-gradient(circle at 78% 30%, transparent 42%, #000 43%); }
+.desk-island .sky .caps { position: relative; color: rgba(255,255,255,.85); }
+.desk-island .alarm-time { position: relative; font: 300 96px/1 var(--display); letter-spacing: -.045em; margin-top: 6px; }
+.desk-island .alarm-time span { font-size: 28px; margin-left: 10px; }
+@media (max-width: 900px) { .desk-island .sky .body { right: 22px; top: 22px; width: 70px; height: 70px; } .desk-island .sky .body.moon { width: 60px; height: 60px; top: 22px; } .desk-island .alarm-time { font-size: 72px; } }
+.desk-island .stop { position: absolute; left: 26px; bottom: 20px; height: 48px; padding: 0 44px; border-radius: 24px; border: 0; color: #1B0E0A; font: 800 17px var(--app); cursor: pointer; }
+
 /* Parts rise in once as they arrive (pages add the class from script, so nothing hides without it). */
 .rise { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
 .rise.in { opacity: 1; transform: none; }
