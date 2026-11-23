@@ -16,7 +16,10 @@ public partial class NotchWindow
 
     double _slideFrom, _slideTo;
     readonly System.Diagnostics.Stopwatch _slideClock = new();
-    System.Windows.Threading.DispatcherTimer? _slide;
+    /// <summary>The glide's frames, on the app's frame clock so it moves in step with the screen (null at rest).</summary>
+    IDisposable? _slide;
+    /// <summary>The window's left edge (device pixels) with no glide, worked out as the glide starts.</summary>
+    int _slideBaseX;
     const double SlideMs = 320;
 
     internal bool CalendarOpen => _wing is { IsOpen: true };
@@ -79,7 +82,7 @@ public partial class NotchWindow
         // Placed before it shows, so it never flashes at the window's default spot.
         _wing.PlaceAt(_windowPx.X + (int)Math.Round((Cx + Expanded.Width / 2) * _scale * px) - 1, _windowPx.Y + (int)Math.Round(_gap * _scale * px));
         // Its own height in its units, so on screen it's exactly as tall (and as round) as the island.
-        _wing.Pour(scale, Expanded.Height * _scale / scale, _spec.R * _scale / scale, Shape.Fill, ExcludedFromCapture);
+        _wing.Pour(scale, Expanded.Height * _scale / scale, _spec.R * _scale / scale, ExcludedFromCapture);
         PlaceWing();
         Expanded.SetCalendarOpen(true);
         SlideTo((CalendarWingFit.Neck + CalendarWingFit.Width) * scale / 2);
@@ -105,39 +108,52 @@ public partial class NotchWindow
     {
         _slideFrom = _wingShift;
         _slideTo = shift;
-        if (!animate || !Infrastructure.MotionPrefs.Lively)
+        if (!animate || !Infrastructure.MotionPrefs.Lively || Native.GetDpiForMonitor(Monitor, 0, out uint dpi, out _) != 0 || dpi == 0)
         {
-            _slide?.Stop();
+            StopSlide();
             _wingShift = shift;
             Reposition();
             return;
         }
-        _slide ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(15), System.Windows.Threading.DispatcherPriority.Render, (_, _) => SlideStep(), Dispatcher);
+        _slideBaseX = _windowPx.X + WingShiftPx(dpi);
         _slideClock.Restart();
-        _slide.Start();
+        _slide ??= Motion.Animator.Subscribe(_ => SlideStep());
     }
 
+    void StopSlide()
+    {
+        _slide?.Dispose();
+        _slide = null;
+    }
+
+    /// <summary>
+    /// One screen frame of the glide: the island's window and the calendar's move together (one call, same frame),
+    /// and the glass is held still against the wallpaper while they move, so it doesn't jump when it's remade.
+    /// </summary>
     void SlideStep()
     {
         double t = Math.Min(1, _slideClock.Elapsed.TotalMilliseconds / SlideMs);
-        double before = _wingShift;
         _wingShift = _slideFrom + (_slideTo - _slideFrom) * (1 - Math.Pow(1 - t, 3));
         if (t >= 1)
         {
-            _slide!.Stop();
+            StopSlide();
             _wingShift = _slideTo;
             // Settled: placed properly once (the wing follows), so the glass is remade for where it is now.
             Reposition();
             return;
         }
-        // Mid-glide only the window moves (remaking the glass every frame would re-read the wallpaper).
         if (Native.GetDpiForMonitor(Monitor, 0, out uint dpi, out _) != 0 || dpi == 0) return;
-        int dx = (int)Math.Round((_wingShift - before) * dpi / 96.0);
-        if (dx == 0) return;
-        _windowPx = (_windowPx.X - dx, _windowPx.Y);
-        // NOZORDER: both are topmost already; reordering them every frame is churn.
-        Native.SetWindowPos(_hwnd, IntPtr.Zero, _windowPx.X, _windowPx.Y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_NOZORDER);
-        PlaceWing();
+        int x = _slideBaseX - WingShiftPx(dpi);
+        if (x != _windowPx.X)
+        {
+            _windowPx = (x, _windowPx.Y);
+            double px = dpi / 96.0;
+            if (_wing is { IsVisible: true } w)
+                Native.MoveTogether((_hwnd, _windowPx.X, _windowPx.Y),
+                    (w.Handle, _windowPx.X + (int)Math.Round((Cx + Expanded.Width / 2) * _scale * px) - 1, _windowPx.Y + (int)Math.Round(_gap * _scale * px)));
+            else Native.MoveTogether((_hwnd, _windowPx.X, _windowPx.Y));
+        }
+        ApplyLook();
     }
 
     /// <summary>The island's glide in device pixels (the window's placement subtracts it).</summary>

@@ -29,6 +29,11 @@
                 <Image.Effect>
                     <BlurEffect Radius="18" KernelType="Gaussian" RenderingBias="Performance" />
                 </Image.Effect>
+                <!-- Only the blurred field is drawn once and reused while the card fades and scales (the blur isn't
+                     re-rendered every frame); being a blur, scaling the cache can't soften it. The crisp icon stays live. -->
+                <Image.CacheMode>
+                    <BitmapCache RenderAtScale="1" />
+                </Image.CacheMode>
             </Image>
             <TextBlock x:Name="IconGlyph" Style="{StaticResource Icon}" Text="&#xEA8F;" FontSize="20" Foreground="{DynamicResource WallText}" />
             <Image x:Name="IconImage" Width="34" Height="34" RenderOptions.BitmapScalingMode="HighQuality" />

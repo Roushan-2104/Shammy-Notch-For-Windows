@@ -95,6 +95,25 @@ internal static class Native
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr BeginDeferWindowPos(int count);
+    [DllImport("user32.dll")] public static extern IntPtr DeferWindowPos(IntPtr info, IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] public static extern bool EndDeferWindowPos(IntPtr info);
+
+    /// <summary>Moves several windows in one go, so they arrive in the same frame (none lags behind the other).</summary>
+    public static void MoveTogether(params (IntPtr Hwnd, int X, int Y)[] moves)
+    {
+        const uint flags = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER;
+        var info = BeginDeferWindowPos(moves.Length);
+        foreach (var (hwnd, x, y) in moves)
+        {
+            if (info == IntPtr.Zero || hwnd == IntPtr.Zero) break;
+            info = DeferWindowPos(info, hwnd, IntPtr.Zero, x, y, 0, 0, flags);
+        }
+        if (info != IntPtr.Zero && EndDeferWindowPos(info)) return;
+        // Couldn't batch them: one after the other, as before.
+        foreach (var (hwnd, x, y) in moves)
+            if (hwnd != IntPtr.Zero) SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0, flags);
+    }
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
     [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
     [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);

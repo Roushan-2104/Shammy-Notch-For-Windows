@@ -65,14 +65,14 @@ public class AgentHookSettingsTests
     public void Only_the_approval_hook_may_print_and_only_the_tool_ping_runs_in_the_background()
     {
         var entries = AgentHooks.Entries(Ep);
-        Assert.Equal(new[] { "UserPromptSubmit", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "Notification", "Stop", "StopFailure", "SessionEnd" },
+        Assert.Equal(new[] { "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "Notification", "Stop", "StopFailure", "SessionEnd" },
             entries.Select(e => e.Event));
         foreach (var e in entries)
         {
             Assert.Contains("/shammy-hook/", e.Command);
             Assert.EndsWith("; exit 0", e.Command);
             Assert.Equal(e.Event != "PermissionRequest", e.Command.Contains(" -o NUL "));
-            Assert.Equal(e.Event is "PostToolUse" or "PostToolUseFailure", e.Async);
+            Assert.Equal(e.Event is "PreToolUse" or "PostToolUse" or "PostToolUseFailure", e.Async);
         }
         Assert.Equal(AgentHooks.AskHookSeconds, entries.Single(e => e.Event == "PermissionRequest").TimeoutSeconds);
         // Claude Code gives closing hooks 1.5 s; a timeout of ours would stretch that for everyone's hooks.
@@ -103,7 +103,7 @@ public class AgentHookSettingsTests
         Assert.True(edit.Changed);
         var root = Parse(edit.Json);
         Assert.Equal(new[] { "hooks" }, root.EnumerateObject().Select(p => p.Name));
-        Assert.Equal(8, root.GetProperty("hooks").EnumerateObject().Count());
+        Assert.Equal(9, root.GetProperty("hooks").EnumerateObject().Count());
         Assert.Equal(HookState.Connected, AgentHooks.Inspect(edit.Json, Ep));
     }
 
@@ -171,7 +171,7 @@ public class AgentHookSettingsTests
         Assert.True(second.Ok, second.Error);
         Assert.False(second.Changed);
         Assert.Equal(first.Json, second.Json);
-        Assert.Equal(8, AgentHooks.Found(second.Json).Count);
+        Assert.Equal(9, AgentHooks.Found(second.Json).Count);
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class AgentHookSettingsTests
         var second = AgentHooks.Connect(first.Json, moved);
         Assert.True(second.Ok, second.Error);
         Assert.True(second.Changed);
-        Assert.Equal(8, AgentHooks.Found(second.Json).Count);
+        Assert.Equal(9, AgentHooks.Found(second.Json).Count);
         Assert.DoesNotContain(":47611/", second.Json);
         Assert.Equal(HookState.Connected, AgentHooks.Inspect(second.Json, moved));
         Assert.Equal(AgentHooks.Others(Rich), AgentHooks.Others(second.Json));

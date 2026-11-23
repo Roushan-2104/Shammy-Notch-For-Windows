@@ -634,6 +634,8 @@ public partial class NotchWindow : Window
     /// <summary>Show module content in the notch at the given size (see ModuleContext.ShowCard).</summary>
     internal void ShowCard(FrameworkElement content, double width, double height, bool interactive, bool breaksFullscreen = false)
     {
+        // A card replacing the one on show dims through the change rather than popping.
+        if (_cardOpen && !ReferenceEquals(CardHost.Content, content)) DipThrough(_card);
         CardHost.Content = content;
         CardHost.Width = width;
         CardHost.Height = height;
@@ -697,6 +699,8 @@ public partial class NotchWindow : Window
         }, this, a.Id);
         Color? color = a switch
         {
+            // A quiet peek (a call, a meeting, focus) stays quiet: no flash of the edge either.
+            { Kind: ActivityKind.Notification, Payload: NotificationPayload { Peek: true } } => null,
             { Kind: ActivityKind.Notification } => Ui.Tokens.Accent.Color,
             { Kind: ActivityKind.Charging } => Green,
             { Kind: ActivityKind.LowBattery } => Red,

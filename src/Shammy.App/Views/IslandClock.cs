@@ -35,6 +35,10 @@ internal sealed class IslandClock : StackPanel
         _ampm.FontSize = Math.Round(size * 0.72);
         _ampm.FontWeight = FontWeights.Medium;
         _ampm.Foreground = Ui.Tokens.Res("WallText2");
+        // A running timer's ring, just before its countdown: a faint track and the time left as an amber arc.
+        _ring.Children.Add(new System.Windows.Shapes.Ellipse { Stroke = RingTrack, StrokeThickness = 1.6 });
+        _ring.Children.Add(_arc);
+        Children.Add(_ring);
         Children.Add(_time);
         Children.Add(_ampm);
         if (showDate)
@@ -60,10 +64,63 @@ internal sealed class IslandClock : StackPanel
     public bool ShowDate => _date is not null;
 
     /// <summary>What it shows ("3:24 pm", "3:24 pm Sun 15 Nov"), for tests and the log.</summary>
-    public string Text => (_time.Text + (_ampm.Text.Length > 0 ? " " + _ampm.Text : "") + (_date is null ? "" : " " + _date.Text)).Trim();
+    public string Text => (_time.Text + (_ampm.Text.Length > 0 && _ampm.Visibility == Visibility.Visible ? " " + _ampm.Text : "") + (_date is null ? "" : " " + _date.Text)).Trim();
+
+    string? _timer;
+    double _left = -1;
+
+    const double RingSize = 12;
+    readonly Grid _ring = new() { Width = RingSize, Height = RingSize, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+    readonly System.Windows.Shapes.Path _arc = new() { Stroke = TimerInk, StrokeThickness = 1.6, StrokeStartLineCap = System.Windows.Media.PenLineCap.Round, StrokeEndLineCap = System.Windows.Media.PenLineCap.Round };
+
+    /// <summary>
+    /// A running timer's countdown ("12:40") in the time's place while a song keeps the island, with a thin ring before
+    /// it that empties as the time runs out (<paramref name="left"/>, 1 to 0); null puts the time back. Called once a
+    /// second by the pet's refresh, so it never needs its own tick.
+    /// </summary>
+    public void ShowTimer(string? countdown, double? left = null)
+    {
+        double l = countdown is null || left is null ? -1 : Math.Round(Math.Clamp(left.Value, 0, 1), 3);
+        if (_timer == countdown && _left == l) return;
+        if (l != _left)
+        {
+            _left = l;
+            _ring.Visibility = l < 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (l >= 0) _arc.Data = Arc(l);
+        }
+        if (_timer == countdown) return;
+        _timer = countdown;
+        _time.Foreground = countdown is null ? Ui.Tokens.Res("WallText") : TimerInk;
+        Refresh();
+    }
+
+    /// <summary>The arc for <paramref name="left"/> of the ring, clockwise from the top.</summary>
+    static System.Windows.Media.Geometry Arc(double left)
+    {
+        double r = RingSize / 2 - 0.8, c = RingSize / 2;
+        if (left >= 0.999) return new System.Windows.Media.EllipseGeometry(new Point(c, c), r, r);
+        if (left <= 0.001) return System.Windows.Media.Geometry.Empty;
+        double a = left * 2 * Math.PI;
+        var end = new Point(c + r * Math.Sin(a), c - r * Math.Cos(a));
+        var fig = new System.Windows.Media.PathFigure { StartPoint = new Point(c, c - r), IsClosed = false };
+        fig.Segments.Add(new System.Windows.Media.ArcSegment(end, new Size(r, r), 0, left > 0.5, System.Windows.Media.SweepDirection.Clockwise, true));
+        var g = new System.Windows.Media.PathGeometry { Figures = { fig } };
+        g.Freeze();
+        return g;
+    }
+
+    static readonly System.Windows.Media.Brush TimerInk = Ui.Tokens.Brush("#F5B97A"), RingTrack = Ui.Tokens.Brush("#40F5B97A");
 
     public void Refresh()
     {
+        if (_timer is { } countdown)
+        {
+            _time.Text = countdown;
+            _ampm.Visibility = Visibility.Collapsed;
+            if (_date is not null) _date.Text = "";
+            _tick.Stop();
+            return;
+        }
         var now = DateTime.Now;
         var (time, suffix) = ClockPreference.Parts(now.Hour, now.Minute);
         _time.Text = time;

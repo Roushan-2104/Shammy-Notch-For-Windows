@@ -175,6 +175,7 @@ public static class AgentText
         HookState.NotConnected => new("Not connected", "Connect", true),
         HookState.Stale => new("Needs reconnecting", "Reconnect", true),
         _ when !listening => new("Connected, but Shammy’s port is taken", "Reconnect", true),
+        HookState.Outdated => new("Connected · Update to see Claude’s steps as they start", "Update", true),
         _ => new($"Connected · {(sessionsToday == 0 ? "no sessions" : sessionsToday == 1 ? "1 session" : $"{sessionsToday} sessions")} today", "Disconnect", true),
     };
 

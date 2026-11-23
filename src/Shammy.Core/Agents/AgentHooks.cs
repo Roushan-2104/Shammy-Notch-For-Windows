@@ -27,6 +27,11 @@ public enum HookState
     Connected,
     /// <summary>Some of Shammy's hooks are there, but for another port or token, or some are missing.</summary>
     Stale,
+    /// <summary>
+    /// Every hook there is right for this port and token, but a newer Shammy adds more (the steps wing's PreToolUse):
+    /// everything works, an Update adds the rest.
+    /// </summary>
+    Outdated,
     /// <summary>The file is not valid JSON, so nothing can be said.</summary>
     Unreadable,
 }
@@ -93,6 +98,9 @@ public static class AgentHooks
         return Regex.IsMatch(p, @"^[A-Za-z]:(/[A-Za-z0-9._-]+)+/curl\.exe$", RegexOptions.CultureInvariant) ? p : PlainCurl;
     }
 
+    /// <summary>Hooks newer Shammys add: a file without them (written by an older Shammy) still works.</summary>
+    static readonly HashSet<string> AddedLater = new(StringComparer.Ordinal) { "PreToolUse" };
+
     /// <summary>Everything Connect adds, in the order it is written.</summary>
     public static IReadOnlyList<HookEntry> Entries(HookEndpoint ep)
     {
@@ -100,6 +108,8 @@ public static class AgentHooks
         return new[]
         {
             new HookEntry("UserPromptSubmit", null, status, 5),
+            // As each tool starts, so the steps wing shows "Running tests" while they run: beside Claude Code too.
+            new HookEntry("PreToolUse", null, status, 5, Async: true),
             // After every tool call: beside Claude Code, never in its way.
             new HookEntry("PostToolUse", null, status, 5, Async: true),
             // A tool that ran and failed still means the question before it was answered.
@@ -128,7 +138,14 @@ public static class AgentHooks
         if (ep is null || !ep.IsValid) return HookState.Stale;
         static IEnumerable<string> Sorted(IEnumerable<(string Event, string Command)> list) =>
             list.Select(e => e.Event + "\n" + e.Command).OrderBy(e => e, StringComparer.Ordinal);
-        return Sorted(Entries(ep).Select(e => (e.Event, e.Command))).SequenceEqual(Sorted(found)) ? HookState.Connected : HookState.Stale;
+        var expected = Sorted(Entries(ep).Select(e => (e.Event, e.Command))).ToList();
+        var have = Sorted(found).ToList();
+        if (expected.SequenceEqual(have)) return HookState.Connected;
+        // All of ours are current and only hooks a newer Shammy added are missing: connected, with an update to offer.
+        // Anything else missing or different (a lost approval hook, another port) still needs reconnecting.
+        var missing = Entries(ep).Where(e => !have.Contains(e.Event + "\n" + e.Command)).Select(e => e.Event).ToList();
+        bool onlyNewer = missing.Count > 0 && missing.All(AddedLater.Contains);
+        return onlyNewer && have.All(expected.Contains) && have.Distinct().Count() == have.Count ? HookState.Outdated : HookState.Stale;
     }
 
     /// <summary>Shammy's hooks in the file, as "Event: command" lines (for the test pipe).</summary>

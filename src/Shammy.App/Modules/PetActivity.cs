@@ -116,7 +116,8 @@ internal static class PetActivitySource
                 return new PetLive(a, new PetActivityState
                 {
                     Id = a.Id, Costume = PetCostume.Notify, Label = n.AppName,
-                    Value = PetActivities.NotifyValue(n.Title, n.AppName, PrivacyState.Presenting),
+                    Value = np.Peek ? PetActivities.PeekValue(n.Title, n.Body, n.AppName, PrivacyState.Presenting)
+                        : PetActivities.NotifyValue(n.Title, n.AppName, PrivacyState.Presenting),
                     CanOpen = a.Click is not null,
                 })
                 {

@@ -13,6 +13,9 @@ internal static class QuietState
 
     public static bool IsQuiet => Reasons.Count > 0;
 
+    /// <summary>Quiet only for a call, a meeting or focus: a notification still peeks through, silently.</summary>
+    public static bool PeeksThrough => QuietRules.PeeksThrough(Reasons);
+
     public static string Describe() => QuietRules.Describe(Reasons);
 
     /// <summary>Whether this reason holds now (a call app has the mic: <see cref="QuietReason.Call"/>).</summary>

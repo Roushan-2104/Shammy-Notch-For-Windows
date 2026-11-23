@@ -66,6 +66,36 @@ public static class QuietRules
     public static bool FocusQuiet(bool focusClock, PomodoroPhase? pomodoroPhase) =>
         focusClock || pomodoroPhase == PomodoroPhase.Focus;
 
+    /// <summary>
+    /// Whether a notification still shows (as a small, silent one-line peek) during these quiet reasons. A call, a
+    /// calendar meeting and a focus session only quieten it; the quiet switch you turned on yourself (and a test)
+    /// still holds everything.
+    /// </summary>
+    public static bool PeeksThrough(IEnumerable<QuietReason> reasons)
+    {
+        bool any = false;
+        foreach (var r in reasons)
+        {
+            if (r is not (QuietReason.Call or QuietReason.Meeting or QuietReason.Focus)) return false;
+            any = true;
+        }
+        return any;
+    }
+
+    /// <summary>
+    /// A message from the app you're already looking at needs no pop-up (you're reading it there); it still goes in
+    /// the list. Phone notifications always show: the app in front is on the laptop.
+    /// </summary>
+    public static bool FromAppInFront(string? appInFront, string notificationApp, bool fromPhone)
+    {
+        if (fromPhone || string.IsNullOrWhiteSpace(appInFront) || string.IsNullOrWhiteSpace(notificationApp)) return false;
+        string front = appInFront.Trim(), app = notificationApp.Trim();
+        // The front app goes by its short name ("Chrome", "Teams"), a toast by its full one ("Google Chrome",
+        // "Microsoft Teams"): the same app when the full name ends with the short one as a whole word.
+        return string.Equals(front, app, StringComparison.OrdinalIgnoreCase)
+            || app.EndsWith(" " + front, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The pill shown when quiet ends with notifications waiting: "1 held", "3 held"; null for none.</summary>
     public static string? HeldText(int held) => held <= 0 ? null : $"{held} held";
 

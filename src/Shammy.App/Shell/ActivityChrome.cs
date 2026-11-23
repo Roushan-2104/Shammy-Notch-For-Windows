@@ -179,6 +179,9 @@ internal sealed class ActivityChrome
     public string? DotId => _dotId;
     public bool Showing => _pop.Target > 0 || _dotPop.Target > 0 || _glowOn;
 
+    /// <summary>How far the circle and the dot beside the notch reach past its right edge once they've settled (Root units).</summary>
+    public double Reach => (_pop.Target > 0 ? Gap + CircleSize : 0) + (_dotPop.Target > 0 ? (_pop.Target > 0 ? 4 : Gap) + 20 : 0);
+
     static bool Reduced => !Infrastructure.MotionPrefs.Lively;
 
     /// <summary>Show the circle for <paramref name="owner"/> and the dot for <paramref name="dot"/> (either may be absent).</summary>
@@ -427,6 +430,17 @@ internal sealed class ActivityChrome
     /// end, as one shape. Cheap: one ellipse and one four-curve path per frame, only while the circle shows.
     /// </summary>
     Geometry Liquid(double right, double rowH, double h, double p)
+    {
+        // Settled (nothing moved since the last frame): the same shape again, not rebuilt.
+        if (_liquidCache is { } last && _liquidKey == (right, rowH, h, p)) return last;
+        _liquidKey = (right, rowH, h, p);
+        return _liquidCache = BuildLiquid(right, rowH, h, p);
+    }
+
+    (double, double, double, double) _liquidKey = (double.NaN, 0, 0, 0);
+    Geometry? _liquidCache;
+
+    Geometry BuildLiquid(double right, double rowH, double h, double p)
     {
         double scale = 0.25 + 0.75 * p;
         double left = right + Gap - 16 * (1 - p);

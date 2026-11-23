@@ -25,7 +25,7 @@ public partial class NotchWindow
     /// with: the plain colour, or the glass's own colour around the closed island so they match it. Not frozen, so a
     /// new wallpaper repaints them.
     /// </summary>
-    readonly SolidColorBrush _islandFill = new(PlainIsland);
+    readonly SolidColorBrush _islandFill = IslandSurface.Fill;
 
     /// <summary>Room for the island's shadow, the tab under it and the cards peeking below a message.</summary>
     const double ShadowPad = 36;
@@ -39,7 +39,11 @@ public partial class NotchWindow
     IslandGlass _glass = null!;
     WriteableBitmap _waves = null!;
     byte[] _wavePx = null!;
-    DispatcherTimer _ambientTick = null!, _ambientSlow = null!;
+    DispatcherTimer _ambientSlow = null!;
+    /// <summary>The waves and rim's frames, on the app's frame clock (null while they rest).</summary>
+    IDisposable? _ambientFrames;
+    double _ambientDue;
+    bool AmbientRunning => _ambientFrames is not null;
     readonly System.Diagnostics.Stopwatch _ambientClock = new();
     double _waveTime, _breathTime;
 
@@ -57,14 +61,18 @@ public partial class NotchWindow
         TuckTab.Background = _islandFill;
         Bubble.Background = _islandFill;
         _glass = new IslandGlass(Dispatcher);
-        _glass.Changed += ApplyLook;
+        // The new picture is read for where the window is now: only when it arrives does the glide offset reset.
+        _glass.Changed += () =>
+        {
+            _glassAtShift = _glassRequestedAt;
+            ApplyLook();
+        };
         _waves = new WriteableBitmap(IslandWaves.Width, IslandWaves.Height, 96, 96, PixelFormats.Pbgra32, null);
         _wavePx = new byte[IslandWaves.Width * IslandWaves.Height * 4];
         Shape.Waves = _waves;
         // Something to look at from the first frame, even before anything plays.
         RenderWaves();
 
-        _ambientTick = new DispatcherTimer(TimeSpan.FromMilliseconds(1000.0 / IslandLook.AmbientFps), DispatcherPriority.Render, (_, _) => OnAmbientTick(), Dispatcher) { IsEnabled = false };
         // A meeting coming up isn't an event the island hears about: look now and then (repaints only on a change).
         _ambientSlow = new DispatcherTimer(TimeSpan.FromSeconds(30), DispatcherPriority.Background, (_, _) => UpdateAmbience(), Dispatcher);
 
@@ -84,7 +92,7 @@ public partial class NotchWindow
             try { Windows.System.Power.PowerManager.EnergySaverStatusChanged -= OnEnergySaverChanged; }
             catch (Exception) { }
             Theme.PaletteTheme.Changed -= OnPaletteChanged;
-            _ambientTick.Stop();
+            StopAmbient();
             _ambientSlow.Stop();
         };
     }
@@ -119,17 +127,19 @@ public partial class NotchWindow
         Edge.SetState(shown ? RimColour() : null);
         bool run = shown && (_plan.AnimateWaves || (_plan.Breathe && _rimState != RimState.None && Edge.Enabled));
         if (!_plan.Breathe) Edge.Breath = RimLight.Steady;
-        if (run && !_ambientTick.IsEnabled)
+        if (run && !AmbientRunning)
         {
             _ambientClock.Restart();
-            _ambientTick.Start();
+            _ambientDue = 0;
+            // Every frame is offered; the waves draw at their own rate (OnAmbientFrame), in step with the screen.
+            _ambientFrames = Motion.Animator.Subscribe(OnAmbientFrame);
         }
-        else if (!run && _ambientTick.IsEnabled)
+        else if (!run && AmbientRunning)
         {
-            _ambientTick.Stop();
+            StopAmbient();
         }
         // Still waves (Calm, Battery Saver) jump straight to the new strength.
-        if (!_ambientTick.IsEnabled && _waveBoost != _boostTarget)
+        if (!AmbientRunning && _waveBoost != _boostTarget)
         {
             _waveBoost = _boostTarget;
             RenderWaves();
@@ -151,13 +161,12 @@ public partial class NotchWindow
     {
         if (_waves is null) return;
         var glass = _plan.Glass ? _glass.Image : null;
-        bool open = _spec.H > 80;
-        // An open slab shows the waves softer (0.7), except while a song's colours are up (towards full).
-        double lift = (_waveBoost - 1) / (IslandWaves.MaxBoost - 1);
-        double waves = _plan.Waves ? (open ? 0.7 + 0.3 * lift : 1) : 0;
+        double waves = WavesOpacityAt(_h.Value);
         var fill = glass is null ? PlainIsland : _glass.Average;
         if (_islandFill.Color != fill) _islandFill.Color = fill;
-        var rect = new Rect(0, -_gap, WindowWidth, GlassHeight);
+        // While the island glides beside the calendar, the glass (read where the window was) is held still against the
+        // wallpaper, so it lines up again when it's remade at the end instead of jumping.
+        var rect = new Rect((_wingShift - _glassAtShift) / _scale, -_gap, WindowWidth, GlassHeight);
         if (ReferenceEquals(Shape.Glass, glass) && Shape.WavesOpacity == waves && Shape.GlassRect == rect) return;
         // The action circle beside the island is the same liquid: same glass, same place.
         _chrome.SetSurface(glass, rect);
@@ -165,6 +174,36 @@ public partial class NotchWindow
         Shape.GlassRect = rect;
         Shape.WavesOpacity = waves;
         Shape.InvalidateVisual();
+    }
+
+    void StopAmbient()
+    {
+        _ambientFrames?.Dispose();
+        _ambientFrames = null;
+    }
+
+    /// <summary>A screen frame: the waves and rim draw on every second one or so (AmbientFps), never between frames.</summary>
+    void OnAmbientFrame(double dt)
+    {
+        _ambientDue -= dt;
+        // Half a frame of slack: frame times are never exactly 1/60, and without it every other draw slipped a frame.
+        if (_ambientDue > dt * 0.5) return;
+        _ambientDue += 1.0 / IslandLook.AmbientFps;
+        if (_ambientDue < 0) _ambientDue = 0;
+        OnAmbientTick();
+    }
+
+    /// <summary>
+    /// How strong the waves are at island height <paramref name="h"/>: full on the closed pill, softer (0.7) on the open
+    /// slab except while a song's colours are up. Eased between the two with the height itself, so opening and
+    /// closing fade it rather than switching it in one step.
+    /// </summary>
+    double WavesOpacityAt(double h)
+    {
+        if (!_plan.Waves) return 0;
+        double lift = (_waveBoost - 1) / (IslandWaves.MaxBoost - 1);
+        double open = Math.Clamp((h - 60) / 60, 0, 1);
+        return 1 + ((0.7 + 0.3 * lift) - 1) * open;
     }
 
     void OnAmbientTick()
@@ -305,27 +344,35 @@ public partial class NotchWindow
         return IslandGlass.TestWallpaper is null ? "ok: the real wallpaper" : "ok: " + IslandGlass.TestWallpaper;
     }
 
+    /// <summary>The calendar glide's shift when the glass was last read (see ApplyLook).</summary>
+    double _glassAtShift, _glassRequestedAt;
+
     void UpdateGlass()
     {
         if (_glass is null || !_windowPlaced || _hwnd == IntPtr.Zero) return;
         if (!_transparency || _batterySaver || SystemParameters.HighContrast) return;
         if (Interop.Native.GetDpiForMonitor(Monitor, 0, out uint dpi, out _) != 0 || dpi == 0) return;
         double px = dpi / 96.0 * _scale;
+        _glassRequestedAt = _wingShift;
         _glass.Update(Monitor, _windowPx.X, _windowPx.Y, (int)Math.Round(WindowWidth * px), (int)Math.Round(GlassHeight * px));
     }
 
     /// <summary>Once the island has settled (or moved), tell other windows where it is (see <see cref="IslandBounds"/>).</summary>
     void PublishBounds(double w, double h, bool settled)
     {
-        if (!settled || (!_boundsDirty && w == _publishedSize.W && h == _publishedSize.H)) return;
+        double reach = _chrome.Reach;
+        if (!settled || (!_boundsDirty && w == _publishedSize.W && h == _publishedSize.H && reach == _publishedReach)) return;
         if (PresentationSource.FromVisual(Root) is null) return;
         _boundsDirty = false;
         _publishedSize = (w, h);
+        _publishedReach = reach;
         try
         {
             var a = Root.PointToScreen(new Point(Cx - w / 2, 0));
             var b = Root.PointToScreen(new Point(Cx + w / 2, h));
-            IslandBounds.Set(h > 0.5 && !_tucked ? new Rect(a, b) : Rect.Empty, Monitor);
+            // The circle and dot beside the island, in screen pixels (so a wing on the right keeps clear of them).
+            double reachPx = reach > 0 ? Root.PointToScreen(new Point(Cx + w / 2 + reach, 0)).X - b.X : 0;
+            IslandBounds.Set(h > 0.5 && !_tucked ? new Rect(a, b) : Rect.Empty, Monitor, reachPx);
         }
         catch (InvalidOperationException)
         {
@@ -334,9 +381,10 @@ public partial class NotchWindow
     }
 
     (double W, double H) _publishedSize = (-1, -1);
+    double _publishedReach;
 
     internal string DescribeIsland() =>
         $"gap={_gap * _scale:0.##} glass={(Shape.Glass is not null ? "on" : "off")} {_glass.Describe()} transparency={_transparency} batterySaver={_batterySaver} " +
         $"highContrast={SystemParameters.HighContrast} busy={_busy} waves={(_plan.Waves ? (_plan.AnimateWaves ? "moving" : "still") : "off")} " +
-        $"ticking={_ambientTick.IsEnabled} waveBoost={_waveBoost:0.##} wavesOpacity={Shape.WavesOpacity:0.##} {Edge.Describe()} state={_rimState} {Theme.PaletteTheme.Describe()} bounds={IslandBounds.Screen}";
+        $"ticking={AmbientRunning} waveBoost={_waveBoost:0.##} wavesOpacity={Shape.WavesOpacity:0.##} {Edge.Describe()} state={_rimState} {Theme.PaletteTheme.Describe()} bounds={IslandBounds.Screen}";
 }

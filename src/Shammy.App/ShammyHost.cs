@@ -449,17 +449,27 @@ internal sealed partial class ShammyHost : IDisposable
     void OnNotification(ShammyNotification n)
     {
         if (!_settings.ShowNotifications || _settings.MutedNotificationApps.Contains(n.AppId)) return;
-        // Quiet mode (a call, a meeting, focus): no ping and no pop-up; it waits in the Notifications view
-        // (the service already added it there) and a "3 held" pill points to it when quiet ends.
+        // While the screen is shared nothing pops up at all: it waits in the Notifications view (the service already
+        // added it there), as do messages from the app you're already looking at.
+        if (PrivacyState.Presenting) return;
+        if (Shammy.Core.Connect.QuietRules.FromAppInFront(Modules.CircleMemory.FrontApp.Name(), n.AppName, n.IsFromPhone)) return;
         if (QuietState.IsQuiet)
         {
+            // A call, a meeting or focus: a small silent peek (who, and the first words), then it folds away.
+            if (QuietState.PeeksThrough)
+            {
+                PostPeek(n);
+                return;
+            }
+            // Your own quiet switch: no ping and no pop-up; a "3 held" pill points to the list when it ends.
             _held++;
             return;
         }
         n = Private(n);
 
         // The message it covers waits underneath (see PopupStack); sending this one away brings that one back.
-        int more = _underNotification.Arrived(_activities.Get("notification") is { Payload: NotificationPayload p } ? p.Notification : null);
+        // A peek on show isn't kept under the card (it was only a glance; it's in the list).
+        int more = _underNotification.Arrived(_activities.Get("notification") is { Payload: NotificationPayload { Peek: false } p } ? p.Notification : null);
         // Shammy's own soft ping (Windows' sound can be turned off in its notification settings). A burst
         // of toasts pings once.
         if (DateTime.UtcNow - _lastPing > TimeSpan.FromSeconds(2))
@@ -471,6 +481,19 @@ internal sealed partial class ShammyHost : IDisposable
     }
 
     readonly Shammy.Core.Notch.PopupStack<ShammyNotification> _underNotification = new();
+
+    /// <summary>How long a quiet peek stays before folding away.</summary>
+    const double PeekSeconds = 4;
+
+    void PostPeek(ShammyNotification n)
+    {
+        // A full card already on show stays (it's in the list either way); a peek never replaces it.
+        if (_activities.Get("notification") is { Payload: NotificationPayload { Peek: false } }) return;
+        Post(new Activity("notification", ActivityKind.Notification, PriorityNotification, new NotificationPayload(Private(n), 0, Peek: true), In(PeekSeconds))
+        {
+            Click = () => OpenNotificationApp(n),
+        });
+    }
 
     void PostNotification(ShammyNotification n, int more, bool held)
     {

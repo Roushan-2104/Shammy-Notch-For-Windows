@@ -48,4 +48,15 @@ public class CalendarWingTests
         Assert.Equal((300 - CalendarWingFit.Margin) / (CalendarWingFit.Neck + CalendarWingFit.Width), tight, 6);
         Assert.Equal(CalendarWingFit.MinScale, CalendarWingFit.Scale(100, 1.0));
     }
+
+    [Theory]
+    [InlineData(4, 3)]
+    [InlineData(5, 3)]
+    [InlineData(6, 2)]
+    public void The_calendar_shows_as_many_plans_as_fit_under_its_weeks(int weeks, int plans)
+    {
+        Assert.Equal(plans, CalendarWingFit.PlansThatFit(weeks));
+        // 250 inside the slab: 39 + 21 a week for the month, 26 for the heading, 24 a plan.
+        Assert.True(39 + 21 * weeks + 26 + 24 * plans <= 250);
+    }
 }

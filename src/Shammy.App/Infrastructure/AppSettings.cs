@@ -256,6 +256,12 @@ internal sealed class AppSettings
     /// </summary>
     public bool AgentsAskInNotch { get; set; } = true;
 
+    /// <summary>
+    /// A small wing beside the notch shows Claude Code's task list and its last few steps while you're in another
+    /// app, and its questions (Allow/Deny and its own) pop out there to answer. Off, the notch works as before.
+    /// </summary>
+    public bool AgentsStepsWing { get; set; } = true;
+
     // ---- The phone (Shammy Island) -------------------------------------------------------------------
 
     /// <summary>Text copied on this laptop is on the linked phone's clipboard too (never passwords, nothing while sharing).</summary>

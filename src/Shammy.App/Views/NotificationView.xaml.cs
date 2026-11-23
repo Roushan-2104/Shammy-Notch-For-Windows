@@ -180,8 +180,6 @@ public partial class NotificationView : UserControl
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var back = new DoubleAnimation(_slide.X, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease, FillBehavior = FillBehavior.Stop };
         var show = new DoubleAnimation(Sheet.Opacity, 1, TimeSpan.FromMilliseconds(180)) { FillBehavior = FillBehavior.Stop };
-        Timeline.SetDesiredFrameRate(back, 30);
-        Timeline.SetDesiredFrameRate(show, 30);
         _slide.X = 0;
         Sheet.Opacity = 1;
         _slide.BeginAnimation(TranslateTransform.XProperty, back);
@@ -200,8 +198,6 @@ public partial class NotificationView : UserControl
         var ease = new QuadraticEase { EasingMode = EasingMode.EaseIn };
         var away = new DoubleAnimation(_slide.X, direction * CardWidth * 0.7, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease };
         var fade = new DoubleAnimation(Sheet.Opacity, 0, TimeSpan.FromMilliseconds(150));
-        Timeline.SetDesiredFrameRate(away, 30);
-        Timeline.SetDesiredFrameRate(fade, 30);
         away.Completed += (_, _) =>
         {
             if (_leaving) Gone();
@@ -229,7 +225,6 @@ public partial class NotificationView : UserControl
         if (!fadeIn || !MotionPrefs.Lively) return;
         // The next message in the pile rises into place.
         var rise = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)) { FillBehavior = FillBehavior.Stop };
-        Timeline.SetDesiredFrameRate(rise, 30);
         Sheet.BeginAnimation(OpacityProperty, rise);
     }
 

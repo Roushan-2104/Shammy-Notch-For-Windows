@@ -41,9 +41,25 @@ public partial class NotchWindow
         if (!_fullscreen)
             foreach (var a in _ranked)
                 if (a.Id != current.Id && PetFor(a, now) is { } live) lives.Add(live);
+        // A running timer on top with a song playing: the song keeps the island (the countdown sits beside it, below).
+        // Only this pair swaps; everything else keeps its rank.
+        if (lives[0].State is { Costume: PetCostume.Timer, Done: false }
+            && lives.FindIndex(l => l.State is { Costume: PetCostume.Music, Playing: true }) is var song and > 0)
+        {
+            var music = lives[song];
+            lives.RemoveAt(song);
+            lives.Insert(0, music);
+        }
         var stage = PetActivities.Stage(lives.Select(l => l.State).ToList(), _fullscreen ? null : _petPreferred);
         _petOwner = lives.FirstOrDefault(l => l.State.Id == stage.Owner) ?? first;
         _petDot = stage.Dot is null ? null : lives.FirstOrDefault(l => l.State.Id == stage.Dot);
+        // A song keeps the island over a running timer: the timer's countdown sits small at the right end, in the
+        // time's place (and isn't also the waiting dot).
+        var timer = _petOwner.State.Costume == PetCostume.Music && !_fullscreen
+            ? lives.FirstOrDefault(l => l.State.Costume == PetCostume.Timer && !l.State.Done && l.State.Value.Length > 0)
+            : null;
+        if (timer is not null && ReferenceEquals(_petDot, timer)) _petDot = null;
+        _activityView.Clock.ShowTimer(timer?.State.Value, timer?.State.Progress);
         bool changed = _activityView.Show(_petOwner, _services.Settings.PetEnabled);
         // A different activity took the pill while it was up: its content blurs through the change.
         if (changed && _petShowing && _mode == NotchMode.Compact && _petCompact.Opacity.Value > 0.9 && MotionPrefs.Lively)

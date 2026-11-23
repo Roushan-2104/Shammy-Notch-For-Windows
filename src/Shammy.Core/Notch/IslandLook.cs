@@ -47,8 +47,11 @@ public static class IslandLook
         return new(glass, waves, waves && c.Busy && !still, !still && !c.HighContrast);
     }
 
-    /// <summary>Frames per second while the waves or the rim move: slow, soft motion needs no more.</summary>
-    public const int AmbientFps = 20;
+    /// <summary>
+    /// Frames per second while the waves or the rim move, on the screen's own frame clock: slow, soft motion needs no
+    /// more, and 30 (every other frame at 60 Hz) stays in step with the island's springs instead of beating against them.
+    /// </summary>
+    public const int AmbientFps = 30;
 }
 
 /// <summary>What the rim light along the island's lower edge shows.</summary>
