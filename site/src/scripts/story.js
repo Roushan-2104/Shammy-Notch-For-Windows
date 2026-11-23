@@ -20,7 +20,7 @@ const SCENES = [
   { key: 'ask', play: 5, wing: true, world: [[217, 119, 87, .7], [242, 179, 90, .35], [107, 63, 216, .55], [224, 87, 122, .3]], beam: .45 },
   { key: 'talk', play: 2.8, world: [[25, 195, 178, .7], [60, 200, 120, .42], [107, 63, 216, .42], [30, 90, 160, .35]], beam: .45 },
   { key: 'music', play: 6, world: [[200, 40, 40, .8], [40, 150, 70, .6], [120, 20, 30, .55], [90, 30, 30, .4]], beam: .25 },
-  { key: 'phone', play: 1.8, world: [[90, 120, 255, .62], [107, 63, 216, .62], [25, 195, 178, .38], [40, 60, 160, .4]], beam: .5 },
+  { key: 'phone', play: 8, world: [[90, 120, 255, .62], [107, 63, 216, .62], [25, 195, 178, .38], [40, 60, 160, .4]], beam: .5 },
   { key: 'stage', play: 3.2, world: [[255, 190, 140, .5], [224, 87, 122, .38], [255, 220, 180, .32], [120, 70, 50, .4]], beam: .3 },
   { key: 'alarm', play: 2.6, world: [hex(sky.hor, .72), hex(sky.mid, .85), hex(sky.edge, .5), hex(sky.top, .9)], beam: .2 },
   { key: 'light', world: [[70, 70, 110, .4], [40, 40, 70, .35], [107, 63, 216, .28], [25, 195, 178, .16]], beam: .15, status: 'Using 90 MB' },
@@ -54,7 +54,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
   const rail = stage.querySelector('.rail');
   const railItems = [...rail.querySelectorAll('button')];
   const phone = stage.querySelector('.phone');
-  const phoneAsk = phone.querySelector('[data-ph-ask]');
+  const phoneLive = phone.querySelector('[data-ph-live]');
   const wingEl = stage.querySelector('.wing');
   const wingIn = wingEl.querySelector('.w-in');
   const fallback = stage.querySelector('.css-island');
@@ -109,7 +109,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     phone.classList.toggle('got', asked);
     const h = allowed ? '<b>Claude Code · login-fix</b><span>Allowed from your phone. Running npm test.</span>'
       : '<b>Claude Code · login-fix</b><span>Run npm test?</span><span class="ph-acts"><i>Deny</i><i class="on">Allow</i></span>';
-    if (phoneAsk.innerHTML !== h) phoneAsk.innerHTML = h;
+    if (phoneLive.innerHTML !== h) phoneLive.innerHTML = h;
   }
 
   function wingFill() {
@@ -154,12 +154,34 @@ export function mountStory(journey, { reduced, cover, release, version }) {
       return { w: 660, html: `<div class="c-music"><img src="${cover}" alt="" width="132" height="132"><div class="c-track"><div class="cap">${paused ? 'Paused' : 'Now playing'}</div><div class="c-song">Night Song</div><div class="c-artist">Nusrat Fateh Ali Khan &amp; Michael Brook</div>
         <div class="c-bar"><i style="width:${(at / 367 * 100).toFixed(1)}%"></i></div><div class="c-times"><span>${Math.floor(at / 60)}:${String(at % 60).padStart(2, '0')}</span><button type="button" class="play" data-act="play" aria-label="${paused ? 'Play' : 'Pause'}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">${paused ? '<path d="M8 5.5v13l10-6.5z"/>' : '<rect x="7" y="5.5" width="3.5" height="13" rx="1"/><rect x="13.5" y="5.5" width="3.5" height="13" rx="1"/>'}</svg></button><span>6:07</span></div></div></div>` };
     },
+    // Four beats of the laptop and phone keeping in step; the dot on the line shows which way each one travels.
     phone(m) {
-      const p = Math.min(100, Math.floor(m * 112));
-      phone.classList.toggle('got', p >= 100);
-      return { w: 580, html: `<div class="c-head"><span class="eyes"><i></i><i></i></span><div><div class="cap">To phone · Pixel 8</div><div class="c-title">${p < 100 ? 'Sending report.pdf' : 'On your phone'}</div></div><span class="c-meta big">${p}%</span></div>
-        <div class="c-progress"><i style="width:${p}%"></i></div>
-        <div class="c-acts"><button type="button" class="pill" data-act="send">Send it again</button></div>` };
+      const n = user.beat ?? Math.min(3, Math.floor(m * 4)), t = user.beat != null ? 1 : clamp(m * 4 - n);
+      const into = n === 0 || n === 2; // from the phone into the laptop
+      const landed = into ? t > .08 : t > .4;
+      const answered = n === 2 && t > .6, p = Math.floor(clamp((t - .1) / .5) * 100);
+      const beat = [
+        { cap: 'From your phone · WhatsApp', title: 'Riya: kal milte hain?', meta: 'just now',
+          ph: '<b>WhatsApp · Riya</b><span>kal milte hain?</span>', there: 'Riya on WhatsApp' },
+        { cap: 'Copied on your laptop', title: '6E 2134', meta: 'on your phone too',
+          ph: '<b>Clipboard</b><span>6E 2134, copied on your laptop</span>', there: '6E 2134 is on the clipboard' },
+        { cap: 'Your phone is ringing', title: answered ? 'Mom · answered' : 'Mom', meta: answered ? 'the call stays on your phone' : 'ringing',
+          ph: answered ? '<b>Mom</b><span>On a call, answered from your laptop</span>' : '<b>Mom</b><span>Incoming call</span><span class="ph-acts"><i>Decline</i><i class="on">Answer</i></span>',
+          there: answered ? 'on a call with Mom' : 'Mom is calling' },
+        { cap: 'To your phone', title: p < 100 ? 'Sending report.pdf' : 'On your phone', meta: `${p}%`,
+          ph: '<b>report.pdf</b><span>From your laptop · tap to open</span>', there: p < 100 ? 'report.pdf on its way' : 'report.pdf · tap to open' },
+      ][n];
+      phone.classList.toggle('got', landed);
+      if (phoneLive.innerHTML !== beat.ph) phoneLive.innerHTML = beat.ph;
+      // The dot runs along the line from where the beat starts, then rests where it landed.
+      const pos = into ? lerp(100, 0, clamp(t / .3)) : lerp(0, 100, clamp(t / .4));
+      const shown = into ? smooth(t, .05, .3) : 1;
+      return { w: 620, html: `<div class="c-head"><span class="eyes"><i></i><i></i></span><div><div class="cap">${beat.cap}</div><div class="c-title" style="opacity:${shown.toFixed(2)}">${beat.title}</div></div><span class="c-meta${n === 3 ? ' big' : ''}">${beat.meta}</span></div>
+        ${n === 2 ? `<div class="c-acts"><span class="pill static">Decline</span><span class="pill pri static${answered ? ' on' : ''}">Answer</span></div>` : ''}
+        ${n === 3 ? `<div class="c-progress"><i style="width:${p}%"></i></div>` : ''}
+        <div class="c-link"><span>Laptop</span><span class="c-track"><i class="${landed ? 'lit' : ''}" style="left:${pos.toFixed(1)}%"></i></span><span>Phone</span></div>
+        <div class="c-ph"><span class="c-ph-tag">On your phone</span><span>${beat.there}</span></div>
+        <div class="c-acts start"><span class="switch" role="group" aria-label="What stays in sync">${['Messages', 'Clipboard', 'Calls', 'Files'].map((l, i) => `<button type="button" data-act="beat" data-n="${i}" aria-pressed="${i === n}">${l}</button>`).join('')}</span></div>` };
     },
     stage(m) {
       const line = 'Thanks for joining, everyone. Here\'s what changes for you this week.'.split(' ');
@@ -348,7 +370,11 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     if (!act || act === 'talk') return;
     if (act === 'roman' || act === 'deva') { user.script = act; user.words = 8; }
     else if (act === 'play') { user.paused = !user.paused; playing?.paused(user.paused); }
-    else if (act === 'send') { phone.classList.remove('got'); playing?.restart(); }
+    else if (act === 'beat') {
+      // Replay that beat and carry on from there; with reduced motion, just show it.
+      const n = +e.target.closest('[data-act]').dataset.n;
+      if (speed && playing) { delete user.beat; playing.progress(n / 4).play(); } else user.beat = n;
+    }
     else if (act === 'stop') { user.stopped = true; chime(0, .6); }
     html = ''; fill(); draw();
   });

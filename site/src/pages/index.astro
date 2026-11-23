@@ -50,7 +50,7 @@ const chapters = ['Claude works', 'Claude asks', 'Hinglish', 'Music', 'Phone', '
       </div>
     </div>
 
-    <div class="phone" aria-hidden="true" data-ui hidden><div class="ph-screen"><div class="ph-island"><i></i><i></i></div><div class="ph-drop ph-file"><b>report.pdf</b><span>From your laptop · tap to open</span></div><div class="ph-drop ph-ask" data-ph-ask></div></div></div>
+    <div class="phone" aria-hidden="true" data-ui hidden><div class="ph-screen"><div class="ph-island"><i></i><i></i></div><div class="ph-drop ph-live" data-ph-live></div></div></div>
     <div class="isle" data-ui><div class="isle-in"></div></div>
     <div class="wing" role="region" aria-label="Claude's wing: its steps and questions" data-ui><div class="w-in"></div></div>
 
@@ -58,7 +58,7 @@ const chapters = ['Claude works', 'Claude asks', 'Hinglish', 'Music', 'Phone', '
     <article class="copy away" data-i="2"><h2>Claude asks.<br>Answer right there.</h2><p class="lead">When Claude needs you, the wing opens with its question: pick a numbered choice or type your own. A command waits for Allow or Deny, in the wing or on your unlocked phone. Claude stops waiting on a terminal you weren't looking at.</p></article>
     <article class="copy away" data-i="3"><h2>Talk in Hinglish.<br>It types.</h2><p class="lead">Hold <kbd>Ctrl</kbd> + <kbd>Win</kbd> in any app and talk. Your words show live in the island; let go and they're typed where your cursor is. Say "in Hindi" and it lands in Devanagari.</p></article>
     <article class="copy away" data-i="4"><h2>Your song,<br>in its own colours.</h2><p class="lead">The island takes its light from the cover you're playing. Lyrics scroll in time where the song has them; drag the line to seek, scroll over it for volume.</p></article>
-    <article class="copy away" data-i="5"><h2>Your phone<br>joins the island.</h2><p class="lead">One list of notifications for both. Answer a call, set the ringer or find your phone from the notch. Copy on your laptop, paste on your phone, and drop links, files or pictures on the notch's Phone button to send them over your own Wi-Fi.</p><p class="aside"><a class="link" href={APK}>Get Shammy Island for Android</a>, or scan the QR from the island's Phone button.</p></article>
+    <article class="copy away" data-i="5"><h2>Laptop and phone,<br>in sync.</h2><p class="lead">A message on your phone shows up on the laptop. Copy on the laptop and it's on your phone. Calls ring at the notch, and files you drop there land on the phone. They talk over your own Wi-Fi, encrypted end to end.</p><p class="aside">Pair once with the same 6 digits on both screens. <a class="link" href={APK}>Get Shammy Island for Android</a>, or scan the QR from the island's Phone button.</p></article>
     <article class="copy away" data-i="6"><h2>Read your script.<br>Look at the lens.</h2><p class="lead">Stage puts your script right under the camera and follows your voice. Its ring light lights your face and never shows up in the share.</p></article>
     <article class="copy away" data-i="7"><h2>Alarms in<br>the sky outside.</h2><p class="lead">At 6:30 it's a sunrise. At 2 AM it's the moon, and we don't ask questions. The sky comes up over the first thirty seconds, and one tap stops it.</p><p class="aside" data-sky-note></p></article>
     <article class="copy wide away" data-i="8"><h2>Light enough to forget.</h2>
@@ -223,6 +223,17 @@ const chapters = ['Claude works', 'Claude asks', 'Hinglish', 'Music', 'Phone', '
   .isle :global(.c-times) { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 13px; color: #C9B9B6; font-variant-numeric: tabular-nums; }
   .isle :global(.play) { width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #F4F3F0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
   .isle :global(.play svg) { width: 18px; height: 18px; }
+  .isle :global(.pill.static) { cursor: default; }
+  .isle :global(.c-link) { display: flex; align-items: center; gap: 12px; margin-top: 20px; font: 700 12px var(--app); letter-spacing: .12em; text-transform: uppercase; color: #A9A7A2; }
+  .isle :global(.c-track) { position: relative; flex: 1; height: 2px; border-radius: 1px; background: rgba(255,255,255,.16); }
+  .isle :global(.c-track i) { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #F4F3F0; }
+  .isle :global(.c-track i.lit) { background: #9FD8C2; box-shadow: 0 0 14px #9FD8C2; }
+  .isle :global(.c-ph) { display: none; }
+  @media (max-width: 1000px) {
+    /* The drawn phone is hidden here, so the island says what the phone shows. */
+    .isle :global(.c-ph) { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,.3); font-size: 14px; }
+    .isle :global(.c-ph-tag) { flex: none; font: 700 11px var(--app); letter-spacing: .1em; text-transform: uppercase; color: #9FD8C2; }
+  }
   .isle :global(.c-prompt) { text-align: center; font-size: 30px; font-weight: 700; line-height: 1.3; color: rgba(244,243,240,.48); }
   .isle :global(.c-prompt .read) { color: #F4F3F0; }
   .isle :global(.c-sky) { position: relative; margin: -26px -30px -28px; padding: 26px 30px 28px; min-height: 270px; overflow: hidden; background: linear-gradient(180deg, var(--top) 0%, var(--top) 22%, var(--mid) 60%, var(--hor) 100%); }
@@ -242,6 +253,7 @@ const chapters = ['Claude works', 'Claude asks', 'Hinglish', 'Music', 'Phone', '
     .isle :global(.c-music img) { width: 84px; height: 84px; border-radius: 14px; }
     .isle :global(.c-song) { font-size: 24px; } .isle :global(.c-artist) { font-size: 14px; }
     .isle :global(.c-prompt) { font-size: 21px; }
+    .isle :global(.switch button) { padding: 0 11px; font-size: 14px; }
     .isle :global(.c-alarm) { font-size: 68px; } .isle :global(.c-body) { right: 28px; width: 84px; height: 84px; }
     .isle :global(.c-sky) { margin: -20px -20px -22px; padding: 20px 20px 22px; min-height: 230px; }
     .isle :global(.c-stop) { left: 20px; bottom: 20px; }
@@ -254,12 +266,10 @@ const chapters = ['Claude works', 'Claude asks', 'Hinglish', 'Music', 'Phone', '
   .ph-drop { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 18px; background: rgba(20,20,30,.88); font-size: 14px; line-height: 1.4; color: #F4F3F0; opacity: 0; transform: translateY(-14px); transition: opacity .4s, transform .5s cubic-bezier(.2,.9,.3,1.3); }
   .ph-drop span { color: #A9A7A2; }
   .phone.got .ph-drop { opacity: 1; transform: none; }
-  .ph-ask, .phone[data-for="ask"] .ph-file { display: none; }
-  .phone[data-for="ask"] .ph-ask { display: flex; }
-  .ph-ask :global(span) { color: #C9C6D2; }
-  .ph-ask :global(.ph-acts) { display: flex; gap: 6px; margin-top: 8px; }
-  .ph-ask :global(.ph-acts i) { flex: 1; padding: 6px 0; border-radius: 10px; text-align: center; font: 700 13px var(--app); font-style: normal; color: #F4F3F0; background: rgba(255,255,255,.1); }
-  .ph-ask :global(.ph-acts i.on) { background: #9FD8C2; color: #0B0A0E; }
+  .ph-live :global(span) { color: #C9C6D2; }
+  .ph-live :global(.ph-acts) { display: flex; gap: 6px; margin-top: 8px; }
+  .ph-live :global(.ph-acts i) { flex: 1; padding: 6px 0; border-radius: 10px; text-align: center; font: 700 13px var(--app); font-style: normal; color: #F4F3F0; background: rgba(255,255,255,.1); }
+  .ph-live :global(.ph-acts i.on) { background: #9FD8C2; color: #0B0A0E; }
 
   /* Claude's wing beside the island: its task list, its last steps and its questions. The story script fills it. */
   .wing { position: absolute; left: 0; top: 0; z-index: 3; width: 340px; transform-origin: 0 0; border-radius: 22px; opacity: 0; visibility: hidden; font-family: var(--app); color: #F4F3F0;
