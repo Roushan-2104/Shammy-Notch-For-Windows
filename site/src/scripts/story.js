@@ -13,17 +13,17 @@ const hex = (h, a) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16),
 const sky = skyAt(new Date().getHours());
 const HERO = [[107, 63, 216, .95], [25, 195, 178, .85], [224, 87, 122, .6], [60, 90, 220, .5]];
 
-// Each scene: the light behind the island, the beam, the island's status, and how long its moment plays (seconds).
+// Each scene: its colour field (chapters only; the opening and the close keep the dark light), the light behind the island, the beam, the island's status, and how long its moment plays (seconds).
 const SCENES = [
   { key: 'open', world: HERO, beam: 1, status: 'Charging 100%' },
-  { key: 'steps', play: 5.5, wing: true, world: [[217, 119, 87, .55], [107, 63, 216, .72], [60, 90, 220, .35], [25, 195, 178, .25]], beam: .5 },
-  { key: 'ask', play: 5, wing: true, world: [[217, 119, 87, .7], [242, 179, 90, .35], [107, 63, 216, .55], [224, 87, 122, .3]], beam: .45 },
-  { key: 'talk', play: 2.8, world: [[25, 195, 178, .7], [60, 200, 120, .42], [107, 63, 216, .42], [30, 90, 160, .35]], beam: .45 },
-  { key: 'music', play: 6, world: [[200, 40, 40, .8], [40, 150, 70, .6], [120, 20, 30, .55], [90, 30, 30, .4]], beam: .25 },
-  { key: 'phone', play: 8, world: [[90, 120, 255, .62], [107, 63, 216, .62], [25, 195, 178, .38], [40, 60, 160, .4]], beam: .5 },
-  { key: 'stage', play: 3.2, world: [[255, 190, 140, .5], [224, 87, 122, .38], [255, 220, 180, .32], [120, 70, 50, .4]], beam: .3 },
-  { key: 'alarm', play: 2.6, world: [hex(sky.hor, .72), hex(sky.mid, .85), hex(sky.edge, .5), hex(sky.top, .9)], beam: .2 },
-  { key: 'light', world: [[70, 70, 110, .4], [40, 40, 70, .35], [107, 63, 216, .28], [25, 195, 178, .16]], beam: .15, status: 'Using 90 MB' },
+  { key: 'steps', field: '#D97757', play: 5.5, wing: true, world: [[217, 119, 87, .55], [107, 63, 216, .72], [60, 90, 220, .35], [25, 195, 178, .25]], beam: .5 },
+  { key: 'ask', field: '#F0C4A8', play: 5, wing: true, world: [[217, 119, 87, .7], [242, 179, 90, .35], [107, 63, 216, .55], [224, 87, 122, .3]], beam: .45 },
+  { key: 'talk', field: '#F2B233', play: 2.8, world: [[25, 195, 178, .7], [60, 200, 120, .42], [107, 63, 216, .42], [30, 90, 160, .35]], beam: .45 },
+  { key: 'music', field: '#C7372F', play: 6, world: [[200, 40, 40, .8], [40, 150, 70, .6], [120, 20, 30, .55], [90, 30, 30, .4]], beam: .25 },
+  { key: 'phone', field: '#9FD8C2', play: 8, world: [[90, 120, 255, .62], [107, 63, 216, .62], [25, 195, 178, .38], [40, 60, 160, .4]], beam: .5 },
+  { key: 'stage', field: '#FFD2AE', play: 3.2, world: [[255, 190, 140, .5], [224, 87, 122, .38], [255, 220, 180, .32], [120, 70, 50, .4]], beam: .3 },
+  { key: 'alarm', field: sky.moon ? sky.hor : sky.mid, play: 2.6, world: [hex(sky.hor, .72), hex(sky.mid, .85), hex(sky.edge, .5), hex(sky.top, .9)], beam: .2 },
+  { key: 'light', field: '#ECE9E2', world: [[70, 70, 110, .4], [40, 40, 70, .35], [107, 63, 216, .28], [25, 195, 178, .16]], beam: .15, status: 'Using 90 MB' },
   { key: 'get', play: .01, world: HERO, beam: 1 },
 ];
 const LAST = SCENES.length - 1;
@@ -31,6 +31,9 @@ const LAST = SCENES.length - 1;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const smooth = (v, a, b) => { const x = clamp((v - a) / (b - a)); return x * x * (3 - 2 * x); };
 const lerp = (a, b, k) => a + (b - a) * k;
+// The ink that reads best on a field: near-black or near-white, whichever has more contrast.
+const lum = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)).reduce((a, c, i) => a + c * [.2126, .7152, .0722][i], 0);
+const inkOn = (h) => ((lum(h) + .05) / .055 >= 1.05 / (lum(h) + .05) ? '#0B0A0E' : '#F4F3F0');
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 // Claude's wing: what a session is doing, step by step, and the questions it asks. Drawn here, not Claude's own mark.
@@ -59,7 +62,9 @@ export function mountStory(journey, { reduced, cover, release, version }) {
   const wingIn = wingEl.querySelector('.w-in');
   const fallback = stage.querySelector('.css-island');
   const fallbackStatus = fallback.querySelector('.ci-status');
+  const fieldEl = stage.querySelector('.field'), fieldTop = fieldEl.firstElementChild;
   const hero = { title: stage.querySelector('.open-copy'), foot: stage.querySelector('.open-foot'), moments: stage.querySelector('.moments') };
+  let shownField = null, fieldTl = null;
   let gl = null, now = -1, user = {}, html = '';
   const speed = reduced ? 0 : 1;
 
@@ -179,7 +184,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
       return { w: 620, html: `<div class="c-head"><span class="eyes"><i></i><i></i></span><div><div class="cap">${beat.cap}</div><div class="c-title" style="opacity:${shown.toFixed(2)}">${beat.title}</div></div><span class="c-meta${n === 3 ? ' big' : ''}">${beat.meta}</span></div>
         ${n === 2 ? `<div class="c-acts"><span class="pill static">Decline</span><span class="pill pri static${answered ? ' on' : ''}">Answer</span></div>` : ''}
         ${n === 3 ? `<div class="c-progress"><i style="width:${p}%"></i></div>` : ''}
-        <div class="c-link"><span>Laptop</span><span class="c-track"><i class="${landed ? 'lit' : ''}" style="left:${pos.toFixed(1)}%"></i></span><span>Phone</span></div>
+        <div class="c-link"><span>Laptop</span><span class="c-wire"><i class="${landed ? 'lit' : ''}" style="left:${pos.toFixed(1)}%"></i></span><span>Phone</span></div>
         <div class="c-ph"><span class="c-ph-tag">On your phone</span><span>${beat.there}</span></div>
         <div class="c-acts start"><span class="switch" role="group" aria-label="What stays in sync">${['Messages', 'Clipboard', 'Calls', 'Files'].map((l, i) => `<button type="button" data-act="beat" data-n="${i}" aria-pressed="${i === n}">${l}</button>`).join('')}</span></div>` };
     },
@@ -244,7 +249,24 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     if (wing.k > 0) placeWing();
   }
 
-  // Moving to a scene: the island closes, the light changes, the words swap, and the new moment plays by itself.
+  // A chapter's colour wipes over the last one: up from the bottom going on, down from the top going back.
+  // Leaving the chapters, the colour slides off and the dark light of the opening shows again.
+  function wipe(col, up) {
+    const from = shownField; shownField = col;
+    fieldTl?.kill();
+    fieldEl.style.background = from && col ? from : 'transparent';
+    if (col) {
+      stage.classList.add('fielded'); stage.style.setProperty('--field-ink', inkOn(col));
+      fieldTop.style.background = col;
+      fieldTl = gsap.fromTo(fieldTop, { clipPath: up ? 'inset(100% 0% 0% 0%)' : 'inset(0% 0% 100% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: .8 * speed, ease: 'power3.inOut', onComplete: () => { fieldEl.style.background = col; } });
+    } else {
+      stage.style.removeProperty('--field-ink');
+      fieldTop.style.background = from;
+      fieldTl = gsap.fromTo(fieldTop, { clipPath: 'inset(0% 0% 0% 0%)' }, { clipPath: up ? 'inset(0% 0% 100% 0%)' : 'inset(100% 0% 0% 0%)', duration: .8 * speed, ease: 'power3.inOut', onComplete: () => stage.classList.remove('fielded') });
+    }
+  }
+
+  // Moving to a scene: the island closes, the colour and the light change, the words swap, and the new moment plays by itself.
   let tl = null, playing = null;
   function go(i) {
     if (i === now) return;
@@ -254,6 +276,7 @@ export function mountStory(journey, { reduced, cover, release, version }) {
     if (wingEl.contains(document.activeElement)) document.activeElement.blur();
     tl?.kill(); playing?.kill();
     stage.dataset.scene = s.key;
+    if ((s.field || null) !== shownField) wipe(s.field || null, i > was);
     s.world.forEach((c, n) => stage.style.setProperty(`--w${n}`, `rgba(${c.join(',')})`));
     gl?.world(s.world, s.beam); gl?.status(s.status || ''); gl?.tab(i === 0);
     fallbackStatus.textContent = s.status || '';
