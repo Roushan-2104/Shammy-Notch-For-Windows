@@ -55,7 +55,7 @@ internal sealed partial class PhoneLinkModule
                 {
                     PostReachPill();
                     _ctx.Info("Reach on: the phone controls this laptop");
-                    _sentFront = ""; _sentWins = ""; _sentTabs = ""; _sentIcons.Clear(); _names.Clear(); _sentCpu = -100; _kernel = 0;
+                    _sentFront = ""; _sentWins = ""; _sentTabs = ""; _sentIcons.Clear(); _names.Clear(); _webApps.Clear(); _webAppNames.Clear(); _sentCpu = -100; _kernel = 0;
                     SendFront();
                     _frontTimer ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(1), System.Windows.Threading.DispatcherPriority.Background,
                         (_, _) => SendLaptop(), _ctx.Ui);
@@ -95,11 +95,14 @@ internal sealed partial class PhoneLinkModule
     {
         if (!_reach.On) return;
         var front = FrontWindow.Ordinary;
-        var key = $"{front.Process}\n{front.Title}";
-        if (key == _sentFront) return;
-        _sentFront = key;
         // the window in front's own app, by its process name ("chrome" → "Chrome"): no process lookups on title changes
         var name = Shammy.Core.CircleMemory.AppNames.Friendly(front.Process) ?? front.Process ?? "";
+        // an installed web app in front says its own name ("YouTube Music", not "Chrome")
+        var fg = Native.GetForegroundWindow();
+        if (FrontWindow.ProcessOf(fg, out _) == front.Process && WebApp(fg) is { } web) name = web.Name;
+        var key = $"{front.Process}\n{front.Title}\n{name}";
+        if (key == _sentFront) return;
+        _sentFront = key;
         Send(new JsonObject { ["t"] = "front", ["app"] = LinkSession.Cap(name), ["title"] = LinkSession.Cap(front.Title ?? "") });
     }
 
@@ -128,6 +131,31 @@ internal sealed partial class PhoneLinkModule
         bool first = _kernel == 0;
         (_idle, _kernel, _user) = (idle, kernel, user);
         return first || total <= 0 ? null : (int)Math.Round(100.0 * (total - di) / total);
+    }
+
+    readonly Dictionary<(IntPtr Hwnd, uint Pid), (string Id, string Name)?> _webApps = new();
+    readonly Dictionary<string, string> _webAppNames = new();
+
+    /// <summary>
+    /// A window's installed-web-app ID and name, or null: not a web app. Remembered per window (and process, as handles
+    /// get reused); a browser's own window isn't remembered as "not a web app", as Chrome may set the ID a moment late.
+    /// </summary>
+    (string Id, string Name)? WebApp(IntPtr hwnd)
+    {
+        Native.GetWindowThreadProcessId(hwnd, out uint pid);
+        var key = (hwnd, pid);
+        if (_webApps.TryGetValue(key, out var known)) return known;
+        (string Id, string Name)? found = null;
+        if (WindowList.WebAppId(hwnd) is { } id)
+        {
+            // the Start menu's name for it, asked once per app; else the window's title (a web app's title is usually its name)
+            if (!_webAppNames.TryGetValue(id, out var name))
+                name = _webAppNames[id] = WindowList.AppName(id) ?? (FrontWindow.TitleOf(hwnd) is { Length: > 0 } t ? t : "Web app");
+            found = (id, name);
+        }
+        else if (BrowserTabs.Browsers.Contains(NameOf(pid).Name)) return null;
+        if (_webApps.Count > 200) _webApps.Clear();
+        return _webApps[key] = found;
     }
 
     (string Name, string? Exe) NameOf(uint pid)
@@ -160,11 +188,19 @@ internal sealed partial class PhoneLinkModule
             var id = w.Hwnd.ToInt64().ToString(System.Globalization.CultureInfo.InvariantCulture);
             var (process, exe) = NameOf(w.Pid);
             var app = Shammy.Core.CircleMemory.AppNames.Friendly(process) ?? process;
+            // an installed web app (YouTube Music is chrome.exe underneath): its own name and icon, not the browser's
+            var web = WebApp(w.Hwnd);
+            var iconKey = web is { } wa ? "app:" + wa.Id : process;
+            if (web is { } named) app = named.Name;
             _shownWins[id] = (w.Hwnd, w.Title);
-            list.Add(new JsonObject { ["id"] = id, ["app"] = LinkSession.Cap(app), ["title"] = LinkSession.Cap(w.Title), ["icon"] = process, ["front"] = w == front });
+            list.Add(new JsonObject { ["id"] = id, ["app"] = LinkSession.Cap(app), ["title"] = LinkSession.Cap(w.Title), ["icon"] = iconKey, ["front"] = w == front });
             sig.Append(id).Append('|').Append(w.Title).Append(w == front ? "*" : "").Append('\n');
-            if (process.Length > 0 && exe is not null && _sentIcons.Add(process) && WindowList.IconPng(exe, 96) is { } png && png.Length < 40_000)
-                Send(new JsonObject { ["t"] = "icon", ["key"] = process, ["png"] = Convert.ToBase64String(png) });
+            if (iconKey.Length > 0 && !_sentIcons.Contains(iconKey)
+                && (web is not null ? WindowList.WindowIconPng(w.Hwnd, 96) : exe is not null ? WindowList.IconPng(exe, 96) : null) is { } png && png.Length < 40_000)
+            {
+                _sentIcons.Add(iconKey);
+                Send(new JsonObject { ["t"] = "icon", ["key"] = iconKey, ["png"] = Convert.ToBase64String(png) });
+            }
         }
         if (sig.ToString() != _sentWins)
         {
