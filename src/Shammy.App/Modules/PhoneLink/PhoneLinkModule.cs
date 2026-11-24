@@ -114,6 +114,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         StopShare();
         StopBeacon();
         StopListening();
+        DisposeReach();
         _identity.Dispose();
     }
 
@@ -510,6 +511,9 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "file" or "fileChunk" or "fileEnd":
                         TakeFile(m, s);
                         break;
+                    case "reach" or "key" or "type" or "mv" or "btn" or "wh":
+                        OnReach(m, s);
+                        break;
                     // "pong" and anything newer: ignored (§5).
                 }
             }
@@ -518,6 +522,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
         {
             stop.Cancel();
             DropIncoming(s);
+            EndReach(s, tellPhone: false); // only if this connection started it (a reconnect may already own Reach)
             _ = _ctx.Ui.BeginInvoke(() =>
             {
                 if (!ReferenceEquals(_live, s)) return;
