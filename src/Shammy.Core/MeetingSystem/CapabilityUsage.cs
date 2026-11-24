@@ -23,11 +23,17 @@ public static class CapabilityUsage
 
     /// <summary>
     /// An app's "in use" record counts: the app itself is capturing sound now (or the streams can't be read, so
-    /// <paramref name="capturingNow"/> is passed true), or it last was (or its record started) within
-    /// <see cref="TrustWithoutCapture"/>. Another app keeping the mic open (a noise filter, a voice chat) doesn't count.
+    /// <paramref name="capturingNow"/> is passed true), or it last captured, or its record started, within
+    /// <see cref="TrustWithoutCapture"/> (whichever is later). Another app keeping the mic open (a noise filter, a
+    /// voice chat) doesn't count. A time in the future (the clock was ahead when it was written) proves nothing.
     /// </summary>
-    public static bool TrustRecord(bool capturingNow, DateTime lastCaptureOrStartUtc, DateTime nowUtc) =>
-        capturingNow || nowUtc - lastCaptureOrStartUtc <= TrustWithoutCapture;
+    public static bool TrustRecord(bool capturingNow, DateTime? lastCaptureUtc, DateTime startedUtc, DateTime nowUtc)
+    {
+        if (capturingNow) return true;
+        var since = lastCaptureUtc is { } last && last > startedUtc ? last : startedUtc;
+        var age = nowUtc - since;
+        return age >= TimeSpan.Zero && age <= TrustWithoutCapture;
+    }
 
     public static string PathFromKey(string keyName) => keyName.Replace('#', '\\');
 
@@ -84,8 +90,7 @@ public static class AppNames
             if (Packages.TryGetValue(name, out var known)) return known;
             var last = name[(name.LastIndexOf('.') + 1)..];
             if (last.StartsWith("Windows", StringComparison.Ordinal) && last.Length > 7) last = last[7..];
-            // An all-lowercase name ("immersivecontrolpanel") at least starts with a capital.
-            if (last.Length > 0 && last.All(char.IsLower)) last = char.ToUpperInvariant(last[0]) + last[1..];
+
             return Regex.Replace(last, "(?<=[a-z])(?=[A-Z])", " ");
         }
 

@@ -123,8 +123,8 @@ internal sealed class ActivityPet : Canvas
     /// </summary>
     public void Petted()
     {
-        Pets++;
         if (!IsVisible || _face is null) return;
+        Pets++;
         var glow = new Canvas { Width = ColumnWidth, Height = ColumnHeight, IsHitTestVisible = false };
         var blush = AddBlush(glow, 19, 32);
         var heart = new Canvas { Width = 9, Height = 8 };
@@ -139,7 +139,7 @@ internal sealed class ActivityPet : Canvas
         After(1.6, () => Children.Remove(glow));
     }
 
-    /// <summary>How many times it has been petted (for tests).</summary>
+    /// <summary>How many times a pet was shown (for tests).</summary>
     public int Pets { get; private set; }
 
     /// <summary>Clear the face (the next Show replays its entrance).</summary>

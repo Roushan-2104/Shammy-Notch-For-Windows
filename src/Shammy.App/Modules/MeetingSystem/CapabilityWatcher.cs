@@ -151,18 +151,23 @@ internal sealed class CapabilityWatcher : IDisposable
             var titles = new Lazy<List<(uint Pid, string Title)>>(VisibleWindowTitles);
             var capturing = Capturing(titles, out bool sessionsRead, out var owners);
             var now = DateTime.UtcNow;
+            // Who is really capturing: each process's exe path and, for a store app, its package family.
+            var live = new HashSet<string>(owners.Keys.Concat(owners.Values.OfType<string>()), StringComparer.OrdinalIgnoreCase);
             // A record left "in use" by an app that isn't capturing (Windows Settings in the background after its mic
             // test, a suspended app) is stale, not a call; one whose app is capturing, or did just now, counts.
-            bool Trust(string key, string? path, DateTime started)
+            bool Trust(string key, string identity, DateTime started)
             {
-                bool live = !sessionsRead || owners.Contains(key) || (path is not null && owners.Contains(path));
-                if (live) _lastCapture[key] = now;
-                return CapabilityUsage.TrustRecord(live, _lastCapture.TryGetValue(key, out var last) && last > started ? last : started, now);
+                bool capturingNow = !sessionsRead || live.Contains(identity);
+                if (capturingNow) _lastCapture[key] = now;
+                return CapabilityUsage.TrustRecord(capturingNow, _lastCapture.TryGetValue(key, out var last) ? last : null, started, now);
             }
             var mic = Registered("microphone", titles, Trust);
             foreach (var key in _lastCapture.Keys.Where(k => !mic.Any(m => m.Key == k)).ToList()) _lastCapture.TryRemove(key, out _);
+            // A capturing app already listed by its record (by exe path, or a store app by its package family) isn't listed twice.
             foreach (var app in capturing)
-                if (!mic.Any(m => CapabilityUsage.SamePath(m.Path, app.Path))) mic.Add(app);
+                if (!mic.Any(m => CapabilityUsage.SamePath(m.Path, app.Path) ||
+                                  (app.Path is not null && owners.GetValueOrDefault(app.Path) is { } family && string.Equals(m.Key, family, StringComparison.OrdinalIgnoreCase))))
+                    mic.Add(app);
             // Screen capture has no change notification here; the 2 s poll picks it up.
             var screen = Registered("graphicsCaptureProgrammatic", titles, null);
             foreach (var app in Registered("graphicsCaptureWithoutBorder", titles, null))
@@ -180,9 +185,9 @@ internal sealed class CapabilityWatcher : IDisposable
         }
     }
 
-    /// <param name="trust">For the microphone: whether a record still counts (its key, its exe path, when it started);
-    /// null trusts every record of a running app.</param>
-    static List<CapabilityApp> Registered(string capability, Lazy<List<(uint Pid, string Title)>> titles, Func<string, string?, DateTime, bool>? trust)
+    /// <param name="trust">For the microphone: whether a record still counts (its key, the app's identity: its exe path,
+    /// or a store app's package family, and when it started); null trusts every record of a running app.</param>
+    static List<CapabilityApp> Registered(string capability, Lazy<List<(uint Pid, string Title)>> titles, Func<string, string, DateTime, bool>? trust)
     {
         var apps = new List<CapabilityApp>();
         using var root = Registry.CurrentUser.OpenSubKey(Root + capability);
@@ -211,7 +216,7 @@ internal sealed class CapabilityWatcher : IDisposable
             {
                 using var k = root.OpenSubKey(name);
                 if (!IsInUse(k)) continue;
-                if (trust is not null && !trust(name, null, Started(k))) continue;
+                if (trust is not null && !trust(name, name, Started(k))) continue;
                 // Same rule as desktop apps: a crash leaves the record "in use" forever, so only trust it
                 // while the app is running (otherwise the mic pill and hidden notifications never go away).
                 packaged ??= MeetingSystemNative.RunningPackageFamilies();
@@ -232,15 +237,16 @@ internal sealed class CapabilityWatcher : IDisposable
         k is not null && CapabilityUsage.IsInUse(k.GetValue("LastUsedTimeStart") is long s ? s : 0, k.GetValue("LastUsedTimeStop") is long e ? e : 0);
 
     /// <summary>
-    /// Apps with an active capture stream on any microphone. <paramref name="read"/> is false when no device's
-    /// streams could be read; <paramref name="owners"/> holds each other capturing process's exe path and package
-    /// family, so a privacy record can be matched to an app that's really listening.
+    /// Apps with an active capture stream on any microphone. <paramref name="read"/> is false unless every device's
+    /// streams were read; <paramref name="owners"/> maps each other capturing process's exe path to its package family
+    /// (null for a desktop app), so a privacy record can be matched to an app that's really listening.
     /// </summary>
-    List<CapabilityApp> Capturing(Lazy<List<(uint Pid, string Title)>> titles, out bool read, out HashSet<string> owners)
+    List<CapabilityApp> Capturing(Lazy<List<(uint Pid, string Title)>> titles, out bool read, out Dictionary<string, string?> owners)
     {
         var apps = new List<CapabilityApp>();
         read = false;
-        owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        owners = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        bool anyRead = false, anyFailed = false;
         // After a failure (the audio service restarting during a driver update) try again a minute later
         // rather than giving up on mic detection for the rest of the session.
         if (DateTime.UtcNow < _sessionsRetryAt) return apps;
@@ -253,17 +259,21 @@ internal sealed class CapabilityWatcher : IDisposable
                 try
                 {
                     var sessions = device.AudioSessionManager.Sessions;
-                    read = true;
                     for (int i = 0; i < sessions.Count; i++)
                     {
                         using var session = sessions[i];
+                        // shortcut: only an active stream counts, so a call app that stops its stream while muted
+                        // loses its pill after the grace (counting paused streams would bring stale records back).
                         if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive && !session.IsSystemSoundsSession)
                             pids.Add(session.GetProcessID);
                     }
+                    anyRead = true;
                 }
                 catch (Exception)
                 {
-                    // A device unplugged mid-scan; the next scan sees the new list.
+                    // A device unplugged mid-scan (the next scan sees the new list). Its calls are unknown, so
+                    // this scan proves nothing about stale records.
+                    anyFailed = true;
                 }
                 finally
                 {
@@ -280,14 +290,15 @@ internal sealed class CapabilityWatcher : IDisposable
             return apps;
         }
 
+        read = anyRead && !anyFailed;
         // Shammy's own listening (voice) says nothing about other apps.
         pids.Remove((uint)Environment.ProcessId);
         foreach (var pid in pids)
         {
             var path = MeetingSystemNative.ProcessPath(pid);
-            if (path is not null) owners.Add(path);
-            if (MeetingSystemNative.PackageFamily(pid) is { } family) owners.Add(family);
-            if (path is null || apps.Any(a => CapabilityUsage.SamePath(a.Path, path))) continue;
+            if (path is null) continue;
+            owners[path] = MeetingSystemNative.PackageFamily(pid);
+            if (apps.Any(a => CapabilityUsage.SamePath(a.Path, path))) continue;
             var app = Desktop(path, path, titles, "audio", requireRunning: false);
             if (app is not null) apps.Add(app);
         }
