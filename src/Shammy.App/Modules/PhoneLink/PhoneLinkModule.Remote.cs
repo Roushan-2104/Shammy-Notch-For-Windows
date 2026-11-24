@@ -48,6 +48,7 @@ internal sealed partial class PhoneLinkModule
     /// <summary>A phone just connected (UI thread): tell it everything once.</summary>
     void OnConnected()
     {
+        _awayTimer?.Stop(); // back in time: no lock
         _sentMoments.Clear();
         _sentMedia = "";
         _sentStatus = null;
@@ -63,6 +64,7 @@ internal sealed partial class PhoneLinkModule
     void OnDisconnected()
     {
         _refresh?.Stop();
+        WalkedAway();
         ForgetPhone();
         ShowOnline(false);
         // the phone's notifications stay in the list and stay linked (a reconnect continues the sync); no reply target
@@ -207,10 +209,62 @@ internal sealed partial class PhoneLinkModule
             case "volUp": _ctx.Services.Volume?.Step(1); break;
             case "volDown": _ctx.Services.Volume?.Step(-1); break;
             case "lock" or "sleep": RunCommand(what); break;
+            // the phone as an object (Reach P15): face down = focus (Do Not Disturb, Shammy's own "focus" command), up = its end
+            // only a focus the phone started is ended by it (never one you started on the laptop)
+            case "focusOn": if (!_phoneFocus) { _phoneFocus = true; RunCommand("focus for 120 minutes"); } break;
+            case "focusOff": if (_phoneFocus) { _phoneFocus = false; RunCommand("stop focus"); } break;
+            // take it with you (Reach P14): the page that's playing goes to the phone, at the same second, and pauses here
+            case "handoff": _ = HandOff(); break;
             default: return;
         }
         _ctx.Info($"The phone pressed {what}");
         EchoSoon();
+    }
+
+    /**
+     * Take it with you: the address of the page in the browser in front (read the way "send to phone" reads it) goes to
+     * the phone as a link, a YouTube video with its place (t=…s) so it carries on at the same second; then the laptop pauses.
+     */
+    async Task HandOff()
+    {
+        try
+        {
+            var page = await PhoneSend.BrowserAddress.ReadAsync(TimeSpan.FromSeconds(2));
+            if (page is null || LinkShare.Url(page.Value.Url) is not { } url) { _ctx.Info("Take it with you: no page to hand over"); return; }
+            // only when what's playing is that browser's (Spotify playing beside a paused video keeps playing, and gives no place)
+            var media = _ctx.Services.Media;
+            bool browserMedia = media.HasSession && page.Value.InFront && PhoneSend.BrowserAddress.Browsers.Any(b => media.SourceApp.Contains(b, StringComparison.OrdinalIgnoreCase));
+            int at = browserMedia && media.Duration > TimeSpan.Zero ? (int)media.Position.TotalSeconds : 0;
+            Send(new JsonObject { ["t"] = "link", ["url"] = LinkShare.WithTime(url, at) });
+            if (browserMedia && media.IsPlaying) media.TogglePlayPause();
+            _ctx.Info("Handed the page to the phone");
+        }
+        catch (Exception ex) { _ctx.Warn("Take it with you failed", ex); }
+    }
+
+    // ---- walk away, it locks (Reach P15) ----
+
+    /** The phone asked: lock this laptop when it goes away (the link drops and doesn't come back within a minute). */
+    bool _awayLock;
+    /// <summary>Flip to focus started a focus session here (so picking the phone up ends only that one).</summary>
+    bool _phoneFocus;
+    System.Windows.Threading.DispatcherTimer? _awayTimer;
+
+    void AwayLock(bool on) => _awayLock = on;
+
+    /// <summary>The link dropped (UI thread): with walk-away lock on, a minute's grace for a Wi-Fi hiccup, then lock.</summary>
+    void WalkedAway()
+    {
+        if (!_awayLock) return;
+        _awayTimer ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(60), System.Windows.Threading.DispatcherPriority.Background,
+            (_, _) =>
+            {
+                _awayTimer!.Stop();
+                // never while someone is using the laptop (the link can drop with the phone still on the desk)
+                bool idle = Nudges.NudgesModule.LastInput.Idle() is { } i && i >= TimeSpan.FromSeconds(60);
+                if (_live is null && _awayLock && idle) { _ctx.Info("The phone walked away: locking"); RunCommand("lock"); }
+            }, _ctx.Ui);
+        _awayTimer.Stop(); _awayTimer.Start();
     }
 
     async void RunCommand(string text)

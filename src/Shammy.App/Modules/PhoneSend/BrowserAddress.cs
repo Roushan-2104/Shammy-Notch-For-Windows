@@ -13,7 +13,7 @@ namespace Shammy.Modules.PhoneSend;
 /// </summary>
 internal static class BrowserAddress
 {
-    static readonly HashSet<string> Browsers = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> Browsers = new(StringComparer.OrdinalIgnoreCase)
     {
         "msedge", "chrome", "brave", "vivaldi", "opera", "chromium", "firefox",
     };

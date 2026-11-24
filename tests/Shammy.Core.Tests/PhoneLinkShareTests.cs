@@ -192,4 +192,16 @@ public class PhoneLinkShareTests
         Assert.False(PhoneMedia.From(new JsonObject { ["title"] = "Other" }).SameSong(a));
         Assert.False(a.SameSong(null));
     }
+
+    [Fact]
+    public void ATakenVideoCarriesOnAtItsPlace()
+    {
+        Assert.Equal("https://www.youtube.com/watch?v=abc&t=90s", LinkShare.WithTime("https://www.youtube.com/watch?v=abc", 90));
+        Assert.Equal("https://www.youtube.com/watch?v=abc&t=90s#c", LinkShare.WithTime("https://www.youtube.com/watch?v=abc#c", 90)); // before the fragment
+        Assert.Equal("https://www.youtube.com/watch?v=abc&t=90s", LinkShare.WithTime("https://www.youtube.com/watch?t=5s&v=abc", 90)); // replaces the old place
+        Assert.Equal("https://youtu.be/abc?t=12s", LinkShare.WithTime("https://youtu.be/abc", 12));
+        Assert.Equal("https://music.youtube.com/watch?v=x&t=3s", LinkShare.WithTime("https://music.youtube.com/watch?v=x", 3));
+        Assert.Equal("https://notyoutube.com/watch?v=x", LinkShare.WithTime("https://notyoutube.com/watch?v=x", 30)); // not YouTube
+        Assert.Equal("https://www.youtube.com/watch?v=abc", LinkShare.WithTime("https://www.youtube.com/watch?v=abc", 0)); // a live stream: no place
+    }
 }

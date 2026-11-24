@@ -291,7 +291,8 @@ internal sealed class NudgesModule : IShammyModule
     };
 
     /// <summary>How long ago the last key press or mouse move was, for the whole session.</summary>
-    static class LastInput
+    /// <summary>How long since the last real keyboard or mouse input (also used by Reach's walk-away lock).</summary>
+    internal static class LastInput
     {
         [StructLayout(LayoutKind.Sequential)]
         struct LASTINPUTINFO

@@ -21,6 +21,20 @@ public static class LinkShare
     public static string CapClip(string text) =>
         text.Length <= MaxClip ? text : text[..(char.IsHighSurrogate(text[MaxClip - 1]) ? MaxClip - 1 : MaxClip)];
 
+    /// <summary>
+    /// Take it with you (Reach): a YouTube video's link with its place, so it carries on at the same second
+    /// (<c>t=90s</c>, replacing any earlier one, before a #fragment); any other link, or no place, comes back unchanged.
+    /// </summary>
+    public static string WithTime(string url, int seconds)
+    {
+        if (seconds <= 0 || !Uri.TryCreate(url, UriKind.Absolute, out var u)) return url;
+        var host = u.Host.ToLowerInvariant();
+        if (host != "youtube.com" && !host.EndsWith(".youtube.com", StringComparison.Ordinal) && host != "youtu.be") return url;
+        var query = u.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => !p.StartsWith("t=", StringComparison.OrdinalIgnoreCase)).Append($"t={seconds}s");
+        return new UriBuilder(u) { Query = string.Join('&', query) }.Uri.AbsoluteUri;
+    }
+
     /// <summary>A link that may open in a browser: an absolute http(s) address up to 2048 characters with nothing hidden in it; else null.</summary>
     public static string? Url(string? url)
     {

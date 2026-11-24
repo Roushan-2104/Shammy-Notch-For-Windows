@@ -160,6 +160,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
 
     void Unpair()
     {
+        // unpairing isn't walking away: no lock in a minute
+        _awayLock = false; _awayTimer?.Stop();
         _store.Phone = _store.PhoneName = null;
         _store.RelayRoom = null; // a new pairing gets a new room
         _ctx.Save(_store);
@@ -504,6 +506,10 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "do":
                         var what = LinkSession.Text(m, "what");
                         _ = _ctx.Ui.BeginInvoke(() => Do(what));
+                        break;
+                    case "awaylock":
+                        bool away = m["on"] is JsonValue av && av.TryGetValue<bool>(out var aw) && aw;
+                        _ = _ctx.Ui.BeginInvoke(() => AwayLock(away));
                         break;
                     case "status" or "phoneMedia" or "clip" or "link":
                         _ = _ctx.Ui.BeginInvoke(() => OnPhoneSays(m));
