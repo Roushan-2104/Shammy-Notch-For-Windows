@@ -42,6 +42,11 @@ internal sealed partial class PhoneLinkModule
                 {
                     _ctx.Post(new Activity(ReachActivity, ActivityKind.Custom, ReachPriority, new ReachContent(() => EndReach(null, tellPhone: true))));
                     _ctx.Info("Reach on: the phone controls this laptop");
+                    _sentFront = "";
+                    SendFront();
+                    _frontTimer ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(1), System.Windows.Threading.DispatcherPriority.Background,
+                        (_, _) => SendFront(), _ctx.Ui);
+                    _frontTimer.Start();
                 });
         }
         else EndReach(s, tellPhone: false);
@@ -59,9 +64,29 @@ internal sealed partial class PhoneLinkModule
         if (tellPhone) Send(new JsonObject { ["t"] = "reach", ["on"] = false });
         _ = _ctx.Ui.BeginInvoke(() =>
         {
+            _frontTimer?.Stop();
             _ctx.Remove(ReachActivity);
             _ctx.Info("Reach off");
         });
+    }
+
+    System.Windows.Threading.DispatcherTimer? _frontTimer;
+    string _sentFront = "";
+
+    /// <summary>
+    /// While Reach is on (UI thread, every second): the app in front and its window's title, when they change, so the
+    /// phone's panel names what your keys will land in ("Chrome · YouTube"). Shammy's own windows are skipped.
+    /// </summary>
+    void SendFront()
+    {
+        if (!_reach.On) return;
+        var front = FrontWindow.Ordinary;
+        var key = $"{front.Process}\n{front.Title}";
+        if (key == _sentFront) return;
+        _sentFront = key;
+        // the window in front's own app, by its process name ("chrome" → "Chrome"): no process lookups on title changes
+        var name = Shammy.Core.CircleMemory.AppNames.Friendly(front.Process) ?? front.Process ?? "";
+        Send(new JsonObject { ["t"] = "front", ["app"] = LinkSession.Cap(name), ["title"] = LinkSession.Cap(front.Title ?? "") });
     }
 
     ReachInjector NewInjector()
