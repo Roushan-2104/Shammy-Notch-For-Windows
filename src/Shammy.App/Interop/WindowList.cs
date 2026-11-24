@@ -120,25 +120,23 @@ internal static class WindowList
         try
         {
             if (item.GetDisplayName(0 /* SIGDN_NORMALDISPLAY */, out var name) != 0 || name == IntPtr.Zero) return null;
-            // an ID with no Start menu entry can come back as itself: that's no name
-            try { return Marshal.PtrToStringUni(name) is { Length: > 0 } n && n != appId && !n.Contains("_crx_", StringComparison.Ordinal) ? n : null; }
-            finally { Marshal.FreeCoTaskMem(name); }
+            try { return Marshal.PtrToStringUni(name); } finally { Marshal.FreeCoTaskMem(name); }
         }
         finally { Marshal.ReleaseComObject(item); }
     }
 
     /// <summary>The icon the window shows in its title bar and taskbar (a web app's own icon), as a PNG, or null. UI thread.</summary>
-    public static byte[]? WindowIconPng(IntPtr hwnd, int size)
+    public static byte[]? WindowIconPng(IntPtr hwnd)
     {
         // the window's icons belong to it: read, never destroyed here
         IntPtr icon = IntPtr.Zero;
         foreach (var which in new[] { 1 /* ICON_BIG */, 2 /* ICON_SMALL2 */ })
             if (SendMessageTimeout(hwnd, 0x007F /* WM_GETICON */, (IntPtr)which, IntPtr.Zero, 0x0002 /* SMTO_ABORTIFHUNG */, 200, out icon) != IntPtr.Zero && icon != IntPtr.Zero) break;
-        if (icon == IntPtr.Zero) icon = GetClassLongPtr(hwnd, -14 /* GCLP_HICON */);
-        if (icon == IntPtr.Zero) return null;
+        if (icon == IntPtr.Zero) return null; // none yet (a web app just opened): asked again next time
         try
         {
-            var src = Imaging.CreateBitmapSourceFromHIcon(icon, System.Windows.Int32Rect.Empty, BitmapSizeOptions.FromWidthAndHeight(size, size));
+            // at its own size (16–48 px): the phone scales it; blowing it up here only blurs it and grows the PNG
+            var src = Imaging.CreateBitmapSourceFromHIcon(icon, System.Windows.Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
             var png = new PngBitmapEncoder();
             png.Frames.Add(BitmapFrame.Create(src));
             using var ms = new MemoryStream();
@@ -180,5 +178,4 @@ internal static class WindowList
     static extern int SHCreateItemInKnownFolder(ref Guid folder, uint flags, string item, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IShellItem? shellItem);
     [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant v);
     [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr w, IntPtr l, uint flags, uint timeoutMs, out IntPtr result);
-    [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")] static extern IntPtr GetClassLongPtr(IntPtr hwnd, int index);
 }

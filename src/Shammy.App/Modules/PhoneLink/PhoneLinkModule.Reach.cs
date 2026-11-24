@@ -98,8 +98,7 @@ internal sealed partial class PhoneLinkModule
         // the window in front's own app, by its process name ("chrome" → "Chrome"): no process lookups on title changes
         var name = Shammy.Core.CircleMemory.AppNames.Friendly(front.Process) ?? front.Process ?? "";
         // an installed web app in front says its own name ("YouTube Music", not "Chrome")
-        var fg = Native.GetForegroundWindow();
-        if (FrontWindow.ProcessOf(fg, out _) == front.Process && WebApp(fg) is { } web) name = web.Name;
+        if (front.Window != IntPtr.Zero && WebApp(front.Window) is { } web) name = web.Name;
         var key = $"{front.Process}\n{front.Title}\n{name}";
         if (key == _sentFront) return;
         _sentFront = key;
@@ -133,8 +132,8 @@ internal sealed partial class PhoneLinkModule
         return first || total <= 0 ? null : (int)Math.Round(100.0 * (total - di) / total);
     }
 
-    readonly Dictionary<(IntPtr Hwnd, uint Pid), (string Id, string Name)?> _webApps = new();
-    readonly Dictionary<string, string> _webAppNames = new();
+    readonly Dictionary<(IntPtr Hwnd, uint Pid), string?> _webApps = new();
+    readonly Dictionary<string, string?> _webAppNames = new();
 
     /// <summary>
     /// A window's installed-web-app ID and name, or null: not a web app. Remembered per window (and process, as handles
@@ -144,18 +143,17 @@ internal sealed partial class PhoneLinkModule
     {
         Native.GetWindowThreadProcessId(hwnd, out uint pid);
         var key = (hwnd, pid);
-        if (_webApps.TryGetValue(key, out var known)) return known;
-        (string Id, string Name)? found = null;
-        if (WindowList.WebAppId(hwnd) is { } id)
+        if (!_webApps.TryGetValue(key, out var id))
         {
-            // the Start menu's name for it, asked once per app; else the window's title (a web app's title is usually its name)
-            if (!_webAppNames.TryGetValue(id, out var name))
-                name = _webAppNames[id] = WindowList.AppName(id) ?? (FrontWindow.TitleOf(hwnd) is { Length: > 0 } t ? t : "Web app");
-            found = (id, name);
+            id = WindowList.WebAppId(hwnd);
+            if (id is null && BrowserTabs.Browsers.Contains(NameOf(pid).Name)) return null;
+            if (_webApps.Count > 200) _webApps.Clear();
+            _webApps[key] = id;
         }
-        else if (BrowserTabs.Browsers.Contains(NameOf(pid).Name)) return null;
-        if (_webApps.Count > 200) _webApps.Clear();
-        return _webApps[key] = found;
+        if (id is null) return null;
+        // the Start menu's name, asked once per app; the title fallback is read now (it changes, a song at a time)
+        if (!_webAppNames.TryGetValue(id, out var startMenu)) startMenu = _webAppNames[id] = WindowList.AppName(id);
+        return (id, Shammy.Core.PhoneLink.Reach.WebAppName(startMenu, id, FrontWindow.TitleOf(hwnd)));
     }
 
     (string Name, string? Exe) NameOf(uint pid)
@@ -195,11 +193,15 @@ internal sealed partial class PhoneLinkModule
             _shownWins[id] = (w.Hwnd, w.Title);
             list.Add(new JsonObject { ["id"] = id, ["app"] = LinkSession.Cap(app), ["title"] = LinkSession.Cap(w.Title), ["icon"] = iconKey, ["front"] = w == front });
             sig.Append(id).Append('|').Append(w.Title).Append(w == front ? "*" : "").Append('\n');
-            if (iconKey.Length > 0 && !_sentIcons.Contains(iconKey)
-                && (web is not null ? WindowList.WindowIconPng(w.Hwnd, 96) : exe is not null ? WindowList.IconPng(exe, 96) : null) is { } png && png.Length < 40_000)
+            // a program's icon is tried once; a web app's window may not have its icon yet, so it's asked until it does
+            if (iconKey.Length > 0 && !_sentIcons.Contains(iconKey))
             {
-                _sentIcons.Add(iconKey);
-                Send(new JsonObject { ["t"] = "icon", ["key"] = iconKey, ["png"] = Convert.ToBase64String(png) });
+                if (web is null) _sentIcons.Add(iconKey);
+                if ((web is not null ? WindowList.WindowIconPng(w.Hwnd) : exe is not null ? WindowList.IconPng(exe, 96) : null) is { } png && png.Length < 40_000)
+                {
+                    _sentIcons.Add(iconKey);
+                    Send(new JsonObject { ["t"] = "icon", ["key"] = iconKey, ["png"] = Convert.ToBase64String(png) });
+                }
             }
         }
         if (sig.ToString() != _sentWins)
@@ -208,7 +210,7 @@ internal sealed partial class PhoneLinkModule
             Send(new JsonObject { ["t"] = "wins", ["list"] = list });
         }
         // the tabs of the browser in front, if one is: read when its title changes, else every 5 s (the walk is cross-process)
-        bool browser = front is not null && BrowserTabs.Browsers.Contains(NameOf(front.Pid).Name);
+        bool browser = front is not null && BrowserTabs.Browsers.Contains(NameOf(front.Pid).Name) && WebApp(front.Hwnd) is null;
         if (!browser) { if (_sentTabs.Length > 0) { _sentTabs = ""; _shownTabs = new(); Send(new JsonObject { ["t"] = "tabs", ["win"] = "", ["list"] = new JsonArray() }); } return; }
         if (_readingTabs || (front!.Title == _tabsTitle && front.Hwnd == _tabsOf && ++_tabsAge < 5)) return;
         _readingTabs = true; _tabsAge = 0; _tabsTitle = front.Title;

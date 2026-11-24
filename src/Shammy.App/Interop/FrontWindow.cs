@@ -12,8 +12,8 @@ namespace Shammy.Interop;
 /// </summary>
 internal static class FrontWindow
 {
-    /// <summary>An app in front: its process name ("chrome") and its window's title.</summary>
-    public sealed record App(string? Process, string? Title);
+    /// <summary>An app in front: its process name ("chrome"), its window's title, and the window.</summary>
+    public sealed record App(string? Process, string? Title, IntPtr Window = default);
 
     sealed record Named(IntPtr Window, uint Pid, string? Process);
 
@@ -60,7 +60,7 @@ internal static class FrontWindow
         var window = Handle;
         var process = ProcessOf(window, out uint pid);
         if (pid == 0 || pid == OwnPid) return;
-        _last = new App(process, TitleOf(window));
+        _last = new App(process, TitleOf(window), window);
     }
 
     /// <summary>A window's process id and name; the name is read once per window in front.</summary>

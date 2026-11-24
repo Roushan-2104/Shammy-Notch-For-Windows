@@ -123,6 +123,14 @@ public static class Reach
         return (int)Math.Round(p * 65535.0 / Math.Max(1, size - 1));
     }
 
+    /// <summary>
+    /// An installed web app's name: its Start menu name, unless that's missing or just the app ID back again
+    /// ("Chrome._crx_…"); else the window's title now (a web app's title is usually its name); else "Web app".
+    /// </summary>
+    public static string WebAppName(string? startMenu, string appId, string? title) =>
+        startMenu is { Length: > 0 } s && s != appId && !s.Contains("_crx_", StringComparison.Ordinal) ? s
+        : title is { Length: > 0 } t ? t : "Web app";
+
     static string Str(JsonObject m, string key) => m[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : "";
 
     static bool IsNum(JsonObject m, string key) => m[key] is JsonValue v && v.GetValueKind() == System.Text.Json.JsonValueKind.Number;

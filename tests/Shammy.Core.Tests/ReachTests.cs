@@ -212,4 +212,15 @@ public class ReachTests
         Assert.Equal(Reach.MaxText, Reach.Clean(new string('x', Reach.MaxText - 2) + "😀😀").Length);
         Assert.EndsWith("x", Reach.Clean(new string('x', Reach.MaxText - 1) + "😀b"));   // nothing after the cut slips in
     }
+
+    [Fact]
+    public void AWebAppIsNamedAsItself()
+    {
+        Assert.Equal("YouTube Music", Reach.WebAppName("YouTube Music", "Chrome._crx_abc", "Blinding Lights - YouTube Music"));
+        // no Start menu entry: the ID can come back as itself; never shown
+        Assert.Equal("Inbox - Gmail", Reach.WebAppName("Chrome._crx_abc", "Chrome._crx_abc", "Inbox - Gmail"));
+        Assert.Equal("Inbox - Gmail", Reach.WebAppName("Edge._crx_xyz", "Chrome._crx_abc", "Inbox - Gmail"));
+        Assert.Equal("Inbox - Gmail", Reach.WebAppName(null, "Chrome._crx_abc", "Inbox - Gmail"));
+        Assert.Equal("Web app", Reach.WebAppName("", "Chrome._crx_abc", ""));      // a window with no title yet
+    }
 }
