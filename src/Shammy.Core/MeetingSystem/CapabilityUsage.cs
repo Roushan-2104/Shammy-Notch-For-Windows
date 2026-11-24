@@ -14,6 +14,21 @@ public static class CapabilityUsage
 
     public static bool IsInUse(long lastUsedStart, long lastUsedStop) => lastUsedStop == 0 && lastUsedStart > 0;
 
+    /// <summary>
+    /// How long an app's "in use" record is believed while that app has no live capture stream. An app left in the
+    /// background (Windows Settings after its microphone test, any suspended or crashed app) can leave its record
+    /// "in use" for hours; the live capture sessions say whether it's really listening.
+    /// </summary>
+    public static readonly TimeSpan TrustWithoutCapture = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// An app's "in use" record counts: the app itself is capturing sound now (or the streams can't be read, so
+    /// <paramref name="capturingNow"/> is passed true), or it last was (or its record started) within
+    /// <see cref="TrustWithoutCapture"/>. Another app keeping the mic open (a noise filter, a voice chat) doesn't count.
+    /// </summary>
+    public static bool TrustRecord(bool capturingNow, DateTime lastCaptureOrStartUtc, DateTime nowUtc) =>
+        capturingNow || nowUtc - lastCaptureOrStartUtc <= TrustWithoutCapture;
+
     public static string PathFromKey(string keyName) => keyName.Replace('#', '\\');
 
     public static bool SamePath(string? a, string? b) =>
@@ -37,6 +52,7 @@ public static class AppNames
         ["Microsoft.WindowsCamera"] = "Camera",
         ["Microsoft.WindowsSoundRecorder"] = "Sound Recorder",
         ["Microsoft.ScreenSketch"] = "Snipping Tool",
+        ["windows.immersivecontrolpanel"] = "Settings",
     };
 
     // Web apps that show their name in the tab (= window) title. Word-bounded and case-sensitive so
@@ -68,6 +84,8 @@ public static class AppNames
             if (Packages.TryGetValue(name, out var known)) return known;
             var last = name[(name.LastIndexOf('.') + 1)..];
             if (last.StartsWith("Windows", StringComparison.Ordinal) && last.Length > 7) last = last[7..];
+            // An all-lowercase name ("immersivecontrolpanel") at least starts with a capital.
+            if (last.Length > 0 && last.All(char.IsLower)) last = char.ToUpperInvariant(last[0]) + last[1..];
             return Regex.Replace(last, "(?<=[a-z])(?=[A-Z])", " ");
         }
 

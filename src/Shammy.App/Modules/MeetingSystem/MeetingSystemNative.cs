@@ -60,24 +60,28 @@ internal static class MeetingSystemNative
         foreach (var p in System.Diagnostics.Process.GetProcesses())
         {
             using (p)
-            {
-                var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)p.Id);
-                if (handle == IntPtr.Zero) continue;
-                try
-                {
-                    uint length = 0;
-                    // 122 = ERROR_INSUFFICIENT_BUFFER: it's packaged and told us the size; anything else isn't.
-                    if (GetPackageFamilyName(handle, ref length, null) != 122 || length == 0) continue;
-                    var name = new StringBuilder((int)length);
-                    if (GetPackageFamilyName(handle, ref length, name) == 0) families.Add(name.ToString());
-                }
-                finally
-                {
-                    CloseHandle(handle);
-                }
-            }
+                if (PackageFamily((uint)p.Id) is { } family) families.Add(family);
         }
         return families;
+    }
+
+    /// <summary>A process's package family name, or null when it isn't packaged (or won't say).</summary>
+    public static string? PackageFamily(uint pid)
+    {
+        var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            uint length = 0;
+            // 122 = ERROR_INSUFFICIENT_BUFFER: it's packaged and told us the size; anything else isn't.
+            if (GetPackageFamilyName(handle, ref length, null) != 122 || length == 0) return null;
+            var name = new StringBuilder((int)length);
+            return GetPackageFamilyName(handle, ref length, name) == 0 ? name.ToString() : null;
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]

@@ -113,6 +113,14 @@ public partial class NotchWindow
                $"hoverBlocked={_hoverBlocked} mode={_mode} enabled={_services.Settings.TuckAwayEnabled}";
     }
 
+    /// <summary>Test pipe: pets the pet on the pill, as a pointer wiggle over it does.</summary>
+    internal string PetPill()
+    {
+        if (_mode != NotchMode.Compact || !_petShowing) return "error: the pet isn't on the pill";
+        _activityView.Pet.Petted();
+        return $"pets={_activityView.Pet.Pets}";
+    }
+
     /// <summary>Makes the cat purr as if the pointer had rested on it (for testing); says how often it has.</summary>
     internal string PetPurr()
     {

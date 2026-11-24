@@ -42,6 +42,8 @@ internal sealed class CapabilityWatcher : IDisposable
     Thread? _thread;
     string? _lastSignature;
     DateTime _sessionsRetryAt;
+    /// <summary>When each app holding an "in use" record last had a live capture stream of its own (watcher thread).</summary>
+    readonly ConcurrentDictionary<string, DateTime> _lastCapture = new(StringComparer.OrdinalIgnoreCase);
 
     public CapabilityWatcher(Dispatcher ui, Action<string, Exception?> warn)
     {
@@ -147,18 +149,29 @@ internal sealed class CapabilityWatcher : IDisposable
         try
         {
             var titles = new Lazy<List<(uint Pid, string Title)>>(VisibleWindowTitles);
-            var mic = Registered("microphone", titles);
-            foreach (var app in Capturing(titles))
+            var capturing = Capturing(titles, out bool sessionsRead, out var owners);
+            var now = DateTime.UtcNow;
+            // A record left "in use" by an app that isn't capturing (Windows Settings in the background after its mic
+            // test, a suspended app) is stale, not a call; one whose app is capturing, or did just now, counts.
+            bool Trust(string key, string? path, DateTime started)
+            {
+                bool live = !sessionsRead || owners.Contains(key) || (path is not null && owners.Contains(path));
+                if (live) _lastCapture[key] = now;
+                return CapabilityUsage.TrustRecord(live, _lastCapture.TryGetValue(key, out var last) && last > started ? last : started, now);
+            }
+            var mic = Registered("microphone", titles, Trust);
+            foreach (var key in _lastCapture.Keys.Where(k => !mic.Any(m => m.Key == k)).ToList()) _lastCapture.TryRemove(key, out _);
+            foreach (var app in capturing)
                 if (!mic.Any(m => CapabilityUsage.SamePath(m.Path, app.Path))) mic.Add(app);
             // Screen capture has no change notification here; the 2 s poll picks it up.
-            var screen = Registered("graphicsCaptureProgrammatic", titles);
-            foreach (var app in Registered("graphicsCaptureWithoutBorder", titles))
+            var screen = Registered("graphicsCaptureProgrammatic", titles, null);
+            foreach (var app in Registered("graphicsCaptureWithoutBorder", titles, null))
                 if (!screen.Any(s => s.Key == app.Key)) screen.Add(app);
             // Browsers and most meeting apps capture without touching those keys, but show their own "sharing" bar.
             foreach (var (_, title) in titles.Value)
                 if (Shammy.Core.Connect.ScreenShareWindows.Sharer(title) is { } sharer && !screen.Any(s => s.Name == sharer))
                     screen.Add(new CapabilityApp("share:" + sharer, null, sharer, "window"));
-            return new CapabilitySnapshot(mic, Registered("webcam", titles), screen);
+            return new CapabilitySnapshot(mic, Registered("webcam", titles, null), screen);
         }
         catch (Exception ex)
         {
@@ -167,7 +180,9 @@ internal sealed class CapabilityWatcher : IDisposable
         }
     }
 
-    static List<CapabilityApp> Registered(string capability, Lazy<List<(uint Pid, string Title)>> titles)
+    /// <param name="trust">For the microphone: whether a record still counts (its key, its exe path, when it started);
+    /// null trusts every record of a running app.</param>
+    static List<CapabilityApp> Registered(string capability, Lazy<List<(uint Pid, string Title)>> titles, Func<string, string?, DateTime, bool>? trust)
     {
         var apps = new List<CapabilityApp>();
         using var root = Registry.CurrentUser.OpenSubKey(Root + capability);
@@ -187,6 +202,7 @@ internal sealed class CapabilityWatcher : IDisposable
                     var path = CapabilityUsage.PathFromKey(exeKey);
                     // Shammy itself records the mic for voice search; that is not a meeting.
                     if (CapabilityUsage.SamePath(path, own)) continue;
+                    if (trust is not null && !trust(exeKey, path, Started(k))) continue;
                     var app = Desktop(exeKey, path, titles, "registry", requireRunning: true);
                     if (app is not null) apps.Add(app);
                 }
@@ -195,6 +211,7 @@ internal sealed class CapabilityWatcher : IDisposable
             {
                 using var k = root.OpenSubKey(name);
                 if (!IsInUse(k)) continue;
+                if (trust is not null && !trust(name, null, Started(k))) continue;
                 // Same rule as desktop apps: a crash leaves the record "in use" forever, so only trust it
                 // while the app is running (otherwise the mic pill and hidden notifications never go away).
                 packaged ??= MeetingSystemNative.RunningPackageFamilies();
@@ -204,13 +221,26 @@ internal sealed class CapabilityWatcher : IDisposable
         return apps;
     }
 
+    /// <summary>When the record says the device was opened (UTC; the distant past if it can't say).</summary>
+    static DateTime Started(RegistryKey? k)
+    {
+        try { return k?.GetValue("LastUsedTimeStart") is long s && s > 0 ? DateTime.FromFileTimeUtc(s) : DateTime.MinValue; }
+        catch (ArgumentOutOfRangeException) { return DateTime.MinValue; }
+    }
+
     static bool IsInUse(RegistryKey? k) =>
         k is not null && CapabilityUsage.IsInUse(k.GetValue("LastUsedTimeStart") is long s ? s : 0, k.GetValue("LastUsedTimeStop") is long e ? e : 0);
 
-    /// <summary>Apps with an active capture stream on any microphone.</summary>
-    List<CapabilityApp> Capturing(Lazy<List<(uint Pid, string Title)>> titles)
+    /// <summary>
+    /// Apps with an active capture stream on any microphone. <paramref name="read"/> is false when no device's
+    /// streams could be read; <paramref name="owners"/> holds each other capturing process's exe path and package
+    /// family, so a privacy record can be matched to an app that's really listening.
+    /// </summary>
+    List<CapabilityApp> Capturing(Lazy<List<(uint Pid, string Title)>> titles, out bool read, out HashSet<string> owners)
     {
         var apps = new List<CapabilityApp>();
+        read = false;
+        owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         // After a failure (the audio service restarting during a driver update) try again a minute later
         // rather than giving up on mic detection for the rest of the session.
         if (DateTime.UtcNow < _sessionsRetryAt) return apps;
@@ -223,6 +253,7 @@ internal sealed class CapabilityWatcher : IDisposable
                 try
                 {
                     var sessions = device.AudioSessionManager.Sessions;
+                    read = true;
                     for (int i = 0; i < sessions.Count; i++)
                     {
                         using var session = sessions[i];
@@ -244,13 +275,18 @@ internal sealed class CapabilityWatcher : IDisposable
         {
             _sessionsRetryAt = DateTime.UtcNow.AddMinutes(1);
             _warn("Audio capture sessions unavailable", ex);
+            // Half-read streams prove nothing: the records are trusted until they can be read again.
+            read = false;
             return apps;
         }
 
+        // Shammy's own listening (voice) says nothing about other apps.
         pids.Remove((uint)Environment.ProcessId);
         foreach (var pid in pids)
         {
             var path = MeetingSystemNative.ProcessPath(pid);
+            if (path is not null) owners.Add(path);
+            if (MeetingSystemNative.PackageFamily(pid) is { } family) owners.Add(family);
             if (path is null || apps.Any(a => CapabilityUsage.SamePath(a.Path, path))) continue;
             var app = Desktop(path, path, titles, "audio", requireRunning: false);
             if (app is not null) apps.Add(app);

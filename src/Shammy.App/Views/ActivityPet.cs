@@ -117,6 +117,31 @@ internal sealed class ActivityPet : Canvas
         if (IsVisible) Rebuild();
     }
 
+    /// <summary>
+    /// Petted (a little wiggle of the pointer over the pill): a blush and a heart that floats up, over whatever it's
+    /// wearing, so a call's headset (or any costume) stays on. Silent: on a call a purr would go into the microphone.
+    /// </summary>
+    public void Petted()
+    {
+        Pets++;
+        if (!IsVisible || _face is null) return;
+        var glow = new Canvas { Width = ColumnWidth, Height = ColumnHeight, IsHitTestVisible = false };
+        var blush = AddBlush(glow, 19, 32);
+        var heart = new Canvas { Width = 9, Height = 8 };
+        heart.Children.Add(Fill("M4.5,8 C1,5.2 0,3.4 1.2,1.8 C2.4,0.4 3.8,0.8 4.5,2 C5.2,0.8 6.6,0.4 7.8,1.8 C9,3.4 8,5.2 4.5,8 Z", Pink));
+        glow.Children.Add(At(heart, Cx + 13, 6));
+        Children.Add(glow);
+        var rise = new TranslateTransform();
+        heart.RenderTransform = rise;
+        Once(blush, OpacityProperty, 1.5, 0, (0, 0), (0.15, 1), (0.75, 1), (1, 0));
+        Once(heart, OpacityProperty, 1.5, 0, (0, 0), (0.15, 1), (0.7, 1), (1, 0));
+        Once(rise, TranslateTransform.YProperty, 1.5, 0, (0, 2), (1, -9));
+        After(1.6, () => Children.Remove(glow));
+    }
+
+    /// <summary>How many times it has been petted (for tests).</summary>
+    public int Pets { get; private set; }
+
     /// <summary>Clear the face (the next Show replays its entrance).</summary>
     public void Reset()
     {

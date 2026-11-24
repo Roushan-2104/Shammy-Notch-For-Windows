@@ -217,10 +217,15 @@ public partial class NotchWindow : Window
         Root.MouseMove += (_, e) =>
         {
             if (_hoverIn.IsEnabled) SampleHover();
-            // Petting: a little wiggle over the resting pet makes it happy.
-            if (_mode == NotchMode.Idle && _restView.PetEnabled && _wiggle.Add(e.GetPosition(Root).X, _hoverClock.Elapsed))
+            // Petting: a little wiggle over the pet makes it happy, resting or on the pill (a call, music, a timer).
+            // On the pill only over the pet itself (not the mute circle or the timer), with no button held (a swipe).
+            bool resting = _mode == NotchMode.Idle && _restView.PetEnabled;
+            bool onPill = _mode == NotchMode.Compact && _petShowing && _services.Settings.PetEnabled && e.LeftButton == MouseButtonState.Released
+                && e.GetPosition(_activityView.Pet) is var over && over.X >= -6 && over.X <= Views.ActivityPet.ColumnWidth + 6 && over.Y >= -4 && over.Y <= Views.ActivityPet.ColumnHeight + 4;
+            if ((resting || onPill) && _wiggle.Add(e.GetPosition(Root).X, _hoverClock.Elapsed))
             {
-                _restView.Mood.Petted();
+                if (resting) _restView.Mood.Petted();
+                else _activityView.Pet.Petted();
                 _intent.Reset();
             }
         };

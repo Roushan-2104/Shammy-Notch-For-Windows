@@ -483,6 +483,8 @@ internal sealed partial class ShammyHost
             case "pet-mood": return _notch.SetPetMood(arg);
             // "pet-purr": the cat purrs as if the pointer had rested on it.
             case "pet-purr": return _notch.PetPurr();
+            // "pet-pill": pets the pet on the pill (a call, music...), as a pointer wiggle over it does.
+            case "pet-pill": return _notch.PetPill();
             // "tuck" slides the notch away as its tab would, "tuck back" brings it back, "tuck state" says where it is.
             case "tuck": return _notch.TuckForTest(arg);
             // "pet-greet": as if the PC had just been unlocked.
