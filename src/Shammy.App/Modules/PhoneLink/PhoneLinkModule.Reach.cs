@@ -27,7 +27,7 @@ internal sealed partial class PhoneLinkModule
     long _lastBlockedAt;
 
     /// <summary>A Reach message from the phone on connection [s] (that connection's reader thread).</summary>
-    void OnReach(JsonObject m, LinkSession s)
+    void OnReach(JsonObject m, object s)
     {
         switch (LinkSession.Text(m, "t"))
         {
@@ -66,7 +66,7 @@ internal sealed partial class PhoneLinkModule
     }
 
     /// <summary>Ends Reach (any thread; [owner]: only if that connection started it, null: whichever).</summary>
-    void EndReach(LinkSession? owner, bool tellPhone)
+    void EndReach(object? owner, bool tellPhone)
     {
         bool ended = _reach.End(owner, held =>
         {

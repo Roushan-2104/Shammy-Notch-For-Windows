@@ -72,6 +72,8 @@ public static class Reach
                 return wv == 0 && wh == 0 ? null : new ReachWheel(wv, wh);
             case "at":
                 // a spot on the screen picture the phone shows, as fractions of it (0..1): the pointer goes there
+                // both must be numbers: a message without them is no spot (not the top-left corner)
+                if (!IsNum(m, "x") || !IsNum(m, "y")) return null;
                 double ax = Num(m, "x"), ay = Num(m, "y");
                 return ax is < 0 or > 1 || ay is < 0 or > 1 ? null : new ReachAt(ax, ay);
             case "btn":
@@ -88,13 +90,25 @@ public static class Reach
     {
         var t = text.Replace("\r\n", "\n").Replace('\r', '\n');
         var sb = new System.Text.StringBuilder(Math.Min(t.Length, MaxText));
-        foreach (var c in t)
+        for (int i = 0; i < t.Length && sb.Length < MaxText; i++)
         {
-            if (sb.Length >= MaxText) break;
+            char c = t[i];
+            // an emoji goes whole or not at all: never half of one (a broken message, or the cap between its halves)
+            if (char.IsHighSurrogate(c))
+            {
+                if (i + 1 < t.Length && char.IsLowSurrogate(t[i + 1]))
+                {
+                    if (sb.Length + 2 > MaxText) break;   // no room for the whole emoji: the text ends here
+                    sb.Append(c).Append(t[++i]);
+                    continue;
+                }
+                i++;
+                if (i < t.Length && !char.IsLowSurrogate(t[i])) i--;   // no partner: look at the next one again
+                continue;
+            }
+            if (char.IsLowSurrogate(c)) continue;
             if (c is '\n' or '\t' || !char.IsControl(c)) sb.Append(c);
         }
-        // never end on half an emoji
-        if (sb.Length > 0 && char.IsHighSurrogate(sb[^1])) sb.Length--;
         return sb.ToString();
     }
 
@@ -110,6 +124,8 @@ public static class Reach
     }
 
     static string Str(JsonObject m, string key) => m[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : "";
+
+    static bool IsNum(JsonObject m, string key) => m[key] is JsonValue v && v.GetValueKind() == System.Text.Json.JsonValueKind.Number;
 
     static double Num(JsonObject m, string key)
     {
@@ -190,7 +206,9 @@ public sealed class ReachGate
         {
             if (_owner is null || Reach.Parse(m) is not { } input) return false;
             double cost = input is ReachText t ? t.Text.Length / 64 + 1 : 1;
-            if (!Take(input.GetType(), cost, utcNow)) return false;
+            // letting go of a held button always goes through (a drag's end lost to the rate would leave it stuck down)
+            bool release = input is ReachButton { Press: ReachPress.Up } r && _down.Contains(r.Button);
+            if (!release && !Take(input.GetType(), cost, utcNow)) return false;
             if (input is ReachButton b)
             {
                 if (b.Press == ReachPress.Down) _down.Add(b.Button);
@@ -207,6 +225,7 @@ public sealed class ReachGate
         var (tokens, at) = _buckets.TryGetValue(kind, out var b) ? b : (rate.Burst, utcNow);
         tokens = Math.Min(rate.Burst, tokens + Math.Max(0, (utcNow - at).TotalSeconds) * rate.PerSecond);
         bool ok = tokens >= cost;
+        // a clock set back adds nothing (no negative refill) and never freezes input: the bucket just goes on from now
         _buckets[kind] = (ok ? tokens - cost : tokens, utcNow);
         return ok;
     }

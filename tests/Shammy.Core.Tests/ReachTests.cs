@@ -140,4 +140,76 @@ public class ReachTests
         gate.Start(new object());
         Assert.Equal(8, Enumerable.Range(0, 20).Count(_ => gate.Admit(M("""{"t":"at","x":0.5,"y":0.5}"""), T0, _ => { })));
     }
+
+    [Fact]
+    public void LettingGoOfAHeldButtonIsNeverLostToTheRate()
+    {
+        var gate = new ReachGate();
+        gate.Start(new object());
+        bool Go(string json) => gate.Admit(M(json), T0, _ => { });
+        Assert.True(Go("""{"t":"btn","b":"left","act":"down"}"""));
+        while (Go("""{"t":"btn","b":"right","act":"click"}""")) { }            // the button rate is used up
+        Assert.False(Go("""{"t":"btn","b":"right","act":"down"}"""));
+        Assert.True(Go("""{"t":"btn","b":"left","act":"up"}"""));             // still lets go
+        Assert.False(Go("""{"t":"btn","b":"left","act":"up"}"""));            // once
+        IReadOnlyList<ReachMouse>? held = null;
+        gate.End(null, h => held = h);
+        Assert.Empty(held!);
+    }
+
+    [Fact]
+    public void AReconnectTakesReachOverAndTheOldConnectionCantEndIt()
+    {
+        var gate = new ReachGate();
+        object first = new(), second = new();
+        Assert.True(gate.Start(first));
+        Assert.False(gate.Start(second));                                       // already on: now the new connection's
+        Assert.False(gate.End(first, _ => { }));                               // the old one closing later changes nothing
+        Assert.True(gate.On);
+        Assert.True(gate.End(second, _ => { }));
+        Assert.False(gate.On);
+    }
+
+    [Fact]
+    public void TheClockGoingBackNeitherMintsInputNorFreezesIt()
+    {
+        var gate = new ReachGate();
+        gate.Start(new object());
+        bool Go(DateTime at) => gate.Admit(M("""{"t":"key","k":"A"}"""), at, _ => { });
+        Assert.Equal(20, Enumerable.Range(0, 30).Count(_ => Go(T0)));
+        var back = T0.AddMinutes(-5);                                           // Windows time sync steps the clock back
+        Assert.False(Go(back));                                                 // no refill from going back
+        Assert.True(Go(back.AddMilliseconds(20)));                             // and keys work again right away
+        Assert.True(Enumerable.Range(0, 30).Count(_ => Go(T0)) <= 20);         // coming forward: never more than a burst
+    }
+
+    [Fact]
+    public void BrokenMessagesAreNotInput()
+    {
+        Assert.Null(Reach.Parse(M("""{"t":"at"}""")));                          // no spot is not the top-left corner
+        Assert.Null(Reach.Parse(M("""{"t":"at","x":0.5}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"at","x":"0.5","y":0.5}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"key","k":5}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"type","text":5}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"mv","dx":"12","dy":"3"}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"btn","b":"left"}""")));
+        Assert.Null(Reach.Parse(M("""{"t":5}""")));
+        Assert.Equal(new ReachMove(13, 0), Reach.Parse(M("""{"t":"mv","dx":12.6}""")));   // fractions round
+        Assert.Equal(new ReachMove(Reach.MaxMove, 0), Reach.Parse(M("""{"t":"mv","dx":1e300}""")));
+    }
+
+    [Fact]
+    public void HalfAnEmojiOnItsOwnIsDropped()
+    {
+        Assert.Equal("ab", Reach.Clean("a\uD83Db"));                           // a high half with no partner
+        Assert.Equal("ab", Reach.Clean("a\uDE00b"));                           // a low half on its own
+        Assert.Equal("a", Reach.Clean("a\uD83D"));                              // a high half at the very end
+        Assert.Equal("a😀b", Reach.Clean("a😀b"));
+        Assert.Equal("😀", Reach.Clean("\uDE00😀\uD83D"));
+        Assert.Equal("\uD83D", "\uD83D");
+        // the cap falls between the halves: the whole emoji goes, never half
+        Assert.Equal(Reach.MaxText - 1, Reach.Clean(new string('x', Reach.MaxText - 1) + "😀").Length);
+        Assert.Equal(Reach.MaxText, Reach.Clean(new string('x', Reach.MaxText - 2) + "😀😀").Length);
+        Assert.EndsWith("x", Reach.Clean(new string('x', Reach.MaxText - 1) + "😀b"));   // nothing after the cut slips in
+    }
 }

@@ -40,6 +40,9 @@ internal sealed partial class PhoneLinkModule
 
     bool Online => _live is not null || _fakeLive;
 
+    /// <summary>The test pipe's stand-in for a phone connection (Reach's owner while testing).</summary>
+    static readonly object FakePhone = new();
+
     void StartPhone()
     {
         _ctx.Services.Battery.Changed += SendStatus;
@@ -51,6 +54,18 @@ internal sealed partial class PhoneLinkModule
             SendStatus();
             FillPhoneSheet();
             return $"fake-live={_fakeLive}";
+        });
+        // Reach end to end: any message as if the phone sent it ({"t":"reach","on":true}, {"t":"type","text":"…"}, {"t":"do",…}…)
+        _ctx.AddPipeCommand("phonelink-fake-msg", arg =>
+        {
+            if (JsonNode.Parse(arg) is not JsonObject m) return "error: not a JSON object";
+            switch (LinkSession.Text(m, "t"))
+            {
+                case "do": Do(LinkSession.Text(m, "what")); break;
+                case "awaylock": AwayLock(m["on"]?.GetValue<bool>() == true); break;
+                default: OnReach(m, FakePhone); break;
+            }
+            return "ok";
         });
         // "battery charging ringer dnd canRinger", e.g. "18 0 vibrate 0 1"
         _ctx.AddPipeCommand("phonelink-fake-status", arg =>
