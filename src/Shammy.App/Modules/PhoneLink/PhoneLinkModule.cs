@@ -511,7 +511,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "file" or "fileChunk" or "fileEnd":
                         TakeFile(m, s);
                         break;
-                    case "reach" or "key" or "type" or "mv" or "btn" or "wh":
+                    case "reach" or "key" or "type" or "mv" or "btn" or "wh" or "win" or "tab":
                         OnReach(m, s);
                         break;
                     // "pong" and anything newer: ignored (§5).
