@@ -70,6 +70,10 @@ public static class Reach
                 // lines (fractions allowed, for smooth scrolling) → Windows wheel units, 120 to a notch
                 int wv = Clamp(Num(m, "dy") * 120, MaxWheel), wh = Clamp(Num(m, "dx") * 120, MaxWheel);
                 return wv == 0 && wh == 0 ? null : new ReachWheel(wv, wh);
+            case "at":
+                // a spot on the screen picture the phone shows, as fractions of it (0..1): the pointer goes there
+                double ax = Num(m, "x"), ay = Num(m, "y");
+                return ax is < 0 or > 1 || ay is < 0 or > 1 ? null : new ReachAt(ax, ay);
             case "btn":
                 ReachMouse? b = Str(m, "b") switch { "left" => ReachMouse.Left, "right" => ReachMouse.Right, "middle" => ReachMouse.Middle, _ => null };
                 ReachPress? p = Str(m, "act") switch { "click" => ReachPress.Click, "double" => ReachPress.Double, "down" => ReachPress.Down, "up" => ReachPress.Up, _ => null };
@@ -124,6 +128,8 @@ public sealed record ReachText(string Text) : ReachInput;
 public sealed record ReachMove(int Dx, int Dy) : ReachInput;
 public sealed record ReachWheel(int Vertical, int Horizontal) : ReachInput;
 public sealed record ReachButton(ReachMouse Button, ReachPress Press) : ReachInput;
+/// <summary>The pointer to a spot on the screen the phone is watching, as fractions of that screen.</summary>
+public sealed record ReachAt(double X, double Y) : ReachInput;
 public enum ReachMouse { Left, Right, Middle }
 public enum ReachPress { Click, Double, Down, Up }
 
@@ -138,7 +144,7 @@ public sealed class ReachGate
     static readonly Dictionary<Type, (double PerSecond, double Burst)> Rates = new()
     {
         [typeof(ReachMove)] = (300, 60), [typeof(ReachWheel)] = (120, 30), [typeof(ReachKey)] = (60, 20),
-        [typeof(ReachText)] = (30, 10), [typeof(ReachButton)] = (20, 8),
+        [typeof(ReachText)] = (30, 10), [typeof(ReachButton)] = (20, 8), [typeof(ReachAt)] = (20, 8),
     };
 
     readonly object _lock = new();

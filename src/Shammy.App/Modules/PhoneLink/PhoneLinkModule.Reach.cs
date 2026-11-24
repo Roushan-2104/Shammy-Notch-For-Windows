@@ -31,6 +31,14 @@ internal sealed partial class PhoneLinkModule
     {
         switch (LinkSession.Text(m, "t"))
         {
+            case "watch":
+                // "tell me when the screen goes quiet": read-only (a ping, no input), so it works without Reach
+                Screen().Quiet = m["quiet"] is JsonValue q && q.TryGetValue<bool>(out var quiet) && quiet;
+                return;
+            case "screen":
+                // the screen picture: only while Reach is on (your fingerprint was given on the phone)
+                if (_reach.On) { Screen().Mode = LinkSession.Text(m, "mode"); _ = _ctx.Ui.BeginInvoke(PostReachPill); } // "Viewing" shows at once
+                return;
             case "win" or "tab":
                 // a window or tab the phone was shown, while Reach is on: on the UI thread, where the lists live
                 if (_reach.On) _ = _ctx.Ui.BeginInvoke(() => OnWindowAct(m));
@@ -45,9 +53,9 @@ internal sealed partial class PhoneLinkModule
             if (_reach.Start(s))
                 _ = _ctx.Ui.BeginInvoke(() =>
                 {
-                    _ctx.Post(new Activity(ReachActivity, ActivityKind.Custom, ReachPriority, new ReachContent(() => EndReach(null, tellPhone: true))));
+                    PostReachPill();
                     _ctx.Info("Reach on: the phone controls this laptop");
-                    _sentFront = ""; _sentWins = ""; _sentTabs = ""; _sentIcons.Clear(); _names.Clear();
+                    _sentFront = ""; _sentWins = ""; _sentTabs = ""; _sentIcons.Clear(); _names.Clear(); _sentCpu = -100; _kernel = 0;
                     SendFront();
                     _frontTimer ??= new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(1), System.Windows.Threading.DispatcherPriority.Background,
                         (_, _) => SendLaptop(), _ctx.Ui);
@@ -62,6 +70,7 @@ internal sealed partial class PhoneLinkModule
     {
         bool ended = _reach.End(owner, held =>
         {
+            if (_screen is { } scr) scr.Mode = "off";
             _injector?.Clear();
             foreach (var b in held) _injector?.Send(new ReachButton(b, ReachPress.Up));
         });
@@ -106,6 +115,21 @@ internal sealed partial class PhoneLinkModule
     bool _readingTabs, _actingTab;
     int _tabsAge;
 
+    int _loadTick, _sentCpu = -100;
+    long _idle, _kernel, _user;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
+
+    /// <summary>How busy the laptop's processors were since the last call, 0..100 (null the first time).</summary>
+    int? Load()
+    {
+        if (!GetSystemTimes(out var idle, out var kernel, out var user)) return null;
+        long di = idle - _idle, total = (kernel - _kernel) + (user - _user); // kernel time includes idle
+        bool first = _kernel == 0;
+        (_idle, _kernel, _user) = (idle, kernel, user);
+        return first || total <= 0 ? null : (int)Math.Round(100.0 * (total - di) / total);
+    }
+
     (string Name, string? Exe) NameOf(uint pid)
     {
         if (_names.TryGetValue(pid, out var n)) return n;
@@ -123,6 +147,7 @@ internal sealed partial class PhoneLinkModule
     {
         SendFront();
         if (!_reach.On) return;
+        if (++_loadTick % 5 == 0 && Load() is int cpu && Math.Abs(cpu - _sentCpu) >= 5) { _sentCpu = cpu; Send(new JsonObject { ["t"] = "load", ["cpu"] = cpu }); }
         var wins = WindowList.Top(8);
         // the window really in front (a topmost picture-in-picture or mini window can sit above it in the stack)
         var fg = Native.GetForegroundWindow();
@@ -196,9 +221,23 @@ internal sealed partial class PhoneLinkModule
         _sentTabs = ""; _tabsAge = 5; // read the tabs again on the next tick
     }
 
+    ReachScreen? _screen;
+
+    ReachScreen Screen() => _screen ??= new ReachScreen(Send, msg => _ctx.Warn(msg), () => _reach.On);
+
+    /// <summary>The notch while the phone is in control: "Phone · In control", or "Phone · Viewing" while the screen goes to it (UI thread).</summary>
+    void PostReachPill()
+    {
+        if (_reach.On) _ctx.Post(new Activity(ReachActivity, ActivityKind.Custom, ReachPriority, new ReachContent(() => EndReach(null, tellPhone: true), () => _screen?.Mode is "snap" or "live")));
+    }
+
     ReachInjector NewInjector()
     {
-        var i = new ReachInjector(msg => _ctx.Warn(msg));
+        var i = new ReachInjector(msg => _ctx.Warn(msg))
+        {
+            // a tap on the phone's picture lands on the screen that picture showed
+            Screen = () => _screen is { Mode: not "off", Shown: [var r] } ? r : null,
+        };
         i.Blocked += why =>
         {
             // once per reason every few seconds, not once per pointer move (injector thread only)
@@ -214,10 +253,11 @@ internal sealed partial class PhoneLinkModule
     {
         EndReach(null, tellPhone: false);
         _injector?.Dispose();
+        _screen?.Dispose();
     }
 
     /// <summary>The notch while the phone is in control: "Phone · In control" and a Stop circle.</summary>
-    sealed class ReachContent(Action stop) : ICompactContent, IPetActivity
+    sealed class ReachContent(Action stop, Func<bool> viewing) : ICompactContent, IPetActivity
     {
         static readonly CircleSpec StopCircle = new(CircleAction.Stop, CircleTone.Neutral, true, "Stop the phone's control");
 
@@ -226,7 +266,7 @@ internal sealed partial class PhoneLinkModule
             Costume = PetCostume.Custom,
             Face = PetFace.Focused,
             Label = "Phone",
-            Value = "In control",
+            Value = viewing() ? "Viewing" : "In control",
             Ongoing = true,
             Circle = StopCircle,
         };
@@ -239,7 +279,7 @@ internal sealed partial class PhoneLinkModule
         public double Build(ContentControl left, ContentControl right)
         {
             left.Content = Words("Phone", "Fg2");
-            right.Content = Words("In control", "Fg");
+            right.Content = Words(viewing() ? "Viewing" : "In control", "Fg");
             return 64;
         }
 

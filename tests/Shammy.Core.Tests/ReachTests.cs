@@ -129,4 +129,15 @@ public class ReachTests
         Assert.Equal(32776, Reach.Absolute(0, -1920, 3840));        // the main screen's left edge, about half way
         Assert.Equal(0, Reach.Absolute(0, 0, 0));                   // no screen size reported: no crash
     }
+
+    [Fact]
+    public void ATapOnTheScreenPictureIsASpotOnThatScreen()
+    {
+        Assert.Equal(new ReachAt(0.25, 1), Reach.Parse(M("""{"t":"at","x":0.25,"y":1}""")));
+        Assert.Null(Reach.Parse(M("""{"t":"at","x":1.5,"y":0.2}""")));   // off the picture
+        Assert.Null(Reach.Parse(M("""{"t":"at","x":-0.1,"y":0.2}""")));
+        var gate = new ReachGate();
+        gate.Start(new object());
+        Assert.Equal(8, Enumerable.Range(0, 20).Count(_ => gate.Admit(M("""{"t":"at","x":0.5,"y":0.5}"""), T0, _ => { })));
+    }
 }

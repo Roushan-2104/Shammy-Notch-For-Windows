@@ -511,7 +511,7 @@ internal sealed partial class PhoneLinkModule : IShammyModule
                     case "file" or "fileChunk" or "fileEnd":
                         TakeFile(m, s);
                         break;
-                    case "reach" or "key" or "type" or "mv" or "btn" or "wh" or "win" or "tab":
+                    case "reach" or "key" or "type" or "mv" or "btn" or "wh" or "win" or "tab" or "at" or "screen" or "watch":
                         OnReach(m, s);
                         break;
                     // "pong" and anything newer: ignored (§5).
@@ -523,6 +523,8 @@ internal sealed partial class PhoneLinkModule : IShammyModule
             stop.Cancel();
             DropIncoming(s);
             EndReach(s, tellPhone: false); // only if this connection started it (a reconnect may already own Reach)
+            // "tell me when the screen goes quiet" ends with the link (unless a reconnect already took over and asked again)
+            if (_screen is { } scr && (_live is null || ReferenceEquals(_live, s))) scr.Quiet = false;
             _ = _ctx.Ui.BeginInvoke(() =>
             {
                 if (!ReferenceEquals(_live, s)) return;

@@ -322,7 +322,7 @@ internal sealed partial class PhoneLinkModule : Connect.IIslandLink
     {
         if (!CommandServer.IsEnabled) return;
         var copy = (JsonObject)m.DeepClone();
-        foreach (var big in new[] { "data", "art" })
+        foreach (var big in new[] { "data", "art", "jpg", "png" })
             if (copy[big] is JsonValue v && v.TryGetValue<string>(out var text) && text.Length > 80) copy[big] = $"({text.Length} chars)";
         _lastSent[copy["t"]?.GetValue<string>() ?? "?"] = copy.ToJsonString();
     }

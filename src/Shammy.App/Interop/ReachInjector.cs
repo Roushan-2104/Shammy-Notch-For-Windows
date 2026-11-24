@@ -24,6 +24,9 @@ internal sealed class ReachInjector : IDisposable
     readonly Thread _thread;
     readonly Action<string> _warn;
 
+    /// <summary>The screen the phone is watching (where a tap on its picture lands), or null when it isn't watching.</summary>
+    public Func<Native.RECT?>? Screen { get; set; }
+
     /// <summary>Raised on the injector's thread with "admin" or "locked" when input can't reach the window in front.</summary>
     public event Action<string>? Blocked;
 
@@ -86,6 +89,10 @@ internal sealed class ReachInjector : IDisposable
             case ReachMove mv:
                 list.Add(MoveTo(mv.Dx, mv.Dy));
                 break;
+            case ReachAt at:
+                if (Screen?.Invoke() is not { } r) return;
+                list.Add(Place(r.Left + (int)Math.Round(at.X * Math.Max(0, r.Width - 1)), r.Top + (int)Math.Round(at.Y * Math.Max(0, r.Height - 1))));
+                break;
             case ReachWheel w:
                 if (w.Vertical != 0) list.Add(Mouse(WHEEL, w.Vertical));
                 if (w.Horizontal != 0) list.Add(Mouse(HWHEEL, w.Horizontal));
@@ -144,13 +151,19 @@ internal sealed class ReachInjector : IDisposable
     static INPUT MoveTo(int dx, int dy)
     {
         Native.GetCursorPos(out var p);
+        return Place(p.X + dx, p.Y + dy);
+    }
+
+    /// <summary>The pointer to a spot on the whole desktop (physical pixels), placed absolutely.</summary>
+    static INPUT Place(int x, int y)
+    {
         return new INPUT
         {
             type = INPUT_MOUSE,
             u = new InputUnion { mi = new MOUSEINPUT
             {
-                dx = Reach.Absolute(p.X + dx, GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_CXVIRTUALSCREEN)),
-                dy = Reach.Absolute(p.Y + dy, GetSystemMetrics(SM_YVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN)),
+                dx = Reach.Absolute(x, GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_CXVIRTUALSCREEN)),
+                dy = Reach.Absolute(y, GetSystemMetrics(SM_YVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN)),
                 dwFlags = MOVE | ABSOLUTE | VIRTUALDESK, dwExtraInfo = MouseHook.Mark,
             } },
         };
