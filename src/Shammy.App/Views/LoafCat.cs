@@ -10,7 +10,7 @@ namespace Shammy.Views;
 /// <summary>
 /// The Loaf pet style: a whole cat lying on the resting notch's floor, its tail curled up behind it. It lies with
 /// its head up, puts its head down to sleep and sits up when something needs you (<see cref="LoafLooks"/>).
-/// Drawn in the pet's 32 × 32 box; lying, its tail hangs about 8 px below it, over the island's edge. The eyes take the pet's
+/// Drawn in the pet's 32 × 32 box; lying, its tail hangs about 13 px below it, over the island's edge. The eyes take the pet's
 /// blink transform, so they blink and slow-blink (the purr) with the rest of the pet.
 /// </summary>
 internal sealed class LoafCat : Canvas
@@ -23,7 +23,7 @@ internal sealed class LoafCat : Canvas
     static readonly Geometry HeadDown = Parsed("M1.5,27 C1,24 2.5,21.5 5.5,20.8 L5.2,16.5 L8.6,18.8 Q11,18.5 13.4,18.8 L16.8,16.5 L16.5,20.8 C19.5,21.5 21,24 20.5,27 Z");
     static readonly Geometry Sitting = Parsed("M10,27.5 C8.5,22 10,17 13.5,15.5 L13,9.5 L16.8,12.3 Q19.5,11.9 22.2,12.3 L26,9.5 L25.5,15.5 C29,17 30.5,22 29,27.5 Z");
     // Lying, the tail hangs over the island's bottom edge (the island lets it through, see TailRoom).
-    static readonly Geometry TailHanging = Parsed("M29.5,26 C33,27.5 34,34.5 31.5,37.8 C29.6,40.2 26.4,39.4 27.4,36.8");
+    static readonly Geometry TailHanging = Parsed("M29.5,26 C33.5,28 35,38 32,42.5 C30,45.3 26.5,44.6 27.4,41.6");
     static readonly Geometry TailUp = Parsed("M29,26 C33.5,24.5 34,17.5 31.5,13.5");
     static readonly Geometry ClosedEye = Parsed("M-1.6,-0.4 Q0,1.1 1.6,-0.4");
     static readonly Geometry HappyEye = Parsed("M-1.6,0.6 Q0,-1.1 1.6,0.6");

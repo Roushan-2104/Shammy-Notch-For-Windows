@@ -28,9 +28,9 @@ public partial class NotchWindow
     /// </summary>
     Geometry TailRoom(double w, double h)
     {
-        if (Views.Screens.PetLook.Kind != Shammy.Core.Notch.PetKind.Loaf || h > RestView.RestHeight + 2) return Shape.Geometry;
+        if (Views.Screens.PetLook.Kind != PetKind.Loaf || h > IslandGeometry.ClosedPill(RestView.RestHeight) + 1) return Shape.Geometry;
         double x = Cx - RestView.RestWidth / 2 + RestView.Padding + 22;
-        var room = new CombinedGeometry(GeometryCombineMode.Union, Shape.Geometry, new RectangleGeometry(new Rect(x, h - 2, 18, 14)));
+        var room = new CombinedGeometry(GeometryCombineMode.Union, Shape.Geometry, new RectangleGeometry(new Rect(x, h - 2, 18, 16)));
         room.Freeze();
         return room;
     }
