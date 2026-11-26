@@ -2,8 +2,34 @@ using System.Globalization;
 
 namespace Shammy.Core.Notch;
 
-/// <summary>What the pet is: a cat (ears, slit pupils, whiskers and a nose around the eyes) or the plain eyes.</summary>
-public enum PetKind { Cat, Eyes }
+/// <summary>
+/// What the pet is: a cat (ears, slit pupils, whiskers and a nose around the eyes), the plain eyes, or a loaf
+/// (a whole cat lying on the resting notch; elsewhere it is drawn as the cat).
+/// </summary>
+public enum PetKind { Cat, Eyes, Loaf }
+
+/// <summary>How the loaf holds itself: lying with its head up, asleep with its head down, or sitting up.</summary>
+public enum LoafPosture { Lying, Asleep, Sitting }
+
+/// <summary>The loaf's eyes: open dots, closed curves, or happy ^ ^.</summary>
+public enum LoafEyes { Open, Closed, Happy }
+
+/// <summary>The loaf in one mood; <see cref="Swish"/> sways its tail to the beat.</summary>
+public readonly record struct LoafPose(LoafPosture Posture, LoafEyes Eyes, bool Swish);
+
+/// <summary>The loaf's pose for each mood: it sleeps when nothing happens, swishes to music and sits up when you're needed.</summary>
+public static class LoafLooks
+{
+    public static LoafPose Pose(PetMood mood) => mood switch
+    {
+        PetMood.Sleepy => new(LoafPosture.Asleep, LoafEyes.Closed, false),
+        PetMood.Tired => new(LoafPosture.Lying, LoafEyes.Closed, false),
+        PetMood.Music => new(LoafPosture.Lying, LoafEyes.Happy, true),
+        PetMood.Happy or PetMood.TimerDone => new(LoafPosture.Sitting, LoafEyes.Happy, false),
+        PetMood.Notify => new(LoafPosture.Sitting, LoafEyes.Open, false),
+        _ => new(LoafPosture.Lying, LoafEyes.Open, false),
+    };
+}
 
 /// <summary>
 /// How the cat holds itself in one mood. <see cref="EarTilt"/> folds both ears outward in degrees,

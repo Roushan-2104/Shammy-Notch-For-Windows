@@ -41,6 +41,8 @@ internal sealed class ShammyPet : Grid
     readonly CatParts.Ear _earL = new(false, Brushes.White), _earR = new(true, Brushes.White);
     readonly CatParts.Whiskers _whiskL = new(false, Brushes.White), _whiskR = new(true, Brushes.White);
     readonly System.Windows.Shapes.Path _nose = CatParts.Nose();
+    // The Loaf style draws a whole cat instead of the eyes; it bounces with the pet but stays on the floor otherwise.
+    readonly LoafCat _loaf;
     readonly ScaleTransform _lid = new(1, 1), _perk = new(1, 1);
     readonly RotateTransform _sway = new();
     readonly TranslateTransform _glance = new(), _follow = new(), _bounce = new(), _pose = new();
@@ -76,7 +78,9 @@ internal sealed class ShammyPet : Grid
         _cat.RenderTransformOrigin = new Point(0.5, 0.5);
         _cat.RenderTransform = new TransformGroup { Children = { _sway, _follow, _bounce, _pose } };
         foreach (var part in new UIElement[] { _earL, _earR, _whiskL, _whiskR, _nose }) _cat.Children.Add(part);
+        _loaf = new LoafCat(_lid) { RenderTransform = _bounce };
         Children.Add(_cat);
+        Children.Add(_loaf);
         Children.Add(_eyes);
         Children.Add(_overlay);
 
@@ -154,7 +158,7 @@ internal sealed class ShammyPet : Grid
     /// <summary>Puts the ears, whiskers and pupils in a pose of their own, between two moods.</summary>
     void HoldCat(CatPose pose)
     {
-        if (!CatParts.On) return;
+        if (!CatParts.On || Loaf) return;
         _leftEye.Pupil(pose.Pupil);
         _rightEye.Pupil(pose.Pupil);
         _earL.Hold(pose.EarTilt, pose.EarHeight, pose.EarDrop);
@@ -205,6 +209,7 @@ internal sealed class ShammyPet : Grid
             _followX.Snap(0);
             _follow.X = 0;
             _overlay.Children.Clear();
+            _loaf.Swish(false);
             if (_subscribed)
             {
                 Animator.Frame -= OnFrame;
@@ -253,7 +258,7 @@ internal sealed class ShammyPet : Grid
         {
             case PetMood.Music:
                 SetEyes(EyeShape.Arc, 12, 7, white);
-                StartSway();
+                if (!Loaf) StartSway();
                 StartParticles(TimeSpan.FromMilliseconds(900));
                 break;
             case PetMood.Notify:
@@ -273,7 +278,7 @@ internal sealed class ShammyPet : Grid
             case PetMood.Thinking:
                 SetEyes(EyeShape.Pill, 10, 11, white);
                 _pose.Y = -1.5;
-                if (Decorative) Repeat(_glance, TranslateTransform.XProperty, 1200, (0, -2.5), (600, 2.5), (1200, -2.5));
+                if (Decorative && !Loaf) Repeat(_glance, TranslateTransform.XProperty, 1200, (0, -2.5), (600, 2.5), (1200, -2.5));
                 break;
             case PetMood.MeetingSoon:
                 SetEyes(EyeShape.Pill, 11, 13, white);
@@ -300,10 +305,17 @@ internal sealed class ShammyPet : Grid
         ApplyCat();
     }
 
-    /// <summary>The cat's ears, whiskers, nose and pupils for this mood (nothing when the pet style is Eyes).</summary>
+    static bool Loaf => Screens.PetLook.Kind == PetKind.Loaf;
+
+    /// <summary>The cat's ears, whiskers, nose and pupils for this mood (nothing when the pet style is Eyes), or the loaf.</summary>
     void ApplyCat()
     {
-        bool cat = CatParts.On;
+        _eyes.Visibility = Loaf ? Visibility.Collapsed : Visibility.Visible;
+        _loaf.Visibility = Loaf ? Visibility.Visible : Visibility.Collapsed;
+        if (Loaf) _loaf.Show(LoafLooks.Pose(Mood), Screens.PetLook.Solid(), IsVisible);
+        else _loaf.Swish(false);
+
+        bool cat = CatParts.On && !Loaf;
         _cat.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
         var pose = CatLooks.Pose(Mood);
         _leftEye.Pupil(cat ? pose.Pupil : 0);
@@ -344,6 +356,17 @@ internal sealed class ShammyPet : Grid
     {
         _fidgetTimer.Interval = CatLooks.NextFidget(_random);
         if (!CatParts.On || !Infrastructure.MotionPrefs.Lively || !CatLooks.Fidgets(Mood)) return;
+        if (Loaf)
+        {
+            // The loaf flicks its tail instead.
+            _loaf.TailAngle(16);
+            Later(120, () =>
+            {
+                _loaf.TailAngle(-6);
+                Later(120, () => _loaf.TailAngle(0));
+            });
+            return;
+        }
         if (_random.Next(2) == 0)
         {
             var ear = _random.Next(2) == 0 ? _earL : _earR;
@@ -603,13 +626,14 @@ internal sealed class ShammyPet : Grid
         _stillSince = now;
         if (_away) WakeUp();
         if (_pointerTimer.Interval == StillPoll) _pointerTimer.Interval = FarPoll;
-        var centre = _eyes.PointToScreen(new Point(_eyes.ActualWidth / 2, _eyes.ActualHeight / 2));
+        // The loaf's face, or the middle of the eyes (the eyes aren't laid out while the loaf shows).
+        var centre = Loaf ? _loaf.PointToScreen(new Point(16, 20)) : _eyes.PointToScreen(new Point(_eyes.ActualWidth / 2, _eyes.ActualHeight / 2));
         double scale = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double dx = (p.X - centre.X) / scale, dy = (p.Y - centre.Y) / scale;
         var look = EyeLogic.Follow(dx, dy);
         if (look is not null) PointerNear?.Invoke();
         Petting(Math.Abs(dx) < 20 && Math.Abs(dy) < 14);
-        bool follows = Mood == PetMood.Idle;
+        bool follows = Mood == PetMood.Idle && !Loaf;
         if (look is { } x && follows)
         {
             if (!_following) _glance.BeginAnimation(TranslateTransform.XProperty, null);

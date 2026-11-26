@@ -143,3 +143,21 @@ public class CatTests
     [Fact]
     public void The_purr_is_the_same_every_time() => Assert.Equal(Ping.Render(PingKind.Purr), Ping.Render(PingKind.Purr));
 }
+
+public class LoafTests
+{
+    [Fact]
+    public void The_loaf_sleeps_lies_and_sits_up_when_you_are_needed()
+    {
+        Assert.Equal(new LoafPose(LoafPosture.Asleep, LoafEyes.Closed, false), LoafLooks.Pose(PetMood.Sleepy));
+        Assert.Equal(LoafPosture.Sitting, LoafLooks.Pose(PetMood.Notify).Posture);
+        Assert.Equal(new LoafPose(LoafPosture.Lying, LoafEyes.Open, false), LoafLooks.Pose(PetMood.Idle));
+    }
+
+    [Fact]
+    public void Only_music_swishes_the_tail()
+    {
+        foreach (var mood in Enum.GetValues<PetMood>())
+            Assert.Equal(mood == PetMood.Music, LoafLooks.Pose(mood).Swish);
+    }
+}

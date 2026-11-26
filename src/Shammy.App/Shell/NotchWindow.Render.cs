@@ -22,6 +22,19 @@ public partial class NotchWindow
 
     void OnFrame(double dt) => ApplyVisuals(force: false);
 
+    /// <summary>
+    /// The content's clip: the island's shape, plus, while the Loaf pet rests on a resting island, a small strip under
+    /// the pet for its tail to hang over the edge (<see cref="Views.LoafCat"/>).
+    /// </summary>
+    Geometry TailRoom(double w, double h)
+    {
+        if (Views.Screens.PetLook.Kind != Shammy.Core.Notch.PetKind.Loaf || h > RestView.RestHeight + 2) return Shape.Geometry;
+        double x = Cx - RestView.RestWidth / 2 + RestView.Padding + 22;
+        var room = new CombinedGeometry(GeometryCombineMode.Union, Shape.Geometry, new RectangleGeometry(new Rect(x, h - 2, 18, 14)));
+        room.Freeze();
+        return room;
+    }
+
     void ApplyVisuals(bool force)
     {
         double w = _w.Value, h = _h.Value, r = _r.Value;
@@ -33,7 +46,7 @@ public partial class NotchWindow
             Shape.Update(w, h, r);
             ShadowShape.Update(w, h);
             Edge.UpdateShape(w, h, r, Shape.Geometry);
-            ContentHost.Clip = Shape.Geometry;
+            ContentHost.Clip = TailRoom(w, h);
             // The waves soften as the island opens (and come back as it closes) with the height, not in one step.
             if (_waves is not null)
             {

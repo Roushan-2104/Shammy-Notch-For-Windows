@@ -85,7 +85,7 @@ internal static class SettingsCatalog
         ("WheelEnabled", Wheel, "Wheel", 1, "Hold the middle mouse button: the island pours down with six tools."),
         // Pet
         ("PetEnabled", Pet, "Pet", 1, "The pet lives in the notch and reacts to what you do."),
-        ("PetKind", Pet, "Pet style", 1, "Eyes, or a cat with ears, whiskers and a nose."),
+        ("PetKind", Pet, "Pet style", 1, "Eyes, a cat with ears, whiskers and a nose, or a loaf lying on the notch."),
         ("PetPurrs", Pet, "Purr", 1, "A soft purr when your pointer rests on the cat."),
         ("CatTheme", Pet, "Cat theme", 1, "The cat listens while you talk; paws lead the choices."),
         ("PetEyeStyle", Pet, "Eye style", 1, "Round, oval or pixel eyes."),

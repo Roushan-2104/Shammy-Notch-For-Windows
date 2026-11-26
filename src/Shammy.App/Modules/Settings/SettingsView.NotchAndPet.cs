@@ -68,14 +68,19 @@ internal partial class SettingsView
         preview.Opacity = _s.PetEnabled ? 1 : 0.4;
         Row("Pet", PetHint(_s.PetEnabled), petSwitch, out petHint, preview);
 
-        var kinds = new[] { PetKind.Eyes, PetKind.Cat };
+        var kinds = new[] { PetKind.Eyes, PetKind.Cat, PetKind.Loaf };
         Border purrRow = null!;
-        var kindRow = Row("Pet style", "Eyes is Shammy as it always was. Cat adds ears, whiskers and a nose to the same eyes.",
-            new Segmented(new[] { "Eyes", "Cat" }, Array.IndexOf(kinds, _s.PetKind), i =>
+        var kindRow = Row("Pet style", "Eyes is Shammy as it always was. Cat adds ears, whiskers and a nose to the same eyes. Loaf is a whole cat lying on the notch: it naps, swishes its tail to music and sits up when you're needed (the preview here shows its cat face).",
+            new Segmented(new[] { "Eyes", "Cat", "Loaf" }, Array.IndexOf(kinds, _s.PetKind), i =>
             {
-                Set(nameof(AppSettings.PetKind), kinds[i], kinds[i] == PetKind.Cat ? $"{PetLook.Name} is a cat" : "Just the eyes");
+                Set(nameof(AppSettings.PetKind), kinds[i], kinds[i] switch
+                {
+                    PetKind.Cat => $"{PetLook.Name} is a cat",
+                    PetKind.Loaf => $"{PetLook.Name} is lying on the notch",
+                    _ => "Just the eyes",
+                });
                 face.Restyle();
-                Dim(purrRow, kinds[i] == PetKind.Cat && _s.PetEnabled);
+                Dim(purrRow, kinds[i] != PetKind.Eyes && _s.PetEnabled);
             }));
         dependents.Add(kindRow);
         purrRow = SwitchRow("Purr", "A soft purr when your pointer rests on the cat. Follows Notch sounds.", nameof(AppSettings.PetPurrs), "Purr on", "Purr off");
@@ -153,7 +158,7 @@ internal partial class SettingsView
         var nameRow = Row("Name", NameHint(_s.PetName), nameControls, out nameHint);
         dependents.Add(nameRow);
         foreach (var d in dependents) Dim(d, _s.PetEnabled);
-        if (_s.PetKind != PetKind.Cat) Dim(purrRow, false);
+        if (_s.PetKind == PetKind.Eyes) Dim(purrRow, false);
     }
 
     /// <summary>Size, motion, the palette and the lyric line.</summary>

@@ -27,7 +27,8 @@ internal static class CatParts
     /// <summary>How far below the middle of the eyes the nose sits.</summary>
     public const double NoseDrop = 3.7;
 
-    public static bool On => Screens.PetLook.Kind == PetKind.Cat;
+    /// <summary>The pet is a cat: the Cat style, or the Loaf (which is the cat everywhere but the resting notch).</summary>
+    public static bool On => Screens.PetLook.Kind != PetKind.Eyes;
 
 
     static Geometry Parsed(string data)

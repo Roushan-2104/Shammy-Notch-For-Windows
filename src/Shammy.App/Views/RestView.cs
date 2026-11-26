@@ -19,7 +19,8 @@ namespace Shammy.Views;
 internal sealed class RestView : Grid
 {
     public const double RestWidth = 300, RestHeight = 32;
-    const double Padding = 14;
+    /// <summary>The pet's left edge from the island's.</summary>
+    public const double Padding = 14;
     static readonly TimeSpan Rotation = TimeSpan.FromSeconds(4);
 
     readonly ShammyServices _services;

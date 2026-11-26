@@ -135,6 +135,8 @@ public partial class NotchWindow : Window
         ContentHost.Children.Insert(0, _restView);
         if (!services.Settings.PetEnabled) _restView.SetPetEnabled(false);
         _rest = AddLayer(_restView);
+        // Picking or leaving the Loaf style opens or closes the room for its tail under the island.
+        Views.Screens.PetLook.Changed += () => ApplyVisuals(force: true);
         _peek = AddLayer(_peekView);
         _peekView.GlanceClicked += OnPeekGlanceClicked;
 
