@@ -70,7 +70,7 @@ internal partial class SettingsView
 
         var kinds = new[] { PetKind.Eyes, PetKind.Cat, PetKind.Loaf };
         Border purrRow = null!;
-        var kindRow = Row("Pet style", "Eyes is Shammy as it always was. Cat adds ears, whiskers and a nose to the same eyes. Loaf is a whole cat lying on the notch: it naps, swishes its tail to music and sits up when you're needed (the preview here shows its cat face).",
+        var kindRow = Row("Pet style", "Eyes is Shammy as it always was. Cat adds ears, whiskers and a nose to the same eyes. Loaf is a whole cat lying on the notch: it naps, swishes its tail to music and sits up when you're needed.",
             new Segmented(new[] { "Eyes", "Cat", "Loaf" }, Array.IndexOf(kinds, _s.PetKind), i =>
             {
                 Set(nameof(AppSettings.PetKind), kinds[i], kinds[i] switch
@@ -351,7 +351,7 @@ internal partial class SettingsView
         value.HorizontalAlignment = HorizontalAlignment.Right;
         SetColumn(value, 2);
         grid.Children.Add(value);
-        return new Border
+        var notch = new Border
         {
             Width = 200,
             Height = 34,
@@ -360,8 +360,25 @@ internal partial class SettingsView
             Padding = new Thickness(12, 0, 12, 0),
             Child = grid,
             ClipToBounds = true,
-            Tag = name,
         };
+
+        // The Loaf style shows the loaf in the face's place, outside the notch's clip so its tail hangs over the edge.
+        var loaf = new Views.LoafCat(new ScaleTransform()) { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(83, 2, 0, 0) };
+        void Sync()
+        {
+            bool on = PetLook.Kind == PetKind.Loaf;
+            loaf.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            face.Visibility = on ? Visibility.Hidden : Visibility.Visible;
+            if (on) loaf.Show(LoafLooks.Pose(PetMood.Idle), PetLook.Solid(), moving: false);
+        }
+        var host = new Grid { Width = 200, Height = 34, Tag = name, Children = { notch, loaf } };
+        host.Loaded += (_, _) =>
+        {
+            PetLook.Changed += Sync;
+            Sync();
+        };
+        host.Unloaded += (_, _) => PetLook.Changed -= Sync;
+        return host;
     }
 
     static FrameworkElement EyeIcon(PetEyeStyle style)
