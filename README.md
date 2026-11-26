@@ -287,7 +287,7 @@ Open any card (Alarms, Timer, Clipboard, Notes, Weather, System, Health, Calenda
 | 🤖 **Claude Code** | Coding-agent sessions in the island, with Allow and Deny. |
 | 🎥 **Record and caption** | Record your screen to MP4, and live captions for anything your PC plays. |
 | ⚙️ **Settings you can search** | A search box that finds any setting; the palette flips switches right in the list. |
-| 🐾 **Shammy the pet** | A pair of eyes, or a cat with ears and a purr, that reacts to what you're doing. |
+| 🐾 **Shammy the pet** | A pair of eyes, a cat with ears and a purr, or a loaf of a cat lying on the notch with its tail over the edge, that reacts to what you're doing. |
 
 <br>
 
