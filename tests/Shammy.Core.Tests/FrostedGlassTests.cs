@@ -63,6 +63,14 @@ public class FrostedGlassTests
     }
 
     [Fact]
+    public void Tint_is_light_resting_and_dark_open()
+    {
+        Assert.Equal(FrostedGlassRules.LightTint, FrostedGlassRules.TintAlpha(FrostedGlassRules.Openness(41)));
+        Assert.Equal(FrostedGlassRules.DarkTint, FrostedGlassRules.TintAlpha(FrostedGlassRules.Openness(297)));
+        Assert.Equal(170, FrostedGlassRules.TintAlpha(FrostedGlassRules.Openness(90)));
+    }
+
+    [Fact]
     public void Wave_colours_are_the_moment_with_a_lighter_middle()
     {
         var c = FrostedGlassRules.WaveColours(new Rgb(0, 100, 255));

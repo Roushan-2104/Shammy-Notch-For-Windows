@@ -4,8 +4,8 @@ using System.Windows.Media;
 namespace Shammy.Shell.Glass;
 
 /// <summary>One piece of the island family that frosted glass sits behind: where it is on screen (device pixels), its
-/// top and bottom corner radii (pixels) and how visible it is (0-1).</summary>
-internal readonly record struct GlassShape(Rect Screen, double TopRadius, double BottomRadius, double Opacity);
+/// top and bottom corner radii (pixels), how visible it is (0-1) and how dark its tint is (0 light, 1 dark for text).</summary>
+internal readonly record struct GlassShape(Rect Screen, double TopRadius, double BottomRadius, double Opacity, double Depth = 0);
 
 /// <summary>
 /// The island, its wings and their dots tell frosted glass where they are, and which windows they live in (the frosted
@@ -53,7 +53,7 @@ internal static class GlassSurfaces
     static bool Near(GlassShape a, GlassShape b) =>
         Math.Abs(a.Screen.X - b.Screen.X) < 0.25 && Math.Abs(a.Screen.Y - b.Screen.Y) < 0.25 && Math.Abs(a.Screen.Width - b.Screen.Width) < 0.25 &&
         Math.Abs(a.Screen.Height - b.Screen.Height) < 0.25 && Math.Abs(a.TopRadius - b.TopRadius) < 0.25 && Math.Abs(a.BottomRadius - b.BottomRadius) < 0.25 &&
-        Math.Abs(a.Opacity - b.Opacity) < 0.01;
+        Math.Abs(a.Opacity - b.Opacity) < 0.01 && Math.Abs(a.Depth - b.Depth) < 0.01;
 
     internal static void SetRunning(bool running)
     {

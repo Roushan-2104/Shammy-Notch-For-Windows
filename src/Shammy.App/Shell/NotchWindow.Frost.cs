@@ -104,7 +104,7 @@ public partial class NotchWindow
                 r = Math.Clamp(r, 0, room);
                 // An open slab's top corners are tighter than its bottom ones (see NotchShape.Build).
                 double top = r >= room - 0.5 ? r : Math.Min(r, NotchShape.TopRadius);
-                GlassSurfaces.Set("island", new GlassShape(new Rect(a, b), top * px, r * px, 1));
+                GlassSurfaces.Set("island", new GlassShape(new Rect(a, b), top * px, r * px, 1, FrostedGlassRules.Openness(h)));
             }
             catch (InvalidOperationException)
             {

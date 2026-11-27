@@ -20,15 +20,13 @@ namespace Shammy.Shell.Glass;
 /// </summary>
 internal sealed class FrostedGlass : IDisposable
 {
-    /// <summary>The tint over the blur: light enough to see through (the owner's call), dark enough for white text.</summary>
-    static readonly WinColor Tint = WinColor.FromArgb(125, 20, 20, 24);
 
     readonly Func<IReadOnlyList<IntPtr>> _family;
     Compositor? _compositor;
     DesktopWindowTarget? _target;
     ContainerVisual? _root;
     GlassWindow? _window;
-    CompositionBrush? _blur, _tint;
+    CompositionBrush? _blur;
     Int32Rect _windowRect;
     int _shapes;
     bool _queued;
@@ -70,9 +68,8 @@ internal sealed class FrostedGlass : IDisposable
             Marshal.Release(target);
             _root = _compositor.CreateContainerVisual();
             _target.Root = _root;
-            // One blur and one tint, shared by every piece.
+            // One blur, shared by every piece (each has its own tint: see FrostedGlassRules.TintAlpha).
             _blur = _compositor.CreateHostBackdropBrush();
-            _tint = _compositor.CreateColorBrush(Tint);
             Reshape();
             Log.Info("Frosted glass: on");
             return true;
@@ -94,8 +91,7 @@ internal sealed class FrostedGlass : IDisposable
         _target = null;
         _root = null;
         _blur?.Dispose();
-        _tint?.Dispose();
-        _blur = _tint = null;
+        _blur = null;
         _compositor?.Dispose();
         _compositor = null;
         _window?.DestroyHandle();
@@ -195,7 +191,7 @@ internal sealed class FrostedGlass : IDisposable
         piece.Opacity = (float)Math.Clamp(s.Opacity, 0, 1);
         if (Math.Abs(top - bottom) < 0.5f)
         {
-            piece.Children.InsertAtTop(Frost(w, h, bottom));
+            piece.Children.InsertAtTop(Frost(w, h, bottom, s.Depth));
             return piece;
         }
         float split = MathF.Round(h / 2);
@@ -207,14 +203,14 @@ internal sealed class FrostedGlass : IDisposable
             cut.TopInset = from;
             cut.BottomInset = h - to;
             half.Clip = cut;
-            half.Children.InsertAtTop(Frost(w, h, radius));
+            half.Children.InsertAtTop(Frost(w, h, radius, s.Depth));
             piece.Children.InsertAtTop(half);
         }
         return piece;
     }
 
-    /// <summary>A rounded rectangle of Windows' backdrop blur under the tint.</summary>
-    Visual Frost(float w, float h, float radius)
+    /// <summary>A rounded rectangle of Windows' backdrop blur under its tint (light resting, dark where there is text).</summary>
+    Visual Frost(float w, float h, float radius, double depth)
     {
         var c = _compositor!;
         var outline = Keep(c.CreateRoundedRectangleGeometry());
@@ -228,7 +224,7 @@ internal sealed class FrostedGlass : IDisposable
         blur.Brush = _blur;
         var tint = Keep(c.CreateSpriteVisual());
         tint.Size = shape.Size;
-        tint.Brush = _tint;
+        tint.Brush = Keep(c.CreateColorBrush(WinColor.FromArgb(FrostedGlassRules.TintAlpha(depth), 20, 20, 24)));
         shape.Children.InsertAtTop(blur);
         shape.Children.InsertAtTop(tint);
         return shape;

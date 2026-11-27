@@ -13,12 +13,15 @@ internal sealed class GlassPiece
     readonly string _key;
     readonly FrameworkElement _element;
     readonly Func<double> _radius;
+    readonly double _depth;
     IDisposable? _frames;
     DateTime _until;
 
     /// <param name="radius">Its corner radius in its own units.</param>
-    public GlassPiece(string key, FrameworkElement element, Func<double> radius)
+    /// <param name="depth">Its tint: 0 light (a dot), 1 dark (a slab that carries text).</param>
+    public GlassPiece(string key, FrameworkElement element, Func<double> radius, double depth = 0)
     {
+        _depth = depth;
         _key = key;
         _element = element;
         _radius = radius;
@@ -72,7 +75,7 @@ internal sealed class GlassPiece
             var rect = new Rect(a, b);
             double px = rect.Width / _element.ActualWidth;
             double r = _radius() * px;
-            GlassSurfaces.Set(_key, new GlassShape(rect, r, r, opacity));
+            GlassSurfaces.Set(_key, new GlassShape(rect, r, r, opacity, _depth));
         }
         catch (InvalidOperationException)
         {

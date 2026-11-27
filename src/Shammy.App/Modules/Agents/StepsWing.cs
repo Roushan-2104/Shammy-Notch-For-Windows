@@ -102,7 +102,7 @@ internal sealed class StepsWing : Window
         // The island's own glass (a live brush: it follows the island's colour), or frosted glass behind it.
         _slab.Background = IslandSurface.Fill;
         _slab.BorderBrush = IslandSurface.Rim;
-        _slabGlass = new Shell.Glass.GlassPiece("wing.steps", _slab, () => _slab.CornerRadius.TopLeft);
+        _slabGlass = new Shell.Glass.GlassPiece("wing.steps", _slab, () => _slab.CornerRadius.TopLeft, depth: 1);
         _dotGlass = new Shell.Glass.GlassPiece("wing.steps.dot", _dot, () => _dot.Width / 2);
         Shell.Glass.GlassSurfaces.RunningChanged += GlassFills;
         Closed += (_, _) =>

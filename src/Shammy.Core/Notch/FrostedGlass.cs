@@ -56,6 +56,16 @@ public static class FrostedGlassRules
     public static Rgb? Moment(bool alert, bool notify, RimState rim, Rgb album) =>
         alert ? Alert : rim == RimState.MicLive ? RimLight.MicLive : notify ? Notify : RimLight.Colour(rim, album);
 
+    /// <summary>The tint over the blur, of 255: light and see-through on the resting pill, dark smoked glass on what
+    /// carries text (the open island, the wings), so text reads over a bright page (the owner's call).</summary>
+    public const byte LightTint = 125, DarkTint = 215;
+
+    /// <summary>The tint at <paramref name="depth"/>: 0 resting, 1 open (in between while it opens).</summary>
+    public static byte TintAlpha(double depth) => (byte)Math.Round(LightTint + (DarkTint - LightTint) * Math.Clamp(depth, 0, 1));
+
+    /// <summary>How open the island is for its tint, from its height in DIPs: resting up to 60, fully open from 120.</summary>
+    public static double Openness(double height) => Math.Clamp((height - 60) / 60, 0, 1);
+
     /// <summary>The waves' three colours for a moment: its colour, a lighter shade between, its colour again.</summary>
     public static Rgb[] WaveColours(Rgb c)
     {

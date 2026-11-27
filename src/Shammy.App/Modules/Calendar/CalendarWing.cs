@@ -72,7 +72,7 @@ internal sealed class CalendarWing : Window
         _layout.Children.Add(_slab);
         Content = _layout;
         // Under frosted glass the slab and the dot are drawn by the glass behind them.
-        _slabGlass = new Shell.Glass.GlassPiece("wing.calendar", _slab, () => _slab.CornerRadius.TopLeft);
+        _slabGlass = new Shell.Glass.GlassPiece("wing.calendar", _slab, () => _slab.CornerRadius.TopLeft, depth: 1);
         _dotGlass = new Shell.Glass.GlassPiece("wing.calendar.dot", _dot, () => _dot.Width / 2);
         Shell.Glass.GlassSurfaces.RunningChanged += GlassFills;
         Closed += (_, _) =>
