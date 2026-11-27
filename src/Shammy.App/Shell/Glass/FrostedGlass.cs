@@ -12,7 +12,7 @@ using WinColor = Windows.UI.Color;
 namespace Shammy.Shell.Glass;
 
 /// <summary>
-/// Frosted glass (on by default): Windows itself blurs whatever is behind the island family. One click-through window sits
+/// Frosted glass (opt-in): Windows itself blurs whatever is behind the island family. One click-through window sits
 /// just under the family's windows; on it, each piece (see <see cref="GlassSurfaces"/>) is a shape filled with
 /// Windows' own backdrop blur and a dark tint so white text stays readable (the island's colour waves draw on top, in
 /// its own window). Nothing is captured or drawn by Shammy: Windows does the blur as it does for its own menus, and

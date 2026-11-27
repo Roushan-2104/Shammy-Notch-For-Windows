@@ -178,8 +178,8 @@ internal sealed class AppSettings
     /// <summary>Lively plays the bounce, the spinning record and the pet's extras; Calm holds still.</summary>
     public Shammy.Core.Settings.MotionStyle Motion { get; set; }
 
-    /// <summary>Frosted glass: Windows blurs whatever is behind the island and its wings, washed in the moment's colour.</summary>
-    public bool FrostedGlass { get; set; } = true;
+    /// <summary>Frosted glass (opt-in): Windows blurs whatever is behind the island and its wings; the waves take the moment's colour.</summary>
+    public bool FrostedGlass { get; set; }
 
     /// <summary>Scales everything in the notch.</summary>
     public Shammy.Core.Settings.NotchSize NotchSize { get; set; } = Shammy.Core.Settings.NotchSize.Normal;

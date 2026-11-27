@@ -6,7 +6,7 @@ using Shammy.Shell.Glass;
 namespace Shammy.Shell;
 
 /// <summary>
-/// Frosted glass for the island (on by default; Settings › Notch): when the rules allow (see <see cref="FrostedGlassRules"/>)
+/// Frosted glass for the island (opt-in, Settings › Notch): when the rules allow (see <see cref="FrostedGlassRules"/>)
 /// the island's own glass steps aside and <see cref="FrostedGlass"/> puts Windows' blur behind it, its action circle
 /// and its wings. Anything that isn't fine (Energy saver, low battery, a full-screen app…) brings the usual glass back.
 /// </summary>

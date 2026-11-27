@@ -21,7 +21,7 @@ public static class WhatsNew
         {
             "Frosted glass: the island blurs what’s behind it",
             "Tinted by your song, a timer or a notification",
-            "Shammy Island 0.5.0 for phones has it too",
+            "Turn it on in Settings › Notch",
         },
         ["1.7.7"] = new[]
         {
