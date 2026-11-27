@@ -147,7 +147,7 @@ The notch doesn't hang from the edge of your screen. It **floats** a few pixels 
 - **One liquid surface.** When there's something to press, a round button beads out of the island's end through a smooth, water-drop neck.
 - **A rim that breathes.** A thin line of light along the bottom edge tells you the state without opening anything: **red** while your mic is live, **green** before a meeting, **blue** in focus, your **song's colour** with music.
 - **The time, always.** It sits at the right end of the island whatever is happening (a song, a call, a timer, a recording) and, with the date, at the top of the open island.
-- **Frosted glass.** Windows itself blurs whatever is behind the island and its wings, the way it does for its own menus, and the waves take the colour of the moment: violet for a notification, blue for a timer, amber when it's done, red on a live mic. Shammy captures nothing and draws no blur of its own. It pauses on Energy saver, under 50% battery, with Transparency effects off or a full-screen app in front. Turn it on in Settings › Notch.
+- **Frosted glass.** Windows itself blurs whatever is behind the island and its wings, the way it does for its own menus, and the waves take the colour of the moment: violet for a notification, blue for a timer, amber when it's done, red on a live mic. Shammy captures nothing and draws no blur of its own. It pauses on Energy saver, under 50% battery, with Transparency effects off or a full-screen app in front. It is on by default; turn it off in Settings › Notch.
 - **Calm fallback.** Without it, the frosted look is a tiny pre-blurred copy of your wallpaper (about 26 KB), remade only when your wallpaper changes. No live blur, no busy graphics card.
 
 <p align="center">

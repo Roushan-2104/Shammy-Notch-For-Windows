@@ -178,8 +178,14 @@ internal sealed class AppSettings
     /// <summary>Lively plays the bounce, the spinning record and the pet's extras; Calm holds still.</summary>
     public Shammy.Core.Settings.MotionStyle Motion { get; set; }
 
-    /// <summary>Frosted glass (opt-in): Windows blurs whatever is behind the island and its wings; the waves take the moment's colour.</summary>
-    public bool FrostedGlass { get; set; }
+    /// <summary>Frosted glass (on by default): Windows blurs whatever is behind the island and its wings; the waves take the moment's colour.</summary>
+    public bool FrostedGlass { get; set; } = true;
+
+    /// <summary>
+    /// Set once Frosted glass has been turned on by default (1.7.12). Copies from 1.7.8-1.7.11 saved it off, as it was
+    /// opt-in then: it goes on once for them too, and stays as people set it afterwards.
+    /// </summary>
+    public bool FrostedGlassDefaulted { get; set; }
 
     /// <summary>Scales everything in the notch.</summary>
     public Shammy.Core.Settings.NotchSize NotchSize { get; set; } = Shammy.Core.Settings.NotchSize.Normal;
@@ -316,6 +322,11 @@ internal sealed class AppSettings
         if (!Enum.IsDefined(NotchSize)) NotchSize = Shammy.Core.Settings.NotchSize.Normal;
         if (!Enum.IsDefined(Accent)) Accent = Shammy.Core.Settings.AccentColor.Orange;
         Palette = IslandPalettes.Migrate(Palette, Accent);
+        if (!FrostedGlassDefaulted)
+        {
+            FrostedGlass = true;
+            FrostedGlassDefaulted = true;
+        }
         NotchDisplay = Shammy.Core.Settings.NotchDisplay.Normalize(NotchDisplay);
         HiddenApps = Shammy.Core.Settings.HideRules.Clean(HiddenApps);
     }
@@ -374,7 +385,8 @@ internal sealed class AppSettings
             Log.Warn("Settings unreadable, using defaults", ex);
             KeepUnreadable();
         }
-        return new AppSettings();
+        // A fresh start already has Frosted glass on by default: nothing to switch on later.
+        return new AppSettings { FrostedGlassDefaulted = true };
     }
 
     /// <summary>A file another program holds open for a moment (a sync client, an antivirus scan) is read again.</summary>

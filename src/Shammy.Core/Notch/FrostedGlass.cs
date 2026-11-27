@@ -25,7 +25,7 @@ public readonly record struct GlassDecision(GlassState State, string Status)
 }
 
 /// <summary>
-/// The rules for frosted glass (opt-in): Windows blurs whatever is behind the island. What has to be true for it to
+/// The rules for frosted glass (on by default): Windows blurs whatever is behind the island. What has to be true for it to
 /// show, and the line that says why when it doesn't. Anything that isn't fine falls back to the island's usual glass.
 /// </summary>
 public static class FrostedGlassRules
