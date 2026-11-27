@@ -105,14 +105,18 @@ public partial class NotchWindow
         // Not built yet (the palette is chosen early in the constructor).
         if (_waves is null || _restView is null) return;
         var media = _services.Media;
-        bool music = media.IsPlaying, micLive = false, focus = false;
+        bool music = media.IsPlaying, micLive = false, focus = false, notify = false, alert = false;
         var now = DateTime.UtcNow;
         foreach (var a in _ranked)
         {
             if (PetFor(a, now)?.State is not { } s) continue;
             if (s.Costume == Core.Notch.PetCostume.Recording || (s.Costume == Core.Notch.PetCostume.Call && !s.Muted)) micLive = true;
             if (s.Costume == Core.Notch.PetCostume.Timer && !s.Done && !s.Paused) focus = true;
+            if (s.Costume == Core.Notch.PetCostume.Timer && s.Done) alert = true;
+            if (s.Costume == Core.Notch.PetCostume.Notify) notify = true;
         }
+        // An alarm ringing or a low battery is an alert too (for the frosted glass's waves).
+        alert |= _ranked.Any(a => a.Id == "productivity.alarm" || a.Kind == Core.Activities.ActivityKind.LowBattery);
         bool meeting = _restView.Mood.Meeting is not null;
         _rimState = RimLight.Pick(music, focus, micLive, meeting);
         // A song playing under Album: its colours come up clearly in the waves (and settle back when it stops).
@@ -125,6 +129,14 @@ public partial class NotchWindow
         _plan = IslandLook.Decide(new IslandConditions(_transparency, _batterySaver, SystemParameters.HighContrast, MotionPrefs.Lively, _busy));
 
         Edge.SetState(shown ? RimColour() : null);
+        EvaluateFrost();
+        // Under frosted glass the waves take the moment's colour (a notification's, a timer's...).
+        var moment = shown && Shell.Glass.GlassSurfaces.Running ? FrostMoment(alert, notify) : null;
+        if (moment != _frostMoment)
+        {
+            _frostMoment = moment;
+            RenderWaves();
+        }
         bool run = shown && (_plan.AnimateWaves || (_plan.Breathe && _rimState != RimState.None && Edge.Enabled));
         if (!_plan.Breathe) Edge.Breath = RimLight.Steady;
         if (run && !AmbientRunning)
@@ -148,18 +160,46 @@ public partial class NotchWindow
     }
 
     /// <summary>The rim's state colour: music in the album's colour, focus blue, a live microphone red, a meeting soon green.</summary>
-    Color? RimColour()
-    {
-        var album = Theme.PaletteTheme.FromAlbum ? Theme.PaletteTheme.First
+    Color? RimColour() => RimLight.Colour(_rimState, AlbumColour()) is { } c ? Theme.PaletteTheme.ToColor(c) : null;
+
+    /// <summary>Music's colour: the palette's under Album, else the song's art (the palette's when there's none).</summary>
+    Rgb AlbumColour() =>
+        Theme.PaletteTheme.FromAlbum ? Theme.PaletteTheme.First
             : _services.Media.ArtColor is var art && art != Colors.White ? new Rgb(art.R, art.G, art.B)
             : Theme.PaletteTheme.First;
-        return RimLight.Colour(_rimState, album) is { } c ? Theme.PaletteTheme.ToColor(c) : null;
-    }
+
+    /// <summary>The frosted glass's waves: the ring's colour for this moment, or a notification's or an alert's.</summary>
+    Rgb? FrostMoment(bool alert, bool notify) =>
+        // A song under the Album palette: the waves already carry its colours.
+        _rimState == RimState.Music && !alert && !notify && Theme.PaletteTheme.FromAlbum ? null
+            : FrostedGlassRules.Moment(alert, notify, _rimState, AlbumColour());
+
+    /// <summary>The moment's colour the waves take under frosted glass (null: the palette's).</summary>
+    Rgb? _frostMoment;
 
     /// <summary>Push the plan to the island: glass or plain tint, waves shown (softer on an open slab) or not.</summary>
     void ApplyLook()
     {
         if (_waves is null) return;
+        if (Shell.Glass.GlassSurfaces.Running)
+        {
+            // Frosted glass draws behind the island: its own glass, waves and hairline step aside, and an invisible fill
+            // keeps it clickable.
+            double frostWaves = WavesOpacityAt(_h.Value);
+            if (ReferenceEquals(Shape.Fill, Glass.GlassSurfaces.HitOnly) && Shape.Glass is null && Math.Abs(Shape.WavesOpacity - frostWaves) < 0.004) return;
+            Shape.Fill = Glass.GlassSurfaces.HitOnly;
+            Shape.Glass = null;
+            Shape.WavesOpacity = frostWaves;
+            Shape.Edge = false;
+            Shape.InvalidateVisual();
+            return;
+        }
+        if (!ReferenceEquals(Shape.Fill, _islandFill))
+        {
+            Shape.Fill = _islandFill;
+            Shape.Edge = true;
+            Shape.Glass = null;
+        }
         var glass = _plan.Glass ? _glass.Image : null;
         double waves = WavesOpacityAt(_h.Value);
         var fill = glass is null ? PlainIsland : _glass.Average;
@@ -233,7 +273,8 @@ public partial class NotchWindow
     /// <summary>One frame of the waves into the tiny bitmap; WPF redraws the island with it (scaled up, soft).</summary>
     void RenderWaves()
     {
-        IslandWaves.Render(_wavePx, IslandWaves.Width, IslandWaves.Height, Theme.PaletteTheme.Colours, _waveTime, 1, _waveBoost);
+        var colours = _frostMoment is { } m ? FrostedGlassRules.WaveColours(m) : Theme.PaletteTheme.Colours;
+        IslandWaves.Render(_wavePx, IslandWaves.Width, IslandWaves.Height, colours, _waveTime, 1, _waveBoost);
         _waves.WritePixels(new Int32Rect(0, 0, IslandWaves.Width, IslandWaves.Height), _wavePx, IslandWaves.Width * 4, 0);
     }
 

@@ -71,6 +71,18 @@ internal sealed class CalendarWing : Window
         Grid.SetColumn(_slab, 1);
         _layout.Children.Add(_slab);
         Content = _layout;
+        // Under frosted glass the slab and the dot are drawn by the glass behind them.
+        _slabGlass = new Shell.Glass.GlassPiece("wing.calendar", _slab, () => _slab.CornerRadius.TopLeft);
+        _dotGlass = new Shell.Glass.GlassPiece("wing.calendar.dot", _dot, () => _dot.Width / 2);
+        Shell.Glass.GlassSurfaces.RunningChanged += GlassFills;
+        Closed += (_, _) =>
+        {
+            Shell.Glass.GlassSurfaces.RunningChanged -= GlassFills;
+            Shell.Glass.GlassSurfaces.Forget(_hwnd);
+            _slabGlass.Remove();
+            _dotGlass.Remove();
+        };
+        GlassFills();
 
         _slab.MouseWheel += (_, e) =>
         {
@@ -123,7 +135,7 @@ internal sealed class CalendarWing : Window
         _layout.LayoutTransform = new ScaleTransform(scale, scale);
         _slab.Height = height;
         _slab.CornerRadius = new CornerRadius(radius);
-        _slab.Background = IslandSurface.Fill;
+        GlassFills();
         // Nothing inside spills past the rounded corners.
         _inner.Clip = new RectangleGeometry(new Rect(0, 0, CalendarWingFit.Width - 2, height - 2), radius - 1, radius - 1);
         Build();
@@ -131,6 +143,24 @@ internal sealed class CalendarWing : Window
         IsOpen = true;
         Show();
         Animate(open: true);
+        TrackGlass(0.7);
+    }
+
+    readonly Shell.Glass.GlassPiece _slabGlass, _dotGlass;
+
+    void GlassFills()
+    {
+        bool frosted = Shell.Glass.GlassSurfaces.Running;
+        _slab.Background = frosted ? Shell.Glass.GlassSurfaces.HitOnly : IslandSurface.Fill;
+        _slab.BorderBrush = frosted ? Brushes.Transparent : IslandSurface.Rim;
+        _dot.Fill = frosted ? Shell.Glass.GlassSurfaces.HitOnly : IslandSurface.Fill;
+        _dot.Stroke = frosted ? Brushes.Transparent : IslandSurface.Rim;
+    }
+
+    void TrackGlass(double seconds)
+    {
+        _slabGlass.Track(seconds);
+        _dotGlass.Track(seconds);
     }
 
     /// <summary>Folds the wing back into the island (at once with <paramref name="animate"/> off).</summary>
@@ -140,6 +170,7 @@ internal sealed class CalendarWing : Window
         IsOpen = false;
         if (!animate || !MotionPrefs.Lively) Hide();
         else Animate(open: false);
+        TrackGlass(0.7);
     }
 
     /// <summary>Kept out of captures exactly when the island is (Stage, a recording, Shammy's own screenshot or freeze).</summary>
@@ -152,6 +183,8 @@ internal sealed class CalendarWing : Window
     public void PlaceAt(int left, int top)
     {
         if (_hwnd != IntPtr.Zero) Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, left, top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        Shell.Glass.GlassSurfaces.Join(_hwnd);
+        TrackGlass(0.3);
     }
 
     void Animate(bool open)

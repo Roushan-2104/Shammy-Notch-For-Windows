@@ -99,9 +99,19 @@ internal sealed class StepsWing : Window
         Width = LineMaxWidth + 2 * GlowRoom;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        // The island's own glass (a live brush: it follows the island's colour).
+        // The island's own glass (a live brush: it follows the island's colour), or frosted glass behind it.
         _slab.Background = IslandSurface.Fill;
         _slab.BorderBrush = IslandSurface.Rim;
+        _slabGlass = new Shell.Glass.GlassPiece("wing.steps", _slab, () => _slab.CornerRadius.TopLeft);
+        _dotGlass = new Shell.Glass.GlassPiece("wing.steps.dot", _dot, () => _dot.Width / 2);
+        Shell.Glass.GlassSurfaces.RunningChanged += GlassFills;
+        Closed += (_, _) =>
+        {
+            Shell.Glass.GlassSurfaces.RunningChanged -= GlassFills;
+            Shell.Glass.GlassSurfaces.Forget(_hwnd);
+            _slabGlass.Remove();
+            _dotGlass.Remove();
+        };
         _slab.BorderThickness = new Thickness(1);
         _slab.CornerRadius = new CornerRadius(18);
         _slab.HorizontalAlignment = HorizontalAlignment.Right;
@@ -251,10 +261,25 @@ internal sealed class StepsWing : Window
         if (_hwnd != IntPtr.Zero) Native.SetWindowDisplayAffinity(_hwnd, exclude ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
     }
 
+    readonly Shell.Glass.GlassPiece _slabGlass, _dotGlass;
+
+    void GlassFills()
+    {
+        bool frosted = Shell.Glass.GlassSurfaces.Running;
+        _slab.Background = frosted ? Shell.Glass.GlassSurfaces.HitOnly : IslandSurface.Fill;
+        _slab.BorderBrush = frosted ? Brushes.Transparent : IslandSurface.Rim;
+        _dot.Fill = frosted ? Shell.Glass.GlassSurfaces.HitOnly : IslandSurface.Fill;
+        _dot.Stroke = frosted ? Brushes.Transparent : IslandSurface.Rim;
+    }
+
     /// <summary>Moves the window in device pixels.</summary>
     public void PlaceAt(int left, int top)
     {
         if (_hwnd != IntPtr.Zero) Native.SetWindowPos(_hwnd, Native.HWND_TOPMOST, left, top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        Shell.Glass.GlassSurfaces.Join(_hwnd);
+        GlassFills();
+        _slabGlass.Track(0.35);
+        _dotGlass.Track(0.35);
     }
 
     /// <summary>Draws <paramref name="view"/>. A question that wasn't up before pops out.</summary>
@@ -262,6 +287,9 @@ internal sealed class StepsWing : Window
     {
         var before = _view;
         _view = view;
+        // Its slide and fade take up to 280 ms; the glass follows them.
+        _slabGlass.Track(0.45);
+        _dotGlass.Track(0.45);
         if (view.Mode == WingMode.Hidden)
         {
             StopTyping();

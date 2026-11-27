@@ -415,6 +415,9 @@ internal sealed partial class ShammyHost : IDisposable
             case nameof(AppSettings.Motion):
                 _notch.MotionChanged();
                 break;
+            case nameof(AppSettings.FrostedGlass):
+                _notch.EvaluateFrost();
+                break;
             case nameof(AppSettings.NotchDisplay):
                 _notch.Reposition();
                 _recheckFullscreen?.Invoke();

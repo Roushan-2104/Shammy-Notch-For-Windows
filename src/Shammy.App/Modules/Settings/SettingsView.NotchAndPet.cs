@@ -175,9 +175,47 @@ internal partial class SettingsView
             new Segmented(new[] { "Lively", "Calm" }, Array.IndexOf(motions, _s.Motion), i =>
                 Set(nameof(AppSettings.Motion), motions[i], $"Motion · {motions[i]}")), words: "animation calm lively bounce");
 
+        FrostedGlassRow();
+
         PalettePicker();
 
         SwitchRow("Lyric line", "The line being sung shows under the record, for songs with synced lyrics.", nameof(AppSettings.LyricLineEnabled), "Lyric line on", "Lyric line off", words: "lyrics song music");
+    }
+
+    /// <summary>
+    /// Frosted glass's switch, with one line saying how it stands: on, paused and why, or why it can't run here.
+    /// </summary>
+    void FrostedGlassRow()
+    {
+        var sw = new ToggleSwitch(_s.FrostedGlass, v => Set(nameof(AppSettings.FrostedGlass), v, v ? "Frosted glass on" : "Frosted glass off"), "Frosted glass");
+        var row = Row("Frosted glass", "Windows blurs what’s behind the island and its wings, with a faint tint of what’s happening: your song, a timer, a notification. Uses a little more power.",
+            sw, out var hint, words: "glass transparent translucent see through blur frosted acrylic");
+        var dot = new System.Windows.Shapes.Ellipse { Width = 7, Height = 7, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        var said = ScreenKit.Text("", 12, Weight.Medium, ScreenKit.Fg2);
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0), Children = { dot, said } };
+        if (hint.Parent is Panel words) words.Children.Add(line);
+
+        void Sync()
+        {
+            var d = Shell.NotchWindow.GlassStatus;
+            line.Visibility = d.Status.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            said.Text = d.Status;
+            dot.Fill = Ui.Tokens.Res(d.State switch
+            {
+                GlassState.On => "Green",
+                GlassState.Paused => "Amber",
+                _ => "CardText2",
+            });
+        }
+        Sync();
+        Shell.NotchWindow.GlassStatusChanged += Sync;
+        row.Loaded += (_, _) =>
+        {
+            Shell.NotchWindow.GlassStatusChanged -= Sync;
+            Shell.NotchWindow.GlassStatusChanged += Sync;
+            Sync();
+        };
+        row.Unloaded += (_, _) => Shell.NotchWindow.GlassStatusChanged -= Sync;
     }
 
     /// <summary>

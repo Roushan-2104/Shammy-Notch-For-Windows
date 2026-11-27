@@ -128,6 +128,7 @@ public partial class NotchWindow
         if (_hwnd == IntPtr.Zero) return;
         Native.SetWindowDisplayAffinity(_hwnd, exclude ? Native.WDA_EXCLUDEFROMCAPTURE : Native.WDA_NONE);
         _wing?.SetExcluded(exclude);
+        _frost?.HideFromCapture(exclude);
         ExcludedFromCapture = exclude;
     }
 }

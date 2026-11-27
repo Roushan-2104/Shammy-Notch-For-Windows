@@ -175,6 +175,23 @@ internal sealed class ActivityChrome
         _liquid.Fill = _surface;
     }
 
+    /// <summary>Under frosted glass the droplets are drawn by the glass: their own fills go invisible (still clickable).</summary>
+    public void SetFrosted(bool on)
+    {
+        var fill = on ? Glass.GlassSurfaces.HitOnly : _plainFill;
+        _liquid.Fill = on ? fill : _surface;
+        _bridge.Fill = fill;
+        _dotBridge.Fill = fill;
+        _dotInner.Background = fill;
+    }
+
+    /// <summary>The pieces frosted glass draws behind: the circle and the dot.</summary>
+    public IEnumerable<(string Key, FrameworkElement Element)> GlassPieces()
+    {
+        yield return ("chrome.circle", _circle);
+        yield return ("chrome.dot", _dot);
+    }
+
     public CircleSpec? Circle => _spec;
     public string? DotId => _dotId;
     public bool Showing => _pop.Target > 0 || _dotPop.Target > 0 || _glowOn;

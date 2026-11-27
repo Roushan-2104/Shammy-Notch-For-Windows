@@ -481,6 +481,9 @@ internal sealed partial class ShammyHost
             case "v2-hover": return DryRunHover(arg);
             // "pet-mood music" forces a mood (idle|music|notify|timer|listen|think|meeting|tired|sleepy|happy); "pet-mood auto" undoes it.
             case "pet-mood": return _notch.SetPetMood(arg);
+            // Frosted glass: its state and a real screen capture of it.
+            case "glass-state": return _notch.DescribeFrost();
+            case "glass-shot": return _notch.GlassScreenShot(arg.Trim().Trim('"'));
             // "pet-purr": the cat purrs as if the pointer had rested on it.
             case "pet-purr": return _notch.PetPurr();
             // "pet-pill": pets the pet on the pill (a call, music...), as a pointer wiggle over it does.

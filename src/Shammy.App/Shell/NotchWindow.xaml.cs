@@ -101,6 +101,7 @@ public partial class NotchWindow : Window
         Edge.Enabled = services.Settings.ShammyGlow;
         // Before anything borrows the island's fill (the action circle beside the pet).
         InitIsland();
+        InitFrost();
         // The palette (its first colour is the accent); a change from Settings or the pipe applies at once.
         Theme.PaletteTheme.Choose(services.Settings.Palette);
         services.Settings.Changed += name =>
@@ -365,6 +366,8 @@ public partial class NotchWindow : Window
     void OnSourceInitialized(object? sender, EventArgs e)
     {
         _hwnd = new WindowInteropHelper(this).Handle;
+        // Frosted glass sits just under the island family's windows.
+        Shell.Glass.GlassSurfaces.Join(_hwnd);
         Native.SetExStyle(_hwnd, Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE);
         HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
         Root.RenderTransform = _rootShift;
@@ -530,6 +533,7 @@ public partial class NotchWindow : Window
         if (fullscreen) _hoverExpanded = _peeking = false;
         Recompute();
         UpdateBubble();
+        EvaluateFrost();
     }
 
     /// <summary>Let the notch take keyboard focus (typing, scrolling results) or go back to never stealing it.</summary>

@@ -187,6 +187,11 @@ internal static class Native
 
     public static IntPtr PrimaryMonitor() => MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
 
+    public static bool IsVisible(IntPtr hwnd) => TopLevel.IsWindowVisible(hwnd);
+
+    /// <summary>The window just below this one in the z-order (zero at the bottom).</summary>
+    public static IntPtr NextBelow(IntPtr hwnd) => TopLevel.GetWindow(hwnd, 2);
+
     public static void SetExStyle(IntPtr hwnd, long add, long remove = 0)
     {
         long ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();

@@ -115,6 +115,7 @@ public partial class NotchWindow
             if (Math.Abs(Height - want) > 0.5) Height = want;
         }
         PublishBounds(w, h, settled && _tuck.IsSettled);
+        PublishIsland();
 
         // Once everything has come to rest after moving, repaint the whole island once (see RepaintAll).
         bool still = settled && _layers.All(l => l.Opacity.IsSettled && l.Size.IsSettled && l.Swap.IsSettled);
